@@ -4,6 +4,10 @@ name: Release
 # The installer goes to the PUBLIC repo "Cheumklang/NTAPI-releases" so that
 # electron-updater can download it without a token, while this source repo
 # stays private.
+#
+# electron-builder only *builds* here (--publish never); the upload is done by
+# softprops/action-gh-release so latest.yml and the blockmap are always
+# attached. electron-builder's own publisher skipped latest.yml in CI.
 on:
   push:
     tags:
@@ -29,10 +33,28 @@ jobs:
         working-directory: app
         run: npm ci
 
-      - name: Build and publish to NTAPI-releases
+      - name: Build installer (no publish)
         working-directory: app
         env:
-          # PAT with "repo" scope, stored as a repository secret.
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run release
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Show build output
+        shell: pwsh
+        run: Get-ChildItem dist | Select-Object Name, Length
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: Cheumklang/NTAPI-releases
+          token: ${{ secrets.RELEASE_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          name: NTAPI ${{ github.ref_name }}
+          draft: false
+          make_latest: 'true'
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/NTAPI-Setup-*.exe
+            dist/latest.yml
+            dist/*.blockmap
