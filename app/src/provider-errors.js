@@ -103,6 +103,22 @@ const TOKENHARBOR_HINTS = {
 };
 
 /**
+ * Routeway is a gateway in front of many vendors, so its failures are usually
+ * about the key or the balance rather than about one model. Free routes are
+ * capped at 20 requests a minute and 200 a day.
+ */
+const ROUTEWAY_HINTS = {
+  invalid_api_key: 'Routeway rejected this key — open Settings, replace it, then retry.',
+  insufficient_quota:
+    'This Routeway key is out of credit — top up the balance in the dashboard, or pick a model marked Free.',
+  rate_limit:
+    'Routeway allows 20 requests a minute and 200 a day on free models. Wait a moment, or switch to a paid model.',
+  model_not_found:
+    'Routeway no longer lists this model. Pick another one from the dropdown — its catalog changes often.',
+  content_filter: 'Routeway blocked this request with its content filter. Rephrase it and retry.',
+};
+
+/**
  * A stalled request is not a network failure: the connection is fine, the other
  * end simply stopped answering. pi's idle timeout surfaces as an AbortError or
  * a plain "timed out", so both shapes are recognised here and each provider
@@ -117,6 +133,8 @@ const STALL_HINTS = {
     'NVIDIA accepted the request and never answered. This free endpoint is often slow to cold-start and can stay silent — retry once, then pick another model or provider.',
   tokenharbor:
     'Token Harbor stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
+  routeway:
+    'Routeway stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
   default: 'The model stopped responding — the connection is fine, the provider went quiet. Retry.',
 };
 
@@ -196,6 +214,13 @@ function friendlyProviderError(raw, { provider } = {}) {
     else if (status === '413') hint = TOKENHARBOR_HINTS.request_too_large;
     else if (status === '429') hint = TOKENHARBOR_HINTS.rate_limit;
     else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Token Harbor — check your connection and retry.';
+  } else if (provider === 'routeway') {
+    if (code && ROUTEWAY_HINTS[code]) hint = ROUTEWAY_HINTS[code];
+    else if (status === '401') hint = ROUTEWAY_HINTS.invalid_api_key;
+    else if (status === '402' || status === '403') hint = ROUTEWAY_HINTS.insufficient_quota;
+    else if (status === '404') hint = ROUTEWAY_HINTS.model_not_found;
+    else if (status === '429') hint = ROUTEWAY_HINTS.rate_limit;
+    else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Routeway — check your connection and retry.';
   }
   // Only reached when no provider-specific branch matched: a stalled request
   // must not fall through to the raw "This operation was aborted", which reads

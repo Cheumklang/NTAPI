@@ -17,7 +17,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
-const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER } = require('./provider-plan');
+const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, ROUTEWAY_PROVIDER } = require('./provider-plan');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
 const { ZRO_MODELS, zroProviderConfig, zroModelEntries } = require('./zro');
 const { resolveNvidiaModels, nvidiaProviderConfig, nvidiaModelEntries } = require('./nvidia');
@@ -26,6 +26,11 @@ const {
   tokenharborProviderConfig,
   tokenharborModelEntries,
 } = require('./tokenharbor');
+const {
+  fetchRoutewayModels,
+  routewayProviderConfig,
+  routewayModelEntries,
+} = require('./routeway');
 const { providerIdleTimeoutMs } = require('./provider-timeout');
 const { tagPlans } = require('./model-filter');
 const { pruneImages } = require('./image-history');
@@ -575,6 +580,8 @@ async function createFreePiSession(options) {
     nvidiaKey = null,
     /** Token Harbor key, or null. Only its free DeepSeek route is exposed. */
     tokenharborKey = null,
+    /** Routeway key, or null. A gateway: free `:free` routes plus pay-as-you-go. */
+    routewayKey = null,
     /**
      * Injectable so tests can simulate "no FreePi login" without touching the
      * real credentials file. Production uses the normal resolver.
@@ -586,6 +593,7 @@ async function createFreePiSession(options) {
   let activeZroKey = zroKey ? String(zroKey).trim() : null;
   let activeNvidiaKey = nvidiaKey ? String(nvidiaKey).trim() : null;
   let activeTokenHarborKey = tokenharborKey ? String(tokenharborKey).trim() : null;
+  let activeRoutewayKey = routewayKey ? String(routewayKey).trim() : null;
 
   const downloadsDirAbs = path.isAbsolute(downloadsDir)
     ? downloadsDir
@@ -636,6 +644,13 @@ async function createFreePiSession(options) {
     ? await resolveTokenHarborModels(activeTokenHarborKey)
     : [];
 
+  // Routeway's catalog is public and carries its own prices, so it is fetched
+  // whenever a key is saved and never trimmed here: the picker labels it.
+  const routewayCatalog = activeRoutewayKey
+    ? await fetchRoutewayModels()
+    : { models: [], source: 'none' };
+  const routewayModels = activeRoutewayKey ? tagPlans(routewayCatalog.models) : [];
+
   const sessionId = sessionManager.getSessionId();
   const plan = planProviders({
     hasFreePiAuth: Boolean(auth),
@@ -643,15 +658,17 @@ async function createFreePiSession(options) {
     zroKey: activeZroKey,
     nvidiaKey: activeNvidiaKey,
     tokenharborKey: activeTokenHarborKey,
+    routewayKey: activeRoutewayKey,
     freePiModels: models,
     coarenaModels,
     zroModels,
     nvidiaModels,
     tokenharborModels,
+    routewayModels,
   });
   if (!plan.available) {
     throw new Error(
-      'No AI provider available — sign in to FreePi or add a Coarena, Zro, NVIDIA or Token Harbor key in Settings.'
+      'No AI provider available — sign in to FreePi or add a Coarena, Zro, NVIDIA, Token Harbor or Routeway key in Settings.'
     );
   }
   log(
@@ -659,7 +676,8 @@ async function createFreePiSession(options) {
       `coarena=${plan.coarena ? coarenaModels.length : 0} (catalog ${coarenaCatalog.source}), ` +
       `zro=${plan.zro ? zroModels.length : 0}, ` +
       `nvidia=${plan.nvidia ? nvidiaModels.length : 0}, ` +
-      `tokenharbor=${plan.tokenharbor ? tokenharborModels.length : 0}`
+      `tokenharbor=${plan.tokenharbor ? tokenharborModels.length : 0}, ` +
+      `routeway=${plan.routeway ? routewayModels.length : 0} (catalog ${routewayCatalog.source})`
   );
 
   // Ads: one per user turn, tagged with the turn id the completion carries.
@@ -720,6 +738,12 @@ async function createFreePiSession(options) {
         pi.registerProvider(
           TOKENHARBOR_PROVIDER,
           tokenharborProviderConfig({ apiKey: activeTokenHarborKey, models: tokenharborModels })
+        );
+      }
+      if (plan.routeway) {
+        pi.registerProvider(
+          ROUTEWAY_PROVIDER,
+          routewayProviderConfig({ apiKey: activeRoutewayKey, models: routewayModels })
         );
       }
       // Images accumulate in history every time a model reads one. Trim before
@@ -1310,7 +1334,26 @@ async function createFreePiSession(options) {
   let zroEntries = plan.zro ? zroModelEntries() : [];
   let nvidiaEntries = plan.nvidia ? nvidiaModelEntries(nvidiaModels) : [];
   let tokenharborEntries = plan.tokenharbor ? tokenharborModelEntries(tokenharborModels) : [];
-  let modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
+  let routewayEntries = plan.routeway ? routewayModelEntries(routewayModels) : [];
+  let modelList = [];
+
+  /**
+   * The dropdown, assembled in one place. A provider that can be swapped while
+   * the tab is open edits its own entries and calls this, so adding a provider
+   * cannot leave one of the branches behind.
+   */
+  function rebuildModelList() {
+    modelList = [
+      ...freePiEntries,
+      ...coarenaEntries,
+      ...zroEntries,
+      ...nvidiaEntries,
+      ...tokenharborEntries,
+      ...routewayEntries,
+    ];
+    return modelList;
+  }
+  rebuildModelList();
 
   /**
    * A resumed session can remember a model this account no longer has (Coarena
@@ -1348,8 +1391,7 @@ async function createFreePiSession(options) {
     activeCoarenaKey = nextKey ? String(nextKey).trim() : null;
     if (!activeCoarenaKey) {
       coarenaEntries = [];
-      modelList = [...freePiEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
-      return { ok: true, models: modelList };
+      return { ok: true, models: rebuildModelList() };
     }
 
     // force: the key may have changed, and the catalog is cheap to refetch.
@@ -1363,8 +1405,7 @@ async function createFreePiSession(options) {
       );
     }
     coarenaEntries = coarenaModelEntries(coarenaModels);
-    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
-    return { ok: true, models: modelList };
+    return { ok: true, models: rebuildModelList() };
   }
 
   /**
@@ -1381,16 +1422,14 @@ async function createFreePiSession(options) {
     activeZroKey = nextKey ? String(nextKey).trim() : null;
     if (!activeZroKey) {
       zroEntries = [];
-      modelList = [...freePiEntries, ...coarenaEntries, ...nvidiaEntries, ...tokenharborEntries];
-      return { ok: true, models: modelList };
+      return { ok: true, models: rebuildModelList() };
     }
 
     if (piApi) {
       piApi.registerProvider(ZRO_PROVIDER, zroProviderConfig({ apiKey: activeZroKey }));
     }
     zroEntries = zroModelEntries();
-    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
-    return { ok: true, models: modelList };
+    return { ok: true, models: rebuildModelList() };
   }
 
   /**
@@ -1407,8 +1446,7 @@ async function createFreePiSession(options) {
     activeNvidiaKey = nextKey ? String(nextKey).trim() : null;
     if (!activeNvidiaKey) {
       nvidiaEntries = [];
-      modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...tokenharborEntries];
-      return { ok: true, models: modelList };
+      return { ok: true, models: rebuildModelList() };
     }
 
     const models = await resolveNvidiaModels(activeNvidiaKey);
@@ -1416,8 +1454,7 @@ async function createFreePiSession(options) {
       piApi.registerProvider(NVIDIA_PROVIDER, nvidiaProviderConfig({ apiKey: activeNvidiaKey, models }));
     }
     nvidiaEntries = nvidiaModelEntries(models);
-    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
-    return { ok: true, models: modelList };
+    return { ok: true, models: rebuildModelList() };
   }
 
   /**
@@ -1434,8 +1471,7 @@ async function createFreePiSession(options) {
     activeTokenHarborKey = nextKey ? String(nextKey).trim() : null;
     if (!activeTokenHarborKey) {
       tokenharborEntries = [];
-      modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
-      return { ok: true, models: modelList };
+      return { ok: true, models: rebuildModelList() };
     }
 
     const models = await resolveTokenHarborModels(activeTokenHarborKey);
@@ -1446,8 +1482,38 @@ async function createFreePiSession(options) {
       );
     }
     tokenharborEntries = tokenharborModelEntries(models);
-    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
-    return { ok: true, models: modelList };
+    return { ok: true, models: rebuildModelList() };
+  }
+
+  /**
+   * Swap the Routeway key while the tab is open. Its catalog is public and can
+   * change at any time, so it is refetched rather than remembered in the tab.
+   */
+  async function applyRoutewayKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(ROUTEWAY_PROVIDER);
+      } catch {}
+    }
+
+    activeRoutewayKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeRoutewayKey) {
+      routewayEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const catalog = await fetchRoutewayModels({ force: true });
+    const models = tagPlans(catalog.models);
+    // The catalog is public, so a failed fetch means an empty list rather than a
+    // dead key: register only when there is something to register.
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        ROUTEWAY_PROVIDER,
+        routewayProviderConfig({ apiKey: activeRoutewayKey, models })
+      );
+    }
+    routewayEntries = routewayModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
   }
 
   return {
@@ -1468,6 +1534,7 @@ async function createFreePiSession(options) {
     applyZroKey,
     applyNvidiaKey,
     applyTokenHarborKey,
+    applyRoutewayKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
 

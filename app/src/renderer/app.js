@@ -147,6 +147,23 @@ const STRINGS = {
     tokenharborRemoved: 'Token Harbor key removed.',
     tokenharborFreeTier: 'Free tier',
     tokenharborLimits: 'weekly allowance',
+    routewaySection: 'Routeway',
+    routewayKeyLabel: 'API key',
+    routewaySave: 'Save',
+    routewayRemove: 'Remove',
+    routewayRemoveTitle: 'Remove the Routeway key?',
+    routewayRemoveSub:
+      'Routeway models disappear from the model list. A running turn keeps its current model until it finishes.',
+    routewayConfigured: 'Configured',
+    routewayUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    routewayNotConfigured: 'No key yet — Routeway models stay hidden.',
+    routewayGetKey: 'Get a key at routeway.ai',
+    routewaySaved: 'Routeway key saved.',
+    routewayUnverified: 'Routeway could not confirm the key — it was saved as unverified.',
+    routewaySaveFailed: 'Could not save the key:',
+    routewayRemoved: 'Routeway key removed.',
+    routewayFreeTier: 'Free routes',
+    routewayLimits: '20/min · 200/day',
     dataRootLabel: 'App data folder',
     outputFolders: 'Output folders',
     systemPaths: 'System locations',
@@ -394,6 +411,22 @@ const STRINGS = {
     tokenharborRemoved: 'ลบคีย์ Token Harbor แล้ว',
     tokenharborFreeTier: 'โควตาฟรี',
     tokenharborLimits: 'โควตารายสัปดาห์',
+    routewaySection: 'Routeway',
+    routewayKeyLabel: 'API key',
+    routewaySave: 'บันทึก',
+    routewayRemove: 'ลบออก',
+    routewayRemoveTitle: 'ลบคีย์ Routeway?',
+    routewayRemoveSub: 'โมเดล Routeway จะหายจากรายการ โมเดลที่กําลังทํางานอยู่จะใช้ต่อจนจบเทิร์น',
+    routewayConfigured: 'ตั้งค่าแล้ว',
+    routewayUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    routewayNotConfigured: 'ยังไม่มีคีย์ — โมเดล Routeway จะไม่แสดง',
+    routewayGetKey: 'ขอคีย์ที่ routeway.ai',
+    routewaySaved: 'บันทึกคีย์ Routeway แล้ว',
+    routewayUnverified: 'Routeway ยืนยันคีย์ไม่ได้ — บันทึกไว้แบบยังไม่ยืนยัน',
+    routewaySaveFailed: 'บันทึกคีย์ไม่สําเร็จ:',
+    routewayRemoved: 'ลบคีย์ Routeway แล้ว',
+    routewayFreeTier: 'สายฟรี',
+    routewayLimits: '20/นาที · 200/วัน',
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
     outputFolders: 'โฟลเดอร์ปลายทาง',
     systemPaths: 'ตำแหน่งของระบบ',
@@ -1516,6 +1549,11 @@ function paintProviderMeter(view) {
     // Token Harbor shows its allowance as a percentage in its own dashboard.
     label.textContent = t('tokenharborFreeTier');
     text.textContent = `${t('tokenharborLimits')} · ${view?.model?.name || '—'}`;
+  } else if (chrome.meter === 'routeway') {
+    // The balance lives in Routeway's dashboard; the free routes are the part
+    // worth naming here, since a zero balance still leaves them usable.
+    label.textContent = t('routewayFreeTier');
+    text.textContent = `${t('routewayLimits')} · ${view?.model?.name || '—'}`;
   } else {
     label.textContent = t('model');
     text.textContent = view?.model?.name || '—';
@@ -1654,6 +1692,40 @@ async function refreshTokenharborStatus() {
   }
   paintTokenharborSettings();
   return tokenharborStatus;
+}
+
+/* Routeway answers balance only to a separate management key, so the status is
+   the store's own state, exactly like Token Harbor's. */
+let routewayStatus = null;
+
+function paintRoutewaySettings() {
+  const node = el('routewayStatus');
+  const remove = el('routewayRemove');
+  if (!node) return;
+
+  const s = routewayStatus;
+  let text = t('routewayNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('routewayConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('routewayUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+}
+
+async function refreshRoutewayStatus() {
+  try {
+    routewayStatus = await api.routewayStatus();
+  } catch {
+    routewayStatus = null;
+  }
+  paintRoutewaySettings();
+  return routewayStatus;
 }
 
 function applyTabState(state) {
@@ -2058,10 +2130,12 @@ async function openSettings() {
   zroStatus = settingsData?.zro || null;
   nvidiaStatus = settingsData?.nvidia || null;
   tokenharborStatus = settingsData?.tokenharbor || null;
+  routewayStatus = settingsData?.routeway || null;
   paintCoarenaSettings();
   paintZroSettings();
   paintNvidiaSettings();
   paintTokenharborSettings();
+  paintRoutewaySettings();
   paintProviderMeter(activeView());
   renderSettings();
   renderAccount();
@@ -2520,6 +2594,46 @@ el('tokenharborGetKey')?.addEventListener('click', () => {
   api.openExternal('https://tokenharbor.ai/dashboard/api-keys').catch(() => {});
 });
 
+/* --------------------------- Routeway key --------------------------- */
+
+el('routewaySave')?.addEventListener('click', async () => {
+  const inputEl = el('routewayKeyInput');
+  const button = el('routewaySave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.routewaySetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      routewayStatus = res.status || null;
+      paintRoutewaySettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('routewayUnverified') : t('routewaySaved'));
+    } else {
+      showNotice(`${t('routewaySaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('routewaySaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('routewayRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'routewayRemove',
+    title: t('routewayRemoveTitle'),
+    sub: t('routewayRemoveSub'),
+    action: t('routewayRemove'),
+  });
+});
+
+el('routewayGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://routeway.ai/dashboard').catch(() => {});
+});
+
 el('settingsReset').addEventListener('click', async () => {
   const view = activeView();
   const cleared = {};
@@ -2948,6 +3062,19 @@ el('confirmDelete').addEventListener('click', async () => {
     return;
   }
 
+  if (state.kind === 'routewayRemove') {
+    const res = await api.routewayClearKey();
+    if (res?.ok) {
+      routewayStatus = res.status || null;
+      paintRoutewaySettings();
+      paintProviderMeter(activeView());
+      showNotice(t('routewayRemoved'));
+    } else {
+      showNotice(`${t('routewaySaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
   const res = await api.deleteSession(state.cwd, state.session.path);
   if (!res?.ok) {
     showNotice(`Could not delete: ${res?.error || 'unknown error'}`);
@@ -3075,6 +3202,7 @@ async function boot() {
   refreshZroStatus().catch(() => {});
   refreshNvidiaStatus().catch(() => {});
   refreshTokenharborStatus().catch(() => {});
+  refreshRoutewayStatus().catch(() => {});
   applySidebarWidth(appPrefs.sidebarWidth || SIDEBAR_DEFAULT);
   if (info.lastCwd) el('cwdLabel').textContent = info.lastCwd;
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});

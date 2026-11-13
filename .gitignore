@@ -3,6 +3,9 @@ dist/
 app/Freepiai/
 app/.freepi-attachments/
 .freepi-attachments/
+# Runtime scratch folder created when a tab has an attachment and no cwd.
+app/.ntapi-attachments/
+.ntapi-attachments/
 *.log
 npm-debug.log*
 app/shots-model-picker/

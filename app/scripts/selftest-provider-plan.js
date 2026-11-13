@@ -169,6 +169,44 @@ const nvBeatsTh = planProviders({
 });
 check('nvidia outranks tokenharbor', nvBeatsTh.defaultProvider === 'nvidia' && nvBeatsTh.tokenharbor === true);
 
+// Routeway joins as a sixth keyed provider, and it is the one gateway whose
+// catalog opens on a paid model — the default has to find a free route.
+const rw = [
+  { id: 'claude-fable-5-2', name: 'Claude Fable 5.2', plan: 'paid' },
+  { id: 'deepseek-v4.1-flash:free', name: 'DeepSeek V4.1 Flash (Free)', plan: 'free' },
+];
+const rwOnly = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  zroKey: null,
+  nvidiaKey: null,
+  tokenharborKey: null,
+  routewayKey: 'k',
+  freePiModels: [],
+  coarenaModels: [],
+  zroModels: [],
+  nvidiaModels: [],
+  tokenharborModels: [],
+  routewayModels: rw,
+});
+check('routeway-only registers', rwOnly.routeway && rwOnly.available && !rwOnly.freePi);
+check(
+  'a new Routeway session opens on a free route, not the first paid one',
+  rwOnly.defaultProvider === 'routeway' && rwOnly.defaultModel === 'deepseek-v4.1-flash:free',
+  JSON.stringify(rwOnly)
+);
+
+const rwNoKey = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  routewayKey: null,
+  freePiModels: [],
+  coarenaModels: [],
+  routewayModels: rw,
+});
+check('no key means no routeway', rwNoKey.routeway === false);
+check('nothing at all stays unavailable', rwNoKey.available === false);
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

@@ -19,6 +19,7 @@
   const ZRO_PROVIDER = 'zro';
   const NVIDIA_PROVIDER = 'nvidia';
   const TOKENHARBOR_PROVIDER = 'tokenharbor';
+  const ROUTEWAY_PROVIDER = 'routeway';
   const SEPARATOR = ' \u00b7 ';
 
   /** Bundled marks, resolved relative to the renderer page. */
@@ -29,6 +30,7 @@
     zro: 'assets/providers/zro.svg',
     nvidia: 'assets/providers/nvidia.svg',
     tokenharbor: 'assets/providers/tokenharbor.svg',
+    routeway: 'assets/providers/routeway.png',
   };
 
   /** Human-facing provider name; unknown providers pass through unchanged. */
@@ -42,6 +44,7 @@
     if (provider === ZRO_PROVIDER) return 'Zro';
     if (provider === NVIDIA_PROVIDER) return 'NVIDIA';
     if (provider === TOKENHARBOR_PROVIDER) return 'Token Harbor';
+    if (provider === ROUTEWAY_PROVIDER) return 'Routeway';
     return String(provider || '');
   }
 
@@ -124,6 +127,7 @@
     if (provider === ZRO_PROVIDER) return { showAds: false, meter: 'zro' };
     if (provider === NVIDIA_PROVIDER) return { showAds: false, meter: 'nvidia' };
     if (provider === TOKENHARBOR_PROVIDER) return { showAds: false, meter: 'tokenharbor' };
+    if (provider === ROUTEWAY_PROVIDER) return { showAds: false, meter: 'routeway' };
     return { showAds: false, meter: null };
   }
 

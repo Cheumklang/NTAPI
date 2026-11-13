@@ -31,6 +31,7 @@ const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
 const { checkZroKey } = require('./zro');
 const { checkNvidiaKey } = require('./nvidia');
 const { checkTokenHarborKey } = require('./tokenharbor');
+const { checkRoutewayKey } = require('./routeway');
 const { promptOptionsFor } = require('./prompt-mode');
 
 /**
@@ -222,6 +223,11 @@ const tokenharborKeys = createProviderKeyStore({
   dir: DATA_ROOT,
   safeStorage,
   fileName: 'tokenharbor.json',
+});
+const routewayKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'routeway.json',
 });
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
@@ -894,6 +900,9 @@ async function attachTab(tabId, manager, cwd) {
     nvidiaKey: nvidiaKeys.read(),
     // Token Harbor's free route rotates; also re-resolved per session.
     tokenharborKey: tokenharborKeys.read(),
+    // Routeway's catalog is public, so one key reaches its free routes and the
+    // pay-as-you-go ones alike; re-resolved per session.
+    routewayKey: routewayKeys.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -1261,6 +1270,15 @@ function applyTokenHarborKeyToTabs(key) {
   });
 }
 
+function applyRoutewayKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'routeway',
+    label: 'Routeway',
+    key,
+    apply: (handle, next) => handle.applyRoutewayKey(next),
+  });
+}
+
 ipcMain.handle('coarena:status', async () => coarenaStatus());
 
 ipcMain.handle('coarena:setKey', async (_e, { key } = {}) => {
@@ -1461,6 +1479,62 @@ ipcMain.handle('tokenharbor:clearKey', async () => {
   return { ok: true, status: tokenharborKeys.status(), applied };
 });
 
+/**
+ * Routeway exposes balance only to a management key, which is a different kind
+ * of credential than the one this app is given, so the status is the store's
+ * own state.
+ */
+async function routewayStatus() {
+  return routewayKeys.status();
+}
+
+ipcMain.handle('routeway:status', async () => routewayStatus());
+
+ipcMain.handle('routeway:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: routewayKeys.status(), error: 'Enter a Routeway API key first.' };
+  }
+
+  // Only Routeway saying the key itself is wrong refuses it. A rate limit or an
+  // unreachable API is inconclusive, so the key is saved and marked unverified.
+  const check = await checkRoutewayKey(raw);
+  if (!check.ok && !check.unverified) {
+    return { ok: false, status: routewayKeys.status(), error: check.error, code: check.code || null };
+  }
+
+  try {
+    routewayKeys.save(raw);
+    const applied = await applyRoutewayKeyToTabs(raw);
+    return {
+      ok: true,
+      status: routewayKeys.status(),
+      unverified: Boolean(check.unverified),
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: routewayKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('routeway:clearKey', async () => {
+  try {
+    routewayKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: routewayKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyRoutewayKeyToTabs(null);
+  return { ok: true, status: routewayKeys.status(), applied };
+});
+
 ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
   const prefs = readPrefs();
   // Settings describes a workspace. With no tab and no remembered folder there
@@ -1506,6 +1580,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     zro: await zroStatus(),
     nvidia: await nvidiaStatus(),
     tokenharbor: await tokenharborStatus(),
+    routeway: await routewayStatus(),
   };
 });
 
