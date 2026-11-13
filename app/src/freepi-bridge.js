@@ -452,9 +452,24 @@ async function createFreePiSession(options) {
      * skills are read from `<skillsAgentDir>/skills`. Defaults to the CLI dir.
      */
     skillsAgentDir = null,
+    /**
+     * Extra directories to discover SKILL.md files from, on top of
+     * `<skillsAgentDir>/skills`. Lets the app share the skills the CLI and the
+     * user's ~/.agents folder already have instead of starting empty.
+     */
+    extraSkillPaths = [],
     /** Folder (relative to cwd, or absolute) where generate_image saves files. */    imagesDir = 'images',
     /** Folder for downloaded files. Empty means no policy is injected. */
     downloadsDir = 'downloads',
+    /** Receives the agent's todo list whenever it updates it. */
+    onTodo = () => {},
+    /**
+     * Asks the user a question and resolves with { answer } or null when they
+     * dismiss it. Omitted means the `ask_user` tool is not registered.
+     */
+    askUser = null,
+    /** Reasoning level for models that support it: off | minimal | low | medium | high. */
+    thinkingLevel = 'off',
     /**
      * Called with the ad the backend served for the upcoming turn, so the app
      * can show it. Ads are what pay for free completions: without a visible ad
@@ -857,6 +872,109 @@ async function createFreePiSession(options) {
     },
   };
 
+  /* ------------------------------ todo tool ------------------------------ */
+
+  // The pi TUI ships a todo tool; an SDK session does not, and the app wants a
+  // visible checklist for multi-step work. Kept in memory for the tab's lifetime.
+  const todoState = { items: [] };
+
+  const todoExtension = {
+    name: 'freepi-desktop-todo',
+    factory(pi) {
+      pi.registerTool({
+        name: 'todo',
+        label: 'Todo',
+        description:
+          'Track multi-step work with a visible checklist. Call it with the FULL list each time something changes; the user sees it live above the composer. Use it for any task with three or more steps.',
+        promptSnippet: 'Keep a todo checklist for multi-step work',
+        parameters: {
+          type: 'object',
+          properties: {
+            items: {
+              type: 'array',
+              description: 'The complete todo list after this update',
+              items: {
+                type: 'object',
+                properties: {
+                  text: { type: 'string', description: 'One short step' },
+                  status: {
+                    type: 'string',
+                    enum: ['pending', 'in_progress', 'done'],
+                    description: 'Defaults to pending',
+                  },
+                },
+                required: ['text'],
+              },
+            },
+          },
+          required: ['items'],
+        },
+        async execute(_id, params) {
+          const items = (Array.isArray(params?.items) ? params.items : [])
+            .map((raw) => ({
+              text: String(raw?.text || '').trim(),
+              status: ['pending', 'in_progress', 'done'].includes(raw?.status) ? raw.status : 'pending',
+            }))
+            .filter((it) => it.text);
+          todoState.items = items;
+          onTodo(items);
+          const lines = items.map((it) => `${it.status === 'done' ? '[x]' : it.status === 'in_progress' ? '[>]' : '[ ]'} ${it.text}`);
+          const open = items.filter((it) => it.status !== 'done').length;
+          return {
+            content: [
+              {
+                type: 'text',
+                text: items.length
+                  ? `${open} open of ${items.length}:\n${lines.join('\n')}`
+                  : 'Todo list cleared.',
+              },
+            ],
+            details: { items },
+          };
+        },
+      });
+    },
+  };
+
+  /* ---------------------------- ask_user tool ---------------------------- */
+
+  const askUserExtension = askUser
+    ? {
+        name: 'freepi-desktop-ask-user',
+        factory(pi) {
+          pi.registerTool({
+            name: 'ask_user',
+            label: 'Ask User',
+            description:
+              'Ask the user a question and wait for their answer. Use it when a decision is genuinely theirs (which file, which approach, credentials) instead of guessing.',
+            promptSnippet: 'Ask the user a question when a decision is theirs',
+            parameters: {
+              type: 'object',
+              properties: {
+                question: { type: 'string', description: 'One clear question' },
+                options: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Optional suggested answers shown as buttons',
+                },
+              },
+              required: ['question'],
+            },
+            async execute(_id, params) {
+              const answer = await askUser({
+                question: String(params?.question || '').trim(),
+                options: Array.isArray(params?.options) ? params.options.map(String).slice(0, 6) : [],
+              });
+              if (answer === null || answer === undefined) {
+                return { content: [{ type: 'text', text: 'The user dismissed the question without answering.' }] };
+              }
+              return { content: [{ type: 'text', text: String(answer) }] };
+            },
+          });
+        },
+      }
+    : null;
+
   // Preferred default model. Falls back to the first catalog entry if free-pi
   // renames or drops it, so the app never fails to start.
   const PREFERRED_MODEL = 'deepseek-v4.1-flash';
@@ -871,7 +989,7 @@ async function createFreePiSession(options) {
       defaultTools: [...SAFE_TOOLS, 'web_search', 'docs_lookup', 'generate_image', 'free_pi_usage', 'look_at_image'],
       packages: [],
       quietStartup: true,
-      defaultThinkingLevel: 'off',
+      defaultThinkingLevel: thinkingLevel,
       hideThinkingBlock: true,
       enableInstallTelemetry: false,
     },
@@ -887,12 +1005,21 @@ async function createFreePiSession(options) {
     agentDir: skillsAgentDir || agentDir,
     settingsManager,
     resourceLoaderOptions: {
+      additionalSkillPaths: Array.isArray(extraSkillPaths) ? extraSkillPaths : [],
       extensionFactories: [
         ads.extension,
         providerExtension,
         visionExtension,
         extraToolsExtension,
         downloadsPolicyExtension,
+        todoExtension,
+        ...(askUserExtension ? [askUserExtension] : []),
+        // The CLI loads these as built-in extensions; an SDK session must add
+        // them explicitly. MCP reads mcp.json from the agent directory, so any
+        // server added with `free-pi-cli mcp add` shows up here too.
+        ...(sdk.createMcpExtension ? [sdk.createMcpExtension()] : []),
+        ...(sdk.createCodemodeExtension ? [sdk.createCodemodeExtension({ mode: 'on' })] : []),
+        ...(sdk.createToolSearchExtension ? [sdk.createToolSearchExtension()] : []),
       ],
     },
   });
@@ -920,6 +1047,97 @@ async function createFreePiSession(options) {
     baseUrl,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
+
+    /** Active tool names, so the UI can show what the agent can reach. */
+    toolNames: () => {
+      try {
+        return session.getActiveToolNames();
+      } catch {
+        return [];
+      }
+    },
+
+    /** Token/context accounting for the meter under the composer. */
+    stats: () => {
+      try {
+        const stats = session.getSessionStats();
+        return {
+          tokens: stats.tokens,
+          context: session.getContextUsage?.() || stats.contextUsage || null,
+          userMessages: stats.userMessages,
+          toolCalls: stats.toolCalls,
+        };
+      } catch {
+        return null;
+      }
+    },
+
+    /**
+     * Step back one user message. Mirrors `/undo` in the CLI: the branch stays in
+     * the session file, so redo can walk back onto it.
+     */
+    async undo() {
+      if (session.isStreaming || session.isCompacting) return { ok: false, reason: 'busy' };
+      const users = session.getUserMessagesForForking();
+      if (!users.length) return { ok: false, reason: 'empty' };
+      const last = users[users.length - 1];
+      const entry = session.sessionManager.getEntry(last.entryId);
+      if (!entry) return { ok: false, reason: 'missing' };
+      if (!entry.parentId) {
+        // First user message: go back to before it existed.
+        session.sessionManager.resetLeaf();
+        session.refreshContext();
+      } else {
+        await session.navigateTree(entry.parentId, { summarize: false });
+      }
+      return { ok: true, text: last.text, entryId: last.entryId };
+    },
+
+    /** Walk forward onto a branch that undo left behind. */
+    async redo(entryId) {
+      if (session.isStreaming || session.isCompacting) return { ok: false, reason: 'busy' };
+      if (!entryId || !session.sessionManager.getEntry(entryId)) return { ok: false, reason: 'missing' };
+      await session.navigateTree(entryId, { summarize: false });
+      return { ok: true };
+    },
+
+    /** `/compact`: summarize the conversation to free context (costs one turn). */
+    async compact(customInstructions) {
+      if (session.isStreaming || session.isCompacting) return { ok: false, reason: 'busy' };
+      const result = await session.compact(customInstructions || undefined);
+      return { ok: true, result };
+    },
+
+    /** `/export`: write the conversation to an HTML file and return its path. */
+    async exportHtml() {
+      const file = await session.exportToHtml();
+      return { ok: Boolean(file), path: file || null };
+    },
+
+    /** `!command`: run a shell command in the workspace; output joins the session. */
+    async bash(command, onChunk, options) {
+      return session.executeBash(command, onChunk, options || {});
+    },
+
+    thinking: () => ({
+      supported: Boolean(session.supportsThinking?.()),
+      level: session.thinkingLevel,
+      levels: (() => {
+        try {
+          return session.getAvailableThinkingLevels();
+        } catch {
+          return [];
+        }
+      })(),
+    }),
+
+    setThinking(level) {
+      session.setThinkingLevel(level);
+      return session.thinkingLevel;
+    },
+
+    todoItems: () => todoState.items,
+
     async setModel(provider, modelId) {
       // getAvailable() is async in pi 1.2 — it resolves to readonly Model<Api>[].
       const available = await services.modelRuntime.getAvailable();

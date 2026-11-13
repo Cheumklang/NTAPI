@@ -791,6 +791,9 @@ function applyTabState(state) {
   activeTabId = state.tabId;
   renderActiveTab();
   renderSessions(state.cwd);
+  paintContext(state.stats || null);
+  renderTodos(state.todos || []);
+  paintThinking(state.thinking || null);
 }
 
 function deriveLabel(state) {
@@ -2796,3 +2799,840 @@ api.onLog((p) => console.log(`[${p.tabId}]`, p.text));
 boot();
 startUsagePolling();
 window.addEventListener('beforeunload', stopUsagePolling);
+
+
+/* ===================================================================== */
+/*  Session toolbox: context meter, todo list, shell mode, @files,       */
+/*  command palette, in-conversation search, ask_user dialog             */
+/* ===================================================================== */
+
+/* ------------------------------- i18n -------------------------------- */
+
+Object.assign(STRINGS.en, {
+  context: 'Context',
+  commands: 'Commands (Ctrl+P)',
+  undo: 'Undo',
+  redo: 'Redo',
+  compact: 'Compact',
+  export: 'Export',
+  thinking: 'Reasoning',
+  shell: 'Shell',
+  shellRunning: 'running…',
+  shellExit: 'exit {code}',
+  shellCancelled: 'cancelled',
+  shellHint: 'Type !command to run it in the workspace',
+  todos: 'Plan',
+  paletteHint: '↑↓ move · Enter run · Esc close',
+  questionTitle: 'The agent needs your decision',
+  answer: 'Answer',
+  skip: 'Skip',
+  noMatches: 'No matches',
+  undoEmpty: 'Nothing to undo',
+  undoBusy: 'Wait for this turn to finish',
+  undoDone: 'Back to before your last message — the text is in the composer',
+  redoEmpty: 'Nothing to redo',
+  compactDone: 'Conversation compacted',
+  exportDone: 'Conversation exported',
+  contextHint: 'Context window used by this conversation',
+  mentionHint: '↑↓ choose · Tab/Enter insert · Esc close',
+  model: 'Model',
+  newChat: 'New chat',
+  settingsItem: 'Settings',
+  searchItem: 'Search conversation',
+  attachItem: 'Attach image',
+  usageItem: 'Refresh credits',
+  languageItem: 'Switch language',
+  stopItem: 'Stop the running turn',
+});
+
+Object.assign(STRINGS.th, {
+  context: 'บริบท',
+  commands: 'คำสั่ง (Ctrl+P)',
+  undo: 'ย้อนกลับ',
+  redo: 'ทำซ้ำ',
+  compact: 'ย่อประวัติ',
+  export: 'ส่งออก',
+  thinking: 'การคิด',
+  shell: 'เชลล์',
+  shellRunning: 'กำลังรัน…',
+  shellExit: 'จบที่ {code}',
+  shellCancelled: 'ถูกยกเลิก',
+  shellHint: 'พิมพ์ !คำสั่ง เพื่อรันในโฟลเดอร์งาน',
+  todos: 'แผนงาน',
+  paletteHint: '↑↓ เลือก · Enter รัน · Esc ปิด',
+  questionTitle: 'agent ต้องการคำตอบจากคุณ',
+  answer: 'ตอบ',
+  skip: 'ข้าม',
+  noMatches: 'ไม่พบ',
+  undoEmpty: 'ไม่มีอะไรให้ย้อน',
+  undoBusy: 'รอให้รอบนี้ทำงานเสร็จก่อน',
+  undoDone: 'ย้อนกลับไปก่อนข้อความล่าสุด — ข้อความอยู่ในช่องพิมพ์แล้ว',
+  redoEmpty: 'ไม่มีอะไรให้ทำซ้ำ',
+  compactDone: 'ย่อประวัติแล้ว',
+  exportDone: 'ส่งออกบทสนทนาแล้ว',
+  contextHint: 'พื้นที่บริบทที่บทสนทนานี้ใช้อยู่',
+  mentionHint: '↑↓ เลือก · Tab/Enter แทรก · Esc ปิด',
+  model: 'โมเดล',
+  newChat: 'แชทใหม่',
+  settingsItem: 'ตั้งค่า',
+  searchItem: 'ค้นหาในบทสนทนา',
+  attachItem: 'แนบรูป',
+  usageItem: 'อัปเดตเครดิต',
+  languageItem: 'สลับภาษา',
+  stopItem: 'หยุดงานที่กำลังรัน',
+});
+
+/* --------------------------- context meter --------------------------- */
+
+function paintContext(stats) {
+  const pctEl = el('contextPct');
+  const fill = el('contextFill');
+  if (!pctEl || !fill) return;
+  const used = stats?.context?.percent;
+  if (typeof used !== 'number' || !Number.isFinite(used)) {
+    pctEl.textContent = '—';
+    fill.style.width = '0%';
+    fill.className = 'ctx-bar-fill';
+    pctEl.title = t('contextHint');
+    return;
+  }
+  const pct = Math.max(0, Math.min(100, used));
+  pctEl.textContent = `${Math.round(pct)}%`;
+  pctEl.title = stats?.context?.tokens
+    ? `${stats.context.tokens.toLocaleString()} / ${(stats.context.contextWindow || 0).toLocaleString()} tokens`
+    : t('contextHint');
+  fill.style.width = `${pct}%`;
+  fill.className = 'ctx-bar-fill' + (pct >= 85 ? ' danger' : pct >= 60 ? ' warn' : '');
+}
+
+function refreshContextMeter() {
+  const view = activeView();
+  if (!view?.tabId) return;
+  api
+    .getStats(view.tabId)
+    .then((stats) => {
+      view.stats = stats;
+      if (view.tabId === activeTabId) paintContext(stats);
+    })
+    .catch(() => {});
+}
+
+/* ------------------------------ todo list ---------------------------- */
+
+function renderTodos(items) {
+  const panel = el('todoPanel');
+  if (!panel) return;
+  const list = (Array.isArray(items) ? items : []).filter((it) => it && it.text);
+  if (!list.length) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+    return;
+  }
+  const done = list.filter((it) => it.status === 'done').length;
+  panel.innerHTML =
+    `<div class="todo-head"><span class="todo-title">${escapeHtml(t('todos'))}</span>` +
+    `<span class="todo-count">${done}/${list.length}</span></div>` +
+    `<ul class="todo-list">${list
+      .map(
+        (it) =>
+          `<li class="todo-item ${escapeHtml(it.status || 'pending')}">` +
+          `<span class="todo-mark">${it.status === 'done' ? '✓' : it.status === 'in_progress' ? '▸' : '○'}</span>` +
+          `<span class="todo-text">${escapeHtml(it.text)}</span></li>`
+      )
+      .join('')}</ul>`;
+  panel.hidden = false;
+}
+
+/* ------------------------------ shell mode -------------------------- */
+
+let liveShell = null;
+
+function shellCard(command) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg shell';
+  const role = document.createElement('div');
+  role.className = 'role';
+  role.textContent = t('shell');
+  const card = document.createElement('div');
+  card.className = 'shell-card';
+  const head = document.createElement('div');
+  head.className = 'shell-head';
+  const cmd = document.createElement('span');
+  cmd.className = 'shell-cmd';
+  cmd.textContent = `$ ${command}`;
+  const status = document.createElement('span');
+  status.className = 'shell-status';
+  status.textContent = t('shellRunning');
+  head.append(cmd, status);
+  const body = document.createElement('pre');
+  body.className = 'shell-output';
+  card.append(head, body);
+  wrap.append(role, card);
+  transcript.appendChild(wrap);
+  emptyState.hidden = true;
+  scrollToBottom(true);
+  return { wrap, body, status, command };
+}
+
+async function runShellCommand(raw) {
+  const command = String(raw || '').replace(/^!\s*/, '').trim();
+  const view = activeView();
+  if (!command || !view) return;
+  input.value = '';
+  autoGrow();
+  hideFileMenu();
+  hideSlashMenu();
+  updateSendState();
+  liveShell = shellCard(command);
+  try {
+    await api.runShell(view.tabId, command);
+  } catch {
+    if (liveShell) liveShell.status.textContent = 'error';
+  }
+}
+
+api.onBashStart((p) => {
+  if (!liveShell || liveShell.command !== p.command) liveShell = shellCard(p.command);
+});
+
+api.onBashChunk((p) => {
+  if (!liveShell) liveShell = shellCard(p.command || '');
+  liveShell.body.textContent += p.chunk || '';
+  scrollToBottom();
+});
+
+api.onBashEnd((p) => {
+  if (!liveShell) liveShell = shellCard(p.command || '');
+  if (p.output) liveShell.body.textContent = p.output;
+  if (!liveShell.body.textContent.trim()) liveShell.body.textContent = t('noOutput');
+  liveShell.status.textContent = p.cancelled
+    ? t('shellCancelled')
+    : p.exitCode == null
+    ? 'done'
+    : t('shellExit', { code: p.exitCode });
+  liveShell.wrap.classList.toggle('error', Number(p.exitCode) > 0);
+  liveShell = null;
+  refreshContextMeter();
+});
+
+/* ----------------------------- @ file menu -------------------------- */
+
+const fileMenuState = { open: false, index: 0, items: [], token: '' };
+let fileTimer = null;
+
+function currentMention() {
+  const m = /(^|\s)@([^\s@]*)$/.exec(input.value);
+  if (!m) return null;
+  return { token: m[2], start: input.value.length - m[2].length - 1 };
+}
+
+function hideFileMenu() {
+  fileMenuState.open = false;
+  fileMenuState.items = [];
+  fileMenuState.index = 0;
+  const menu = el('fileMenu');
+  if (menu) {
+    menu.hidden = true;
+    menu.innerHTML = '';
+  }
+}
+
+function renderFileMenu() {
+  const menu = el('fileMenu');
+  if (!menu) return;
+  if (!fileMenuState.items.length) {
+    hideFileMenu();
+    return;
+  }
+  menu.innerHTML = '';
+  fileMenuState.items.forEach((file, i) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'slash-item' + (i === fileMenuState.index ? ' active' : '');
+    item.setAttribute('role', 'option');
+    item.setAttribute('aria-selected', String(i === fileMenuState.index));
+    const name = document.createElement('span');
+    name.className = 'file-name';
+    name.textContent = file.split('/').pop();
+    const full = document.createElement('span');
+    full.className = 'slash-desc';
+    full.textContent = file;
+    item.append(name, full);
+    item.addEventListener('mousedown', (e) => e.preventDefault());
+    item.addEventListener('click', () => applyFileMention(file));
+    menu.appendChild(item);
+  });
+  menu.hidden = false;
+  fileMenuState.open = true;
+  menu.children[fileMenuState.index]?.scrollIntoView({ block: 'nearest' });
+}
+
+function applyFileMention(file) {
+  const match = currentMention();
+  const at = match ? match.start : input.value.length;
+  input.value = `${input.value.slice(0, at)}@${file} `;
+  hideFileMenu();
+  autoGrow();
+  input.focus();
+  updateSendState();
+}
+
+function updateFileMenu() {
+  const match = currentMention();
+  if (!match) {
+    if (fileMenuState.open) hideFileMenu();
+    return;
+  }
+  fileMenuState.token = match.token;
+  const view = activeView();
+  clearTimeout(fileTimer);
+  fileTimer = setTimeout(async () => {
+    if (!activeView()) return;
+    if (fileMenuState.token !== match.token) return;
+    let files = [];
+    try {
+      files = await api.listFiles(view?.cwd, match.token);
+    } catch {
+      files = [];
+    }
+    if (!files.length) {
+      hideFileMenu();
+      return;
+    }
+    fileMenuState.items = files;
+    fileMenuState.index = 0;
+    renderFileMenu();
+  }, 90);
+}
+
+/* ---------------------------- command palette ----------------------- */
+
+const paletteState = { open: false, index: 0, items: [] };
+
+function paletteActions() {
+  const view = activeView();
+  const actions = [
+    { id: 'new', label: t('newChat'), hint: 'Ctrl+T', run: () => el('newSession').click() },
+    { id: 'settings', label: t('settingsItem'), hint: '', run: () => openSettings() },
+    { id: 'search', label: t('searchItem'), hint: 'Ctrl+F', run: () => openFind() },
+    { id: 'undo', label: t('undo'), hint: 'Ctrl+Z', run: () => undoLastMessage() },
+    { id: 'redo', label: t('redo'), hint: '', run: () => redoLastMessage() },
+    { id: 'compact', label: t('compact'), hint: '/compact', run: () => compactConversation() },
+    { id: 'export', label: t('export'), hint: '/export', run: () => exportConversation() },
+    { id: 'usage', label: t('usageItem'), hint: '/usage', run: () => el('refreshUsage').click() },
+    { id: 'attach', label: t('attachItem'), hint: '', run: () => el('attachBtn').click() },
+    {
+      id: 'lang',
+      label: t('languageItem'),
+      hint: lang === 'en' ? 'EN ⇄ TH' : 'TH ⇄ EN',
+      run: () => setLanguage(lang === 'en' ? 'th' : 'en'),
+    },
+  ];
+  if (view?.busy) {
+    actions.push({ id: 'stop', label: t('stopItem'), hint: 'Esc', run: () => api.abort(view.tabId) });
+  }
+  actions.push({
+    id: 'changes',
+    label: t('changesTitle'),
+    hint: `${view?.changes?.length || 0}`,
+    run: () => {
+      closePalette();
+      openChanges();
+    },
+  });
+  actions.push({
+    id: 'shell',
+    label: t('shellHint'),
+    hint: '!',
+    run: () => {
+      closePalette();
+      input.value = '!';
+      input.focus();
+    },
+  });
+
+  const query = (el('paletteInput')?.value || '').trim().toLowerCase();
+  for (const skill of skillsCache || []) {
+    if (query && !matchSkill(skill, query)) continue;
+    actions.push({
+      id: `skill:${skill.name}`,
+      label: skill.name,
+      hint: t('skills'),
+      run: () => {
+        closePalette();
+        input.value = `${t('useSkill')} ${skill.name}: `;
+        autoGrow();
+        input.focus();
+      },
+    });
+  }
+  return actions;
+}
+
+function renderPalette() {
+  const list = el('paletteList');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!paletteState.items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'slash-empty';
+    empty.textContent = t('noMatches');
+    list.appendChild(empty);
+    return;
+  }
+  paletteState.items.forEach((item, i) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'palette-item' + (i === paletteState.index ? ' active' : '');
+    row.setAttribute('role', 'option');
+    row.setAttribute('aria-selected', String(i === paletteState.index));
+    const label = document.createElement('span');
+    label.className = 'palette-label';
+    label.textContent = item.label;
+    const hint = document.createElement('span');
+    hint.className = 'palette-hint';
+    hint.textContent = item.hint || '';
+    row.append(label, hint);
+    row.addEventListener('mousedown', (e) => e.preventDefault());
+    row.addEventListener('click', () => runPaletteItem(item));
+    list.appendChild(row);
+  });
+  list.children[paletteState.index]?.scrollIntoView({ block: 'nearest' });
+}
+
+function filterPalette() {
+  const q = el('paletteInput').value.trim().toLowerCase();
+  const all = paletteActions();
+  paletteState.items = q ? all.filter((a) => a.label.toLowerCase().includes(q)) : all;
+  paletteState.index = 0;
+  renderPalette();
+}
+
+function openPalette() {
+  paletteState.open = true;
+  el('paletteOverlay').hidden = false;
+  const field = el('paletteInput');
+  field.value = '';
+  filterPalette();
+  field.focus();
+}
+
+function closePalette() {
+  paletteState.open = false;
+  el('paletteOverlay').hidden = true;
+  input.focus();
+}
+
+function runPaletteItem(item) {
+  closePalette();
+  try {
+    item.run();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+/* ------------------------- find in conversation --------------------- */
+
+const findState = { matches: [], index: 0, open: false };
+
+function transcriptTextNodes() {
+  const walker = document.createTreeWalker(transcript, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      if (node.parentElement?.closest('pre, .md-code')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  return nodes;
+}
+
+function openFind() {
+  findState.open = true;
+  el('findBar').hidden = false;
+  const field = el('findInput');
+  field.focus();
+  field.select();
+  if (field.value) runFind();
+}
+
+function closeFind() {
+  findState.open = false;
+  el('findBar').hidden = true;
+  if (typeof CSS !== 'undefined' && CSS.highlights) CSS.highlights.delete('fp-find');
+  findState.matches = [];
+}
+
+function runFind() {
+  const query = el('findInput').value;
+  const count = el('findCount');
+  findState.matches = [];
+  findState.index = 0;
+  if (typeof CSS !== 'undefined' && CSS.highlights) CSS.highlights.delete('fp-find');
+  if (!query) {
+    count.textContent = '0/0';
+    return;
+  }
+  const needle = query.toLowerCase();
+  for (const node of transcriptTextNodes()) {
+    const hay = node.nodeValue.toLowerCase();
+    let from = 0;
+    for (;;) {
+      const at = hay.indexOf(needle, from);
+      if (at === -1) break;
+      const range = document.createRange();
+      range.setStart(node, at);
+      range.setEnd(node, at + needle.length);
+      findState.matches.push(range);
+      from = at + needle.length;
+    }
+  }
+  if (findState.matches.length && typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight === 'function') {
+    CSS.highlights.set('fp-find', new Highlight(...findState.matches));
+  }
+  count.textContent = findState.matches.length ? `1/${findState.matches.length}` : t('noMatches');
+  if (findState.matches.length) focusFindMatch(0);
+}
+
+function focusFindMatch(index) {
+  if (!findState.matches.length) return;
+  const n = findState.matches.length;
+  findState.index = ((index % n) + n) % n;
+  const range = findState.matches[findState.index];
+  el('findCount').textContent = `${findState.index + 1}/${n}`;
+  const rect = range.getBoundingClientRect();
+  transcript.scrollTop += rect.top - transcript.getBoundingClientRect().top - transcript.clientHeight / 2;
+}
+
+/* ------------------------------ undo / redo ------------------------- */
+
+async function undoLastMessage() {
+  const view = activeView();
+  if (!view) return;
+  if (view.busy) return showNotice(t('undoBusy'));
+  const res = await api.undo(view.tabId);
+  if (!res?.ok) return showNotice(res?.reason === 'busy' ? t('undoBusy') : t('undoEmpty'));
+  view.undoEntryId = res.entryId;
+  if (res.text) {
+    input.value = res.text;
+    autoGrow();
+    updateSendState();
+    input.focus();
+  }
+  showNotice(t('undoDone'), 4200);
+}
+
+async function redoLastMessage() {
+  const view = activeView();
+  if (!view) return;
+  const entryId = view.undoEntryId;
+  if (!entryId) return showNotice(t('redoEmpty'));
+  const res = await api.redo(view.tabId, entryId);
+  if (!res?.ok) return showNotice(t('redoEmpty'));
+  view.undoEntryId = null;
+}
+
+async function compactConversation() {
+  const view = activeView();
+  if (!view) return;
+  if (view.busy) return showNotice(t('undoBusy'));
+  showNotice(`${t('compact')}…`, 0);
+  const res = await api.compact(view.tabId);
+  showNotice(res?.ok ? t('compactDone') : t('undoBusy'), 3200);
+  refreshContextMeter();
+}
+
+async function exportConversation() {
+  const view = activeView();
+  if (!view) return;
+  const res = await api.exportSession(view.tabId);
+  showNotice(res?.ok ? `${t('exportDone')}${res.path ? `: ${res.path}` : ''}` : t('noMatches'), 6000);
+}
+
+/* --------------------------- ask_user dialog ------------------------ */
+
+let questionPending = null;
+
+function showQuestion(payload) {
+  questionPending = payload;
+  el('questionText').textContent = payload.question || '';
+  const options = el('questionOptions');
+  options.innerHTML = '';
+  for (const option of payload.options || []) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'question-option';
+    btn.textContent = option;
+    btn.addEventListener('click', () => answerQuestion(option));
+    options.appendChild(btn);
+  }
+  el('questionInput').value = '';
+  el('questionOverlay').hidden = false;
+  (payload.options?.length ? options.firstChild : el('questionInput'))?.focus();
+}
+
+function answerQuestion(answer) {
+  if (!questionPending) return;
+  api.respondQuestion(questionPending.id, answer);
+  questionPending = null;
+  el('questionOverlay').hidden = true;
+  input.focus();
+}
+
+/* ------------------------------ thinking ---------------------------- */
+
+function paintThinking(thinking) {
+  const select = el('thinkingSelect');
+  if (!select) return;
+  if (!thinking?.supported || !Array.isArray(thinking.levels) || !thinking.levels.length) {
+    select.hidden = true;
+    return;
+  }
+  select.hidden = false;
+  if (select.dataset.levels !== thinking.levels.join(',')) {
+    select.dataset.levels = thinking.levels.join(',');
+    select.innerHTML = thinking.levels
+      .map((level) => `<option value="${escapeHtml(level)}">${escapeHtml(t('thinking'))}: ${escapeHtml(level)}</option>`)
+      .join('');
+  }
+  select.value = thinking.level || 'off';
+}
+
+/* --------------------------- wiring: compose ------------------------ */
+
+input.addEventListener('input', () => updateFileMenu());
+
+input.addEventListener('keydown', (e) => {
+  if (fileMenuState.open) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      const n = fileMenuState.items.length;
+      fileMenuState.index = (fileMenuState.index + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+      renderFileMenu();
+      return;
+    }
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      applyFileMention(fileMenuState.items[fileMenuState.index]);
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      hideFileMenu();
+      return;
+    }
+  }
+  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && input.value.trim().startsWith('!')) {
+    e.preventDefault();
+    e.stopPropagation();
+    runShellCommand(input.value);
+  }
+});
+
+/* --------------------------- wiring: buttons ------------------------ */
+
+el('openPalette')?.addEventListener('click', openPalette);
+el('thinkingSelect')?.addEventListener('change', async (e) => {
+  const view = activeView();
+  if (!view) return;
+  const thinking = await api.setThinking(view.tabId, e.target.value);
+  paintThinking(thinking);
+});
+el('undoBtn')?.addEventListener('click', undoLastMessage);
+
+el('findInput')?.addEventListener('input', runFind);
+el('findInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    focusFindMatch(findState.index + (e.shiftKey ? -1 : 1));
+  } else if (e.key === 'Escape') {
+    closeFind();
+  }
+});
+el('findNext')?.addEventListener('click', () => focusFindMatch(findState.index + 1));
+el('findPrev')?.addEventListener('click', () => focusFindMatch(findState.index - 1));
+el('findClose')?.addEventListener('click', closeFind);
+
+el('paletteInput')?.addEventListener('input', filterPalette);
+el('paletteInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const n = paletteState.items.length;
+    if (!n) return;
+    paletteState.index = (paletteState.index + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+    renderPalette();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const item = paletteState.items[paletteState.index];
+    if (item) runPaletteItem(item);
+  } else if (e.key === 'Escape') {
+    closePalette();
+  }
+});
+el('paletteOverlay')?.addEventListener('click', (e) => {
+  if (e.target === el('paletteOverlay')) closePalette();
+});
+
+el('questionSend')?.addEventListener('click', () => answerQuestion(el('questionInput').value));
+el('questionSkip')?.addEventListener('click', () => answerQuestion(null));
+el('questionInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    answerQuestion(e.target.value);
+  } else if (e.key === 'Escape') {
+    answerQuestion(null);
+  }
+});
+
+/* --------------------------- wiring: events ------------------------- */
+
+api.onTodos((p) => {
+  const view = viewFor(p);
+  if (!view) return;
+  view.todos = p.items || [];
+  if (view.tabId === activeTabId) renderTodos(view.todos);
+});
+
+api.onQuestion((p) => {
+  if (p.tabId && p.tabId !== activeTabId) return;
+  showQuestion(p);
+});
+
+api.onHistory((p) => {
+  if (!p?.state) return;
+  applyTabState(p.state);
+});
+
+api.onSettled(() => {
+  refreshContextMeter();
+  const view = activeView();
+  if (view) paintThinking(view.thinking);
+});
+
+/* --------------------------- wiring: shortcuts ---------------------- */
+
+window.addEventListener('keydown', (e) => {
+  const mod = e.ctrlKey || e.metaKey;
+  if (!mod) return;
+  const key = e.key.toLowerCase();
+  if (key === 'p' || (key === 'k' && !e.shiftKey)) {
+    e.preventDefault();
+    if (paletteState.open) closePalette();
+    else openPalette();
+    return;
+  }
+  if (key === 'f') {
+    e.preventDefault();
+    openFind();
+    return;
+  }
+  if (key === 'z' && !e.shiftKey) {
+    // Only when the composer is empty, so normal text undo keeps working.
+    if (input.value.trim()) return;
+    e.preventDefault();
+    undoLastMessage();
+    return;
+  }
+  if (key === 'z' && e.shiftKey) {
+    if (input.value.trim()) return;
+    e.preventDefault();
+    redoLastMessage();
+  }
+});
+
+/* --------------------------- wiring: links -------------------------- */
+
+document.addEventListener('click', (e) => {
+  const link = e.target.closest?.('a.md-link');
+  if (!link) return;
+  e.preventDefault();
+  api.openExternal(link.getAttribute('href') || '');
+});
+
+/* ---------------------------- initial paint ------------------------- */
+
+paintContext(null);
+renderTodos(activeView()?.todos || []);
+
+/* ------------------------- extra slash commands ---------------------- */
+
+SLASH_COMMANDS.push(
+  {
+    name: '/undo',
+    en: 'Undo your last message and the work that followed it',
+    th: 'ย้อนกลับข้อความล่าสุดและงานที่ตามมา',
+    run: () => undoLastMessage(),
+  },
+  {
+    name: '/redo',
+    en: 'Restore what undo took away',
+    th: 'ทำซ้ำสิ่งที่เพิ่งย้อนกลับ',
+    run: () => redoLastMessage(),
+  },
+  {
+    name: '/compact',
+    en: 'Summarize the conversation to free context',
+    th: 'ย่อบทสนทนาเพื่อคืนพื้นที่บริบท',
+    run: () => compactConversation(),
+  },
+  {
+    name: '/export',
+    en: 'Save this conversation as an HTML file',
+    th: 'บันทึกบทสนทนาเป็นไฟล์ HTML',
+    run: () => exportConversation(),
+  },
+  {
+    name: '/find',
+    en: 'Search inside this conversation',
+    th: 'ค้นหาข้อความในบทสนทนานี้',
+    run: () => openFind(),
+  },
+  {
+    name: '/files',
+    en: 'Insert a file path from the workspace',
+    th: 'แทรกพาธไฟล์จากโฟลเดอร์งาน',
+    run: () => {
+      input.value = '@';
+      autoGrow();
+      updateFileMenu();
+      input.focus();
+    },
+  },
+  {
+    name: '/thinking',
+    en: 'Change how hard the model reasons',
+    th: 'ปรับระดับการคิดของโมเดล',
+    run: () => {
+      const select = el('thinkingSelect');
+      if (select && !select.hidden) select.focus();
+      else showNotice(t('noMatches'), 2000);
+    },
+  }
+);
+
+/* ------------------------------ skills menu ------------------------- */
+
+let skillsCache = null;
+
+async function loadSkills() {
+  if (skillsCache) return skillsCache;
+  try {
+    skillsCache = await api.listSkills();
+  } catch {
+    skillsCache = [];
+  }
+  return skillsCache;
+}
+
+/** Two chars of the skill's own name or description is enough to match. */
+function matchSkill(skill, query) {
+  const hay = `${skill.name} ${skill.description || ''}`.toLowerCase();
+  return query.split(/\s+/).filter(Boolean).every((part) => hay.includes(part));
+}
+
+loadSkills();

@@ -301,6 +301,22 @@ const allowedTools = new Set();
 /** When true, every tool is approved until the app restarts or the user opts out. */
 let allowEverything = false;
 
+/**
+ * Pending `ask_user` questions, keyed by request id. The agent's tool call blocks
+ * on the promise until the window answers, so it cannot guess instead of asking.
+ */
+const questions = new Map();
+let questionSeq = 0;
+
+function askUserDialog(tabId, { question, options }) {
+  questionSeq += 1;
+  const id = `question-${questionSeq}`;
+  return new Promise((resolve) => {
+    questions.set(id, { resolve, tabId });
+    sendTab(tabId, 'agent:question', { id, question, options });
+  });
+}
+
 function askApproval(tabId, { toolName, args }) {
   if (allowEverything || allowedTools.has(toolName)) {
     return Promise.resolve(true);
@@ -533,7 +549,20 @@ function tabState(tabId) {
     ...tabSummary(tabId),
     models: tab.handle.modelList,
     messages: messagesForUi(tab.handle.session.messages),
+    stats: safeCall(() => tab.handle.stats(), null),
+    todos: safeCall(() => tab.handle.todoItems(), []),
+    thinking: safeCall(() => tab.handle.thinking(), null),
+    tools: safeCall(() => tab.handle.toolNames(), []),
   };
+}
+
+/** Read optional handle data without letting one failure blank the whole state. */
+function safeCall(fn, fallback) {
+  try {
+    return fn() ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 /** Wire a tab's session events into targeted IPC messages. */
@@ -704,6 +733,18 @@ async function attachTab(tabId, manager, cwd) {
     // Skills come from the app data root, so a portable copy carries its own
     // skills and never touches ~/.agents on someone else's machine.
     skillsAgentDir: DATA_ROOT,
+    extraSkillPaths: skillRoots().filter((dir) => {
+      try {
+        return fs.statSync(dir).isDirectory();
+      } catch {
+        return false;
+      }
+    }),
+    // Live checklist the model keeps for multi-step work.
+    onTodo: (items) => sendTab(tabId, 'agent:todos', { items }),
+    // The agent may ask a question instead of guessing; the window answers it.
+    askUser: (q) => askUserDialog(tabId, q),
+    thinkingLevel: readPrefs().thinkingLevel || 'off',
   });
 
   // Every new workspace gets its output folders up front.
@@ -728,6 +769,56 @@ async function attachTab(tabId, manager, cwd) {
 
   return tabState(tabId);
 }
+
+/**
+ * Every place a SKILL.md may live on this machine. The app's own data root is
+ * searched by the pi SDK already; these are shared with the CLI and with the
+ * user's global ~/.agents folder so the agent is not blind to installed skills.
+ */
+function skillRoots() {
+  return [
+    path.join(DATA_ROOT, 'skills'),
+    path.join(os.homedir(), '.agents', 'skills'),
+    path.join(os.homedir(), '.free-pi', 'agent', 'skills'),
+    path.join(os.homedir(), '.pi', 'agent', 'skills'),
+  ];
+}
+
+/** Read `name:` and `description:` out of a SKILL.md frontmatter block. */
+function readSkillMeta(file) {
+  let text = '';
+  try {
+    text = fs.readFileSync(file, 'utf8').slice(0, 4000);
+  } catch {
+    return null;
+  }
+  const block = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  const head = block ? block[1] : text;
+  const name = /^name:\s*(.+)$/m.exec(head)?.[1]?.trim().replace(/^['"]|['"]$/g, '');
+  const description = /^description:\s*(.+)$/m.exec(head)?.[1]?.trim().replace(/^['"]|['"]$/g, '');
+  return { name: name || path.basename(path.dirname(file)), description: description || '' };
+}
+
+ipcMain.handle('skills:list', async () => {
+  const found = new Map();
+  for (const root of skillRoots()) {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(root, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const file = path.join(root, entry.name, 'SKILL.md');
+      if (!fs.existsSync(file)) continue;
+      const meta = readSkillMeta(file);
+      if (!meta || found.has(meta.name)) continue;
+      found.set(meta.name, { ...meta, path: file, root });
+    }
+  }
+  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
+});
 
 function deriveName(messages, cwd) {
   for (const m of messages || []) {
@@ -1262,6 +1353,12 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images } = {}) => {
 
 ipcMain.handle('prompt:abort', async (_e, tabId) => {
   const { tabId: id, tab } = tabFor(tabId);
+  // A blocked ask_user would otherwise keep the turn alive after Stop.
+  for (const [qid, pending] of questions) {
+    if (pending.tabId !== id) continue;
+    questions.delete(qid);
+    pending.resolve(null);
+  }
   try {
     await tab.handle.session.abort();
   } catch {}
@@ -1275,6 +1372,192 @@ ipcMain.handle('model:set', async (_e, { tabId, provider, id }) => {
   const m = await tab.handle.setModel(provider, id);
   sendTab(tid, 'model:changed', { model: m });
   return m;
+});
+
+/* ------------------------- session toolbox (undo etc.) ------------------ */
+
+/** Tokens/context for the meter. Cheap: no network, reads the session in memory. */
+ipcMain.handle('session:stats', async (_e, tabId) => {
+  const { tab } = tabFor(tabId);
+  return safeCall(() => tab.handle.stats(), null);
+});
+
+ipcMain.handle('session:undo', async (_e, tabId) => {
+  const { tabId: tid, tab } = tabFor(tabId);
+  const res = await tab.handle.undo().catch((err) => ({
+    ok: false,
+    reason: err instanceof Error ? err.message : String(err),
+  }));
+  if (res.ok) afterHistoryChange(tid);
+  return res;
+});
+
+ipcMain.handle('session:redo', async (_e, { tabId, entryId } = {}) => {
+  const { tabId: tid, tab } = tabFor(tabId);
+  const res = await tab.handle.redo(entryId).catch(() => ({ ok: false, reason: 'error' }));
+  if (res.ok) afterHistoryChange(tid);
+  return res;
+});
+
+ipcMain.handle('session:compact', async (_e, { tabId, instructions } = {}) => {
+  const { tabId: tid, tab } = tabFor(tabId);
+  const res = await tab.handle.compact(instructions).catch((err) => ({
+    ok: false,
+    reason: err instanceof Error ? err.message : String(err),
+  }));
+  if (res.ok) afterHistoryChange(tid);
+  return res;
+});
+
+ipcMain.handle('session:export', async (_e, tabId) => {
+  const { tab } = tabFor(tabId);
+  const res = await tab.handle.exportHtml().catch(() => ({ ok: false, path: null }));
+  if (res.ok && res.path) {
+    try {
+      await shell.openPath(res.path);
+    } catch {}
+  }
+  return res;
+});
+
+ipcMain.handle('session:thinking', async (_e, { tabId, level } = {}) => {
+  const { tabId: tid, tab } = tabFor(tabId);
+  if (level) {
+    const set = safeCall(() => tab.handle.setThinking(level), null);
+    writePrefs({ thinkingLevel: set || level });
+    sendTab(tid, 'session:thinking', { thinking: safeCall(() => tab.handle.thinking(), null) });
+  }
+  return safeCall(() => tab.handle.thinking(), null);
+});
+
+/** The message list changed underneath the renderer (undo/redo/compact). */
+function afterHistoryChange(tabId) {
+  const tab = tabs.get(tabId);
+  if (!tab) return;
+  sendTab(tabId, 'agent:history', { state: tabState(tabId) });
+  sendTab(tabId, 'agent:settled', { aborted: false });
+}
+
+/** `!command` — runs in the workspace and joins the session, like the CLI. */
+ipcMain.handle('shell:run', async (_e, { tabId, command } = {}) => {
+  const text = String(command || '').trim();
+  if (!text) return { ok: false, reason: 'empty' };
+  const { tabId: tid, tab } = tabFor(tabId);
+  sendTab(tid, 'agent:bashStart', { command: text });
+  try {
+    const result = await tab.handle.bash(
+      text,
+      (chunk) => sendTab(tid, 'agent:bashChunk', { command: text, chunk }),
+      {}
+    );
+    sendTab(tid, 'agent:bashEnd', {
+      command: text,
+      output: result?.output ?? '',
+      exitCode: result?.exitCode ?? null,
+      cancelled: Boolean(result?.cancelled),
+    });
+    return { ok: true, exitCode: result?.exitCode ?? null };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    sendTab(tid, 'agent:bashEnd', { command: text, output: message, exitCode: 1, cancelled: false });
+    return { ok: false, reason: message };
+  }
+});
+
+/* --------------------------- file index for @ --------------------------- */
+
+const FILE_INDEX_SKIP = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'out',
+  'build',
+  '.next',
+  '.nuxt',
+  '.venv',
+  'venv',
+  '__pycache__',
+  '.cache',
+  '.freepi-attachments',
+  'coverage',
+  '.idea',
+  '.vscode',
+  'target',
+  'vendor',
+  '.turbo',
+]);
+
+function walkWorkspace(root, limit) {
+  const results = [];
+  const queue = [{ dir: root, depth: 0 }];
+  while (queue.length && results.length < limit) {
+    const { dir, depth } = queue.shift();
+    if (depth > 8) continue;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (results.length >= limit) break;
+      const name = entry.name;
+      if (name.startsWith('.') && name !== '.env.example') continue;
+      const full = path.join(dir, name);
+      if (entry.isDirectory()) {
+        if (FILE_INDEX_SKIP.has(name)) continue;
+        queue.push({ dir: full, depth: depth + 1 });
+      } else if (entry.isFile()) {
+        results.push(path.relative(root, full).split(path.sep).join('/'));
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Fuzzy list for the `@` menu. Subsequence matching, so "rdmr" finds
+ * "src/renderer/markdown.js". Ranked: prefix hits first, then shorter paths.
+ */
+ipcMain.handle('fs:listFiles', async (_e, { cwd, query } = {}) => {
+  const root = cwd && fs.existsSync(cwd) ? cwd : readPrefs().lastCwd;
+  if (!root) return [];
+  const files = walkWorkspace(root, 4000);
+  const q = String(query || '').toLowerCase().trim();
+  if (!q) return files.slice(0, 60);
+  const scored = [];
+  for (const file of files) {
+    const lower = file.toLowerCase();
+    let score = 0;
+    const baseIdx = lower.lastIndexOf('/');
+    const base = lower.slice(baseIdx + 1);
+    if (lower.startsWith(q)) score = 100;
+    else if (base.startsWith(q)) score = 80;
+    else if (lower.includes(q)) score = 60 - Math.min(20, lower.length / 20);
+    else {
+      // subsequence
+      let i = 0;
+      for (const ch of lower) {
+        if (ch === q[i]) i += 1;
+        if (i === q.length) break;
+      }
+      if (i !== q.length) continue;
+      score = 30 - Math.min(20, lower.length / 20);
+    }
+    scored.push({ file, score: score - file.split('/').length });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 40).map((s) => s.file);
+});
+
+/* ------------------------------ ask_user ------------------------------ */
+
+ipcMain.handle('question:respond', async (_e, { id, answer } = {}) => {
+  const pending = questions.get(id);
+  if (!pending) return { ok: false };
+  questions.delete(id);
+  pending.resolve(answer === undefined || answer === null ? null : String(answer));
+  return { ok: true };
 });
 
 /** Open an ad's click-through. Only https, and never inside the app window. */
@@ -1674,6 +1957,7 @@ ipcMain.handle('app:copyText', async (_e, text) => {
   clipboard.writeText(value);
   return { ok: true };
 });
+
 ipcMain.handle('auth:cancel', async () => {
   if (loginFlow) {
     loginFlow.cancelled = true;

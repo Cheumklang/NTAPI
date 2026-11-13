@@ -80,7 +80,10 @@
           <div class="usage-row"><span data-i18n="bonus">Bonus</span><span id="usageTokens" class="mono">—</span></div>
           <div class="usage-row"><span data-i18n="lane">Lane</span><span id="usageContext" class="mono">—</span></div>
           <div class="usage-row"><span data-i18n="resets">Resets</span><span id="usageResets" class="mono">—</span></div>
+          <div class="usage-row"><span data-i18n="context">Context</span><span id="contextPct" class="mono">—</span></div>
+          <div class="ctx-bar"><div id="contextFill" class="ctx-bar-fill"></div></div>
           <button id="refreshUsage" class="ghost small full" data-i18n="refreshStatus">Refresh status</button>
+          <button id="openPalette" class="ghost small full" data-i18n="commands">Commands</button>
         </div>
       </aside>
       <div id="sidebarResizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize sidebar"></div>
@@ -95,6 +98,7 @@
             <input id="sessionTitle" class="title-input" placeholder="Untitled session" />
           </div>
           <div class="controls">
+            <select id="thinkingSelect" class="thinking-select" title="Reasoning effort" hidden></select>
             <select id="modelSelect" title="Model"></select>
           </div>
         </header>
@@ -118,14 +122,17 @@
         </section>
 
         <footer id="composer">
+          <div id="todoPanel" class="todo-panel" hidden role="status" aria-live="polite"></div>
           <div id="notice" class="notice" hidden></div>
           <div id="queueBar" class="queue-bar" hidden></div>
           <div id="attachments" class="attachments" hidden></div>
           <div class="composer-box">
             <div id="slashMenu" class="slash-menu" hidden role="listbox" aria-label="Commands"></div>
+            <div id="fileMenu" class="slash-menu file-menu" hidden role="listbox" aria-label="Files"></div>
             <textarea id="input" rows="1" placeholder="Ask FreePi to build, fix, or explain… (Enter to send, Shift+Enter for newline)"></textarea>
             <div class="composer-actions">
               <button id="attachBtn" class="attach" title="Attach files (Ctrl+V to paste)" data-i18n="attach">Attach</button>
+              <button id="undoBtn" class="attach" title="Undo the last message (Ctrl+Z)" data-i18n="undo">Undo</button>
               <button id="stopBtn" class="stop" hidden data-i18n="stop">Stop</button>
               <button id="sendBtn" class="send" disabled data-i18n="send">Send</button>
             </div>
@@ -133,6 +140,35 @@
           <div class="hint" id="statusHint" data-i18n="idle">Idle</div>
         </footer>
       </main>
+    </div>
+
+    <div id="findBar" class="find-bar" hidden>
+      <input id="findInput" type="text" placeholder="Search this conversation" aria-label="Search this conversation" />
+      <span id="findCount" class="find-count">0/0</span>
+      <button id="findPrev" class="ghost small" title="Previous match">↑</button>
+      <button id="findNext" class="ghost small" title="Next match">↓</button>
+      <button id="findClose" class="ghost small" title="Close">✕</button>
+    </div>
+
+    <div id="paletteOverlay" class="overlay palette-overlay" hidden>
+      <div class="dialog palette-dialog" role="dialog" aria-modal="true" aria-label="Commands">
+        <input id="paletteInput" class="palette-input" placeholder="Type a command or a task…" aria-label="Commands" />
+        <div id="paletteList" class="palette-list" role="listbox"></div>
+        <div class="dialog-hint" data-i18n="paletteHint">↑↓ move · Enter run · Esc close</div>
+      </div>
+    </div>
+
+    <div id="questionOverlay" class="overlay" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="questionTitle">
+        <h2 id="questionTitle" data-i18n="questionTitle">The agent needs your decision</h2>
+        <p id="questionText" class="dialog-sub"></p>
+        <div id="questionOptions" class="question-options"></div>
+        <input id="questionInput" class="field" placeholder="Type your answer" autocomplete="off" />
+        <div class="dialog-actions">
+          <button id="questionSkip" class="ghost" data-i18n="skip">Skip</button>
+          <button id="questionSend" class="send" data-i18n="answer">Answer</button>
+        </div>
+      </div>
     </div>
 
     <div id="approvalOverlay" class="overlay" hidden>

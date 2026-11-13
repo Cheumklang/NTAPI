@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('freepi', {
   boot: () => ipcRenderer.invoke('app:boot'),
   setPrefs: (patch) => ipcRenderer.invoke('prefs:set', patch),
   getSettings: (cwd) => ipcRenderer.invoke('settings:get', { cwd }),
+  listSkills: () => ipcRenderer.invoke('skills:list'),
   pickSettingsFolder: () => ipcRenderer.invoke('settings:pickFolder'),
   revealPath: (p) => ipcRenderer.invoke('settings:reveal', p),
 
@@ -47,6 +48,18 @@ contextBridge.exposeInMainWorld('freepi', {
   abort: (tabId) => ipcRenderer.invoke('prompt:abort', tabId),
   setModel: (tabId, provider, id) => ipcRenderer.invoke('model:set', { tabId, provider, id }),
   fetchUsage: () => ipcRenderer.invoke('usage:fetch'),
+
+  // Session toolbox: context meter, undo/redo, compaction, export, shell, @files.
+  getStats: (tabId) => ipcRenderer.invoke('session:stats', tabId),
+  undo: (tabId) => ipcRenderer.invoke('session:undo', tabId),
+  redo: (tabId, entryId) => ipcRenderer.invoke('session:redo', { tabId, entryId }),
+  compact: (tabId, instructions) => ipcRenderer.invoke('session:compact', { tabId, instructions }),
+  exportSession: (tabId) => ipcRenderer.invoke('session:export', tabId),
+  getThinking: (tabId) => ipcRenderer.invoke('session:thinking', { tabId }),
+  setThinking: (tabId, level) => ipcRenderer.invoke('session:thinking', { tabId, level }),
+  runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
+  listFiles: (cwd, query) => ipcRenderer.invoke('fs:listFiles', { cwd, query }),
+  respondQuestion: (id, answer) => ipcRenderer.invoke('question:respond', { id, answer }),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', String(url || '')),
 
   onBusy: on('agent:busy'),
@@ -61,6 +74,13 @@ contextBridge.exposeInMainWorld('freepi', {
   openAd: (url) => ipcRenderer.invoke('ads:open', url),
   rotateAd: (opts) => ipcRenderer.invoke('ads:rotate', opts),
   onSettled: on('agent:settled'),
+  onTodos: on('agent:todos'),
+  onQuestion: on('agent:question'),
+  onBashStart: on('agent:bashStart'),
+  onBashChunk: on('agent:bashChunk'),
+  onBashEnd: on('agent:bashEnd'),
+  onHistory: on('agent:history'),
+  onThinking: on('session:thinking'),
   onModelChanged: on('model:changed'),
   onSessionName: on('session:name'),
   onTabDeleted: on('tab:deleted'),
@@ -73,8 +93,7 @@ contextBridge.exposeInMainWorld('freepi', {
   onLog: on('app:log'),
 
   // Account on this machine (each computer signs in with its own allowance).
-  accountStatus: () => ipcRenderer.invoke('account:status'),
-  accountSignIn: () => ipcRenderer.invoke('account:signIn'),
+  accountStatus: () => ipcRenderer.invoke('account:status'),  accountSignIn: () => ipcRenderer.invoke('account:signIn'),
   accountSignOut: () => ipcRenderer.invoke('account:signOut'),
 
   // In-app GitHub sign-in (browser connect flow).
