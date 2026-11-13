@@ -80,6 +80,7 @@ function normalizeModel(raw) {
     name: typeof raw?.display_name === 'string' && raw.display_name ? raw.display_name : id,
     contextWindow: finiteOr(raw?.context_length, DEFAULT_CONTEXT_WINDOW),
     maxTokens: finiteOr(raw?.max_completion_tokens, finiteOr(raw?.max_tokens, DEFAULT_MAX_TOKENS)),
+    vision: Boolean(raw?.capabilities?.vision),
   };
 }
 
@@ -88,6 +89,8 @@ function fallbackCatalog() {
     ...m,
     contextWindow: DEFAULT_CONTEXT_WINDOW,
     maxTokens: DEFAULT_MAX_TOKENS,
+    // Every verified fallback id is a vision model in the live catalog.
+    vision: true,
   }));
 }
 
@@ -128,9 +131,9 @@ function coarenaProviderConfig({ apiKey, models }) {
       name: m.name || m.id,
       reasoning: true,
       compat: { supportsDeveloperRole: false },
-      // Images reach Coarena through the look_at_image tool, never as content
-      // blocks, so every model is declared text-only on purpose.
-      input: ['text'],
+      // Images go in as content blocks only for models the catalog says can
+      // see them; a text-only model must never receive one.
+      input: m.vision === false ? ['text'] : ['text', 'image'],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: m.contextWindow || DEFAULT_CONTEXT_WINDOW,
       maxTokens: m.maxTokens || DEFAULT_MAX_TOKENS,

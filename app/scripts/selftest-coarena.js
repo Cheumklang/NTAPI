@@ -136,6 +136,20 @@ const countingFetch = (status, body) => async (...args) => {
     entries.length === 2 && entries[0].provider === 'coarena' && entries[0].id === 'm1' && entries[0].name === 'Model One'
   );
 
+  // Vision is per model: a model without it must not be sent image blocks.
+  const visionPayload = {
+    data: [
+      { id: 'v1', display_name: 'Vision One', context_length: 128000, max_tokens: 8192, capabilities: { vision: true } },
+      { id: 't1', display_name: 'Text One', context_length: 128000, max_tokens: 8192, capabilities: { vision: false } },
+    ],
+  };
+  resetCoarenaModelCache();
+  const vres = await fetchCoarenaModels({ fetchImpl: fake(200, visionPayload), force: true });
+  check('vision flag is kept', vres.models[0].vision === true && vres.models[1].vision === false);
+  const vcfg = coarenaProviderConfig({ apiKey: KEY, models: vres.models });
+  check('vision model accepts images', vcfg.models[0].input.join(',') === 'text,image');
+  check('text-only model refuses images', vcfg.models[1].input.join(',') === 'text');
+
   // Trimmed copy of GET https://coarena.ai/api/v1/key.
   const meta = {
     data: {
