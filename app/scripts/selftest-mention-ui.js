@@ -146,11 +146,39 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     resolvedOk: after.resolved === '/skill:caveman say hi',
   };
 
+  // Ctrl+Enter while idle must send like Enter; a queued message would sit in
+  // the queue bar forever because no turn is running.
+  const ctrlEnter = await evaluate(
+    ws,
+    `(async () => {
+       const input = document.getElementById('input');
+       input.value = 'ctrl-enter check';
+       input.dispatchEvent(new Event('input', { bubbles: true }));
+       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
+       await new Promise((r) => setTimeout(r, 1500));
+       return {
+         cleared: input.value === '',
+         queued: !document.getElementById('queueBar').hidden,
+         bubble: [...document.querySelectorAll('#transcript .msg.user .bubble')].some((b) =>
+           b.textContent.includes('ctrl-enter check')
+         ),
+       };
+     })()`,
+    true
+  );
+  report.ctrlEnterSends = ctrlEnter.cleared && ctrlEnter.bubble && !ctrlEnter.queued;
+  report.ctrlEnter = ctrlEnter;
+
   console.log(JSON.stringify(report, null, 2));
   ws.close();
 
   const ok =
-    report.menuShown && report.menuHasCaveman && report.inserted && report.nothingSent && report.resolvedOk;
+    report.menuShown &&
+    report.menuHasCaveman &&
+    report.inserted &&
+    report.nothingSent &&
+    report.resolvedOk &&
+    report.ctrlEnterSends;
   process.exit(ok ? 0 : 1);
 })().catch((err) => {
   console.error('DRIVER FAIL:', err.message);
