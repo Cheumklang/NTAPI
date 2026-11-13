@@ -134,9 +134,9 @@ async function waitFor(ws, expression, ok, timeoutMs = 20000) {
        const sel = document.getElementById('modelSelect');
        return {
          adHidden: document.getElementById('adSlot').hidden,
-         meterShown: !document.getElementById('coarenaUsage').hidden,
+         meterShown: !document.getElementById('providerUsage').hidden,
          freePiHidden: document.getElementById('freePiUsage').hidden,
-         meterText: document.getElementById('coarenaMeterText').textContent,
+         meterText: document.getElementById('providerMeterText').textContent,
          selected: sel.value,
          selectedLabel: sel.options[sel.selectedIndex]?.textContent || '',
        };

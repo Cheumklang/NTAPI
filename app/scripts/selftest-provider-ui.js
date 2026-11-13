@@ -19,6 +19,7 @@ function check(name, condition, detail) {
 
 check('free-pi label', UI.providerLabel('free-pi') === 'FreePi' && UI.providerLabel('free-pi-defense') === 'FreePi');
 check('coarena label', UI.providerLabel('coarena') === 'Coarena');
+check('zro label', UI.providerLabel('zro') === 'Zro');
 check(
   'free-pi detection',
   UI.isFreePiProvider('free-pi') === true &&
@@ -32,11 +33,13 @@ check(
 );
 check('option falls back to id', UI.modelOptionLabel({ provider: 'coarena', id: 'x' }) === 'Coarena · x');
 const co = UI.providerChrome({ provider: 'coarena' });
-check('coarena hides ads', co.showAds === false && co.showCoarenaMeter === true);
+check('coarena hides ads and shows its meter', co.showAds === false && co.meter === 'coarena');
+const zo = UI.providerChrome({ provider: 'zro' });
+check('zro hides ads and shows its meter', zo.showAds === false && zo.meter === 'zro');
 const fp = UI.providerChrome({ provider: 'free-pi' });
-check('free-pi shows ads', fp.showAds === true && fp.showCoarenaMeter === false);
+check('free-pi shows ads and no keyed meter', fp.showAds === true && fp.meter === null);
 const unknown = UI.providerChrome({ provider: 'something-else' });
-check('unknown provider shows neither', unknown.showAds === false && unknown.showCoarenaMeter === false);
+check('unknown provider shows neither', unknown.showAds === false && unknown.meter === null);
 check(
   'meter text',
   UI.coarenaMeterText({ limits: { requestsPerMinute: 30, concurrency: 2 }, usageToday: { requests: 4 } }) ===

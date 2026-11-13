@@ -15,12 +15,14 @@
 
   const FREE_PI_PROVIDERS = new Set(['free-pi', 'free-pi-defense']);
   const COARENA_PROVIDER = 'coarena';
+  const ZRO_PROVIDER = 'zro';
   const SEPARATOR = ' \u00b7 ';
 
   /** Human-facing provider name; unknown providers pass through unchanged. */
   function providerLabel(provider) {
     if (FREE_PI_PROVIDERS.has(provider)) return 'FreePi';
     if (provider === COARENA_PROVIDER) return 'Coarena';
+    if (provider === ZRO_PROVIDER) return 'Zro';
     return String(provider || '');
   }
 
@@ -40,9 +42,10 @@
   /** Which provider-specific chrome is visible for the active model. */
   function providerChrome(model) {
     const provider = model?.provider;
-    if (isFreePiProvider(provider)) return { showAds: true, showCoarenaMeter: false };
-    if (provider === COARENA_PROVIDER) return { showAds: false, showCoarenaMeter: true };
-    return { showAds: false, showCoarenaMeter: false };
+    if (isFreePiProvider(provider)) return { showAds: true, meter: null };
+    if (provider === COARENA_PROVIDER) return { showAds: false, meter: 'coarena' };
+    if (provider === ZRO_PROVIDER) return { showAds: false, meter: 'zro' };
+    return { showAds: false, meter: null };
   }
 
   /** Compact limits line: `30/min · 2 at once · 4 today`. */

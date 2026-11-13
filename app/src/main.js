@@ -11,6 +11,7 @@ const { sessionDirName } = require('./session-paths');
 const { friendlyProviderError } = require('./provider-errors');
 const { createProviderKeyStore } = require('./provider-key');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
+const { checkZroKey } = require('./zro');
 const { promptOptionsFor } = require('./prompt-mode');
 
 /**
@@ -154,6 +155,7 @@ const DATA_ROOT = resolveDataRoot();
  * renderer only ever sees `status()` (configured / readable / last four chars).
  */
 const coarenaKeys = createProviderKeyStore({ dir: DATA_ROOT, safeStorage, fileName: 'coarena.json' });
+const zroKeys = createProviderKeyStore({ dir: DATA_ROOT, safeStorage, fileName: 'zro.json' });
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
 
@@ -474,7 +476,7 @@ async function listSessions(cwd) {
  */
 function reportTabError(tabId, raw) {
   const tab = tabs.get(tabId);
-  const { text, code } = friendlyProviderError(raw);
+  const { text, code } = friendlyProviderError(raw, { provider: tab?.handle?.session?.model?.provider });
   const key = code || text;
   const now = Date.now();
   if (tab?.lastError && tab.lastError.key === key && now - tab.lastError.at < 10000) return;
@@ -509,7 +511,11 @@ function messagesForUi(messages) {
       } else if (m.stopReason === 'error') {
         // A failed turn has no content at all. Without this the transcript just
         // shows the user's message and then nothing, which looks like a hang.
-        out.push({ kind: 'error', text: friendlyProviderError(m.errorMessage).text, ts: m.timestamp });
+        out.push({
+          kind: 'error',
+          text: friendlyProviderError(m.errorMessage, { provider: m.provider }).text,
+          ts: m.timestamp,
+        });
       }
       continue;
     }
@@ -776,6 +782,8 @@ async function attachTab(tabId, manager, cwd) {
     // A saved, readable key registers Coarena in this same session. A key that
     // cannot be decrypted is treated as absent rather than failing the tab.
     coarenaKey: coarenaKeys.read(),
+    // Zro's key works the same way; its catalog is static and DeepSeek-only.
+    zroKey: zroKeys.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -1071,27 +1079,26 @@ async function coarenaStatus() {
 
 /**
  * Push a new key (or its removal) into every open tab. Registration is live, so
- * a tab on a Coarena model keeps working without reopening; a tab left on a
- * removed Coarena model is moved to a model that still exists and told why.
+ * a tab on that provider keeps working without reopening; a tab left on a
+ * removed provider is moved to a model that still exists and told why.
  */
-async function applyKeyToTabs(key) {
+async function applyKeyToTabs({ provider, label, key, apply }) {
   let applied = 0;
   for (const [tabId, tab] of tabs) {
     try {
-      const res = await tab.handle.applyCoarenaKey(key);
+      const res = await apply(tab.handle, key);
       if (res?.ok) applied += 1;
 
-      if (!key && tab.handle.session?.model?.provider === COARENA_PROVIDER) {
-        const fallback =
-          (res.models || []).find((m) => m.provider !== COARENA_PROVIDER) || (res.models || [])[0] || null;
+      if (!key && tab.handle.session?.model?.provider === provider) {
+        const fallback = (res.models || []).find((m) => m.provider !== provider) || (res.models || [])[0] || null;
         if (fallback) {
           await tab.handle.setModel(fallback.provider, fallback.id);
           sendTab(tabId, 'agent:notice', {
-            text: `Coarena key removed — switched to ${fallback.provider}/${fallback.id}.`,
+            text: `${label} key removed — switched to ${fallback.provider}/${fallback.id}.`,
           });
         } else {
           sendTab(tabId, 'agent:notice', {
-            text: 'Coarena key removed — this tab has no provider left. Add a key or sign in to FreePi.',
+            text: `${label} key removed — this tab has no provider left. Add a key or sign in to FreePi.`,
           });
         }
       }
@@ -1101,6 +1108,24 @@ async function applyKeyToTabs(key) {
     } catch {}
   }
   return applied;
+}
+
+function applyCoarenaKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: COARENA_PROVIDER,
+    label: 'Coarena',
+    key,
+    apply: (handle, next) => handle.applyCoarenaKey(next),
+  });
+}
+
+function applyZroKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'zro',
+    label: 'Zro',
+    key,
+    apply: (handle, next) => handle.applyZroKey(next),
+  });
 }
 
 ipcMain.handle('coarena:status', async () => coarenaStatus());
@@ -1119,7 +1144,7 @@ ipcMain.handle('coarena:setKey', async (_e, { key } = {}) => {
   try {
     coarenaKeys.save(raw);
     coarenaInfoCache = { at: 0, key: null, status: null };
-    const applied = await applyKeyToTabs(raw);
+    const applied = await applyCoarenaKeyToTabs(raw);
     return { ok: true, status: await coarenaStatus(), unverified: Boolean(check.offline), applied };
   } catch (err) {
     return {
@@ -1141,8 +1166,53 @@ ipcMain.handle('coarena:clearKey', async () => {
     };
   }
   coarenaInfoCache = { at: 0, key: null, status: null };
-  const applied = await applyKeyToTabs(null);
+  const applied = await applyCoarenaKeyToTabs(null);
   return { ok: true, status: await coarenaStatus(), applied };
+});
+
+/** Zro has no key-metadata endpoint: the status is the store's own state. */
+async function zroStatus() {
+  return zroKeys.status();
+}
+
+ipcMain.handle('zro:status', async () => zroStatus());
+
+ipcMain.handle('zro:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) return { ok: false, status: zroKeys.status(), error: 'Enter a Zro API key first.' };
+
+  // A wrong key is rejected before anything touches the disk. An unreachable
+  // API is not a wrong key: save it and mark it unverified.
+  const check = await checkZroKey(raw);
+  if (!check.ok && !check.offline) {
+    return { ok: false, status: zroKeys.status(), error: check.error };
+  }
+
+  try {
+    zroKeys.save(raw);
+    const applied = await applyZroKeyToTabs(raw);
+    return { ok: true, status: zroKeys.status(), unverified: Boolean(check.offline), applied };
+  } catch (err) {
+    return {
+      ok: false,
+      status: zroKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('zro:clearKey', async () => {
+  try {
+    zroKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: zroKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyZroKeyToTabs(null);
+  return { ok: true, status: zroKeys.status(), applied };
 });
 
 ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
@@ -1187,6 +1257,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     // Shown at the top of Settings so it is obvious where this app keeps things.
     dataRoot: DATA_ROOT,
     coarena: await coarenaStatus(),
+    zro: await zroStatus(),
   };
 });
 

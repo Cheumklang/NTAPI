@@ -84,6 +84,21 @@ const STRINGS = {
     coarenaSaveFailed: 'Could not save the key:',
     coarenaRemoved: 'Coarena key removed.',
     coarenaModelSwitched: 'The saved model is unavailable — switched to',
+    zroSection: 'Zro',
+    zroKeyLabel: 'API key',
+    zroSave: 'Save',
+    zroRemove: 'Remove',
+    zroRemoveTitle: 'Remove the Zro key?',
+    zroRemoveSub:
+      'Zro models disappear from the model list. A running turn keeps its current model until it finishes.',
+    zroConfigured: 'Configured',
+    zroUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    zroNotConfigured: 'No key yet — Zro models stay hidden.',
+    zroGetKey: 'Get a key at zro.moonmath.ai',
+    zroSaved: 'Zro key saved.',
+    zroUnverified: 'Zro could not be reached — the key was saved unverified.',
+    zroSaveFailed: 'Could not save the key:',
+    zroRemoved: 'Zro key removed.',
     dataRootLabel: 'App data folder',
     outputFolders: 'Output folders',
     systemPaths: 'System locations',
@@ -243,6 +258,20 @@ const STRINGS = {
     coarenaSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
     coarenaRemoved: 'ลบคีย์ Coarena แล้ว',
     coarenaModelSwitched: 'โมเดลที่บันทึกไว้ใช้ไม่ได้แล้ว — เปลี่ยนเป็น',
+    zroSection: 'Zro',
+    zroKeyLabel: 'API key',
+    zroSave: 'บันทึก',
+    zroRemove: 'ลบออก',
+    zroRemoveTitle: 'ลบคีย์ Zro?',
+    zroRemoveSub: 'โมเดล Zro จะหายจากรายการ โมเดลที่กำลังทำงานอยู่จะใช้ต่อจนจบเทิร์น',
+    zroConfigured: 'ตั้งค่าแล้ว',
+    zroUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    zroNotConfigured: 'ยังไม่มีคีย์ — โมเดล Zro จะไม่แสดง',
+    zroGetKey: 'ขอคีย์ที่ zro.moonmath.ai',
+    zroSaved: 'บันทึกคีย์ Zro แล้ว',
+    zroUnverified: 'ติดต่อ Zro ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
+    zroSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    zroRemoved: 'ลบคีย์ Zro แล้ว',
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
     outputFolders: 'โฟลเดอร์ปลายทาง',
     systemPaths: 'ตำแหน่งของระบบ',
@@ -822,14 +851,14 @@ let coarenaStatusPromise = null;
 function syncProviderChrome(view) {
   const chrome = FPProvider.providerChrome(view?.model);
   const freePiUsage = el('freePiUsage');
-  const coarenaUsage = el('coarenaUsage');
-  if (freePiUsage) freePiUsage.hidden = chrome.showCoarenaMeter;
-  if (coarenaUsage) coarenaUsage.hidden = !chrome.showCoarenaMeter;
+  const providerUsage = el('providerUsage');
+  if (freePiUsage) freePiUsage.hidden = chrome.meter !== null;
+  if (providerUsage) providerUsage.hidden = chrome.meter === null;
   if (!chrome.showAds) adSlot.hidden = true;
-  paintCoarenaMeter();
+  paintProviderMeter(view);
   // The key can arrive while this tab is already open, so the meter fetches its
   // own status instead of relying on Settings having been opened.
-  if (chrome.showCoarenaMeter) ensureCoarenaStatus().catch(() => {});
+  if (chrome.meter === 'coarena') ensureCoarenaStatus().catch(() => {});
 }
 
 /** Throttled status read: syncProviderChrome runs on every tab paint. */
@@ -842,10 +871,22 @@ async function ensureCoarenaStatus(force = false) {
   return coarenaStatusPromise;
 }
 
-function paintCoarenaMeter() {
-  const node = el('coarenaMeterText');
-  if (!node) return;
-  node.textContent = coarenaStatus?.info ? FPProvider.coarenaMeterText(coarenaStatus.info) : '—';
+function paintProviderMeter(view) {
+  const chrome = FPProvider.providerChrome(view?.model);
+  const name = el('providerName');
+  const label = el('providerMeterLabel');
+  const text = el('providerMeterText');
+  if (!name || !text || !label) return;
+  if (chrome.meter === null) return;
+
+  name.textContent = FPProvider.providerLabel(view?.model?.provider);
+  if (chrome.meter === 'coarena') {
+    label.textContent = t('coarenaLimits');
+    text.textContent = coarenaStatus?.info ? FPProvider.coarenaMeterText(coarenaStatus.info) : '—';
+  } else {
+    label.textContent = t('model');
+    text.textContent = view?.model?.name || '—';
+  }
 }
 
 /** Settings copy for the key: never the key itself, only what it is worth. */
@@ -879,8 +920,41 @@ async function refreshCoarenaStatus() {
     coarenaStatus = null;
   }
   paintCoarenaSettings();
-  paintCoarenaMeter();
+  paintProviderMeter(activeView());
   return coarenaStatus;
+}
+
+/* Zro keeps no remote metadata: its status is the store's own state. */
+let zroStatus = null;
+
+function paintZroSettings() {
+  const node = el('zroStatus');
+  const remove = el('zroRemove');
+  if (!node) return;
+
+  const s = zroStatus;
+  let text = t('zroNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('zroConfigured')} · ${how}`;
+    if (s.hint) text += ` · …${s.hint}`;
+  } else if (s?.configured) {
+    text = t('zroUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+}
+
+async function refreshZroStatus() {
+  try {
+    zroStatus = await api.zroStatus();
+  } catch {
+    zroStatus = null;
+  }
+  paintZroSettings();
+  return zroStatus;
 }
 
 function applyTabState(state) {
@@ -1173,8 +1247,10 @@ async function openSettings() {
   // settings:get already carries the key status (cached server-side for 60 s),
   // so opening the dialog does not spend a rate-limited /key call per open.
   coarenaStatus = settingsData?.coarena || null;
+  zroStatus = settingsData?.zro || null;
   paintCoarenaSettings();
-  paintCoarenaMeter();
+  paintZroSettings();
+  paintProviderMeter(activeView());
   renderSettings();
   renderAccount();
   const adsToggle = el('adsAutoRotate');
@@ -1446,7 +1522,7 @@ el('coarenaSave')?.addEventListener('click', async () => {
       if (inputEl) inputEl.value = '';
       coarenaStatus = res.status || null;
       paintCoarenaSettings();
-      paintCoarenaMeter();
+      paintProviderMeter(activeView());
       showNotice(res.unverified ? t('coarenaUnverified') : t('coarenaSaved'));
     } else {
       showNotice(`${t('coarenaSaveFailed')} ${res?.error || ''}`.trim());
@@ -1469,6 +1545,46 @@ el('coarenaRemove')?.addEventListener('click', () => {
 
 el('coarenaGetKey')?.addEventListener('click', () => {
   api.openExternal('https://coarena.ai/developers').catch(() => {});
+});
+
+/* ----------------------------- Zro key ----------------------------- */
+
+el('zroSave')?.addEventListener('click', async () => {
+  const inputEl = el('zroKeyInput');
+  const button = el('zroSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.zroSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      zroStatus = res.status || null;
+      paintZroSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('zroUnverified') : t('zroSaved'));
+    } else {
+      showNotice(`${t('zroSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('zroSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('zroRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'zroRemove',
+    title: t('zroRemoveTitle'),
+    sub: t('zroRemoveSub'),
+    action: t('zroRemove'),
+  });
+});
+
+el('zroGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://zro.moonmath.ai/api-keys').catch(() => {});
 });
 
 el('settingsReset').addEventListener('click', async () => {
@@ -1732,10 +1848,23 @@ el('confirmDelete').addEventListener('click', async () => {
     if (res?.ok) {
       coarenaStatus = res.status || null;
       paintCoarenaSettings();
-      paintCoarenaMeter();
+      paintProviderMeter(activeView());
       showNotice(t('coarenaRemoved'));
     } else {
       showNotice(`${t('coarenaSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
+  if (state.kind === 'zroRemove') {
+    const res = await api.zroClearKey();
+    if (res?.ok) {
+      zroStatus = res.status || null;
+      paintZroSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('zroRemoved'));
+    } else {
+      showNotice(`${t('zroSaveFailed')} ${res?.error || ''}`.trim());
     }
     return;
   }
@@ -1861,6 +1990,7 @@ async function boot() {
   applyLanguage();
   loadProfile();
   refreshCoarenaStatus().catch(() => {});
+  refreshZroStatus().catch(() => {});
   applySidebarWidth(appPrefs.sidebarWidth || SIDEBAR_DEFAULT);
   if (info.lastCwd) el('cwdLabel').textContent = info.lastCwd;
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});

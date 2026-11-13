@@ -84,9 +84,9 @@
             <div class="usage-row"><span data-i18n="context">Context</span><span id="contextPct" class="mono">—</span></div>
             <div class="ctx-bar"><div id="contextFill" class="ctx-bar-fill"></div></div>
           </div>
-          <div id="coarenaUsage" hidden>
-            <div class="usage-row"><span data-i18n="provider">Provider</span><span class="mono">Coarena</span></div>
-            <div class="usage-row"><span data-i18n="coarenaLimits">Limits</span><span id="coarenaMeterText" class="mono">—</span></div>
+          <div id="providerUsage" hidden>
+            <div class="usage-row"><span data-i18n="provider">Provider</span><span id="providerName" class="mono">—</span></div>
+            <div class="usage-row"><span id="providerMeterLabel" data-i18n="coarenaLimits">Limits</span><span id="providerMeterText" class="mono">—</span></div>
           </div>
           <button id="refreshUsage" class="ghost small full" data-i18n="refreshStatus">Refresh status</button>
           <button id="openPalette" class="ghost small full" data-i18n="commands">Commands</button>
@@ -265,6 +265,18 @@
           </div>
           <p id="coarenaStatus" class="settings-hint">—</p>
           <button id="coarenaGetKey" class="link-btn" data-i18n="coarenaGetKey">Get a key at coarena.ai</button>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-head" data-i18n="zroSection">Zro</div>
+          <label class="settings-label" for="zroKeyInput" data-i18n="zroKeyLabel">API key</label>
+          <div class="settings-actions">
+            <input id="zroKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" aria-label="Zro API key" />
+            <button id="zroSave" class="ghost small" data-i18n="zroSave">Save</button>
+            <button id="zroRemove" class="ghost small danger" data-i18n="zroRemove">Remove</button>
+          </div>
+          <p id="zroStatus" class="settings-hint">—</p>
+          <button id="zroGetKey" class="link-btn" data-i18n="zroGetKey">Get a key at zro.moonmath.ai</button>
         </div>
 
         <div class="settings-group">
