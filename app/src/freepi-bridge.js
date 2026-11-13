@@ -17,6 +17,9 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
+const { planProviders, FREE_PI_TOOL_NAMES } = require('./provider-plan');
+const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
+
 const DEFAULT_BASE_URL = 'https://api.freepi.ai';
 const PROVIDER_NAME = 'free-pi';
 const DEFENSE_PROVIDER_NAME = 'free-pi-defense';
@@ -233,6 +236,11 @@ const TURN_HEADER = 'x-turn-id';
 const ADS_TIMEOUT_MS = 5000;
 const LAUNCH_AD_MAX_AGE_MS = 60 * 60000;
 
+/** Ads and the turn header belong to FreePi; Coarena must never receive them. */
+function isFreePiProviderName(provider) {
+  return provider === PROVIDER_NAME || provider === DEFENSE_PROVIDER_NAME;
+}
+
 function clientLocaleHeaders() {
   try {
     const o = Intl.DateTimeFormat().resolvedOptions();
@@ -387,17 +395,23 @@ function createAdsClient(options) {
   const extension = {
     name: 'freepi-desktop-ads',
     factory(pi) {
-      // Every completion carries the turn id the ad was fetched for.
-      pi.on('before_provider_headers', (event) => {
-        if (turnId) event.headers[TURN_HEADER] = turnId;
+      // Every free-pi completion carries the turn id the ad was fetched for.
+      // A Coarena request has no ad behind it, so the header would be noise
+      // (and a lie) there.
+      pi.on('before_provider_headers', (event, ctx) => {
+        if (!turnId) return;
+        if (!isFreePiProviderName(ctx?.getModel?.()?.provider)) return;
+        event.headers[TURN_HEADER] = turnId;
       });
 
       pi.on('session_start', async () => {
         await prefetchLaunchAd();
       });
 
-      pi.on('before_agent_start', async (event) => {
+      pi.on('before_agent_start', async (event, ctx) => {
         if (event.messageType !== 'user') return;
+        // Switching to a Coarena model must not fetch or require an ad.
+        if (!isFreePiProviderName(ctx?.getModel?.()?.provider)) return;
         // The launch ad already covers the first message of a fresh session —
         // but only if it actually arrived and is still fresh.
         if (launchTurnUnused) {
@@ -476,7 +490,20 @@ async function createFreePiSession(options) {
      * and a reported impression the backend refuses to answer.
      */
     onAd = () => {},
+    /**
+     * Coarena API key, or null. When set, Coarena is registered as a second
+     * provider in the same session, so the model dropdown can switch without
+     * reopening the tab.
+     */
+    coarenaKey = null,
+    /**
+     * Injectable so tests can simulate "no FreePi login" without touching the
+     * real credentials file. Production uses the normal resolver.
+     */
+    resolveFreePiAuth = resolveAuth,
   } = options;
+
+  let activeCoarenaKey = coarenaKey ? String(coarenaKey).trim() : null;
 
   const downloadsDirAbs = path.isAbsolute(downloadsDir)
     ? downloadsDir
@@ -489,41 +516,88 @@ async function createFreePiSession(options) {
   // resolves skills as `<agentDir>/skills`, so the caller passes a dedicated
   // skillsAgentDir and we hand it to services separately below.
   const credentialsPath = getCredentialsPath(agentDir);
-  const auth = await resolveAuth(baseUrl, credentialsPath);
-  if (!auth.jwt) throw new Error('no free-pi credentials available');
 
-  const catalog = await fetchCatalog(baseUrl, auth.jwt);
-  const models = catalogModelsFor(catalog.models, catalog.model);
-  const defense = defenseModelsFor(catalog.models);
+  // FreePi is optional now: a failed login must not stop a Coarena session
+  // from opening. The reason is logged so "why am I on Coarena?" is answerable.
+  let auth = null;
+  try {
+    auth = await resolveFreePiAuth(baseUrl, credentialsPath);
+  } catch (err) {
+    log(`free-pi auth unavailable: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (auth && !auth.jwt) auth = null;
+
+  const catalog = auth ? await fetchCatalog(baseUrl, auth.jwt) : { model: undefined, models: undefined };
+  const models = auth ? catalogModelsFor(catalog.models, catalog.model) : [];
+  const defense = auth ? defenseModelsFor(catalog.models) : [];
+
+  // The catalog is fetched once per process (10-minute memory cache) and never
+  // rejects: with no network it returns the verified fallback list.
+  const coarenaCatalog = coarenaKey ? await fetchCoarenaModels() : { models: [], source: 'none' };
+  let coarenaModels = coarenaCatalog.models;
+
   const sessionId = sessionManager.getSessionId();
-  log(`free-pi: ${models.length} model(s), guest=${auth.guest}, client=${CLIENT_VERSION}`);
+  const plan = planProviders({
+    hasFreePiAuth: Boolean(auth),
+    coarenaKey,
+    freePiModels: models,
+    coarenaModels,
+  });
+  if (!plan.available) {
+    throw new Error('No AI provider available — sign in to FreePi or add a Coarena key in Settings.');
+  }
+  log(
+    `providers: free-pi=${plan.freePi ? models.length : 0}, ` +
+      `coarena=${plan.coarena ? coarenaModels.length : 0} (catalog ${coarenaCatalog.source})`
+  );
 
   // Ads: one per user turn, tagged with the turn id the completion carries.
-  const ads = createAdsClient({
-    baseUrl,
-    getToken: () => auth.jwt,
-    sessionId,
-    clientVersion: CLIENT_VERSION,
-    onAd,
-    log,
-  });
+  // A Coarena-only session gets a stub so the rest of the handle stays uniform.
+  const ads = plan.ads
+    ? createAdsClient({
+        baseUrl,
+        getToken: () => auth.jwt,
+        sessionId,
+        clientVersion: CLIENT_VERSION,
+        onAd,
+        log,
+      })
+    : {
+        extension: null,
+        prefetchLaunchAd: async () => false,
+        rotateAd: async () => false,
+        startTurn: () => null,
+        currentTurnId: () => null,
+      };
+
+  // Kept so the key can be swapped live: registerProvider/unregisterProvider
+  // take effect immediately after the initial load phase.
+  let piApi = null;
 
   const providerExtension = {
     name: 'freepi-desktop-provider',
     factory(pi) {
-      pi.registerProvider(
-        PROVIDER_NAME,
-        buildProviderConfig(baseUrl, auth.jwt, sessionId, models, PROVIDER_NAME)
-      );
-      if (defense.length > 0) {
+      piApi = pi;
+      if (plan.freePi) {
         pi.registerProvider(
-          DEFENSE_PROVIDER_NAME,
-          buildProviderConfig(baseUrl, auth.jwt, sessionId, defense, DEFENSE_PROVIDER_NAME)
+          PROVIDER_NAME,
+          buildProviderConfig(baseUrl, auth.jwt, sessionId, models, PROVIDER_NAME)
+        );
+        if (defense.length > 0) {
+          pi.registerProvider(
+            DEFENSE_PROVIDER_NAME,
+            buildProviderConfig(baseUrl, auth.jwt, sessionId, defense, DEFENSE_PROVIDER_NAME)
+          );
+        }
+      }
+      if (plan.coarena) {
+        pi.registerProvider(
+          COARENA_PROVIDER,
+          coarenaProviderConfig({ apiKey: activeCoarenaKey, models: coarenaModels })
         );
       }
-      pi.on('before_provider_headers', (event) => {
-        event.headers.Authorization = `Bearer ${auth.jwt}`;
-      });
+      // No session-wide Authorization override: each provider config carries
+      // its own apiKey and pi-ai sets the Bearer header per request.
 
       if (typeof requestApproval === 'function') {
         pi.on('tool_call', async (event) => {
@@ -975,18 +1049,15 @@ async function createFreePiSession(options) {
       }
     : null;
 
-  // Preferred default model. Falls back to the first catalog entry if free-pi
-  // renames or drops it, so the app never fails to start.
-  const PREFERRED_MODEL = 'deepseek-v4.1-flash';
-  const defaultModelId = models.some((m) => m.id === PREFERRED_MODEL)
-    ? PREFERRED_MODEL
-    : models[0].id;
+  // The plan already picked the default (free-pi's tuned model when present,
+  // else the first Coarena model). A session must never start on a dead id.
+  const defaultTools = plan.freePiTools ? [...SAFE_TOOLS, ...FREE_PI_TOOL_NAMES] : [...SAFE_TOOLS];
 
   const settingsManager = sdk.SettingsManager.inMemory(
     {
-      defaultProvider: PROVIDER_NAME,
-      defaultModel: defaultModelId,
-      defaultTools: [...SAFE_TOOLS, 'web_search', 'docs_lookup', 'generate_image', 'free_pi_usage', 'look_at_image'],
+      defaultProvider: plan.defaultProvider,
+      defaultModel: plan.defaultModel,
+      defaultTools,
       packages: [],
       quietStartup: true,
       defaultThinkingLevel: thinkingLevel,
@@ -1007,10 +1078,10 @@ async function createFreePiSession(options) {
     resourceLoaderOptions: {
       additionalSkillPaths: Array.isArray(extraSkillPaths) ? extraSkillPaths : [],
       extensionFactories: [
-        ads.extension,
+        // Ads and the FreePi-backed tools only exist when FreePi is registered.
+        ...(plan.ads ? [ads.extension] : []),
         providerExtension,
-        visionExtension,
-        extraToolsExtension,
+        ...(plan.freePiTools ? [visionExtension, extraToolsExtension] : []),
         downloadsPolicyExtension,
         todoExtension,
         ...(askUserExtension ? [askUserExtension] : []),
@@ -1027,24 +1098,91 @@ async function createFreePiSession(options) {
   const { session } = await sdk.createAgentSessionFromServices({
     services,
     sessionManager,
-    tools: [...SAFE_TOOLS, 'web_search', 'docs_lookup', 'generate_image', 'free_pi_usage', 'look_at_image'],
+    tools: defaultTools,
   });
 
   // Show a banner ad as soon as the session opens, so the window is never left
   // without one while it waits for the first message.
-  ads.prefetchLaunchAd().catch(() => {});
+  if (plan.ads) ads.prefetchLaunchAd().catch(() => {});
 
-  const modelList = [
-    ...models.map((m) => ({ provider: PROVIDER_NAME, id: m.id, name: m.name })),
-    ...defense.map((m) => ({ provider: DEFENSE_PROVIDER_NAME, id: m.id, name: m.name })),
-  ];
+  const freePiEntries = plan.freePi
+    ? [
+        ...models.map((m) => ({ provider: PROVIDER_NAME, id: m.id, name: m.name })),
+        ...defense.map((m) => ({ provider: DEFENSE_PROVIDER_NAME, id: m.id, name: m.name })),
+      ]
+    : [];
+  let coarenaEntries = plan.coarena ? coarenaModelEntries(coarenaModels) : [];
+  let modelList = [...freePiEntries, ...coarenaEntries];
+
+  /**
+   * A resumed session can remember a model this account no longer has (Coarena
+   * key removed, catalog change). The UI shows one notice instead of a dead
+   * dropdown entry. Recomputed on read so a later switch clears it.
+   */
+  function currentModelFallback() {
+    const messages = Array.isArray(session.messages) ? session.messages : [];
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (!m || m.role !== 'assistant' || !m.provider || !m.model) continue;
+      const known = modelList.some((entry) => entry.provider === m.provider && entry.id === m.model);
+      if (known) return null;
+      const current = session.model;
+      return {
+        from: { provider: m.provider, id: m.model },
+        to: current ? { provider: current.provider, id: current.id, name: current.name } : null,
+      };
+    }
+    return null;
+  }
+
+  /**
+   * Swap the Coarena key while the tab is open. pi applies provider
+   * registration/unregistration immediately, so no restart or new tab is
+   * needed; the caller re-sends the model list to the renderer.
+   */
+  async function applyCoarenaKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(COARENA_PROVIDER);
+      } catch {}
+    }
+
+    activeCoarenaKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeCoarenaKey) {
+      coarenaEntries = [];
+      modelList = [...freePiEntries];
+      return { ok: true, models: modelList };
+    }
+
+    // force: the key may have changed, and the catalog is cheap to refetch.
+    const result = await fetchCoarenaModels({ force: true });
+    coarenaModels = result.models;
+    if (piApi) {
+      piApi.registerProvider(
+        COARENA_PROVIDER,
+        coarenaProviderConfig({ apiKey: activeCoarenaKey, models: result.models })
+      );
+    }
+    coarenaEntries = coarenaModelEntries(result.models);
+    modelList = [...freePiEntries, ...coarenaEntries];
+    return { ok: true, models: modelList };
+  }
 
   return {
     session,
     services,
-    modelList,
+    // Getter: a live key swap rebuilds this list inside the same handle.
+    get modelList() {
+      return modelList;
+    },
     auth,
     baseUrl,
+    /** Catalog source for this session: live | cache | fallback | none. */
+    coarenaSource: coarenaCatalog.source,
+    get modelFallback() {
+      return currentModelFallback();
+    },
+    applyCoarenaKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
 
