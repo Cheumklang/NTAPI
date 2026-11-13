@@ -3781,8 +3781,11 @@ function applyToolResult(card, res, cwd) {
   const copy = card.querySelector('.tool-copy');
   if (copy) copy.hidden = !(card.querySelector('.tool-body')?.textContent || '').trim();
 
-  // A failure or a file change is the important part of the card: open it.
-  if (hasDiff || res.isError) {
+  // A failing tool is worth surfacing on its own. A successful edit is not:
+  // the +/- counts in the header already say what changed, and auto-opening
+  // every diff buried the reply behind a wall of code. Click a card's header
+  // to read it.
+  if (res.isError) {
     card.classList.remove('collapsed');
     const tools = card.closest('.tools');
     if (tools) {
