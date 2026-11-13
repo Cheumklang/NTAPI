@@ -80,6 +80,8 @@ const NVIDIA_HINTS = {
     'This NVIDIA model was retired. Pick another model from the dropdown — the free endpoints rotate.',
   function_not_found:
     'This NVIDIA model was retired. Pick another model from the dropdown — the free endpoints rotate.',
+  account_not_enabled:
+    'This NVIDIA account does not have Public API Endpoints access yet — the key can list models, but chat is blocked. Ask NVIDIA to enable it (help@build.nvidia.com) and retry.',
 };
 
 const NETWORK_FAILURE_PATTERNS = [
@@ -135,7 +137,11 @@ function friendlyProviderError(raw, { provider } = {}) {
     else if (status === '429') hint = ZRO_HINTS.rate_limit;
     else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Zro — check your connection and retry.';
   } else if (provider === 'nvidia') {
-    if (code && NVIDIA_HINTS[code]) hint = NVIDIA_HINTS[code];
+    // A live 404 from this API often means the account lacks the "Public API
+    // Endpoints" entitlement, not that the model id is wrong: /v1/models works,
+    // every POST names a function "not found for account".
+    if (/not found for account/i.test(text)) hint = NVIDIA_HINTS.account_not_enabled;
+    else if (code && NVIDIA_HINTS[code]) hint = NVIDIA_HINTS[code];
     else if (status === '401') hint = NVIDIA_HINTS.invalid_api_key;
     else if (status === '403') hint = NVIDIA_HINTS.forbidden;
     else if (status === '429') hint = NVIDIA_HINTS.rate_limit;

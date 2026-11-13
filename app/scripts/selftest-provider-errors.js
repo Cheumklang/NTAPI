@@ -73,6 +73,16 @@ check(
 );
 const nvRetired = friendlyProviderError('404: {"error":{"message":"Function not found"}}', { provider: 'nvidia' });
 check('nvidia retired model points at the dropdown', /retired/i.test(nvRetired.text) && /model/i.test(nvRetired.text));
+
+// The real 404 from this API names a function the account does not own.
+const nvBlocked = friendlyProviderError(
+  '404: {"status":404,"title":"Not Found","detail":"Function \'e503b15c\': Not found for account \'abc\'"}',
+  { provider: 'nvidia' }
+);
+check(
+  'nvidia entitlement 404 is explained',
+  /Public API Endpoints/i.test(nvBlocked.text) && /not have/i.test(nvBlocked.text)
+);
 const nvOffline = friendlyProviderError('fetch failed', { provider: 'nvidia' });
 check(
   'nvidia network failure names NVIDIA',
