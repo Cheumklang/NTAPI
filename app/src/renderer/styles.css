@@ -338,6 +338,23 @@ button { font-family: inherit; }
   display: block;
 }
 
+/* Images a message mentions by path: pulled from main as data URIs. */
+.msg-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.msg-images img {
+  max-width: 260px;
+  max-height: 180px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  display: block;
+}
+
 .attach {
   background: transparent;
   border: 1px solid var(--line);

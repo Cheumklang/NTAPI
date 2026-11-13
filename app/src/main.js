@@ -1734,6 +1734,53 @@ function walkWorkspace(root, limit) {
   return results;
 }
 
+/* ------------------------- image previews (IPC) ------------------------- */
+
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
+const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Resolve a renderer-supplied path against the tab's workspace. Anything that
+ * escapes the workspace, or a missing/empty root, is refused: the renderer must
+ * not be able to read the rest of the disk through these handlers.
+ */
+function resolveInsideWorkspace(cwd, target) {
+  if (!cwd) return null;
+  const root = path.resolve(String(cwd));
+  const abs = path.resolve(root, String(target || ''));
+  return abs === root || abs.startsWith(root + path.sep) ? abs : null;
+}
+
+function imageMimeFor(ext) {
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.gif') return 'image/gif';
+  return 'image/png';
+}
+
+ipcMain.handle('fs:readImage', async (_e, { cwd, path: target } = {}) => {
+  const abs = resolveInsideWorkspace(cwd, target);
+  if (!abs) return { ok: false };
+  const ext = path.extname(abs).toLowerCase();
+  if (!IMAGE_EXTS.has(ext)) return { ok: false };
+  try {
+    const stat = await fs.promises.stat(abs);
+    if (!stat.isFile() || stat.size > IMAGE_MAX_BYTES) return { ok: false };
+    const buf = await fs.promises.readFile(abs);
+    const mime = imageMimeFor(ext);
+    return { ok: true, path: abs, mimeType: mime, dataUri: `data:${mime};base64,${buf.toString('base64')}` };
+  } catch {
+    return { ok: false };
+  }
+});
+
+ipcMain.handle('fs:openPath', async (_e, { cwd, path: target } = {}) => {
+  const abs = resolveInsideWorkspace(cwd, target);
+  if (!abs) return { ok: false };
+  const error = await shell.openPath(abs);
+  return error ? { ok: false, error } : { ok: true };
+});
+
 /**
  * Fuzzy list for the `@` menu. Subsequence matching, so "rdmr" finds
  * "src/renderer/markdown.js". Ranked: prefix hits first, then shorter paths.

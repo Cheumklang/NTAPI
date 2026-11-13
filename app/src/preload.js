@@ -67,6 +67,8 @@ contextBridge.exposeInMainWorld('freepi', {
   listFiles: (cwd, query) => ipcRenderer.invoke('fs:listFiles', { cwd, query }),
   respondQuestion: (id, answer) => ipcRenderer.invoke('question:respond', { id, answer }),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', String(url || '')),
+  readImage: (cwd, p) => ipcRenderer.invoke('fs:readImage', { cwd, path: p }),
+  openPath: (cwd, p) => ipcRenderer.invoke('fs:openPath', { cwd, path: p }),
 
   onBusy: on('agent:busy'),
   onDelta: on('agent:delta'),

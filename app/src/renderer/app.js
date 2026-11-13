@@ -775,6 +775,7 @@ function renderActiveTab() {
         const body = wrap.querySelector('.body');
         body.__fpText = body.__fpText ? `${body.__fpText}${text}` : text;
         MD.renderInto(body, body.__fpText, { copiedLabel: t('copied') });
+        appendImagePreviews(body, text, view.cwd);
       }
       const tc = wrap.querySelector('.tools');
       for (const tool of tools) toolCard(tc, tool);
@@ -795,7 +796,8 @@ function renderActiveTab() {
           isError: m.isError,
           durationMs: m.durationMs,
           diff: m.diff || null,
-        }
+        },
+        view.cwd
       );
     }
   }
@@ -2232,6 +2234,34 @@ window.addEventListener('drop', async (e) => {
 });
 
 /**
+ * Thumbnails for image files a message mentions.
+ *
+ * The image bytes come from main as a data URI (the CSP allows only self and
+ * data:), and every path is validated against the workspace there. A missing or
+ * oversized file simply produces no thumbnail.
+ */
+async function appendImagePreviews(container, text, cwd) {
+  if (!container || !cwd || !text) return;
+  if (container.querySelector('.msg-images')) return;
+  const paths = FPProvider.extractImagePaths(text);
+  if (!paths.length) return;
+
+  const strip = document.createElement('div');
+  strip.className = 'msg-images';
+  for (const rel of paths) {
+    const res = await api.readImage(cwd, rel).catch(() => null);
+    if (!res?.ok) continue;
+    const im = document.createElement('img');
+    im.src = res.dataUri;
+    im.alt = rel;
+    im.title = rel;
+    im.addEventListener('click', () => api.openPath(cwd, rel).catch(() => {}));
+    strip.appendChild(im);
+  }
+  if (strip.children.length) container.appendChild(strip);
+}
+
+/**
  * Message queue: Ctrl+Enter while the agent is busy stores the message instead
  * of dropping it. It is sent automatically as soon as the current turn
  * settles. Each view keeps its own queue, so background tabs do not steal it.
@@ -2678,12 +2708,12 @@ api.onToolEnd((p) => {
 
   const card = document.querySelector(`[data-tool-id="${p.id}"]`);
   if (!card) return;
-  applyToolResult(card, view.toolResults.get(p.id));
+  applyToolResult(card, view.toolResults.get(p.id), view.cwd);
   scrollToBottom();
 });
 
 /** Paint one finished tool result onto its card. */
-function applyToolResult(card, res) {
+function applyToolResult(card, res, cwd) {
   card.classList.toggle('error', res.isError);
   card.classList.toggle('ok', !res.isError);
   card.querySelector('.tool-status').textContent = res.isError
@@ -2698,6 +2728,7 @@ function applyToolResult(card, res) {
   } else {
     card.querySelector('.tool-body').textContent = res.text;
   }
+  appendImagePreviews(card, res.text, cwd || activeView()?.cwd);
 
   const copy = card.querySelector('.tool-copy');
   if (copy) copy.hidden = !(card.querySelector('.tool-body')?.textContent || '').trim();
