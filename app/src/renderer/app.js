@@ -13,7 +13,6 @@ const noticeEl = el('notice');
 const modelSelect = el('modelSelect');
 const sessionTitle = el('sessionTitle');
 const emptyState = el('emptyState');
-const tabList = el('tabList');
 const attachBar = el('attachments');
 const adSlot = el('adSlot');
 const adRefresh = el('adRefresh');
@@ -666,9 +665,6 @@ function refreshToolsSummary(container) {
 
 /* ------------------------------ sessions UI ------------------------------ */
 
-/** The sidebar is the only navigation surface now, so nothing to draw here. */
-function renderTabs() {}
-
 function renderActiveTab() {
   const view = activeView();
   if (!view) {
@@ -680,8 +676,6 @@ function renderActiveTab() {
     setBusy(false);
     return;
   }
-
-  renderTabs();
 
   sessionTitle.value = view.name || '';
   sessionTitle.placeholder = view.sessionId
@@ -820,8 +814,6 @@ async function closeTab(tabId) {
       return;
     }
     renderActiveTab();
-  } else {
-    renderTabs();
   }
 }
 
@@ -1582,7 +1574,6 @@ el('confirmDelete').addEventListener('click', async () => {
 
   const active = activeView();
   await renderSessions(active?.cwd || state.cwd);
-  renderTabs();
 });
 
 /* ---------------------------- attachments ---------------------------- */
@@ -1751,21 +1742,6 @@ el('newSession').addEventListener('click', async () => {
   }
 });
 
-el('newTab')?.addEventListener('click', async () => {
-  const view = activeView();
-  const cwd = view?.cwd || (await api.boot()).lastCwd;
-  if (!cwd) {
-    showNotice(t('chooseWorkspace'));
-    return;
-  }
-  try {
-    const res = await api.openTab({ cwd });
-    applyTabState(res.state);
-  } catch (err) {
-    showNotice(errorText(err));
-  }
-});
-
 sessionTitle.addEventListener('change', async () => {
   const view = activeView();
   if (!view) return;
@@ -1774,7 +1750,6 @@ sessionTitle.addEventListener('change', async () => {
   if (summary) {
     view.name = summary.name;
     view.label = summary.name || view.label;
-    renderTabs();
   }
 });
 
@@ -2065,7 +2040,6 @@ async function drainQueue(view) {
 async function sendQueued(view, item) {
   if (view.messages.length === 0) {
     view.label = item.text ? item.text.slice(0, 42) : 'Attachment';
-    renderTabs();
   }
   // Only paint into the live DOM when this tab is the visible one; otherwise the
   // message is stored and replayed when the user switches to it.
@@ -2079,7 +2053,6 @@ async function sendQueued(view, item) {
   view.liveTools = null;
   view.busy = true;
   if (payloadTabIsActive(view)) setBusy(true);
-  renderTabs();
   try {
     await api.sendPrompt(view.tabId, item.text, item.images);
   } catch (err) {
@@ -2157,7 +2130,6 @@ async function submit() {
 
   if (view.messages.length === 0) {
     view.label = text ? text.slice(0, 42) : 'Image';
-    renderTabs();
   }
 
   renderUserMessage(text, pendingImages);
@@ -2546,7 +2518,6 @@ api.onBusy((p) => {
   const view = viewFor(p);
   if (!view) return;
   view.busy = p.busy;
-  renderTabs();
   if (payloadTabIsActive(view)) {
     setBusy(p.busy);
     if (p.busy) ensureLive(view);
@@ -2561,7 +2532,6 @@ api.onSettled((p) => {
   if (view.liveAssistant) view.liveAssistant.classList.remove('streaming');
   view.liveAssistant = null;
   view.liveTools = null;
-  renderTabs();
   if (payloadTabIsActive(view)) setBusy(false);
   // Send anything the user queued while this turn was running.
   drainQueue(view);
@@ -2585,7 +2555,6 @@ api.onError((p) => {
   const view = viewFor(p);
   if (!view) return;
   view.busy = false;
-  renderTabs();
   if (!payloadTabIsActive(view)) return;
   showNotice(null);
   appendErrorBanner(p.text);
@@ -2686,7 +2655,6 @@ api.onSessionName((p) => {
   view.name = p.name;
   if (p.name) view.label = p.name;
   if (payloadTabIsActive(view)) sessionTitle.value = p.name || '';
-  renderTabs();
 });
 
 api.onApprovalRequest((p) => showApproval(p));
@@ -3010,7 +2978,7 @@ api.onBashEnd((p) => {
   liveShell.status.textContent = p.cancelled
     ? t('shellCancelled')
     : p.exitCode == null
-    ? 'done'
+    ? t('toolDone')
     : t('shellExit', { code: p.exitCode });
   liveShell.wrap.classList.toggle('error', Number(p.exitCode) > 0);
   liveShell = null;
@@ -3531,6 +3499,11 @@ window.addEventListener('keydown', (e) => {
   if (key === 'f') {
     e.preventDefault();
     openFind();
+    return;
+  }
+  if (key === 't') {
+    e.preventDefault();
+    el('newSession').click();
     return;
   }
   if (key === 'z' && !e.shiftKey) {

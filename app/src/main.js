@@ -1206,7 +1206,6 @@ ipcMain.handle('session:delete', async (_e, { cwd, sessionPath } = {}) => {
       try { tab.handle.dispose(); } catch {}
       tabs.delete(tabId);
       if (activeTabId === tabId) activeTabId = tabs.keys().next().value || null;
-      sendTab(tabId, 'tab:deleted', {});
     }
   }
 

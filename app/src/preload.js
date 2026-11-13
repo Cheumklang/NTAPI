@@ -55,7 +55,6 @@ contextBridge.exposeInMainWorld('freepi', {
   redo: (tabId, entryId) => ipcRenderer.invoke('session:redo', { tabId, entryId }),
   compact: (tabId, instructions) => ipcRenderer.invoke('session:compact', { tabId, instructions }),
   exportSession: (tabId) => ipcRenderer.invoke('session:export', tabId),
-  getThinking: (tabId) => ipcRenderer.invoke('session:thinking', { tabId }),
   setThinking: (tabId, level) => ipcRenderer.invoke('session:thinking', { tabId, level }),
   runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
   listChanges: (tabId) => ipcRenderer.invoke('changes:list', tabId),
@@ -83,10 +82,8 @@ contextBridge.exposeInMainWorld('freepi', {
   onBashEnd: on('agent:bashEnd'),
   onHistory: on('agent:history'),
   onChanges: on('agent:changes'),
-  onThinking: on('session:thinking'),
   onModelChanged: on('model:changed'),
   onSessionName: on('session:name'),
-  onTabDeleted: on('tab:deleted'),
   onApprovalRequest: on('approval:request'),
   respondApproval: (id, allow, opts = {}) =>
     ipcRenderer.invoke('approval:respond', { id, allow, ...opts }),
@@ -96,7 +93,8 @@ contextBridge.exposeInMainWorld('freepi', {
   onLog: on('app:log'),
 
   // Account on this machine (each computer signs in with its own allowance).
-  accountStatus: () => ipcRenderer.invoke('account:status'),  accountSignIn: () => ipcRenderer.invoke('account:signIn'),
+  accountStatus: () => ipcRenderer.invoke('account:status'),
+  accountSignIn: () => ipcRenderer.invoke('account:signIn'),
   accountSignOut: () => ipcRenderer.invoke('account:signOut'),
 
   // In-app GitHub sign-in (browser connect flow).

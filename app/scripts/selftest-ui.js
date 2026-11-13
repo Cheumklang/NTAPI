@@ -90,12 +90,12 @@ async function evaluate(ws, expression, awaitPromise = false) {
   const state = await evaluate(
     ws,
     `({
-      tabs: document.querySelectorAll('#tabList .tab, #sessionList .session-open').length,
+      tabs: document.querySelectorAll('#sessionList .session-item').length,
       title: document.getElementById('sessionTitle').value,
       errorBanners: [...document.querySelectorAll('.error-banner')].map((d) => d.textContent.slice(0, 120)),
       busy: !document.getElementById('stopBtn').hidden,
       status: document.getElementById('statusHint').textContent,
-      sidebarSessions: document.querySelectorAll('#sessionList .session').length,
+      sidebarSessions: document.querySelectorAll('#sessionList .session-item').length,
     })`
   );
 
