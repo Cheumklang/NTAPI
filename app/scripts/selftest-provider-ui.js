@@ -55,5 +55,14 @@ check('mid-sentence mention untouched', UI.resolveSkillMention('hello @caveman',
 check('unknown skill untouched', UI.resolveSkillMention('@nope hi', skills) === '@nope hi');
 check('no skills loaded is safe', UI.resolveSkillMention('@caveman hi', null) === '@caveman hi');
 
+check('absolute windows path', UI.extractImagePaths('see C:\\work\\shots\\a.png now').join() === 'C:\\work\\shots\\a.png');
+check('relative path with folders', UI.extractImagePaths('rendered shots/ui-render.png.').join() === 'shots/ui-render.png');
+check('quoted path', UI.extractImagePaths('path "shots/b.webp" here').join() === 'shots/b.webp');
+check('urls ignored', UI.extractImagePaths('https://x.test/a.png').length === 0);
+check('data uri ignored', UI.extractImagePaths('data:image/png;base64,AAAA').length === 0);
+check('non-image ignored', UI.extractImagePaths('read shots/a.svg now').length === 0);
+check('dedupe keeps order', UI.extractImagePaths('a.png b.jpg a.png').join() === 'a.png,b.jpg');
+check('caps at three', UI.extractImagePaths('a.png b.jpg c.gif d.webp').length === 3);
+
 console.log(failures ? `\n${failures} check(s) failed` : '\nall provider ui checks passed');
 process.exit(failures ? 1 : 0);

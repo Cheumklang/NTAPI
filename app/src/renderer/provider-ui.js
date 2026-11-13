@@ -76,6 +76,30 @@
     return `/skill:${skill.name}${value.slice(match[0].length)}`;
   }
 
+  const IMAGE_PATH_RE = /(?:[A-Za-z]:[\\/]|\/)?[^\s"'<>|]+?\.(?:png|jpe?g|webp|gif)\b/gi;
+
+  /**
+   * Image paths mentioned in a message, in order, at most three.
+   *
+   * Deliberately conservative: only tokens that end in a known image extension,
+   * no URLs or data URIs, no trailing punctuation. The caller still validates
+   * each path against the workspace before reading it.
+   */
+  function extractImagePaths(text) {
+    const out = [];
+    const seen = new Set();
+    for (const match of String(text || '').matchAll(IMAGE_PATH_RE)) {
+      const candidate = match[0].replace(/^[('"`]+/, '').replace(/[).,;:'"`!?]+$/, '');
+      if (!candidate) continue;
+      if (/^https?:/i.test(candidate) || candidate.includes('://') || /^data:/i.test(candidate)) continue;
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      out.push(candidate);
+      if (out.length === 3) break;
+    }
+    return out;
+  }
+
   root.FPProvider = {
     providerLabel,
     isFreePiProvider,
@@ -83,5 +107,6 @@
     providerChrome,
     coarenaMeterText,
     resolveSkillMention,
+    extractImagePaths,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
