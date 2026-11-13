@@ -21,6 +21,7 @@ const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER } = require('./provider-
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
 const { ZRO_MODELS, zroProviderConfig, zroModelEntries } = require('./zro');
 const { pruneImages } = require('./image-history');
+const { reviewAllowance } = require('./image-review');
 
 const DEFAULT_BASE_URL = 'https://api.freepi.ai';
 const PROVIDER_NAME = 'free-pi';
@@ -238,10 +239,12 @@ const TURN_HEADER = 'x-turn-id';
 const ADS_TIMEOUT_MS = 5000;
 const LAUNCH_AD_MAX_AGE_MS = 60 * 60000;
 /**
- * Providers cap images per request (Coarena: 8). Keep the newest six so a long
+ * Providers cap images per request (Coarena: 8). Keep the newest four so a long
  * render-QC run cannot push the session over the limit and brick every turn.
  */
-const MAX_REQUEST_IMAGES = 6;
+const MAX_REQUEST_IMAGES = 4;
+/** How many images one user turn may look at before it must finish the render. */
+const MAX_IMAGE_REVIEWS_PER_TURN = 4;
 
 function clientLocaleHeaders() {
   try {
@@ -889,15 +892,30 @@ async function createFreePiSession(options) {
    */
   // Set once the session exists; tool execute() reads the live model from here.
   let visionSession = null;
+  /** Per-user-turn image look budget, so a QC loop cannot run away. */
+  let reviewState = null;
   const visionExtension = {
     name: 'freepi-desktop-vision',
     factory(pi) {
+      // Render work is finished by the user watching the video, not by the model
+      // opening every frame. State the rule once per system prompt.
+      pi.on('before_agent_start', (event) => {
+        if (event.systemPrompt.includes('## Image review')) return;
+        const rule =
+          `\n\n## Image review\n` +
+          `Do not inspect rendered frames one by one. Finish the render and let the user watch the video. ` +
+          `Use look_at_image only for a key frame or an attached image, at most ${MAX_IMAGE_REVIEWS_PER_TURN} times per turn; ` +
+          `use ffprobe, file size or the command output for technical checks.`;
+        return { systemPrompt: event.systemPrompt + rule };
+      });
+
       pi.registerTool({
         name: 'look_at_image',
         label: 'Look At Image',
         description:
-          'Look at a PNG, JPEG or WebP image inside the project folder. When the current model can see images the image is attached directly; otherwise it is sent to a separate vision model. Each fallback call uses part of the free-pi daily allowance.',
-        promptSnippet: 'Look at an image in the project and answer a question about it',
+          `Look at a PNG, JPEG or WebP image inside the project folder. When the current model can see images the image is attached directly; otherwise it is sent to a separate vision model. ` +
+          `Use it sparingly: at most ${MAX_IMAGE_REVIEWS_PER_TURN} images per turn, and never to review every rendered frame — the user watches the finished video.`,
+        promptSnippet: 'Look at a key frame or attached image',
         parameters: {
           type: 'object',
           properties: {
@@ -912,6 +930,24 @@ async function createFreePiSession(options) {
           if (!target.startsWith(path.resolve(cwd))) {
             return { content: [{ type: 'text', text: 'Image must be inside the project folder.' }] };
           }
+
+          // Count looks per user turn: a new message starts a fresh budget.
+          const turn = (visionSession?.messages || []).filter((m) => m.role === 'user').length;
+          const allowance = reviewAllowance(turn, reviewState, MAX_IMAGE_REVIEWS_PER_TURN);
+          if (!allowance.allowed) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text:
+                    `Image review budget for this turn is used (${MAX_IMAGE_REVIEWS_PER_TURN}). ` +
+                    'Finish the render; the user watches the finished video. Use ffprobe, file size or command output for technical checks.',
+                },
+              ],
+            };
+          }
+          reviewState = allowance.state;
+
           let buf;
           try {
             buf = await fs.promises.readFile(target);
