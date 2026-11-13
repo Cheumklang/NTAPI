@@ -1,6 +1,6 @@
 # Steer + @skill Mentions Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Send a message into a running turn (Enter = steer, Ctrl+Enter = queue), and make `@caveman`-style mentions actually invoke the installed skill.
 
@@ -42,7 +42,7 @@
 - Consumes: nothing.
 - Produces on `globalThis.FPProvider`: `resolveSkillMention(text, skills) -> string` where `skills` is `[{ name, description? }]`. Signature: `(text: string, skills: Array<{name: string}> | null) => string`.
 
-- [ ] **Step 1: Add the failing checks** to `scripts/selftest-provider-ui.js`:
+- [x] **Step 1: Add the failing checks** to `scripts/selftest-provider-ui.js`:
 
 ```js
 const skills = [{ name: 'caveman' }, { name: 'brainstorming' }];
@@ -56,21 +56,21 @@ check('unknown skill untouched', UI.resolveSkillMention('@nope hi', skills) === 
 check('no skills loaded is safe', UI.resolveSkillMention('@caveman hi', null) === '@caveman hi');
 ```
 
-- [ ] **Step 2: Run it and see the new checks fail**
+- [x] **Step 2: Run it and see the new checks fail**
 
 Run: `node scripts/selftest-provider-ui.js`
 Expected: `TypeError: UI.resolveSkillMention is not a function`.
 
-- [ ] **Step 3: Implement `resolveSkillMention`** in `provider-ui.js`
+- [x] **Step 3: Implement `resolveSkillMention`** in `provider-ui.js`
 
 Rules: match `/^@([A-Za-z0-9._-]+)(?=$|\s)/`; look the captured name up case-insensitively in `skills`; on a hit return `/skill:${skill.name}` + the original remainder (including the leading space when present); otherwise return `text` unchanged. Never touch a name that contains `/` (those are file mentions).
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Run: `node scripts/selftest-provider-ui.js`
 Expected: all checks pass, exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/renderer/provider-ui.js app/scripts/selftest-provider-ui.js
@@ -90,7 +90,7 @@ git commit -m "feat(renderer): resolve @skill mentions to /skill commands"
 - Produces: `promptOptionsFor(isStreaming, mode) -> { streamingBehavior: 'steer'|'followUp' } | undefined`.
   `mode` is `'steer' | 'followUp' | undefined`; idle always returns `undefined`; unknown modes default to `'steer'`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 const { promptOptionsFor } = require('../src/prompt-mode');
@@ -103,12 +103,12 @@ check('unknown mode defaults to steer', promptOptionsFor(true, 'nonsense').strea
 
 Use the same `check(name, ok, detail)` / exit-code style as `selftest-provider-errors.js`.
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `node scripts/selftest-prompt-mode.js`
 Expected: `Cannot find module '../src/prompt-mode'`.
 
-- [ ] **Step 3: Implement `src/prompt-mode.js`**
+- [x] **Step 3: Implement `src/prompt-mode.js`**
 
 ```js
 function promptOptionsFor(isStreaming, mode) {
@@ -119,12 +119,12 @@ function promptOptionsFor(isStreaming, mode) {
 
 Export it. Document why idle returns undefined (SDK rejects the option).
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Run: `node scripts/selftest-prompt-mode.js`
 Expected: all checks pass, exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/prompt-mode.js app/scripts/selftest-prompt-mode.js
@@ -144,7 +144,7 @@ git commit -m "feat(prompt): choose the SDK streaming behaviour"
 - Consumes: `promptOptionsFor` from Task 2.
 - Produces: IPC `prompt:send { tabId, text, images, mode } -> { ok: true, mode }`; preload `sendPrompt(tabId, text, images, mode)`.
 
-- [ ] **Step 1: Wire the handler**
+- [x] **Step 1: Wire the handler**
 
 In `prompt:send`, after building `promptText`:
 
@@ -156,16 +156,16 @@ const run = tab.handle.session.prompt(promptText, options);
 
 Destructure `mode: passedMode` from the IPC payload. Keep the existing `run.catch` cleanup. Return `{ ok: true, mode: options?.streamingBehavior || null }`.
 
-- [ ] **Step 2: Widen the preload call**
+- [x] **Step 2: Widen the preload call**
 
 `sendPrompt: (tabId, text, images, mode) => ipcRenderer.invoke('prompt:send', { tabId, text, images, mode })`.
 
-- [ ] **Step 3: Syntax check**
+- [x] **Step 3: Syntax check**
 
 Run: `node --check src/main.js; node --check src/preload.js`
 Expected: no output, exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/src/main.js app/src/preload.js
@@ -184,9 +184,9 @@ git commit -m "feat(main): send steer or follow-up prompts into a running turn"
 - Consumes: `FPProvider.resolveSkillMention` (Task 1), `api.sendPrompt(..., mode)` (Task 3).
 - Produces: UI only.
 
-- [ ] **Step 1: Add strings** to both dictionaries: `steerSent` = `Sent into the running turn.` / `ส่งเข้าเทิร์นที่กำลังทำงานแล้ว`, and `steerHint` = `Agent is working — Enter sends into the turn, Ctrl+Enter queues` / `เอเจนต์กำลังทำงาน — Enter ส่งเข้าเทิร์น, Ctrl+Enter เข้าคิว`. Replace `placeholderBusy` usages with `steerHint` (keep the old key if referenced elsewhere).
+- [x] **Step 1: Add strings** to both dictionaries: `steerSent` = `Sent into the running turn.` / `ส่งเข้าเทิร์นที่กำลังทำงานแล้ว`, and `steerHint` = `Agent is working — Enter sends into the turn, Ctrl+Enter queues` / `เอเจนต์กำลังทำงาน — Enter ส่งเข้าเทิร์น, Ctrl+Enter เข้าคิว`. Replace `placeholderBusy` usages with `steerHint` (keep the old key if referenced elsewhere).
 
-- [ ] **Step 2: Resolve the skill before sending**
+- [x] **Step 2: Resolve the skill before sending**
 
 Add:
 
@@ -200,7 +200,7 @@ async function resolveForSend(text) {
 
 In `submit()`, after the `/clear` branch, `const outgoing = await resolveForSend(text);` and use `outgoing` for the bubble text, the `view.messages.push`, and `api.sendPrompt`.
 
-- [ ] **Step 3: Steer instead of queue on Enter**
+- [x] **Step 3: Steer instead of queue on Enter**
 
 Replace the busy branch in `submit()`:
 
@@ -226,29 +226,29 @@ if (view.busy) {
 
 Keep `setBusy` untouched: the tab is already busy.
 
-- [ ] **Step 4: Ctrl+Enter semantics**
+- [x] **Step 4: Ctrl+Enter semantics**
 
 In the first keydown listener's Ctrl+Enter branch: when `view.busy` queue as today; when idle, call `submit()` instead of queueing. Ensure the branch runs after the `/clear` and Enter branches and does not double-send.
 
-- [ ] **Step 5: Fix key ordering for the `@` menu**
+- [x] **Step 5: Fix key ordering for the `@` menu**
 
 In the **first** `input` keydown listener (registered near the composer callbacks), handle `fileMenuState.open` before `slashState.open`: ArrowUp/Down move, Tab/Enter `applyFileMention(fileMenuState.items[fileMenuState.index])`, Escape hides, each with `preventDefault`/`stopPropagation`/return. Delete the duplicate menu branches from the later `wiring: compose` listener, keeping only its `!shell` branch.
 
-- [ ] **Step 6: Render skills before files**
+- [x] **Step 6: Render skills before files**
 
 In `updateFileMenu`, after the skills query resolves, set `fileMenuState.items` to the skills and call `renderFileMenu()` when the list is non-empty; then await `api.listFiles` and re-render with `[...skills, ...files]` only if the token is unchanged. Do not hide the menu while skills are visible.
 
-- [ ] **Step 7: Cache skills for 60 s**
+- [x] **Step 7: Cache skills for 60 s**
 
 `loadSkills()` returns cached results younger than 60 s; track `skillsAt` and a single in-flight promise so two keystrokes cannot double-load. Keep the startup warm-up call.
 
-- [ ] **Step 8: Syntax + UI render check**
+- [x] **Step 8: Syntax + UI render check**
 
 Run: `node --check src/renderer/app.js`
 Run: `node_modules/electron/dist/electron.exe scripts/selftest-ui-render.js`
 Expected: "ui render checks passed".
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add app/src/renderer/app.js app/src/renderer/styles.css
@@ -267,11 +267,11 @@ git commit -m "feat(composer): steer into the running turn and invoke @skills"
 - Consumes: the running app on port 9222 (mention test); `COARENA_KEY` (steer test).
 - Produces: pass/fail JSON reports.
 
-- [ ] **Step 1: Mention UI check** (CDP, adapt `selftest-coarena-ui.js` helpers)
+- [x] **Step 1: Mention UI check** (CDP, adapt `selftest-coarena-ui.js` helpers)
 
 Open a tab, set `input.value = '@caveman'`, dispatch `input`, wait for `#fileMenu` to show a row whose name is `caveman`, press `ArrowDown` then `Enter` via `Input.dispatchKeyEvent`, assert `input.value.startsWith('/skill:caveman')` and that nothing was sent. Then set `input.value = '@caveman say hi'` and assert the send-time resolver (call `FPProvider.resolveSkillMention` in the page) returns `/skill:caveman say hi`.
 
-- [ ] **Step 2: Live steer check**
+- [x] **Step 2: Live steer check**
 
 ```js
 const handle = await bridge.createFreePiSession({ cwd, sdk, coarenaKey: key, resolveFreePiAuth: async () => null, ... });
@@ -283,7 +283,7 @@ await handle.session.prompt('Stop counting and reply with exactly: STEERED', { s
 
 Assert: settled once, final text contains `STEERED`, `session.messages` has exactly two user messages, and `handle.rotateAd()` stays `false` (no ad for Coarena).
 
-- [ ] **Step 3: Run both**
+- [x] **Step 3: Run both**
 
 ```powershell
 $env:COARENA_KEY = (Get-Content "$env:TEMP\opencode\coarena-key.txt" -Raw).Trim()
@@ -294,12 +294,12 @@ node scripts/selftest-mention-ui.js
 
 Expected: both exit 0.
 
-- [ ] **Step 4: Run the full local suite**
+- [x] **Step 4: Run the full local suite**
 
 `selftest-provider-ui`, `selftest-prompt-mode`, `selftest-provider-plan`, `selftest-coarena`, `selftest-coarena-key`, `selftest-provider-errors`, `selftest-markdown`, `selftest-session-paths`, `selftest-ui-render`.
 Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/scripts/selftest-mention-ui.js app/scripts/selftest-steer-live.js
