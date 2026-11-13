@@ -808,6 +808,8 @@ function renderActiveTab() {
 /* ------------------------- provider chrome ------------------------- */
 
 let coarenaStatus = null;
+let coarenaStatusAt = 0;
+let coarenaStatusPromise = null;
 
 /**
  * One window, two providers: the meter and the ad slot follow the active
@@ -821,6 +823,19 @@ function syncProviderChrome(view) {
   if (coarenaUsage) coarenaUsage.hidden = !chrome.showCoarenaMeter;
   if (!chrome.showAds) adSlot.hidden = true;
   paintCoarenaMeter();
+  // The key can arrive while this tab is already open, so the meter fetches its
+  // own status instead of relying on Settings having been opened.
+  if (chrome.showCoarenaMeter) ensureCoarenaStatus().catch(() => {});
+}
+
+/** Throttled status read: syncProviderChrome runs on every tab paint. */
+async function ensureCoarenaStatus(force = false) {
+  if (coarenaStatusPromise) return coarenaStatusPromise;
+  if (!force && Date.now() - coarenaStatusAt < 30_000) return coarenaStatus;
+  coarenaStatusPromise = refreshCoarenaStatus().finally(() => {
+    coarenaStatusPromise = null;
+  });
+  return coarenaStatusPromise;
 }
 
 function paintCoarenaMeter() {
@@ -853,6 +868,7 @@ function paintCoarenaSettings() {
 }
 
 async function refreshCoarenaStatus() {
+  coarenaStatusAt = Date.now();
   try {
     coarenaStatus = await api.coarenaStatus();
   } catch {
@@ -2823,7 +2839,13 @@ api.onModelChanged((p) => {
   const view = viewFor(p);
   if (!view) return;
   view.model = p.model;
-  if (payloadTabIsActive(view)) syncProviderChrome(view);
+  if (payloadTabIsActive(view)) {
+    // Keep the select honest when the model changed from main (key removal,
+    // resumed session) rather than from the dropdown itself.
+    if (p.model) modelSelect.value = `${p.model.provider}||${p.model.id}`;
+    syncProviderChrome(view);
+    if (p.model?.provider === 'coarena') ensureCoarenaStatus(true).catch(() => {});
+  }
   // Coming back to FreePi needs a banner; main decides whether one is due.
   if (FPProvider.isFreePiProvider(p.model?.provider)) {
     api.rotateAd({ tabId: view.tabId, auto: true }).catch(() => {});
