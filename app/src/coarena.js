@@ -1,0 +1,217 @@
+'use strict';
+
+/**
+ * Coarena Model API client.
+ *
+ * Coarena speaks the OpenAI chat-completions protocol, so pi's
+ * `openai-completions` adapter can drive it unchanged. What this module owns is
+ * everything around that: the model catalog (with a verified fallback so an
+ * offline start still shows models), the provider config pi registers, and the
+ * read-only key check the Settings dialog uses to prove a pasted key works.
+ *
+ * The API key never appears in an error string, a log line or a model entry.
+ */
+
+const COARENA_PROVIDER = 'coarena';
+const COARENA_BASE_URL = 'https://coarena.ai/api/v1';
+
+const CATALOG_TTL_MS = 10 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 8000;
+const DEFAULT_CONTEXT_WINDOW = 128000;
+const DEFAULT_MAX_TOKENS = 16384;
+
+/**
+ * Used only when the catalog cannot be reached and nothing is cached. These are
+ * the ids the live catalog served when this app was built; a stale id fails a
+ * turn with a clear provider error instead of leaving the model list empty.
+ */
+const FALLBACK_MODELS = [
+  { id: 'claude-fable-5', name: 'Claude Fable 5' },
+  { id: 'deepseek-v4-1-flash-1017', name: 'DeepSeek V4.1 Flash' },
+  { id: 'gemini-4-argon', name: 'Gemini 4 Argon' },
+  { id: 'kimi-k3-1-pro', name: 'Kimi K3.1 Pro' },
+  { id: 'grok-4-7', name: 'Grok 4.7' },
+];
+
+/** @type {{ at: number, models: Array<object> } | null} */
+let modelCache = null;
+
+/** Tests only: forget the catalog so the next call hits the injected fetch. */
+function resetCoarenaModelCache() {
+  modelCache = null;
+}
+
+/**
+ * GET helper. The timeout applies only to the real global fetch; a fake fetch
+ * in tests must not be handed a signal it cannot understand.
+ */
+async function coarenaGet(pathname, { fetchImpl, headers } = {}) {
+  const doFetch = fetchImpl || fetch;
+  const init = { headers: { accept: 'application/json', ...headers } };
+  if (doFetch === fetch) init.signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  return doFetch(`${COARENA_BASE_URL}${pathname}`, init);
+}
+
+async function readJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function finiteOr(value, fallback) {
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  return typeof n === 'number' && Number.isFinite(n) ? n : fallback;
+}
+
+/** Coarena reports timestamps as epoch milliseconds; the UI formats ISO. */
+function epochToIso(value) {
+  const n = finiteOr(value, null);
+  if (n === null) return null;
+  const date = new Date(n);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function normalizeModel(raw) {
+  const id = typeof raw?.id === 'string' ? raw.id : '';
+  return {
+    id,
+    name: typeof raw?.display_name === 'string' && raw.display_name ? raw.display_name : id,
+    contextWindow: finiteOr(raw?.context_length, DEFAULT_CONTEXT_WINDOW),
+    maxTokens: finiteOr(raw?.max_completion_tokens, finiteOr(raw?.max_tokens, DEFAULT_MAX_TOKENS)),
+  };
+}
+
+function fallbackCatalog() {
+  return FALLBACK_MODELS.map((m) => ({
+    ...m,
+    contextWindow: DEFAULT_CONTEXT_WINDOW,
+    maxTokens: DEFAULT_MAX_TOKENS,
+  }));
+}
+
+/**
+ * The catalog, in order of preference: live fetch, recent cache, verified
+ * fallback. Never throws — a chat session must still open offline.
+ */
+async function fetchCoarenaModels({ fetchImpl, now = Date.now, force = false } = {}) {
+  if (!force && modelCache && now() - modelCache.at < CATALOG_TTL_MS) {
+    return { models: modelCache.models, source: 'cache' };
+  }
+
+  try {
+    const res = await coarenaGet('/models', { fetchImpl });
+    if (!res.ok) throw new Error(`model catalog request failed (HTTP ${res.status})`);
+    const body = await readJson(res);
+    const list = Array.isArray(body?.data) ? body.data : [];
+    const models = list.map(normalizeModel).filter((m) => m.id);
+    if (models.length === 0) throw new Error('model catalog was empty');
+    modelCache = { at: now(), models };
+    return { models, source: 'live' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (modelCache) return { models: modelCache.models, source: 'cache', error: message };
+    return { models: fallbackCatalog(), source: 'fallback', error: message };
+  }
+}
+
+/** What pi's registerProvider expects for Coarena. */
+function coarenaProviderConfig({ apiKey, models }) {
+  return {
+    name: 'Coarena',
+    baseUrl: COARENA_BASE_URL,
+    api: 'openai-completions',
+    apiKey,
+    models: (models || []).map((m) => ({
+      id: m.id,
+      name: m.name || m.id,
+      reasoning: true,
+      compat: { supportsDeveloperRole: false },
+      // Images reach Coarena through the look_at_image tool, never as content
+      // blocks, so every model is declared text-only on purpose.
+      input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: m.contextWindow || DEFAULT_CONTEXT_WINDOW,
+      maxTokens: m.maxTokens || DEFAULT_MAX_TOKENS,
+    })),
+  };
+}
+
+/** Model-dropdown entries, tagged with the provider so a switch is unambiguous. */
+function coarenaModelEntries(models) {
+  return (models || []).map((m) => ({ provider: COARENA_PROVIDER, id: m.id, name: m.name || m.id }));
+}
+
+/**
+ * Ask the API who this key is and what it has left. Used to reject a wrong key
+ * before it is saved, and to show limits in Settings. A network failure is not
+ * a bad key, so it is reported separately as `offline`.
+ */
+async function readCoarenaKeyInfo(rawKey, { fetchImpl } = {}) {
+  const key = String(rawKey || '').trim();
+  if (!key) return { ok: false, status: 0, code: 'missing_key', error: 'Enter a Coarena API key first.' };
+
+  let res;
+  try {
+    res = await coarenaGet('/key', { fetchImpl, headers: { authorization: `Bearer ${key}` } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      offline: true,
+      status: 0,
+      code: null,
+      error: `Could not reach Coarena — check your connection (${message}).`,
+    };
+  }
+
+  const body = await readJson(res);
+  if (!res.ok) {
+    const parsed = body?.error || body || {};
+    const code = typeof parsed.code === 'string' ? parsed.code : null;
+    const message = typeof parsed.message === 'string' ? parsed.message : `HTTP ${res.status}`;
+    return {
+      ok: false,
+      status: res.status,
+      code,
+      // Defence in depth: even a server message must never echo the key back.
+      error: message.split(key).join('[key]'),
+    };
+  }
+
+  const data = body?.data || body || {};
+  const limits = data.limits || {};
+  const usage = data.usage_today || {};
+  return {
+    ok: true,
+    info: {
+      label: typeof data.label === 'string' ? data.label : null,
+      prefix: typeof data.prefix === 'string' ? data.prefix : null,
+      isFreeTier: Boolean(data.is_free_tier),
+      expiresAt: epochToIso(data.expires_at),
+      limits: {
+        requestsPerMinute: finiteOr(limits.requests_per_minute_key, finiteOr(limits.requests_per_minute_account, null)),
+        concurrency: finiteOr(limits.concurrency, null),
+        usdPerDay: finiteOr(limits.usd_per_day, null),
+        maxOutputTokens: finiteOr(limits.max_output_tokens, null),
+      },
+      usageToday: {
+        requests: finiteOr(usage.requests, 0),
+        costUsd: finiteOr(usage.cost_usd, 0),
+        resetsAt: epochToIso(usage.resets_at),
+      },
+    },
+  };
+}
+
+module.exports = {
+  COARENA_PROVIDER,
+  COARENA_BASE_URL,
+  FALLBACK_MODELS,
+  fetchCoarenaModels,
+  coarenaProviderConfig,
+  coarenaModelEntries,
+  readCoarenaKeyInfo,
+  resetCoarenaModelCache,
+};
