@@ -858,10 +858,13 @@ async function createFreePiSession(options) {
   };
 
   /**
-   * `look_at_image`: free-pi models are text-only, so images are viewed by asking
-   * the backend's vision endpoint about a file already on disk. Mirrors the tool
-   * free-pi-cli registers.
+   * `look_at_image`: show an image to the active model when it can see images;
+   * otherwise fall back to the free-pi vision endpoint. Mirrors the tool
+   * free-pi-cli registers, with one addition: a vision-capable model receives
+   * the picture itself instead of a second model's description.
    */
+  // Set once the session exists; tool execute() reads the live model from here.
+  let visionSession = null;
   const visionExtension = {
     name: 'freepi-desktop-vision',
     factory(pi) {
@@ -869,8 +872,8 @@ async function createFreePiSession(options) {
         name: 'look_at_image',
         label: 'Look At Image',
         description:
-          'Ask a vision model one question about a PNG, JPEG or WebP image inside the project folder. You cannot see images yourself. Each call uses part of the free-pi daily allowance.',
-        promptSnippet: 'Ask a vision model about an image in the project',
+          'Look at a PNG, JPEG or WebP image inside the project folder. When the current model can see images the image is attached directly; otherwise it is sent to a separate vision model. Each fallback call uses part of the free-pi daily allowance.',
+        promptSnippet: 'Look at an image in the project and answer a question about it',
         parameters: {
           type: 'object',
           properties: {
@@ -879,8 +882,8 @@ async function createFreePiSession(options) {
           },
           required: ['path', 'question'],
         },
-        // pi calls execute(toolCallId, params, signal).
-        async execute(_id, params) {
+        // pi calls execute(toolCallId, params, signal, onUpdate, ctx).
+        async execute(_id, params, _signal, _onUpdate, ctx) {
           const target = path.resolve(cwd, params?.path || '');
           if (!target.startsWith(path.resolve(cwd))) {
             return { content: [{ type: 'text', text: 'Image must be inside the project folder.' }] };
@@ -898,6 +901,28 @@ async function createFreePiSession(options) {
               : ext === '.webp'
               ? 'image/webp'
               : 'image/png';
+
+          // A model that accepts images gets the picture itself: no second
+          // provider, no free-pi allowance, and no 429 when FreePi is capped.
+          const model = ctx?.getModel?.() || visionSession?.model;
+          if (model?.input?.includes('image')) {
+            return {
+              content: [
+                { type: 'image', data: buf.toString('base64'), mimeType: mediaType },
+                { type: 'text', text: `Image attached. Answer this yourself: ${params?.question || 'Describe it.'}` },
+              ],
+            };
+          }
+          if (!auth) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: 'This model cannot see images. Switch to a Coarena model that supports vision, or connect FreePi.',
+                },
+              ],
+            };
+          }
           try {
             // The backend's vision upstream returns 502 intermittently; retry briefly.
             let res;
@@ -1098,6 +1123,7 @@ async function createFreePiSession(options) {
     sessionManager,
     tools: defaultTools,
   });
+  visionSession = session;
 
   // Show a banner ad as soon as the session opens, so the window is never left
   // without one while it waits for the first message.
