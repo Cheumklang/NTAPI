@@ -12,6 +12,15 @@ const stopBtn = el('stopBtn');
 const statusHint = el('statusHint');
 const noticeEl = el('notice');
 const modelSelect = el('modelSelect');
+const modelPicker = el('modelPicker');
+const modelPickerBtn = el('modelPickerBtn');
+const modelPickerMark = el('modelPickerMark');
+const modelPickerProvider = el('modelPickerProvider');
+const modelPickerName = el('modelPickerName');
+const modelMenu = el('modelMenu');
+const modelSearch = el('modelSearch');
+const modelList = el('modelList');
+const modelMenuEmpty = el('modelMenuEmpty');
 const sessionTitle = el('sessionTitle');
 const emptyState = el('emptyState');
 const attachBar = el('attachments');
@@ -737,6 +746,306 @@ function refreshToolsSummary(container) {
 
 /* ------------------------------ sessions UI ------------------------------ */
 
+/* ------------------------------ model picker ------------------------------ */
+/*
+ * The catalog is one flat, provider-tagged list. Rendering it as one native
+ * <select> turned FreePi + Coarena + Zro into a wall of near-identical names,
+ * so the visible control groups the same list by provider and leads each group
+ * with that provider's mark. The hidden <select> stays the single source of
+ * truth for IPC and the existing change handler.
+ */
+
+function modelKey(model) {
+  return model ? `${model.provider}||${model.id}` : '';
+}
+
+function paintProviderMark(mark, provider) {
+  if (!mark) return;
+  mark.replaceChildren();
+  if (!provider) return;
+
+  const logo = FPProvider.providerLogoPath(provider);
+  if (logo) {
+    const img = document.createElement('img');
+    img.src = logo;
+    img.alt = '';
+    img.draggable = false;
+    // A missing bundled file must not leave an empty square in the picker.
+    img.addEventListener(
+      'error',
+      () => {
+        mark.replaceChildren();
+        const letter = document.createElement('span');
+        letter.className = 'model-logo-letter';
+        letter.textContent = FPProvider.providerInitial(provider);
+        mark.appendChild(letter);
+      },
+      { once: true }
+    );
+    mark.appendChild(img);
+    return;
+  }
+
+  const letter = document.createElement('span');
+  letter.className = 'model-logo-letter';
+  letter.textContent = FPProvider.providerInitial(provider);
+  mark.appendChild(letter);
+}
+
+function paintModelTrigger(model) {
+  const provider = model?.provider || '';
+  const name = model?.name || model?.id || '';
+  paintProviderMark(modelPickerMark, provider);
+  modelPickerProvider.textContent = provider ? FPProvider.providerLabel(provider) : t('model');
+  modelPickerName.textContent = name || '—';
+  modelPickerBtn.title = model ? `${t('model')}: ${FPProvider.modelOptionLabel(model)}` : t('model');
+  modelPickerBtn.setAttribute(
+    'aria-label',
+    model ? `${t('model')}: ${FPProvider.modelOptionLabel(model)}` : t('model')
+  );
+}
+
+function modelOptionButton(model, current) {
+  const provider = FPProvider.providerLabel(model.provider);
+  const name = model.name || model.id;
+  const selected = Boolean(
+    current && current.provider === model.provider && current.id === model.id
+  );
+
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'model-option';
+  row.setAttribute('role', 'option');
+  row.setAttribute('aria-selected', String(selected));
+  row.dataset.provider = model.provider;
+  row.dataset.id = model.id;
+  row.dataset.value = `${model.provider}||${model.id}`;
+  // Provider is part of the search string, so "coarena" narrows the whole list
+  // even though group headers are not separate result rows.
+  row.dataset.search = `${provider} ${name} ${model.id}`.toLowerCase();
+  row.title = `${FPProvider.modelOptionLabel(model)}\n${model.id}`;
+  row.tabIndex = -1;
+
+  const check = document.createElement('span');
+  check.className = 'model-option-check';
+  check.setAttribute('aria-hidden', 'true');
+  check.textContent = '\u2713';
+
+  const label = document.createElement('span');
+  label.className = 'model-option-name';
+  label.textContent = name;
+
+  row.append(check, label);
+  return row;
+}
+
+function renderModelMenu(models, current) {
+  modelList.replaceChildren();
+  const groups = FPProvider.groupModelsByProvider(models);
+  const selectedValue = modelKey(current);
+
+  for (const group of groups) {
+    const section = document.createElement('div');
+    section.className = 'model-group';
+    section.setAttribute('role', 'group');
+    section.setAttribute('aria-label', group.label);
+
+    const head = document.createElement('div');
+    head.className = 'model-group-head';
+
+    const mark = document.createElement('span');
+    mark.className = 'model-group-mark';
+    paintProviderMark(mark, group.provider);
+
+    const label = document.createElement('span');
+    label.className = 'model-group-name';
+    label.textContent = group.label;
+
+    const count = document.createElement('span');
+    count.className = 'model-group-count';
+    count.textContent = String(group.models.length);
+
+    head.append(mark, label, count);
+    section.appendChild(head);
+
+    for (const model of group.models) {
+      const row = modelOptionButton(model, current);
+      if (modelKey(model) === selectedValue) row.setAttribute('aria-selected', 'true');
+      section.appendChild(row);
+    }
+    modelList.appendChild(section);
+  }
+}
+
+function visibleModelOptions() {
+  return [...modelList.querySelectorAll('.model-option')].filter(
+    (row) => !row.hidden && !row.closest('.model-group')?.hidden
+  );
+}
+
+function filterModelMenu() {
+  const query = modelSearch.value.trim().toLowerCase();
+  let visible = 0;
+  for (const group of modelList.querySelectorAll('.model-group')) {
+    let shown = 0;
+    for (const row of group.querySelectorAll('.model-option')) {
+      const match = !query || row.dataset.search.includes(query);
+      row.hidden = !match;
+      if (match) shown += 1;
+    }
+    group.hidden = shown === 0;
+    visible += shown;
+  }
+  modelMenuEmpty.hidden = visible > 0;
+  modelMenuEmpty.textContent = t('noModelsMatch');
+}
+
+function syncModelMenuSelection() {
+  const value = modelSelect.value;
+  for (const row of modelList.querySelectorAll('.model-option')) {
+    row.setAttribute('aria-selected', String(row.dataset.value === value));
+  }
+}
+
+function openModelMenu() {
+  if (!modelSelect.options.length || modelPickerBtn.disabled) return;
+  modelMenu.hidden = false;
+  modelPickerBtn.setAttribute('aria-expanded', 'true');
+  modelSearch.value = '';
+  modelSearch.placeholder = t('searchModels');
+  filterModelMenu();
+
+  // Bring the active model into view before the user starts typing.
+  const selected = modelList.querySelector('.model-option[aria-selected="true"]');
+  if (selected) selected.scrollIntoView({ block: 'center' });
+
+  requestAnimationFrame(() => {
+    modelSearch.focus({ preventScroll: true });
+    modelSearch.select();
+  });
+}
+
+function closeModelMenu({ focus = false } = {}) {
+  if (modelMenu.hidden) return;
+  modelMenu.hidden = true;
+  modelPickerBtn.setAttribute('aria-expanded', 'false');
+  if (focus) modelPickerBtn.focus({ preventScroll: true });
+}
+
+function toggleModelMenu() {
+  if (modelMenu.hidden) openModelMenu();
+  else closeModelMenu({ focus: true });
+}
+
+function moveModelMenuFocus(delta) {
+  const options = visibleModelOptions();
+  if (!options.length) return;
+  const at = options.indexOf(document.activeElement);
+  const next =
+    at === -1 ? (delta > 0 ? 0 : options.length - 1) : (at + delta + options.length) % options.length;
+  options[next].focus({ preventScroll: true });
+  options[next].scrollIntoView({ block: 'nearest' });
+}
+
+function chooseModel(provider, id) {
+  if (!provider || !id) return;
+  closeModelMenu({ focus: true });
+  const next = `${provider}||${id}`;
+  if (modelSelect.value === next) return;
+  modelSelect.value = next;
+  if (modelSelect.value !== next) return;
+  modelSelect.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function renderModelPicker(view) {
+  const models = Array.isArray(view?.models) ? view.models : [];
+  const current = view?.model || null;
+
+  modelSearch.placeholder = t('searchModels');
+  modelMenuEmpty.textContent = t('noModelsMatch');
+  modelList.setAttribute('aria-label', t('model'));
+
+  modelSelect.innerHTML = '';
+  for (const model of models) {
+    const option = document.createElement('option');
+    option.value = modelKey(model);
+    option.textContent = FPProvider.modelOptionLabel(model);
+    if (current && model.provider === current.provider && model.id === current.id) {
+      option.selected = true;
+    }
+    modelSelect.appendChild(option);
+  }
+
+  modelPickerBtn.disabled = models.length === 0;
+  paintModelTrigger(current);
+  renderModelMenu(models, current);
+  syncModelMenuSelection();
+
+  if (!models.length) closeModelMenu();
+  else if (!modelMenu.hidden) filterModelMenu();
+}
+
+modelPickerBtn.addEventListener('click', toggleModelMenu);
+modelPickerBtn.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    openModelMenu();
+  }
+});
+
+modelSearch.addEventListener('input', filterModelMenu);
+modelSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    moveModelMenuFocus(e.key === 'ArrowDown' ? 1 : -1);
+  } else if (e.key === 'Enter') {
+    const first = visibleModelOptions()[0];
+    if (first) {
+      e.preventDefault();
+      first.click();
+    }
+  }
+});
+
+modelList.addEventListener('click', (e) => {
+  const row = e.target.closest('.model-option');
+  if (!row) return;
+  chooseModel(row.dataset.provider, row.dataset.id);
+});
+
+modelMenu.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    closeModelMenu({ focus: true });
+    return;
+  }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    // Search handles its own arrows above; options move from here.
+    if (e.target === modelSearch) return;
+    e.preventDefault();
+    moveModelMenuFocus(e.key === 'ArrowDown' ? 1 : -1);
+  }
+});
+
+document.addEventListener('pointerdown', (e) => {
+  if (!modelMenu.hidden && !modelPicker.contains(e.target)) closeModelMenu();
+});
+
+modelPicker.addEventListener('focusout', () => {
+  // relatedTarget is null for some native clicks, so check after focus settles.
+  setTimeout(() => {
+    if (!modelMenu.hidden && !modelPicker.contains(document.activeElement)) closeModelMenu();
+  }, 0);
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !modelMenu.hidden) {
+    e.preventDefault();
+    closeModelMenu({ focus: true });
+  }
+});
+
 function renderActiveTab() {
   const view = activeView();
   if (!view) {
@@ -744,7 +1053,8 @@ function renderActiveTab() {
     transcript.appendChild(emptyState);
     emptyState.hidden = false;
     sessionTitle.value = '';
-    modelSelect.innerHTML = '';
+    closeModelMenu();
+    renderModelPicker(null);
     setBusy(false);
     return;
   }
@@ -756,16 +1066,7 @@ function renderActiveTab() {
   el('cwdLabel').textContent = view.cwd || '…';
   el('guestBadge').hidden = !view.guest;
 
-  if (view.models?.length) {
-    modelSelect.innerHTML = '';
-    for (const m of view.models) {
-      const opt = document.createElement('option');
-      opt.value = `${m.provider}||${m.id}`;
-      opt.textContent = FPProvider.modelOptionLabel(m);
-      if (view.model && m.id === view.model.id && m.provider === view.model.provider) opt.selected = true;
-      modelSelect.appendChild(opt);
-    }
-  }
+  renderModelPicker(view);
 
   transcript.innerHTML = '';
   transcript.appendChild(emptyState);
@@ -2080,6 +2381,8 @@ modelSelect.addEventListener('change', async () => {
   try {
     const m = await api.setModel(view.tabId, provider, id);
     view.model = m;
+    paintModelTrigger(m);
+    syncModelMenuSelection();
     statusHint.textContent = `Model: ${m.name || m.id}`;
   } catch (err) {
     showNotice(`Could not switch model: ${err.message || err}`);
@@ -3069,6 +3372,8 @@ api.onModelChanged((p) => {
     // Keep the select honest when the model changed from main (key removal,
     // resumed session) rather than from the dropdown itself.
     if (p.model) modelSelect.value = `${p.model.provider}||${p.model.id}`;
+    paintModelTrigger(p.model);
+    syncModelMenuSelection();
     syncProviderChrome(view);
     if (p.model?.provider === 'coarena') ensureCoarenaStatus(true).catch(() => {});
   }
@@ -3235,6 +3540,8 @@ Object.assign(STRINGS.en, {
   contextHint: 'Context window used by this conversation',
   mentionHint: '↑↓ choose · Tab/Enter insert · Esc close',
   model: 'Model',
+  searchModels: 'Search models…',
+  noModelsMatch: 'No models match',
   newChat: 'New chat',
   settingsItem: 'Settings',
   searchItem: 'Search conversation',
@@ -3272,6 +3579,8 @@ Object.assign(STRINGS.th, {
   contextHint: 'พื้นที่บริบทที่บทสนทนานี้ใช้อยู่',
   mentionHint: '↑↓ เลือก · Tab/Enter แทรก · Esc ปิด',
   model: 'โมเดล',
+  searchModels: 'ค้นหาโมเดล…',
+  noModelsMatch: 'ไม่พบโมเดลที่ตรงกัน',
   newChat: 'แชทใหม่',
   settingsItem: 'ตั้งค่า',
   searchItem: 'ค้นหาในบทสนทนา',

@@ -101,7 +101,43 @@
           </div>
           <div class="controls">
             <select id="thinkingSelect" class="thinking-select" title="Reasoning effort" hidden></select>
-            <select id="modelSelect" title="Model"></select>
+            <div class="model-picker" id="modelPicker">
+              <!-- Native select stays as the value source for IPC and tests; the
+                   visible control is the grouped, logo-led picker below. -->
+              <select id="modelSelect" hidden aria-hidden="true" tabindex="-1"></select>
+              <button
+                id="modelPickerBtn"
+                class="model-picker-btn"
+                type="button"
+                title="Model"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="modelMenu"
+                disabled
+              >
+                <span class="model-picker-mark" id="modelPickerMark" aria-hidden="true"></span>
+                <span class="model-picker-copy">
+                  <span class="model-picker-provider" id="modelPickerProvider">Model</span>
+                  <span class="model-picker-name" id="modelPickerName">—</span>
+                </span>
+                <span class="model-picker-chevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="model-menu" id="modelMenu" hidden>
+                <div class="model-menu-search">
+                  <input
+                    id="modelSearch"
+                    class="model-search"
+                    type="search"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Search models"
+                    aria-label="Search models"
+                  />
+                </div>
+                <div class="model-list" id="modelList" role="listbox" aria-label="Model"></div>
+                <div class="model-menu-empty" id="modelMenuEmpty" hidden>No models match</div>
+              </div>
+            </div>
           </div>
         </header>
 

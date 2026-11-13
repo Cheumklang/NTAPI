@@ -74,7 +74,10 @@ appears in this app and vice versa:
 - Workspace folder picker, remembered across restarts, last session auto-reopened
 - Session list per folder — click to switch, rename inline, **right-click → Delete from disk** to
   remove a conversation permanently (asks for confirmation, then unlinks the `.jsonl` file)
-- Model picker populated from the live free-pi catalog (free + defense models)
+- **Model picker grouped by provider** — one searchable menu instead of a flat `<select>`:
+  a FreePi section (free + defense ids), a Coarena section and a Zro section, each led by
+  that provider's bundled mark (`app/src/renderer/assets/providers/`). The active model is
+  ticked, typing filters every section at once, and `Esc` closes back onto the trigger
 - Stop button to abort a running turn
 - Live free-pi credit balance via `GET /me/stats`
 

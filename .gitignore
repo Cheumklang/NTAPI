@@ -5,3 +5,4 @@ app/.freepi-attachments/
 .freepi-attachments/
 *.log
 npm-debug.log*
+app/shots-model-picker/

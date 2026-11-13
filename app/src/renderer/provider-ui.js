@@ -18,6 +18,14 @@
   const ZRO_PROVIDER = 'zro';
   const SEPARATOR = ' \u00b7 ';
 
+  /** Bundled marks, resolved relative to the renderer page. */
+  const PROVIDER_LOGOS = {
+    'free-pi': 'assets/providers/freepi.svg',
+    'free-pi-defense': 'assets/providers/freepi.svg',
+    coarena: 'assets/providers/coarena.svg',
+    zro: 'assets/providers/zro.svg',
+  };
+
   /** Human-facing provider name; unknown providers pass through unchanged. */
   function providerLabel(provider) {
     if (FREE_PI_PROVIDERS.has(provider)) return 'FreePi';
@@ -29,6 +37,40 @@
   /** True for the FreePi provider ids (the ones that carry ads and usage). */
   function isFreePiProvider(provider) {
     return FREE_PI_PROVIDERS.has(provider);
+  }
+
+  /** Bundled logo for a provider, relative to index.html; '' when unknown. */
+  function providerLogoPath(provider) {
+    return PROVIDER_LOGOS[provider] || '';
+  }
+
+  /** One letter for an unknown provider, so a group never renders logo-less. */
+  function providerInitial(provider) {
+    const label = providerLabel(provider);
+    return label ? label.slice(0, 1).toUpperCase() : '?';
+  }
+
+  /**
+   * Group a flat catalog by the name the user sees: one FreePi section for both
+   * `free-pi` ids, then Coarena, then Zro. Order follows the catalog, so the
+   * default provider stays on top.
+   */
+  function groupModelsByProvider(models) {
+    const groups = [];
+    const byLabel = new Map();
+    for (const model of Array.isArray(models) ? models : []) {
+      if (!model || !model.id) continue;
+      const label = providerLabel(model.provider) || 'Models';
+      let group = byLabel.get(label);
+      if (!group) {
+        group = { label, provider: model.provider, logo: providerLogoPath(model.provider), models: [] };
+        byLabel.set(label, group);
+        groups.push(group);
+      }
+      if (!group.logo) group.logo = providerLogoPath(model.provider);
+      group.models.push(model);
+    }
+    return groups;
   }
 
   /** One line for a model dropdown option: `Coarena · Claude Fable 5`. */
@@ -106,6 +148,9 @@
   root.FPProvider = {
     providerLabel,
     isFreePiProvider,
+    providerLogoPath,
+    providerInitial,
+    groupModelsByProvider,
     modelOptionLabel,
     providerChrome,
     coarenaMeterText,

@@ -20,6 +20,26 @@ function check(name, condition, detail) {
 check('free-pi label', UI.providerLabel('free-pi') === 'FreePi' && UI.providerLabel('free-pi-defense') === 'FreePi');
 check('coarena label', UI.providerLabel('coarena') === 'Coarena');
 check('zro label', UI.providerLabel('zro') === 'Zro');
+check('free-pi logo', UI.providerLogoPath('free-pi') === 'assets/providers/freepi.svg');
+check('defense logo', UI.providerLogoPath('free-pi-defense') === UI.providerLogoPath('free-pi'));
+check('coarena logo', UI.providerLogoPath('coarena') === 'assets/providers/coarena.svg');
+check('zro logo', UI.providerLogoPath('zro') === 'assets/providers/zro.svg');
+check('unknown logo', UI.providerLogoPath('other') === '');
+check('unknown initial', UI.providerInitial('other') === 'O' && UI.providerInitial('') === '?');
+
+const groups = UI.groupModelsByProvider([
+  { provider: 'free-pi', id: 'a', name: 'A' },
+  { provider: 'coarena', id: 'b', name: 'B' },
+  { provider: 'free-pi-defense', id: 'c', name: 'C' },
+  { provider: 'zro', id: 'd', name: 'D' },
+  { provider: 'free-pi', id: 'e', name: 'E' },
+  { provider: 'broken', name: 'no id' },
+]);
+check('groups by visible provider', groups.length === 3, JSON.stringify(groups));
+check('free-pi ids share one group', groups[0]?.label === 'FreePi' && groups[0].models.length === 3);
+check('group order follows catalog', groups.map((g) => g.label).join() === 'FreePi,Coarena,Zro');
+check('group keeps logo', groups.every((g) => g.logo.startsWith('assets/providers/')));
+check('defense-only group', UI.groupModelsByProvider([{ provider: 'free-pi-defense', id: 'x' }])[0]?.logo === UI.providerLogoPath('free-pi'));
 check(
   'free-pi detection',
   UI.isFreePiProvider('free-pi') === true &&
