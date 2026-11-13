@@ -114,3 +114,27 @@ retired, pick another model. Network failure names NVIDIA.
 - Whether the meter copy should name the key alias; NVIDIA publishes none.
 - Whether a retired model should auto-switch to the next candidate instead of
   only explaining the 404.
+
+## Reality check (2026-11-14)
+
+Measured against the live API with the user's key:
+
+| Call | Result |
+|------|--------|
+| `GET /v1/models` | 200, lists DeepSeek V4.1 Flash |
+| `POST` chat `deepseek-ai/deepseek-coder-6.7b-instruct` | 404 `Function '<uuid>': Not found for account` — the account lacks the Public API Endpoints entitlement |
+| `POST` chat `deepseek-ai/deepseek-v4.1-flash` | **accepted, then no bytes at all** — hung past 200 s, both streamed and not |
+| `POST` chat `deepseek-ai/deepseek-v4-flash` / `-0731` | 410 Gone, end-of-life 2026-08-07 / 2026-09-21 |
+
+So the lane is wired correctly and its catalog check works, but no completion can
+succeed on this account yet: the entitlement is missing and the one live id stays
+silent. The provider therefore ships with two guards rather than being removed:
+
+- the `account_not_enabled` hint names the entitlement, because the 404 reads like
+  a bad model id but is not one;
+- the bridge caps provider silence at 90 s (`src/provider-timeout.js`), so a stalled
+  endpoint reports `NVIDIA accepted the request and never answered` instead of
+  leaving the window spinning for pi's five-minute default.
+
+Enable Public API Endpoints for the account, then re-run
+`selftest-nvidia-live.js`; the completion assertions should pass unchanged.

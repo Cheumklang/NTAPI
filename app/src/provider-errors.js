@@ -102,6 +102,29 @@ const TOKENHARBOR_HINTS = {
   request_too_large: 'This request is over Token Harbor’s 4 MB limit — start a new chat or attach a smaller file.',
 };
 
+/**
+ * A stalled request is not a network failure: the connection is fine, the other
+ * end simply stopped answering. pi's idle timeout surfaces as an AbortError or
+ * a plain "timed out", so both shapes are recognised here and each provider
+ * gets its own advice, because what to do next depends on who went quiet.
+ */
+const STALL_PATTERNS = ['timed out', 'timeout', 'abort', 'timeouterror', 'etimedout'];
+
+const STALL_HINTS = {
+  coarena: 'Coarena stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
+  zro: 'Zro stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
+  nvidia:
+    'NVIDIA accepted the request and never answered. This free endpoint is often slow to cold-start and can stay silent — retry once, then pick another model or provider.',
+  tokenharbor:
+    'Token Harbor stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
+  default: 'The model stopped responding — the connection is fine, the provider went quiet. Retry.',
+};
+
+function looksLikeStall(text) {
+  const lower = String(text || '').toLowerCase();
+  return STALL_PATTERNS.some((p) => lower.includes(p));
+}
+
 const NETWORK_FAILURE_PATTERNS = [
   'fetch failed',
   'econnrefused',
@@ -174,6 +197,10 @@ function friendlyProviderError(raw, { provider } = {}) {
     else if (status === '429') hint = TOKENHARBOR_HINTS.rate_limit;
     else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Token Harbor — check your connection and retry.';
   }
+  // Only reached when no provider-specific branch matched: a stalled request
+  // must not fall through to the raw "This operation was aborted", which reads
+  // like the user cancelled rather than the provider going quiet.
+  if (!hint && looksLikeStall(text)) hint = STALL_HINTS[provider] || STALL_HINTS.default;
   if (!hint) hint = (code && ERROR_HINTS[code]) || message || text || 'The model request failed.';
   const suffix = status ? ` (HTTP ${status}${code ? ` · ${code}` : ''})` : '';
   return { text: `${hint}${suffix}`, code };
@@ -185,6 +212,7 @@ module.exports = {
   ZRO_HINTS,
   NVIDIA_HINTS,
   TOKENHARBOR_HINTS,
+  STALL_HINTS,
   parseProviderError,
   friendlyProviderError,
 };

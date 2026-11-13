@@ -26,6 +26,8 @@ const {
   tokenharborProviderConfig,
   tokenharborModelEntries,
 } = require('./tokenharbor');
+const { providerIdleTimeoutMs } = require('./provider-timeout');
+const { onlyDeepSeekFree } = require('./model-filter');
 const { pruneImages } = require('./image-history');
 const { reviewAllowance } = require('./image-review');
 
@@ -166,9 +168,17 @@ async function fetchCatalog(baseUrl, jwt) {
 }
 
 function splitCatalogModels(models) {
+  // The catalog's `name` is the marketing string the terminal shows, emoji and
+  // "Free Unlimited: limited time" suffix included; `display_name` is the plain
+  // one. The picker has no room for the pitch, so the plain name wins whenever
+  // the catalog offers it.
+  const list = (models || []).map((model) => ({
+    ...model,
+    name: (typeof model?.display_name === 'string' && model.display_name) || model?.name || model?.id,
+  }));
   return {
-    main: models.filter((m) => m.section !== 'defense'),
-    defense: models.filter((m) => m.section === 'defense'),
+    main: list.filter((m) => m.section !== 'defense'),
+    defense: list.filter((m) => m.section === 'defense'),
   };
 }
 function catalogModelsFor(models, fallbackId) {
@@ -551,13 +561,20 @@ async function createFreePiSession(options) {
   if (auth && !auth.jwt) auth = null;
 
   const catalog = auth ? await fetchCatalog(baseUrl, auth.jwt) : { model: undefined, models: undefined };
-  const models = auth ? catalogModelsFor(catalog.models, catalog.model) : [];
-  const defense = auth ? defenseModelsFor(catalog.models) : [];
+  // DeepSeek only, and only the free ones: the coder/assistant families FreePi
+  // serves beside DeepSeek are never picked here, and neither are the metered
+  // DeepSeek routes that spend credits per message.
+  const models = auth ? onlyDeepSeekFree(catalogModelsFor(catalog.models, catalog.model)) : [];
+  const defense = auth ? onlyDeepSeekFree(defenseModelsFor(catalog.models)) : [];
 
   // The catalog is fetched once per process (10-minute memory cache) and never
   // rejects: with no network it returns the verified fallback list.
   const coarenaCatalog = coarenaKey ? await fetchCoarenaModels() : { models: [], source: 'none' };
-  let coarenaModels = coarenaCatalog.models;
+  // Same preference as FreePi: Coarena's Claude / Gemini / GLM / Kimi ids are
+  // noise here, its one DeepSeek id is the only one kept. Coarena bills nothing
+  // on this key's pricing and its normaliser drops the field, so nothing in its
+  // catalog can prove itself paid.
+  let coarenaModels = onlyDeepSeekFree(coarenaCatalog.models);
 
   // Zro's picker is deliberately static: one DeepSeek model, no paid ids.
   const zroModels = activeZroKey ? ZRO_MODELS : [];
@@ -1187,6 +1204,9 @@ async function createFreePiSession(options) {
       defaultThinkingLevel: thinkingLevel,
       hideThinkingBlock: true,
       enableInstallTelemetry: false,
+      // Fail a stalled turn in this window instead of after pi's five-minute
+      // default: silence is otherwise indistinguishable from a frozen app.
+      httpIdleTimeoutMs: providerIdleTimeoutMs(),
     },
     { projectTrusted: true }
   );
@@ -1284,14 +1304,16 @@ async function createFreePiSession(options) {
 
     // force: the key may have changed, and the catalog is cheap to refetch.
     const result = await fetchCoarenaModels({ force: true });
-    coarenaModels = result.models;
+    // DeepSeek only, exactly as at session start: a new key must not bring the
+    // Claude / Gemini ids back into the dropdown.
+    coarenaModels = onlyDeepSeekFree(result.models);
     if (piApi) {
       piApi.registerProvider(
         COARENA_PROVIDER,
-        coarenaProviderConfig({ apiKey: activeCoarenaKey, models: result.models })
+        coarenaProviderConfig({ apiKey: activeCoarenaKey, models: coarenaModels })
       );
     }
-    coarenaEntries = coarenaModelEntries(result.models);
+    coarenaEntries = coarenaModelEntries(coarenaModels);
     modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
     return { ok: true, models: modelList };
   }

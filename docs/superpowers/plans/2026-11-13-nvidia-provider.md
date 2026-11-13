@@ -165,6 +165,11 @@ Expected: session throws "No AI provider available" or lists no NVIDIA model.
 - Export `applyNvidiaKey`.
 
 - [ ] **Step 4: Run the live test**
+  Blocked on NVIDIA, not on this repo: the account has no Public API Endpoints
+  entitlement, and the one live DeepSeek id accepts the request then never
+  streams. With `FREEPI_PROVIDER_IDLE_TIMEOUT_MS=15000` the turn now settles in
+  ~20 s with `Request timed out.: This operation was aborted`, which the app maps
+  to the NVIDIA stall copy. See the Reality check in the design doc.
 
 Expected: all checks pass, answer `OK`.
 

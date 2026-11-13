@@ -6,3 +6,4 @@ app/.freepi-attachments/
 *.log
 npm-debug.log*
 app/shots-model-picker/
+app/shots-nvidia/

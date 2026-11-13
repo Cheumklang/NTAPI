@@ -78,6 +78,12 @@ appears in this app and vice versa:
   a FreePi section (free + defense ids), a Coarena section and a Zro section, each led by
   that provider's bundled mark (`app/src/renderer/assets/providers/`). The active model is
   ticked, typing filters every section at once, and `Esc` closes back onto the trigger
+- **Free DeepSeek only** — the FreePi and Coarena catalogs are filtered before a
+  provider is registered (`app/src/model-filter.js`): DeepSeek ids, and on FreePi only
+  the routes its own catalog marks `free: true`. The qwen / GLM / Claude / Gemini /
+  Kimi entries never reach the dropdown, and neither do the metered DeepSeek routes
+  (`deepseek-v4-pro` at ~18x, `...-ultrafast` at ~295x, the defense abliterated id).
+  Zro, NVIDIA and Token Harbor already serve a single DeepSeek route each
 - Stop button to abort a running turn
 - Live free-pi credit balance via `GET /me/stats`
 

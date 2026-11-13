@@ -106,6 +106,18 @@ check('tokenharbor rate limit is explained', /60 requests per minute/i.test(thBu
 const thBig = friendlyProviderError('413: {"error":{"message":"request_too_large"}}', { provider: 'tokenharbor' });
 check('tokenharbor 4 MB limit is explained', /4 MB/i.test(thBig.text));
 
+// A stalled request is not the user pressing Stop. pi reports both as an abort,
+// so the copy has to say who went quiet and what to do about it.
+const nvStall = friendlyProviderError('This operation was aborted', { provider: 'nvidia' });
+check('nvidia stall says it was accepted then silent', /never answered/i.test(nvStall.text));
+check('nvidia stall suggests another model', /another model/i.test(nvStall.text));
+check('nvidia stall is not billed as a network failure', !/check your connection/i.test(nvStall.text));
+const caStall = friendlyProviderError('Request timed out.', { provider: 'coarena' });
+check('coarena stall is provider specific', /Coarena stopped responding/i.test(caStall.text));
+const freeStall = friendlyProviderError('The operation was aborted due to timeout');
+check('a stall without a provider still makes sense', /stopped responding/i.test(freeStall.text));
+check('a stall never reads as a user cancel', !/aborted/i.test(freeStall.text));
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);
