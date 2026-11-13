@@ -17,8 +17,9 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
-const { planProviders, FREE_PI_TOOL_NAMES } = require('./provider-plan');
+const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER } = require('./provider-plan');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
+const { ZRO_MODELS, zroProviderConfig, zroModelEntries } = require('./zro');
 
 const DEFAULT_BASE_URL = 'https://api.freepi.ai';
 const PROVIDER_NAME = 'free-pi';
@@ -494,6 +495,8 @@ async function createFreePiSession(options) {
      * reopening the tab.
      */
     coarenaKey = null,
+    /** Zro API key, or null. Zro exposes one DeepSeek model. */
+    zroKey = null,
     /**
      * Injectable so tests can simulate "no FreePi login" without touching the
      * real credentials file. Production uses the normal resolver.
@@ -502,6 +505,7 @@ async function createFreePiSession(options) {
   } = options;
 
   let activeCoarenaKey = coarenaKey ? String(coarenaKey).trim() : null;
+  let activeZroKey = zroKey ? String(zroKey).trim() : null;
 
   const downloadsDirAbs = path.isAbsolute(downloadsDir)
     ? downloadsDir
@@ -534,19 +538,25 @@ async function createFreePiSession(options) {
   const coarenaCatalog = coarenaKey ? await fetchCoarenaModels() : { models: [], source: 'none' };
   let coarenaModels = coarenaCatalog.models;
 
+  // Zro's picker is deliberately static: one DeepSeek model, no paid ids.
+  const zroModels = activeZroKey ? ZRO_MODELS : [];
+
   const sessionId = sessionManager.getSessionId();
   const plan = planProviders({
     hasFreePiAuth: Boolean(auth),
-    coarenaKey,
+    coarenaKey: activeCoarenaKey,
+    zroKey: activeZroKey,
     freePiModels: models,
     coarenaModels,
+    zroModels,
   });
   if (!plan.available) {
-    throw new Error('No AI provider available — sign in to FreePi or add a Coarena key in Settings.');
+    throw new Error('No AI provider available — sign in to FreePi or add a Coarena or Zro key in Settings.');
   }
   log(
     `providers: free-pi=${plan.freePi ? models.length : 0}, ` +
-      `coarena=${plan.coarena ? coarenaModels.length : 0} (catalog ${coarenaCatalog.source})`
+      `coarena=${plan.coarena ? coarenaModels.length : 0} (catalog ${coarenaCatalog.source}), ` +
+      `zro=${plan.zro ? zroModels.length : 0}`
   );
 
   // Ads: one per user turn, tagged with the turn id the completion carries.
@@ -593,6 +603,9 @@ async function createFreePiSession(options) {
           COARENA_PROVIDER,
           coarenaProviderConfig({ apiKey: activeCoarenaKey, models: coarenaModels })
         );
+      }
+      if (plan.zro) {
+        pi.registerProvider(ZRO_PROVIDER, zroProviderConfig({ apiKey: activeZroKey }));
       }
       // No session-wide Authorization override: each provider config carries
       // its own apiKey and pi-ai sets the Bearer header per request.
@@ -1136,7 +1149,8 @@ async function createFreePiSession(options) {
       ]
     : [];
   let coarenaEntries = plan.coarena ? coarenaModelEntries(coarenaModels) : [];
-  let modelList = [...freePiEntries, ...coarenaEntries];
+  let zroEntries = plan.zro ? zroModelEntries() : [];
+  let modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries];
 
   /**
    * A resumed session can remember a model this account no longer has (Coarena
@@ -1174,7 +1188,7 @@ async function createFreePiSession(options) {
     activeCoarenaKey = nextKey ? String(nextKey).trim() : null;
     if (!activeCoarenaKey) {
       coarenaEntries = [];
-      modelList = [...freePiEntries];
+      modelList = [...freePiEntries, ...zroEntries];
       return { ok: true, models: modelList };
     }
 
@@ -1188,7 +1202,33 @@ async function createFreePiSession(options) {
       );
     }
     coarenaEntries = coarenaModelEntries(result.models);
-    modelList = [...freePiEntries, ...coarenaEntries];
+    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries];
+    return { ok: true, models: modelList };
+  }
+
+  /**
+   * Swap the Zro key while the tab is open. The catalog is static, so this only
+   * registers or unregisters the provider.
+   */
+  async function applyZroKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(ZRO_PROVIDER);
+      } catch {}
+    }
+
+    activeZroKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeZroKey) {
+      zroEntries = [];
+      modelList = [...freePiEntries, ...coarenaEntries];
+      return { ok: true, models: modelList };
+    }
+
+    if (piApi) {
+      piApi.registerProvider(ZRO_PROVIDER, zroProviderConfig({ apiKey: activeZroKey }));
+    }
+    zroEntries = zroModelEntries();
+    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries];
     return { ok: true, models: modelList };
   }
 
@@ -1207,6 +1247,7 @@ async function createFreePiSession(options) {
       return currentModelFallback();
     },
     applyCoarenaKey,
+    applyZroKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
 
