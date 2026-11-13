@@ -4,21 +4,30 @@
  * NVIDIA NIM (build.nvidia.com) provider.
  *
  * NVIDIA serves open-weight models over the OpenAI chat-completions API. This
- * app exposes only the DeepSeek Flash family, because the account uses the free
- * trial tier (40 requests/minute, 10,000/day) and the user does not want the
- * rest of NVIDIA's catalog in the picker.
+ * app exposes the Nemotron and DeepSeek Flash families: they are what the free
+ * trial tier (credits on signup, then pay-as-you-go) is able to answer on, and
+ * a shorter list is easier to choose from than NVIDIA's full several-hundred
+ * model catalog. Every row is tagged `free` with a trial-credit note, because
+ * the catalog itself publishes no price — the account's credit balance is what
+ * decides when billing starts.
  *
  * The free endpoints are retired without much notice, so the catalog is a list
  * of candidates intersected with `/v1/models` at key-save time. A retired id
  * disappears from the dropdown instead of failing a turn.
  *
- * The endpoint is text-only: `input` stays `['text']`, so no image is ever sent
- * here. Image questions belong on a provider that declares image input.
+ * The endpoint is text-only for most ids: `input` stays `['text']` unless the
+ * candidate says it takes images, so no image is ever sent to a text endpoint.
  */
 
 const NVIDIA_PROVIDER = 'nvidia';
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 const REQUEST_TIMEOUT_MS = 8000;
+
+// NVIDIA's model list carries no price, and the free tier is a credit balance
+// rather than a per-model flag. Every row is therefore reported as free with a
+// trial-credit note, which the renderer localises.
+const NVIDIA_PLAN = 'free';
+const NVIDIA_PLAN_NOTE = 'trial';
 
 /**
  * Preference order. Only the ids NVIDIA actually lists are kept, so the dropdown
@@ -97,10 +106,16 @@ function nvidiaProviderConfig({ apiKey, models }) {
   };
 }
 
-/** Model-dropdown entries, tagged with the provider. */
+/** Model-dropdown entries, tagged with the provider and its plan. */
 function nvidiaModelEntries(models) {
   const list = Array.isArray(models) ? models : [];
-  return list.map((m) => ({ provider: NVIDIA_PROVIDER, id: m.id, name: m.name }));
+  return list.map((m) => ({
+    provider: NVIDIA_PROVIDER,
+    id: m.id,
+    name: m.name,
+    plan: NVIDIA_PLAN,
+    planNote: NVIDIA_PLAN_NOTE,
+  }));
 }
 
 /**

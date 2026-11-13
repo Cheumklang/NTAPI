@@ -27,7 +27,7 @@ const {
   tokenharborModelEntries,
 } = require('./tokenharbor');
 const { providerIdleTimeoutMs } = require('./provider-timeout');
-const { onlyDeepSeekFree } = require('./model-filter');
+const { tagPlans } = require('./model-filter');
 const { pruneImages } = require('./image-history');
 const { reviewAllowance } = require('./image-review');
 
@@ -189,6 +189,21 @@ function catalogModelsFor(models, fallbackId) {
 }
 function defenseModelsFor(models) {
   return splitCatalogModels(models || []).defense;
+}
+
+/**
+ * One dropdown entry — the shape the renderer receives. `plan` and `planNote`
+ * travel with it so the picker can separate the free routes from the ones that
+ * spend money, using the provider's own catalog rather than a second lookup.
+ */
+function modelEntry(provider, model) {
+  return {
+    provider,
+    id: model.id,
+    name: model.name,
+    plan: model.plan === 'paid' ? 'paid' : 'free',
+    planNote: model.planNote || '',
+  };
 }
 
 function buildProviderConfig(baseUrl, jwt, sessionId, models, name = PROVIDER_NAME) {
@@ -595,29 +610,28 @@ async function createFreePiSession(options) {
   if (auth && !auth.jwt) auth = null;
 
   const catalog = auth ? await fetchCatalog(baseUrl, auth.jwt) : { model: undefined, models: undefined };
-  // DeepSeek only, and only the free ones: the coder/assistant families FreePi
-  // serves beside DeepSeek are never picked here, and neither are the metered
-  // DeepSeek routes that spend credits per message.
-  const models = auth ? onlyDeepSeekFree(catalogModelsFor(catalog.models, catalog.model)) : [];
-  const defense = auth ? onlyDeepSeekFree(defenseModelsFor(catalog.models)) : [];
+  // Every model the account can reach is listed, free and paid alike, each one
+  // tagged with its plan. A paid route spends FreePi credits at the multiplier
+  // its `usage_x` names, so the row says the cost and the choice is the user's.
+  const models = auth ? tagPlans(catalogModelsFor(catalog.models, catalog.model)) : [];
+  const defense = auth ? tagPlans(defenseModelsFor(catalog.models)) : [];
 
   // The catalog is fetched once per process (10-minute memory cache) and never
   // rejects: with no network it returns the verified fallback list.
   const coarenaCatalog = coarenaKey ? await fetchCoarenaModels() : { models: [], source: 'none' };
-  // Same preference as FreePi: Coarena's Claude / Gemini / GLM / Kimi ids are
-  // noise here, its one DeepSeek id is the only one kept. Coarena bills nothing
-  // on this key's pricing and its normaliser drops the field, so nothing in its
-  // catalog can prove itself paid.
-  let coarenaModels = onlyDeepSeekFree(coarenaCatalog.models);
+  // Coarena prices each route in its own catalog, so the plan tag comes from
+  // there rather than from a list kept in this file.
+  let coarenaModels = tagPlans(coarenaCatalog.models);
 
-  // Zro's picker is deliberately static: one DeepSeek model, no paid ids.
+  // Zro's picker is deliberately static: the free daily model plus the models
+  // that draw on a usage pack.
   const zroModels = activeZroKey ? ZRO_MODELS : [];
 
-  // NVIDIA's free endpoints get retired; keep only the DeepSeek Flash ids the
-  // live catalog still lists. Offline keeps the preferred candidate.
+  // NVIDIA's free endpoints get retired; keep only the ids the live catalog
+  // still lists. Offline keeps the preferred candidate.
   const nvidiaModels = activeNvidiaKey ? await resolveNvidiaModels(activeNvidiaKey) : [];
 
-  // Token Harbor's free route rotates; keep it only while /v1/models lists it.
+  // Token Harbor marks free routes with a `:free` suffix; the rest are wallet.
   const tokenharborModels = activeTokenHarborKey
     ? await resolveTokenHarborModels(activeTokenHarborKey)
     : [];
@@ -1288,8 +1302,8 @@ async function createFreePiSession(options) {
 
   const freePiEntries = plan.freePi
     ? [
-        ...models.map((m) => ({ provider: PROVIDER_NAME, id: m.id, name: m.name })),
-        ...defense.map((m) => ({ provider: DEFENSE_PROVIDER_NAME, id: m.id, name: m.name })),
+        ...models.map((m) => modelEntry(PROVIDER_NAME, m)),
+        ...defense.map((m) => modelEntry(DEFENSE_PROVIDER_NAME, m)),
       ]
     : [];
   let coarenaEntries = plan.coarena ? coarenaModelEntries(coarenaModels) : [];
@@ -1340,9 +1354,8 @@ async function createFreePiSession(options) {
 
     // force: the key may have changed, and the catalog is cheap to refetch.
     const result = await fetchCoarenaModels({ force: true });
-    // DeepSeek only, exactly as at session start: a new key must not bring the
-    // Claude / Gemini ids back into the dropdown.
-    coarenaModels = onlyDeepSeekFree(result.models);
+    // Every route the new key can reach, labelled free or paid.
+    coarenaModels = tagPlans(result.models);
     if (piApi) {
       piApi.registerProvider(
         COARENA_PROVIDER,

@@ -37,15 +37,25 @@ const fake = (status, body) => async () => ({
   check('provider id', ZRO_PROVIDER === 'zro');
   check('base url', ZRO_BASE_URL === 'https://zro.moonmath.ai/v1');
 
-  check('one model only', ZRO_MODELS.length === 1);
-  const model = ZRO_MODELS[0];
+  check('the documented catalog', ZRO_MODELS.length === 5, String(ZRO_MODELS.length));
+  const model = ZRO_MODELS.find((m) => m.id === 'deepseek-v4.1-flash');
   check(
     'deepseek model spec',
-    model.id === 'deepseek-v4.1-flash' &&
-      model.name === 'DeepSeek V4.1 Flash' &&
-      model.contextWindow === 1000000 &&
-      model.maxTokens === 65536,
+    model?.name === 'DeepSeek V4.1 Flash' &&
+      model?.contextWindow === 1000000 &&
+      model?.maxTokens === 65536,
     JSON.stringify(model)
+  );
+  check('deepseek is the free daily route', model?.plan === 'free');
+  check(
+    'the paid routes carry their list price',
+    ZRO_MODELS.filter((m) => m.plan === 'paid').every((m) => /\$/.test(m.planNote) || m.planNote === 'routed'),
+    JSON.stringify(ZRO_MODELS.map((m) => [m.id, m.plan, m.planNote]))
+  );
+  check(
+    'the paid models are the ones Zro documents',
+    ZRO_MODELS.filter((m) => m.plan === 'paid').map((m) => m.id).join(',') ===
+      'glm-5.3,dolly2-security,abyss1,auto'
   );
 
   const config = zroProviderConfig({ apiKey: KEY });
@@ -53,33 +63,41 @@ const fake = (status, body) => async () => ({
   check('provider base url', config.baseUrl === ZRO_BASE_URL);
   check('openai-completions api', config.api === 'openai-completions');
   check('key passed to the sdk', config.apiKey === KEY);
+  const ds = config.models.find((m) => m.id === 'deepseek-v4.1-flash');
   check(
-    'model accepts text and images',
-    config.models.length === 1 &&
-      config.models[0].id === 'deepseek-v4.1-flash' &&
-      config.models[0].input.join(',') === 'text,image' &&
-      config.models[0].reasoning === true,
-    JSON.stringify(config.models[0])
+    'deepseek accepts text and images',
+    ds?.input.join(',') === 'text,image' && ds?.reasoning === true,
+    JSON.stringify(ds)
   );
   check(
-    'catalog window and output cap',
-    config.models[0].contextWindow === 1000000 && config.models[0].maxTokens === 65536
+    'the text-only models are not handed images',
+    config.models.filter((m) => m.id !== 'deepseek-v4.1-flash').every((m) => m.input.join(',') === 'text'),
+    JSON.stringify(config.models.map((m) => [m.id, m.input.join(',')]))
   );
+  check('catalog window and output cap', ds?.contextWindow === 1000000 && ds?.maxTokens === 65536);
   check(
     'zero cost fields',
-    config.models[0].cost.input === 0 &&
-      config.models[0].cost.output === 0 &&
-      config.models[0].cost.cacheRead === 0 &&
-      config.models[0].cost.cacheWrite === 0
+    config.models.every(
+      (m) =>
+        m.cost.input === 0 &&
+        m.cost.output === 0 &&
+        m.cost.cacheRead === 0 &&
+        m.cost.cacheWrite === 0
+    )
   );
 
   const entries = zroModelEntries();
   check(
-    'dropdown entry is provider-tagged',
-    entries.length === 1 &&
-      entries[0].provider === 'zro' &&
-      entries[0].id === 'deepseek-v4.1-flash' &&
-      entries[0].name === 'DeepSeek V4.1 Flash'
+    'dropdown entries are provider-tagged',
+    entries.length === ZRO_MODELS.length &&
+      entries.every((e) => e.provider === 'zro') &&
+      entries.find((e) => e.id === 'deepseek-v4.1-flash')?.name === 'DeepSeek V4.1 Flash'
+  );
+  check(
+    'dropdown entries carry the plan',
+    entries.find((e) => e.id === 'deepseek-v4.1-flash')?.plan === 'free' &&
+      entries.find((e) => e.id === 'glm-5.3')?.plan === 'paid',
+    JSON.stringify(entries)
   );
 
   const good = await checkZroKey(KEY, { fetchImpl: fake(200, { data: [] }) });

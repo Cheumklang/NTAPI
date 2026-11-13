@@ -39,7 +39,8 @@ const fake = (status, body) => async () => ({
   check('provider id', TOKENHARBOR_PROVIDER === 'tokenharbor');
   check('base url', TOKENHARBOR_BASE_URL === 'https://tokenharbor.ai/v1');
 
-  check('exactly one free model', TOKENHARBOR_MODEL_CANDIDATES.length === 1);
+  check('the documented free routes', TOKENHARBOR_MODEL_CANDIDATES.length === 2);
+  check('every candidate is free', TOKENHARBOR_MODEL_CANDIDATES.every((m) => m.plan === 'free'));
   const model = TOKENHARBOR_MODEL_CANDIDATES[0];
   check('the free deepseek route', model.id === FREE_ID, model.id);
   check('context and output cap', model.contextWindow === 1048576 && model.maxTokens === 128000);
@@ -71,6 +72,7 @@ const fake = (status, body) => async () => ({
     entries.length === 1 && entries[0].provider === 'tokenharbor' && entries[0].id === FREE_ID,
     JSON.stringify(entries)
   );
+  check('a free route is labelled free', entries[0].plan === 'free', JSON.stringify(entries[0]));
 
   const good = await checkTokenHarborKey(KEY, { fetchImpl: fake(200, { data: [{ id: FREE_ID }] }) });
   check('good key returns the live ids', good.ok === true && good.ids.includes(FREE_ID), JSON.stringify(good));
@@ -107,12 +109,23 @@ const fake = (status, body) => async () => ({
   const listed = await resolveTokenHarborModels(KEY, {
     fetchImpl: fake(200, { data: [{ id: FREE_ID }, { id: 'claude-opus-5.5' }] }),
   });
-  check('resolver keeps the free route only', listed.length === 1 && listed[0].id === FREE_ID, JSON.stringify(listed));
+  check(
+    'the resolver keeps the free route first and lists the wallet route',
+    listed.length === 2 && listed[0].id === FREE_ID && listed[0].plan === 'free' && listed[1].plan === 'paid',
+    JSON.stringify(listed)
+  );
+  check('the wallet route says where the money comes from', listed[1].planNote === 'wallet');
+  check('the wallet route is treated as text only', listed[1].vision === false);
 
   const missing = await resolveTokenHarborModels(KEY, {
     fetchImpl: fake(200, { data: [{ id: 'claude-opus-5.5' }] }),
   });
-  check('free models switched off hides the provider', missing.length === 0);
+  // The free routes rotated out, but the key can still call the wallet ones:
+  // the provider stays and the paid rows are labelled rather than hidden.
+  check(
+    'a rotated free route leaves the paid catalog visible',
+    missing.length === 1 && missing[0].plan === 'paid'
+  );
 
   const flaky = await resolveTokenHarborModels(KEY, {
     fetchImpl: async () => {

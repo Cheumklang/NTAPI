@@ -44,6 +44,30 @@ check('free-pi ids share one group', groups[0]?.label === 'NTAPI' && groups[0].m
 check('group order follows catalog', groups.map((g) => g.label).join() === 'NTAPI,Coarena,Zro');
 check('group keeps logo', groups.every((g) => g.logo.startsWith('assets/providers/')));
 check('defense-only group', UI.groupModelsByProvider([{ provider: 'free-pi-defense', id: 'x' }])[0]?.logo === UI.providerLogoPath('free-pi'));
+
+// Free / paid split inside a group.
+const mixed = UI.groupModelsByProvider([
+  { provider: 'free-pi', id: 'a', name: 'A', plan: 'free' },
+  { provider: 'free-pi', id: 'b', name: 'B', plan: 'paid', planNote: '18x' },
+  { provider: 'free-pi', id: 'c', name: 'C', plan: 'free' },
+  { provider: 'coarena', id: 'd', name: 'D', plan: 'free' },
+]);
+check('a mixed group splits into two sections', mixed[0].sections.length === 2, JSON.stringify(mixed[0].sections));
+check(
+  'the free routes come first, in catalog order',
+  mixed[0].sections[0].plan === 'free' && mixed[0].sections[0].models.map((m) => m.id).join() === 'a,c'
+);
+check(
+  'the paid routes follow',
+  mixed[0].sections[1].plan === 'paid' && mixed[0].sections[1].models[0].id === 'b'
+);
+check('an all-free group has one section', mixed[1].sections.length === 1 && mixed[1].sections[0].plan === 'free');
+check('the group still lists every entry', mixed[0].models.length === 3);
+check(
+  'an untagged entry counts as free',
+  UI.modelPlan({ id: 'x' }) === 'free' && UI.modelPlan({ id: 'x', plan: 'paid' }) === 'paid'
+);
+check('no sections without models', UI.planSections([]).length === 0 && UI.planSections(null).length === 0);
 check(
   'free-pi detection',
   UI.isFreePiProvider('free-pi') === true &&

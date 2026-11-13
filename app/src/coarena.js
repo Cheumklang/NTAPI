@@ -12,6 +12,8 @@
  * The API key never appears in an error string, a log line or a model entry.
  */
 
+const { planOf, planNote } = require('./model-filter');
+
 const COARENA_PROVIDER = 'coarena';
 const COARENA_BASE_URL = 'https://coarena.ai/api/v1';
 
@@ -75,13 +77,22 @@ function epochToIso(value) {
 
 function normalizeModel(raw) {
   const id = typeof raw?.id === 'string' ? raw.id : '';
-  return {
+  // The catalog prices in USD per 1M tokens; "0"/"0" is its way of saying the
+  // route bills nothing. Keeping the block is what lets the picker label a row
+  // free or paid instead of guessing.
+  const pricing = raw?.pricing && typeof raw.pricing === 'object'
+    ? { prompt: raw.pricing.prompt, completion: raw.pricing.completion }
+    : undefined;
+  const model = {
     id,
     name: typeof raw?.display_name === 'string' && raw.display_name ? raw.display_name : id,
+    owner: typeof raw?.owned_by === 'string' ? raw.owned_by : '',
     contextWindow: finiteOr(raw?.context_length, DEFAULT_CONTEXT_WINDOW),
     maxTokens: finiteOr(raw?.max_completion_tokens, finiteOr(raw?.max_tokens, DEFAULT_MAX_TOKENS)),
     vision: Boolean(raw?.capabilities?.vision),
+    pricing,
   };
+  return { ...model, plan: planOf(model), planNote: planNote(model) };
 }
 
 function fallbackCatalog() {
@@ -91,6 +102,10 @@ function fallbackCatalog() {
     maxTokens: DEFAULT_MAX_TOKENS,
     // Every verified fallback id is a vision model in the live catalog.
     vision: true,
+    // The live catalog priced every one of them at zero when this app was
+    // built, so the offline copy says the same rather than claiming a cost.
+    plan: 'free',
+    planNote: '',
   }));
 }
 
@@ -141,9 +156,15 @@ function coarenaProviderConfig({ apiKey, models }) {
   };
 }
 
-/** Model-dropdown entries, tagged with the provider so a switch is unambiguous. */
+/** Model-dropdown entries, tagged with the provider and its plan. */
 function coarenaModelEntries(models) {
-  return (models || []).map((m) => ({ provider: COARENA_PROVIDER, id: m.id, name: m.name || m.id }));
+  return (models || []).map((m) => ({
+    provider: COARENA_PROVIDER,
+    id: m.id,
+    name: m.name || m.id,
+    plan: m.plan || planOf(m),
+    planNote: m.planNote || planNote(m),
+  }));
 }
 
 /**

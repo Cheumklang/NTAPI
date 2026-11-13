@@ -17,8 +17,11 @@ const modelPickerBtn = el('modelPickerBtn');
 const modelPickerMark = el('modelPickerMark');
 const modelPickerProvider = el('modelPickerProvider');
 const modelPickerName = el('modelPickerName');
+const modelPickerPlan = el('modelPickerPlan');
 const modelMenu = el('modelMenu');
 const modelSearch = el('modelSearch');
+const modelFreeOnly = el('modelFreeOnly');
+const modelFreeOnlyLabel = el('modelFreeOnlyLabel');
 const modelList = el('modelList');
 const modelMenuEmpty = el('modelMenuEmpty');
 const sessionTitle = el('sessionTitle');
@@ -1024,11 +1027,46 @@ function paintModelTrigger(model) {
     'aria-label',
     model ? `${t('model')}: ${FPProvider.modelOptionLabel(model)}` : t('model')
   );
+  // The badge follows the closed button too, so a paid model is never active
+  // without the window saying so.
+  const plan = model ? FPProvider.modelPlan(model) : 'free';
+  modelPickerPlan.hidden = !model;
+  modelPickerPlan.className = `model-picker-plan ${plan}`;
+  modelPickerPlan.textContent = model ? planText(model) : '';
+  modelPickerPlan.title = model ? planTitle(model) : '';
+}
+
+/* ------------------------------ free vs paid ------------------------------ */
+
+/**
+ * Short text for a plan badge. A paid row shows the cost the catalog named
+ * (`18x`, `$0.30/$1.10`) when there is one; the codes below are what a provider
+ * sends when the cost needs a phrase instead of a number.
+ */
+const PLAN_NOTE_KEYS = {
+  credit: 'planNoteCredit',
+  daily: 'planNoteDaily',
+  trial: 'planNoteTrial',
+  wallet: 'planNoteWallet',
+  routed: 'planNoteRouted',
+};
+
+function planText(model) {
+  if (FPProvider.modelPlan(model) === 'free') return t('planFree');
+  const note = String(model?.planNote || '').trim();
+  if (!note) return t('planPaid');
+  return PLAN_NOTE_KEYS[note] ? t(PLAN_NOTE_KEYS[note]) : note;
+}
+
+/** Longer form for a tooltip: `Cost: billed to wallet`. */
+function planTitle(model) {
+  return `${t('planLabel')}: ${planText(model)}`;
 }
 
 function modelOptionButton(model, current) {
   const provider = FPProvider.providerLabel(model.provider);
   const name = model.name || model.id;
+  const plan = FPProvider.modelPlan(model);
   const selected = Boolean(
     current && current.provider === model.provider && current.id === model.id
   );
@@ -1041,10 +1079,12 @@ function modelOptionButton(model, current) {
   row.dataset.provider = model.provider;
   row.dataset.id = model.id;
   row.dataset.value = `${model.provider}||${model.id}`;
-  // Provider is part of the search string, so "coarena" narrows the whole list
-  // even though group headers are not separate result rows.
-  row.dataset.search = `${provider} ${name} ${model.id}`.toLowerCase();
-  row.title = `${FPProvider.modelOptionLabel(model)}\n${model.id}`;
+  row.dataset.plan = plan;
+  // Provider, plan words and the id are all searchable, so "coarena" narrows
+  // the whole list and "paid" (or "เสียเงิน") narrows to the rows that cost.
+  row.dataset.search =
+    `${provider} ${name} ${model.id} ${plan} ${plan === 'paid' ? 'paid เสียเงิน' : 'free ฟรี'}`.toLowerCase();
+  row.title = `${FPProvider.modelOptionLabel(model)}\n${model.id}\n${planTitle(model)}`;
   row.tabIndex = -1;
 
   const check = document.createElement('span');
@@ -1056,7 +1096,16 @@ function modelOptionButton(model, current) {
   label.className = 'model-option-name';
   label.textContent = name;
 
-  row.append(check, label);
+  // The heading above already says the row is free, so only a row that spends
+  // money carries a badge — and it carries the cost when the catalog knew one.
+  if (plan === 'paid') {
+    const badge = document.createElement('span');
+    badge.className = 'model-plan paid';
+    badge.textContent = planText(model);
+    row.append(check, label, badge);
+  } else {
+    row.append(check, label);
+  }
   return row;
 }
 
@@ -1089,10 +1138,29 @@ function renderModelMenu(models, current) {
     head.append(mark, label, count);
     section.appendChild(head);
 
-    for (const model of group.models) {
-      const row = modelOptionButton(model, current);
-      if (modelKey(model) === selectedValue) row.setAttribute('aria-selected', 'true');
-      section.appendChild(row);
+    // Every provider gets its free / paid headings, even when only one kind is
+    // present: a paid row must never sit unlabelled among free ones, and an
+    // all-free provider should say so rather than leave the user guessing.
+    for (const part of group.sections) {
+      const bucket = document.createElement('div');
+      bucket.className = 'model-section';
+      bucket.dataset.plan = part.plan;
+
+      const sub = document.createElement('div');
+      sub.className = `model-section-head ${part.plan}`;
+      sub.textContent = part.plan === 'paid' ? t('planSectionPaid') : t('planSectionFree');
+      const subCount = document.createElement('span');
+      subCount.className = 'model-section-count';
+      subCount.textContent = String(part.models.length);
+      sub.appendChild(subCount);
+      bucket.appendChild(sub);
+
+      for (const model of part.models) {
+        const row = modelOptionButton(model, current);
+        if (modelKey(model) === selectedValue) row.setAttribute('aria-selected', 'true');
+        bucket.appendChild(row);
+      }
+      section.appendChild(bucket);
     }
     modelList.appendChild(section);
   }
@@ -1100,19 +1168,30 @@ function renderModelMenu(models, current) {
 
 function visibleModelOptions() {
   return [...modelList.querySelectorAll('.model-option')].filter(
-    (row) => !row.hidden && !row.closest('.model-group')?.hidden
+    (row) =>
+      !row.hidden &&
+      !row.closest('.model-section')?.hidden &&
+      !row.closest('.model-group')?.hidden
   );
 }
 
 function filterModelMenu() {
   const query = modelSearch.value.trim().toLowerCase();
+  const freeOnly = Boolean(modelFreeOnly?.checked);
   let visible = 0;
   for (const group of modelList.querySelectorAll('.model-group')) {
     let shown = 0;
-    for (const row of group.querySelectorAll('.model-option')) {
-      const match = !query || row.dataset.search.includes(query);
-      row.hidden = !match;
-      if (match) shown += 1;
+    for (const section of group.querySelectorAll('.model-section')) {
+      let inSection = 0;
+      for (const row of section.querySelectorAll('.model-option')) {
+        const match =
+          (!query || row.dataset.search.includes(query)) &&
+          (!freeOnly || row.dataset.plan === 'free');
+        row.hidden = !match;
+        if (match) inSection += 1;
+      }
+      section.hidden = inSection === 0;
+      shown += inSection;
     }
     group.hidden = shown === 0;
     visible += shown;
@@ -1185,6 +1264,9 @@ function renderModelPicker(view) {
   modelSearch.placeholder = t('searchModels');
   modelMenuEmpty.textContent = t('noModelsMatch');
   modelList.setAttribute('aria-label', t('model'));
+  modelFreeOnlyLabel.textContent = t('freeOnly');
+  modelFreeOnly.title = t('freeOnly');
+  modelFreeOnly.setAttribute('aria-label', t('freeOnly'));
 
   modelSelect.innerHTML = '';
   for (const model of models) {
@@ -1207,6 +1289,19 @@ function renderModelPicker(view) {
 }
 
 modelPickerBtn.addEventListener('click', toggleModelMenu);
+
+// "Free only" is a display preference rather than a credential, so
+// localStorage is the right shelf for it. The default is to show everything.
+const FREE_ONLY_KEY = 'ntapi.modelFreeOnly';
+try {
+  modelFreeOnly.checked = localStorage.getItem(FREE_ONLY_KEY) === '1';
+} catch {}
+modelFreeOnly.addEventListener('change', () => {
+  try {
+    localStorage.setItem(FREE_ONLY_KEY, modelFreeOnly.checked ? '1' : '0');
+  } catch {}
+  filterModelMenu();
+});
 modelPickerBtn.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
@@ -4246,8 +4341,19 @@ Object.assign(STRINGS.en, {
   contextHint: 'Context window used by this conversation',
   mentionHint: '↑↓ choose · Tab/Enter insert · Esc close',
   model: 'Model',
-  searchModels: 'Search models…',
+  searchModels: 'Search models...',
   noModelsMatch: 'No models match',
+  planFree: 'Free',
+  planPaid: 'Paid',
+  planLabel: 'Cost',
+  planSectionFree: 'Free',
+  planSectionPaid: 'Paid',
+  planNoteCredit: 'free credit',
+  planNoteDaily: 'free daily quota',
+  planNoteTrial: 'trial credit',
+  planNoteWallet: 'billed to wallet',
+  planNoteRouted: 'routed model',
+  freeOnly: 'Free only',
   newChat: 'New chat',
   settingsItem: 'Settings',
   searchItem: 'Search conversation',
@@ -4285,8 +4391,19 @@ Object.assign(STRINGS.th, {
   contextHint: 'พื้นที่บริบทที่บทสนทนานี้ใช้อยู่',
   mentionHint: '↑↓ เลือก · Tab/Enter แทรก · Esc ปิด',
   model: 'โมเดล',
-  searchModels: 'ค้นหาโมเดล…',
+  searchModels: 'ค้นหาโมเดล...',
   noModelsMatch: 'ไม่พบโมเดลที่ตรงกัน',
+  planFree: 'ฟรี',
+  planPaid: 'เสียเงิน',
+  planLabel: 'ค่าใช้จ่าย',
+  planSectionFree: 'ฟรี',
+  planSectionPaid: 'เสียเงิน',
+  planNoteCredit: 'เครดิตฟรี',
+  planNoteDaily: 'โควต้าฟรี/วัน',
+  planNoteTrial: 'เครดิตทดลอง',
+  planNoteWallet: 'หักจากเครดิต',
+  planNoteRouted: 'ตามโมเดล',
+  freeOnly: 'เฉพาะฟรี',
   newChat: 'แชทใหม่',
   settingsItem: 'ตั้งค่า',
   searchItem: 'ค้นหาในบทสนทนา',

@@ -64,6 +64,10 @@
    * Group a flat catalog by the name the user sees: one FreePi section for both
    * `free-pi` ids, then Coarena, then Zro. Order follows the catalog, so the
    * default provider stays on top.
+   *
+   * Each group also carries `sections`, the same models split into the free
+   * routes and the ones that spend money. A group with only one kind of route
+   * gets a single section, so the caller can render both cases the same way.
    */
   function groupModelsByProvider(models) {
     const groups = [];
@@ -80,7 +84,27 @@
       if (!group.logo) group.logo = providerLogoPath(model.provider);
       group.models.push(model);
     }
+    for (const group of groups) group.sections = planSections(group.models);
     return groups;
+  }
+
+  /** 'free' | 'paid' for a catalog entry; an entry with no tag counts as free. */
+  function modelPlan(model) {
+    return model?.plan === 'paid' ? 'paid' : 'free';
+  }
+
+  /**
+   * Free routes first, then the ones that cost. Empty sections are dropped, so
+   * a group that is entirely free yields one section and one heading.
+   */
+  function planSections(models) {
+    const list = Array.isArray(models) ? models : [];
+    const free = list.filter((m) => modelPlan(m) === 'free');
+    const paid = list.filter((m) => modelPlan(m) === 'paid');
+    const sections = [];
+    if (free.length) sections.push({ plan: 'free', models: free });
+    if (paid.length) sections.push({ plan: 'paid', models: paid });
+    return sections;
   }
 
   /** One line for a model dropdown option: `Coarena · Claude Fable 5`. */
@@ -163,6 +187,8 @@
     providerLogoPath,
     providerInitial,
     groupModelsByProvider,
+    modelPlan,
+    planSections,
     modelOptionLabel,
     providerChrome,
     coarenaMeterText,

@@ -1,20 +1,26 @@
 'use strict';
 
 /**
- * Two user preferences, applied to every catalog: DeepSeek, and free only.
+ * Plan tags for every catalog the picker shows.
  *
- * FreePi's catalog carries coder and assistant models from other families, and
- * Coarena carries a dozen Claude / Gemini / GLM / Kimi ids. The person using
- * this app only ever picks DeepSeek, so the rest is noise in the dropdown. The
- * filter runs on the catalog *before* a provider is registered, which keeps the
- * picker, the provider config and `planProviders` looking at the same list.
+ * The picker used to drop anything that was not DeepSeek, and then anything
+ * that was not free. That kept the dropdown short, but it also kept the paid
+ * models out of reach. It now lists every model each provider serves and marks
+ * each one `free` or `paid`, so the choice belongs to the person using the app.
  *
- * It is a display choice, not a capability limit: nothing prevents a future
- * preference toggle from calling these with a different predicate.
+ * Where the flag comes from, in order of trust:
+ *   1. an explicit `plan` on the entry — Zro and NVIDIA publish no price in
+ *      their model list, so their catalogs state it here;
+ *   2. FreePi's own `free: true|false` (paid routes carry a `usage_x` cost
+ *      multiplier such as "18" or "295");
+ *   3. a `:free` id suffix — how Token Harbor marks its free routes;
+ *   4. Coarena's `pricing` block, where zero on both sides means free.
+ * A model with no signal at all counts as free, which is the honest reading for
+ * a catalog that only lists free routes.
  *
- * A model counts as DeepSeek when its id or its display name says so, because
- * the two catalogs are not spelled the same way — FreePi ids look like
- * `deepseek/deepseek-v4-flash`, Coarena's like `deepseek-v4-1-flash-1017`.
+ * `planNote` is the short "what this costs" hint on a paid row. It is either a
+ * literal taken from the catalog (`18x`, `$0.30/$1.10`) or one of the codes the
+ * renderer localises: `credit`, `daily`, `trial`.
  */
 
 const DEEPSEEK_PATTERN = /deepseek/i;
@@ -27,36 +33,66 @@ function isDeepSeekModel(model) {
 }
 
 /**
- * @param {Array<{id?: string, name?: string}>} models
- * @returns {Array} the DeepSeek entries, order preserved; never null.
+ * @param {{plan?: string, free?: boolean, id?: string, pricing?: object}} model
+ * @returns {'free'|'paid'}
  */
-function onlyDeepSeek(models) {
-  return (Array.isArray(models) ? models : []).filter(isDeepSeekModel);
+function planOf(model) {
+  if (!model) return 'free';
+  if (model.plan === 'paid' || model.plan === 'free') return model.plan;
+  if (model.free === false) return 'paid';
+  if (model.free === true) return 'free';
+  if (typeof model.id === 'string' && model.id.endsWith(':free')) return 'free';
+  const pricing = model.pricing;
+  if (pricing) {
+    if (Number(pricing.prompt) > 0 || Number(pricing.completion) > 0) return 'paid';
+  }
+  return 'free';
 }
 
-/**
- * FreePi marks each route: `free: true` for the unlimited ones and
- * `free: false` with a `usage_x` cost multiplier (`~18x usage`, `~295x usage`)
- * for the metered ones. The person using this app only wants the free lane, so
- * a route that spends credits is dropped even when it is a DeepSeek id.
- *
- * A missing field counts as free. The offline fallback entry is built by this
- * app rather than served by FreePi and carries no cost fields, and Coarena
- * normalises its catalog down to id / name / limits, so neither can prove a
- * route is paid. Only an explicit `free: false` is treated as paid.
- */
+/** True while an entry is on the unlimited / zero-cost lane. */
 function isFreeModel(model) {
-  return model?.free !== false;
+  return planOf(model) === 'free';
+}
+
+/** `$0.30/$1.10` — input/output dollars per 1M tokens. */
+function priceNote(pricing) {
+  const fmt = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? `$${n.toFixed(2)}` : '';
+  };
+  const input = fmt(pricing?.prompt);
+  const output = fmt(pricing?.completion);
+  if (!input && !output) return '';
+  return `${input}/${output}`;
+}
+
+/** Short cost hint for a paid row; '' when the entry is free or unpriced. */
+function planNote(model) {
+  if (planOf(model) !== 'paid') return '';
+  if (typeof model.planNote === 'string' && model.planNote) return model.planNote;
+  const x = model.usage_x;
+  if (x !== undefined && x !== null && String(x).trim() !== '') return `${String(x).trim()}x`;
+  return priceNote(model.pricing);
 }
 
 /**
- * DeepSeek *and* free.
+ * Every entry, tagged with `plan` and `planNote`. Nothing is dropped: this
+ * labels a catalog, it does not filter one.
  *
  * @param {Array<object>} models
- * @returns {Array} the entries worth showing; never null.
+ * @returns {Array<object>} entries carrying `plan` and `planNote`; never null.
  */
-function onlyDeepSeekFree(models) {
-  return (Array.isArray(models) ? models : []).filter((m) => isDeepSeekModel(m) && isFreeModel(m));
+function tagPlans(models) {
+  return (Array.isArray(models) ? models : [])
+    .filter((model) => model && model.id)
+    .map((model) => ({ ...model, plan: planOf(model), planNote: planNote(model) }));
 }
 
-module.exports = { isDeepSeekModel, isFreeModel, onlyDeepSeek, onlyDeepSeekFree, DEEPSEEK_PATTERN };
+module.exports = {
+  isDeepSeekModel,
+  isFreeModel,
+  planOf,
+  planNote,
+  tagPlans,
+  DEEPSEEK_PATTERN,
+};

@@ -120,6 +120,7 @@
                   <span class="model-picker-provider" id="modelPickerProvider">Model</span>
                   <span class="model-picker-name" id="modelPickerName">—</span>
                 </span>
+                <span class="model-picker-plan" id="modelPickerPlan" hidden></span>
                 <span class="model-picker-chevron" aria-hidden="true">▾</span>
               </button>
               <div class="model-menu" id="modelMenu" hidden>
@@ -133,6 +134,11 @@
                     placeholder="Search models"
                     aria-label="Search models"
                   />
+                  <!-- Paid routes are labelled but never hidden unless asked for. -->
+                  <label class="model-free-toggle" title="Free only">
+                    <input id="modelFreeOnly" type="checkbox" />
+                    <span id="modelFreeOnlyLabel">Free only</span>
+                  </label>
                 </div>
                 <div class="model-list" id="modelList" role="listbox" aria-label="Model"></div>
                 <div class="model-menu-empty" id="modelMenuEmpty" hidden>No models match</div>

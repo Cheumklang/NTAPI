@@ -4,10 +4,14 @@
  * Zro (zro.moonmath.ai) provider.
  *
  * Zro serves open-weight coding models over the OpenAI chat-completions API.
- * This app exposes exactly one of them, DeepSeek V4.1 Flash, because the account
- * is on Zro's Free tier and the user does not want paid-only models in the
- * picker. The catalog is static on purpose: `/v1/models` only returns ids and
- * aliases, and a hard-coded list cannot drift into a paid model by accident.
+ * The catalog is static on purpose: a hard-coded list cannot drift into a
+ * retired id, and each entry states its own plan because `/v1/models` returns
+ * ids and aliases with no price attached.
+ *
+ * The Free plan includes daily usage on DeepSeek V4.1 Flash; every other model
+ * bills against a usage pack, so those rows are tagged `paid` and carry their
+ * list price. Vision is per model, read from each model page on the docs site:
+ * only DeepSeek V4.1 Flash takes images, the rest are text only.
  */
 
 const ZRO_PROVIDER = 'zro';
@@ -21,6 +25,46 @@ const ZRO_MODELS = [
     contextWindow: 1000000,
     maxTokens: 65536,
     vision: true,
+    // Included in the Free plan's daily allowance.
+    plan: 'free',
+    planNote: '',
+  },
+  {
+    id: 'glm-5.3',
+    name: 'GLM-5.3',
+    contextWindow: 1000000,
+    maxTokens: 131072,
+    vision: false,
+    plan: 'paid',
+    planNote: '$1.40/$4.20',
+  },
+  {
+    id: 'dolly2-security',
+    name: 'Dolly 2 Security',
+    contextWindow: 1000000,
+    maxTokens: 131072,
+    vision: false,
+    plan: 'paid',
+    planNote: '$2.10/$6.30',
+  },
+  {
+    id: 'abyss1',
+    name: 'Abyss 1',
+    contextWindow: 1000000,
+    maxTokens: 65536,
+    vision: false,
+    plan: 'paid',
+    planNote: '$0.30/$1.10',
+  },
+  {
+    // Prices as the routed model, so the row says so instead of showing a rate.
+    id: 'auto',
+    name: 'Auto (router)',
+    contextWindow: 1000000,
+    maxTokens: 131072,
+    vision: false,
+    plan: 'paid',
+    planNote: 'routed',
   },
 ];
 
@@ -46,9 +90,15 @@ function zroProviderConfig({ apiKey }) {
   };
 }
 
-/** Model-dropdown entries, tagged with the provider. */
+/** Model-dropdown entries, tagged with the provider and its plan. */
 function zroModelEntries() {
-  return ZRO_MODELS.map((m) => ({ provider: ZRO_PROVIDER, id: m.id, name: m.name }));
+  return ZRO_MODELS.map((m) => ({
+    provider: ZRO_PROVIDER,
+    id: m.id,
+    name: m.name,
+    plan: m.plan || 'free',
+    planNote: m.planNote || '',
+  }));
 }
 
 /**
