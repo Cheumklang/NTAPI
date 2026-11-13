@@ -17,9 +17,10 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
-const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER } = require('./provider-plan');
+const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER } = require('./provider-plan');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
 const { ZRO_MODELS, zroProviderConfig, zroModelEntries } = require('./zro');
+const { resolveNvidiaModels, nvidiaProviderConfig, nvidiaModelEntries } = require('./nvidia');
 const { pruneImages } = require('./image-history');
 const { reviewAllowance } = require('./image-review');
 
@@ -506,6 +507,8 @@ async function createFreePiSession(options) {
     coarenaKey = null,
     /** Zro API key, or null. Zro exposes one DeepSeek model. */
     zroKey = null,
+    /** NVIDIA NIM key, or null. Only DeepSeek Flash is exposed, text only. */
+    nvidiaKey = null,
     /**
      * Injectable so tests can simulate "no FreePi login" without touching the
      * real credentials file. Production uses the normal resolver.
@@ -515,6 +518,7 @@ async function createFreePiSession(options) {
 
   let activeCoarenaKey = coarenaKey ? String(coarenaKey).trim() : null;
   let activeZroKey = zroKey ? String(zroKey).trim() : null;
+  let activeNvidiaKey = nvidiaKey ? String(nvidiaKey).trim() : null;
 
   const downloadsDirAbs = path.isAbsolute(downloadsDir)
     ? downloadsDir
@@ -550,22 +554,29 @@ async function createFreePiSession(options) {
   // Zro's picker is deliberately static: one DeepSeek model, no paid ids.
   const zroModels = activeZroKey ? ZRO_MODELS : [];
 
+  // NVIDIA's free endpoints get retired; keep only the DeepSeek Flash ids the
+  // live catalog still lists. Offline keeps the preferred candidate.
+  const nvidiaModels = activeNvidiaKey ? await resolveNvidiaModels(activeNvidiaKey) : [];
+
   const sessionId = sessionManager.getSessionId();
   const plan = planProviders({
     hasFreePiAuth: Boolean(auth),
     coarenaKey: activeCoarenaKey,
     zroKey: activeZroKey,
+    nvidiaKey: activeNvidiaKey,
     freePiModels: models,
     coarenaModels,
     zroModels,
+    nvidiaModels,
   });
   if (!plan.available) {
-    throw new Error('No AI provider available — sign in to FreePi or add a Coarena or Zro key in Settings.');
+    throw new Error('No AI provider available — sign in to FreePi or add a Coarena, Zro or NVIDIA key in Settings.');
   }
   log(
     `providers: free-pi=${plan.freePi ? models.length : 0}, ` +
       `coarena=${plan.coarena ? coarenaModels.length : 0} (catalog ${coarenaCatalog.source}), ` +
-      `zro=${plan.zro ? zroModels.length : 0}`
+      `zro=${plan.zro ? zroModels.length : 0}, ` +
+      `nvidia=${plan.nvidia ? nvidiaModels.length : 0}`
   );
 
   // Ads: one per user turn, tagged with the turn id the completion carries.
@@ -615,6 +626,12 @@ async function createFreePiSession(options) {
       }
       if (plan.zro) {
         pi.registerProvider(ZRO_PROVIDER, zroProviderConfig({ apiKey: activeZroKey }));
+      }
+      if (plan.nvidia) {
+        pi.registerProvider(
+          NVIDIA_PROVIDER,
+          nvidiaProviderConfig({ apiKey: activeNvidiaKey, models: nvidiaModels })
+        );
       }
       // Images accumulate in history every time a model reads one. Trim before
       // each provider call, under every provider's per-request cap.
@@ -1197,7 +1214,8 @@ async function createFreePiSession(options) {
     : [];
   let coarenaEntries = plan.coarena ? coarenaModelEntries(coarenaModels) : [];
   let zroEntries = plan.zro ? zroModelEntries() : [];
-  let modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries];
+  let nvidiaEntries = plan.nvidia ? nvidiaModelEntries(nvidiaModels) : [];
+  let modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
 
   /**
    * A resumed session can remember a model this account no longer has (Coarena
@@ -1235,7 +1253,7 @@ async function createFreePiSession(options) {
     activeCoarenaKey = nextKey ? String(nextKey).trim() : null;
     if (!activeCoarenaKey) {
       coarenaEntries = [];
-      modelList = [...freePiEntries, ...zroEntries];
+      modelList = [...freePiEntries, ...zroEntries, ...nvidiaEntries];
       return { ok: true, models: modelList };
     }
 
@@ -1249,7 +1267,7 @@ async function createFreePiSession(options) {
       );
     }
     coarenaEntries = coarenaModelEntries(result.models);
-    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries];
+    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
     return { ok: true, models: modelList };
   }
 
@@ -1267,7 +1285,7 @@ async function createFreePiSession(options) {
     activeZroKey = nextKey ? String(nextKey).trim() : null;
     if (!activeZroKey) {
       zroEntries = [];
-      modelList = [...freePiEntries, ...coarenaEntries];
+      modelList = [...freePiEntries, ...coarenaEntries, ...nvidiaEntries];
       return { ok: true, models: modelList };
     }
 
@@ -1275,7 +1293,34 @@ async function createFreePiSession(options) {
       piApi.registerProvider(ZRO_PROVIDER, zroProviderConfig({ apiKey: activeZroKey }));
     }
     zroEntries = zroModelEntries();
-    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries];
+    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
+    return { ok: true, models: modelList };
+  }
+
+  /**
+   * Swap the NVIDIA key while the tab is open. The catalog is not static: it is
+   * re-resolved so a retired free endpoint leaves the dropdown.
+   */
+  async function applyNvidiaKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(NVIDIA_PROVIDER);
+      } catch {}
+    }
+
+    activeNvidiaKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeNvidiaKey) {
+      nvidiaEntries = [];
+      modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries];
+      return { ok: true, models: modelList };
+    }
+
+    const models = await resolveNvidiaModels(activeNvidiaKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(NVIDIA_PROVIDER, nvidiaProviderConfig({ apiKey: activeNvidiaKey, models }));
+    }
+    nvidiaEntries = nvidiaModelEntries(models);
+    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
     return { ok: true, models: modelList };
   }
 
@@ -1295,6 +1340,7 @@ async function createFreePiSession(options) {
     },
     applyCoarenaKey,
     applyZroKey,
+    applyNvidiaKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
 
