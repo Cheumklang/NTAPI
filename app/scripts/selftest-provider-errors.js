@@ -62,6 +62,23 @@ check('zro rate limit is explained', /rate limiting/i.test(zroLimited.text));
 const zroOffline = friendlyProviderError('fetch failed', { provider: 'zro' });
 check('zro network failure names Zro', /Zro/.test(zroOffline.text) && /connection/i.test(zroOffline.text));
 
+const nvBad = friendlyProviderError('401: {"error":{"message":"Unauthorized"}}', { provider: 'nvidia' });
+check('nvidia bad key names Settings', /NVIDIA/.test(nvBad.text) && /Settings/.test(nvBad.text));
+const nvTrial = friendlyProviderError('403: {"error":{"message":"forbidden"}}', { provider: 'nvidia' });
+check('nvidia trial end is explained', /trial/i.test(nvTrial.text));
+const nvBusy = friendlyProviderError('429: {"error":{"message":"Too Many Requests"}}', { provider: 'nvidia' });
+check(
+  'nvidia 429 is shared capacity, not quota',
+  /shared capacity/i.test(nvBusy.text) && !/quota/i.test(nvBusy.text)
+);
+const nvRetired = friendlyProviderError('404: {"error":{"message":"Function not found"}}', { provider: 'nvidia' });
+check('nvidia retired model points at the dropdown', /retired/i.test(nvRetired.text) && /model/i.test(nvRetired.text));
+const nvOffline = friendlyProviderError('fetch failed', { provider: 'nvidia' });
+check(
+  'nvidia network failure names NVIDIA',
+  /NVIDIA/.test(nvOffline.text) && /connection/i.test(nvOffline.text)
+);
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

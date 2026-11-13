@@ -65,6 +65,23 @@ const ZRO_HINTS = {
   insufficient_quota: 'This Zro key has no balance left — top up the account or switch provider.',
 };
 
+/**
+ * NVIDIA's free trial is shared capacity. A 429 is usually other people, not
+ * this key's budget, so the copy never says "quota" — waiting is the fix.
+ */
+const NVIDIA_HINTS = {
+  invalid_api_key: 'NVIDIA rejected this API key — open Settings, replace it, then retry.',
+  unauthorized: 'NVIDIA rejected this API key — open Settings, replace it, then retry.',
+  forbidden: 'NVIDIA trial access ended for this key — check the trial terms or use another provider.',
+  rate_limit: 'NVIDIA shared capacity is busy right now — wait a moment and retry.',
+  rate_limit_exceeded: 'NVIDIA shared capacity is busy right now — wait a moment and retry.',
+  too_many_requests: 'NVIDIA shared capacity is busy right now — wait a moment and retry.',
+  model_not_found:
+    'This NVIDIA model was retired. Pick another model from the dropdown — the free endpoints rotate.',
+  function_not_found:
+    'This NVIDIA model was retired. Pick another model from the dropdown — the free endpoints rotate.',
+};
+
 const NETWORK_FAILURE_PATTERNS = [
   'fetch failed',
   'econnrefused',
@@ -117,10 +134,17 @@ function friendlyProviderError(raw, { provider } = {}) {
     else if (status === '402') hint = ZRO_HINTS.insufficient_quota;
     else if (status === '429') hint = ZRO_HINTS.rate_limit;
     else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Zro — check your connection and retry.';
+  } else if (provider === 'nvidia') {
+    if (code && NVIDIA_HINTS[code]) hint = NVIDIA_HINTS[code];
+    else if (status === '401') hint = NVIDIA_HINTS.invalid_api_key;
+    else if (status === '403') hint = NVIDIA_HINTS.forbidden;
+    else if (status === '429') hint = NVIDIA_HINTS.rate_limit;
+    else if (status === '404') hint = NVIDIA_HINTS.model_not_found;
+    else if (looksLikeNetworkFailure(text)) hint = 'Could not reach NVIDIA — check your connection and retry.';
   }
   if (!hint) hint = (code && ERROR_HINTS[code]) || message || text || 'The model request failed.';
   const suffix = status ? ` (HTTP ${status}${code ? ` · ${code}` : ''})` : '';
   return { text: `${hint}${suffix}`, code };
 }
 
-module.exports = { ERROR_HINTS, COARENA_HINTS, ZRO_HINTS, parseProviderError, friendlyProviderError };
+module.exports = { ERROR_HINTS, COARENA_HINTS, ZRO_HINTS, NVIDIA_HINTS, parseProviderError, friendlyProviderError };
