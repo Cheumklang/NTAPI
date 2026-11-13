@@ -154,11 +154,12 @@ body.resizing #sidebar { pointer-events: none; }
   letter-spacing: .2px;
 }
 .brand .brand-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 8px;
   display: block;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, .07);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .07), 0 2px 6px rgba(0, 0, 0, .45);
 }
 .brand-count {
   font-size: 11px;
