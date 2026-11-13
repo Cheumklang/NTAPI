@@ -7,3 +7,5 @@ app/.freepi-attachments/
 npm-debug.log*
 app/shots-model-picker/
 app/shots-nvidia/
+# Icon contact sheet is a scratch render; build/icon.png is the real asset.
+app/build/candidates/

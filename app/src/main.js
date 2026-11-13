@@ -1036,6 +1036,8 @@ function createWindow() {
     minHeight: 560,
     backgroundColor: '#0f1115',
     title: 'NTAPI',
+    // electron-builder stamps the packaged .exe; this covers unpackaged runs.
+    icon: app.isPackaged ? undefined : path.join(__dirname, '..', 'build', 'icon.png'),
     autoHideMenuBar: true,
     // Custom dark title bar: we draw the caption ourselves in the renderer.
     frame: false,

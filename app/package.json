@@ -16,12 +16,14 @@
     "url": "https://github.com/Cheumklang/NTAPI.git"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "electron": "^38.0.0",
     "electron-builder": "^26.0.12"
   },
   "build": {
     "appId": "ai.ntapi.desktop",
     "productName": "NTAPI",
+    "icon": "build/icon.png",
     "directories": {
       "output": "../dist"
     },
