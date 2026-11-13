@@ -1,0 +1,953 @@
+/**
+ * free-pi bridge.
+ *
+ * The published `free-pi-cli` has no `--mode rpc`: its entry point always boots
+ * the TUI. So instead of spawning it, we do what its own `launchPi()` does:
+ * create a pi agent session, register the `free-pi` provider against the free-pi
+ * backend, and drive it with the pi SDK.
+ *
+ * All values that mirror free-pi-cli (base URL, provider config, catalog shape)
+ * are copied from free-pi-cli 0.6.19 so this app talks to the same backend with
+ * the same credentials at ~/.free-pi/agent/credentials.json.
+ */
+'use strict';
+
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const crypto = require('node:crypto');
+
+const DEFAULT_BASE_URL = 'https://api.freepi.ai';
+const PROVIDER_NAME = 'free-pi';
+const DEFENSE_PROVIDER_NAME = 'free-pi-defense';
+const CONTEXT_WINDOW = 200000;
+const MAX_OUTPUT_TOKENS = 8192;
+const MODEL_ID = 'deepseek/deepseek-v4-flash';
+const SAFE_TOOLS = ['read', 'bash', 'edit', 'write', 'grep', 'find', 'ls'];
+const FREE_PI_DIR_NAME = '.free-pi';
+const FALLBACK_CLIENT_VERSION = '0.6.20';
+
+/**
+ * The version header the backend compares against `min` in /client-version.
+ * Read it from the installed free-pi-cli so a newer CLI never makes this app
+ * look out of date, and fall back to the version the app was written against.
+ */
+function detectClientVersion() {
+  if (process.env.FREEPI_CLIENT_VERSION) return process.env.FREEPI_CLIENT_VERSION;
+  const found = [];
+  const npxRoot = path.join(os.homedir(), 'AppData', 'Local', 'npm-cache', '_npx');
+  try {
+    for (const dir of fs.readdirSync(npxRoot)) {
+      const pkg = path.join(npxRoot, dir, 'node_modules', 'free-pi-cli', 'package.json');
+      try {
+        const v = JSON.parse(fs.readFileSync(pkg, 'utf8')).version;
+        if (typeof v === 'string' && /^\d+\.\d+\.\d+/.test(v)) found.push(v);
+      } catch {}
+    }
+  } catch {}
+  try {
+    const v = JSON.parse(
+      fs.readFileSync(path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'node_modules', 'free-pi-cli', 'package.json'), 'utf8')
+    ).version;
+    if (typeof v === 'string' && /^\d+\.\d+\.\d+/.test(v)) found.push(v);
+  } catch {}
+  if (!found.length) return FALLBACK_CLIENT_VERSION;
+  const rank = (v) => v.split('.').map((n) => Number(n) || 0);
+  found.sort((a, b) => {
+    const [x, y] = [rank(a), rank(b)];
+    for (let i = 0; i < 3; i += 1) if (x[i] !== y[i]) return x[i] - y[i];
+    return 0;
+  });
+  return found[found.length - 1];
+}
+const CLIENT_VERSION = detectClientVersion();
+
+function getAgentDir() {
+  return path.join(os.homedir(), FREE_PI_DIR_NAME, 'agent');
+}
+function getCredentialsPath(agentDir = getAgentDir()) {
+  return path.join(agentDir, 'credentials.json');
+}
+function resolveBaseUrl(env = process.env) {
+  return env.FREEPI_BASE_URL || DEFAULT_BASE_URL;
+}
+
+async function loadJwt(credentialsPath) {
+  try {
+    const parsed = JSON.parse(await fs.promises.readFile(credentialsPath, 'utf8'));
+    return typeof parsed.token === 'string' && parsed.token.length > 0 ? parsed.token : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveJwt(credentialsPath, token) {
+  await fs.promises.mkdir(path.dirname(credentialsPath), { recursive: true });
+  await fs.promises.writeFile(credentialsPath, JSON.stringify({ token }), { mode: 0o600 });
+}
+
+function completionsBaseUrl(baseUrl) {
+  const trimmed = baseUrl.replace(/\/+$/, '');
+  return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`;
+}
+
+function deviceReport() {
+  // Keep this intentionally minimal; the CLI sends a fuller report.
+  return {};
+}
+
+/** Start a guest session (same endpoint the CLI uses when no token is stored). */
+async function startGuestSession(baseUrl) {
+  const res = await fetch(new URL('/auth/guest', baseUrl), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      // The backend validates this as a string; a number is rejected with
+      // "invalid body". "4" is the current terms version used by the CLI.
+      consent_version: '4',
+      client: { os: process.platform, cli_version: CLIENT_VERSION },
+      ...deviceReport(),
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let code = null;
+    let message = '';
+    try {
+      const parsed = JSON.parse(text);
+      code = parsed.code || null;
+      message = parsed.message || '';
+    } catch {}
+    if (code === 'guest_unavailable' || code === 'guest_login_required') {
+      throw new Error(
+        'Guest access is turned off for this network. Sign in with GitHub (Settings → Sign in…) to keep using free-pi.'
+      );
+    }
+    throw new Error(`guest start failed: HTTP ${res.status} ${message || text.slice(0, 200)}`);
+  }
+  const parsed = await res.json();
+  if (!parsed || typeof parsed.token !== 'string') throw new Error('guest start returned no token');
+  return parsed;
+}
+
+async function fetchMe(baseUrl, jwt) {
+  const res = await fetch(new URL('/me', baseUrl), {
+    headers: { authorization: `Bearer ${jwt}`, 'x-freepi-features': 'choice-prompts' },
+  });
+  if (!res.ok) return null;
+  return res.json().catch(() => null);
+}
+
+/** Same shape as the CLI's version check; only the model catalog is used here. */
+async function fetchCatalog(baseUrl, jwt) {
+  try {
+    const res = await fetch(new URL('/client-version', baseUrl), {
+      signal: AbortSignal.timeout(4000),
+      headers: jwt ? { authorization: `Bearer ${jwt}` } : undefined,
+    });
+    if (!res.ok) return { model: undefined, models: undefined };
+    const parsed = await res.json();
+    return { model: parsed.model, models: parsed.models };
+  } catch {
+    return { model: undefined, models: undefined };
+  }
+}
+
+function splitCatalogModels(models) {
+  return {
+    main: models.filter((m) => m.section !== 'defense'),
+    defense: models.filter((m) => m.section === 'defense'),
+  };
+}
+function catalogModelsFor(models, fallbackId) {
+  const main = splitCatalogModels(models || []).main;
+  if (main.length > 0) return main;
+  const id = fallbackId || MODEL_ID;
+  return [{ id, name: id }];
+}
+function defenseModelsFor(models) {
+  return splitCatalogModels(models || []).defense;
+}
+
+function buildProviderConfig(baseUrl, jwt, sessionId, models, name = PROVIDER_NAME) {
+  return {
+    name,
+    baseUrl: completionsBaseUrl(baseUrl),
+    apiKey: jwt,
+    api: 'openai-completions',
+    headers: { 'x-session-id': sessionId, 'x-client-version': CLIENT_VERSION },
+    models: models.map((m) => ({
+      id: m.id,
+      name: m.name,
+      reasoning: true,
+      compat: { supportsDeveloperRole: false },
+      input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: CONTEXT_WINDOW,
+      maxTokens: MAX_OUTPUT_TOKENS,
+    })),
+  };
+}
+
+/**
+ * Resolve credentials, refreshing a guest token when the stored one is rejected.
+ */
+async function resolveAuth(baseUrl, credentialsPath) {
+  let jwt = await loadJwt(credentialsPath);
+  if (!jwt) {
+    const guest = await startGuestSession(baseUrl);
+    await saveJwt(credentialsPath, guest.token);
+    jwt = guest.token;
+    return { jwt, guest: true, fresh: true };
+  }
+  const me = await fetchMe(baseUrl, jwt);
+  if (me === null) {
+    // 401 or network issue: try a guest session before giving up.
+    try {
+      const guest = await startGuestSession(baseUrl);
+      await saveJwt(credentialsPath, guest.token);
+      return { jwt: guest.token, guest: true, fresh: true };
+    } catch {
+      return { jwt, guest: false, fresh: false };
+    }
+  }
+  return { jwt, guest: Boolean(me.guest), me, fresh: false };
+}
+
+/* ------------------------------- ads -------------------------------
+ * free-pi is free because ads pay for it, and the backend enforces that:
+ * a client that never asks for an ad and never reports the impression gets
+ * `403 ads_required` on every completion, with no assistant text at all.
+ * That is what the CLI's `pi-ads` extension prevents, so this mirrors it:
+ *
+ *   1. start a turn (a fresh uuid),
+ *   2. GET /ads/next?slot=banner tagged with that turn id,
+ *   3. show the ad to the user and report the impression,
+ *   4. send the same turn id on the completion request.
+ *
+ * The ad is fetched before each user message (and once at session start), so
+ * the turn the model answers always has an ad attached to it.
+ */
+
+const TURN_HEADER = 'x-turn-id';
+const ADS_TIMEOUT_MS = 5000;
+const LAUNCH_AD_MAX_AGE_MS = 60 * 60000;
+
+function clientLocaleHeaders() {
+  try {
+    const o = Intl.DateTimeFormat().resolvedOptions();
+    return {
+      ...(o.timeZone ? { 'x-client-timezone': o.timeZone } : {}),
+      ...(o.locale ? { 'x-client-locale': o.locale } : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** Only follow impression pixels that really belong to the ad network. */
+function isGravityImpUrl(raw) {
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && /(^|\.)trygravity\.(ai|com)$/.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function createAdsClient(options) {
+  const {
+    baseUrl,
+    getToken,
+    sessionId,
+    clientVersion = CLIENT_VERSION,
+    onAd = () => {},
+    log = () => {},
+  } = options;
+
+  let turnId = null;
+  let lastImpressionToken = null;
+  let launchTurnUnused = false;
+  let launchAdOk = false;
+  let launchPromise = null;
+  let launchAt = 0;
+  let launchToken = null;
+
+  const startTurn = () => {
+    turnId = crypto.randomUUID();
+    return turnId;
+  };
+  const currentTurnId = () => turnId;
+
+  async function adsFetch(pathname, init = {}) {
+    const token = await Promise.resolve(getToken());
+    const headers = {
+      ...(init.headers || {}),
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    };
+    if (sessionId) headers['x-session-id'] = sessionId;
+    if (pathname.startsWith('/ads/next')) {
+      if (turnId) headers[TURN_HEADER] = turnId;
+      if (clientVersion) headers['x-client-version'] = clientVersion;
+      headers['x-client-os'] = process.platform;
+      headers['x-client-arch'] = os.arch();
+      Object.assign(headers, clientLocaleHeaders());
+    }
+    return fetch(`${baseUrl}${pathname}`, {
+      ...init,
+      signal: AbortSignal.timeout(ADS_TIMEOUT_MS),
+      headers,
+    });
+  }
+
+  async function fetchAdNext(slot, trigger) {
+    try {
+      const res = await adsFetch(
+        `/ads/next?slot=${slot}`,
+        trigger ? { headers: { 'x-ad-trigger': trigger } } : undefined
+      );
+      if (res.status === 204 || !res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  function fireGravityImpression(ad) {
+    if (ad?.source !== 'gravity' || !isGravityImpUrl(ad.imp_url)) return false;
+    try {
+      Promise.resolve(fetch(ad.imp_url, { method: 'GET', signal: AbortSignal.timeout(3000) })).catch(
+        () => {}
+      );
+    } catch {}
+    return true;
+  }
+
+  async function postImpression(ad, impFired) {
+    try {
+      await adsFetch('/ads/impression', {
+        method: 'POST',
+        body: JSON.stringify({
+          ad_id: ad.ad_id,
+          click_token: ad.click_token,
+          ...(impFired ? { imp_fired: true } : {}),
+        }),
+      });
+    } catch {}
+  }
+
+  async function showAd(trigger) {
+    const turnAtStart = turnId;
+    const ad = await fetchAdNext('banner', trigger);
+    if (!ad) {
+      log('free-pi: no ad available right now');
+      return false;
+    }
+    // A new turn started while this ad was loading, so it belongs to the
+    // previous turn. Showing it (and reporting an impression for it) would
+    // attach the wrong ad to the new turn.
+    if (turnAtStart !== turnId) return false;
+    try {
+      onAd(ad);
+    } catch {}
+    if (lastImpressionToken !== ad.click_token) {
+      lastImpressionToken = ad.click_token;
+      const impFired = fireGravityImpression(ad);
+      await postImpression(ad, impFired);
+    }
+    return true;
+  }
+
+  /**
+   * Ad for the launch turn. Called once when the session opens so the banner is
+   * visible before the first message, and reused by that first message.
+   */
+  function prefetchLaunchAd() {
+    if (!launchPromise) {
+      startTurn();
+      launchTurnUnused = true;
+      launchAdOk = false;
+      launchAt = Date.now();
+      launchPromise = Promise.resolve(getToken())
+        .catch(() => null)
+        .then((token) => {
+          launchToken = token;
+          return showAd('launch');
+        })
+        .then((ok) => {
+          launchAdOk = Boolean(ok);
+          return launchAdOk;
+        });
+    }
+    return launchPromise;
+  }
+
+  const extension = {
+    name: 'freepi-desktop-ads',
+    factory(pi) {
+      // Every completion carries the turn id the ad was fetched for.
+      pi.on('before_provider_headers', (event) => {
+        if (turnId) event.headers[TURN_HEADER] = turnId;
+      });
+
+      pi.on('session_start', async () => {
+        await prefetchLaunchAd();
+      });
+
+      pi.on('before_agent_start', async (event) => {
+        if (event.messageType !== 'user') return;
+        // The launch ad already covers the first message of a fresh session —
+        // but only if it actually arrived and is still fresh.
+        if (launchTurnUnused) {
+          launchTurnUnused = false;
+          if (launchPromise) await launchPromise.catch(() => false);
+          const token = await Promise.resolve(getToken()).catch(() => null);
+          if (launchAdOk && token === launchToken && Date.now() - launchAt < LAUNCH_AD_MAX_AGE_MS) return;
+        }
+        startTurn();
+        await showAd('user_message');
+      });
+    },
+  };
+
+  /**
+   * Ad for the current turn, fetched again while the window sits idle. This is
+   * for display only: the next user message still gets its own ad for its own
+   * turn, exactly like the terminal client.
+   */
+  async function rotateAd() {
+    if (!turnId) startTurn();
+    return showAd();
+  }
+
+  return { extension, startTurn, currentTurnId, prefetchLaunchAd, rotateAd };
+}
+
+/**
+ * Create a pi agent session wired to the free-pi provider.
+ *
+ * The returned handle exposes:
+ *   session      the pi AgentSession
+ *   modelList    [{ provider, id, name }] usable with setModel()
+ *   setModel()   switch model by id
+ *   dispose()
+ */
+async function createFreePiSession(options) {
+  const {
+    cwd = process.cwd(),
+    sessionManager,
+    sdk,
+    log = () => {},
+    /**
+     * Permission gate. Called before a mutating tool runs; must resolve true to
+     * allow. Omitted means every call is allowed (the CLI behaves this way).
+     */
+    requestApproval = null,
+    /** Tools that always need approval. Read-only ones never do. */
+    guardedTools = ['bash', 'edit', 'write'],
+    /**
+     * Directory the pi SDK treats as its agent root for resource discovery, i.e.
+     * skills are read from `<skillsAgentDir>/skills`. Defaults to the CLI dir.
+     */
+    skillsAgentDir = null,
+    /** Folder (relative to cwd, or absolute) where generate_image saves files. */    imagesDir = 'images',
+    /** Folder for downloaded files. Empty means no policy is injected. */
+    downloadsDir = 'downloads',
+    /**
+     * Called with the ad the backend served for the upcoming turn, so the app
+     * can show it. Ads are what pay for free completions: without a visible ad
+     * and a reported impression the backend refuses to answer.
+     */
+    onAd = () => {},
+  } = options;
+
+  const downloadsDirAbs = path.isAbsolute(downloadsDir)
+    ? downloadsDir
+    : path.join(cwd, downloadsDir);
+
+  const baseUrl = resolveBaseUrl();
+  const agentDir = getAgentDir();
+  // Credentials live with the CLI's agent dir so an existing login keeps working;
+  // only the *skills* directory is repointed at the app data root. The SDK
+  // resolves skills as `<agentDir>/skills`, so the caller passes a dedicated
+  // skillsAgentDir and we hand it to services separately below.
+  const credentialsPath = getCredentialsPath(agentDir);
+  const auth = await resolveAuth(baseUrl, credentialsPath);
+  if (!auth.jwt) throw new Error('no free-pi credentials available');
+
+  const catalog = await fetchCatalog(baseUrl, auth.jwt);
+  const models = catalogModelsFor(catalog.models, catalog.model);
+  const defense = defenseModelsFor(catalog.models);
+  const sessionId = sessionManager.getSessionId();
+  log(`free-pi: ${models.length} model(s), guest=${auth.guest}, client=${CLIENT_VERSION}`);
+
+  // Ads: one per user turn, tagged with the turn id the completion carries.
+  const ads = createAdsClient({
+    baseUrl,
+    getToken: () => auth.jwt,
+    sessionId,
+    clientVersion: CLIENT_VERSION,
+    onAd,
+    log,
+  });
+
+  const providerExtension = {
+    name: 'freepi-desktop-provider',
+    factory(pi) {
+      pi.registerProvider(
+        PROVIDER_NAME,
+        buildProviderConfig(baseUrl, auth.jwt, sessionId, models, PROVIDER_NAME)
+      );
+      if (defense.length > 0) {
+        pi.registerProvider(
+          DEFENSE_PROVIDER_NAME,
+          buildProviderConfig(baseUrl, auth.jwt, sessionId, defense, DEFENSE_PROVIDER_NAME)
+        );
+      }
+      pi.on('before_provider_headers', (event) => {
+        event.headers.Authorization = `Bearer ${auth.jwt}`;
+      });
+
+      if (typeof requestApproval === 'function') {
+        pi.on('tool_call', async (event) => {
+          if (!guardedTools.includes(event.toolName)) return undefined;
+          let allowed = false;
+          try {
+            allowed = await requestApproval({
+              toolName: event.toolName,
+              // pi's `tool_call` event carries the arguments as `input`.
+              args: event.input ?? event.toolCall?.arguments ?? event.args ?? {},
+            });
+          } catch {
+            allowed = false;
+          }
+          if (!allowed) {
+            return { block: true, reason: `${event.toolName} was declined by the user` };
+          }
+          return undefined;
+        });
+      }
+    },
+  };
+
+  /**
+   * POST to a free-pi backend tool endpoint, retrying transient upstream errors.
+   * The backend returns 502/503 intermittently for web search, docs and vision.
+   */
+  async function backendTool(pathname, body, { timeoutMs = 30000, attempts = 3 } = {}) {
+    let lastStatus = 0;
+    let lastText = '';
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        const res = await fetch(`${baseUrl}${pathname}`, {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${auth.jwt}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        lastStatus = res.status;
+        if (res.ok) return { ok: true, data: await res.json() };
+        lastText = await res.text().catch(() => '');
+        if (res.status !== 502 && res.status !== 503 && res.status !== 504) break;
+      } catch (err) {
+        lastText = err instanceof Error ? err.message : String(err);
+      }
+      if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    }
+    let message = `Request failed (HTTP ${lastStatus || 'unknown'})`;
+    try {
+      const parsed = JSON.parse(lastText);
+      message = parsed.error?.message || parsed.message || message;
+    } catch {}
+    return { ok: false, text: message };
+  }
+
+  /**
+   * The rest of the tools free-pi-cli normally registers: web search, docs lookup,
+   * image generation and the built-in guide. All of them are thin wrappers around
+   * backend endpoints on the same account and allowance.
+   */
+  /**
+   * Adds one standing rule to the system prompt: anything the user asked us to
+   * download goes into the configured downloads folder, not wherever a command
+   * happens to run. Only injected when a downloads folder is configured.
+   */
+  const downloadsPolicyExtension = {
+    name: 'freepi-downloads-policy',
+    factory(pi) {
+      if (!downloadsDir) return;
+      pi.on('before_agent_start', (event) => {
+        const rule =
+          `\n\n## Downloads\n\n` +
+          `When you download anything for the user (curl, wget, Invoke-WebRequest, ` +
+          `a script that writes fetched data, or saving a file the user asked you to fetch), ` +
+          `write it inside ${downloadsDirAbs}. ` +
+          `Create that folder if it does not exist. Never drop downloads in the workspace root, ` +
+          `in temp, or in the current shell directory. If the user names a different target ` +
+          `explicitly, follow the user.`;
+        if (event.systemPrompt.includes('## Downloads')) return;
+        return { systemPrompt: event.systemPrompt + rule };
+      });
+    },
+  };
+
+  const extraToolsExtension = {
+    name: 'freepi-desktop-tools',
+    factory(pi) {
+      pi.registerTool({
+        name: 'web_search',
+        label: 'Web Search',
+        description:
+          'Search the web and return a numbered list of results with title, URL, publish date and page text. Use for current information. Each call uses part of the daily allowance.',
+        promptSnippet: 'Search the web for current information',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Specific query as typed into a search engine' },
+            num_results: { type: 'integer', minimum: 1, maximum: 10, description: '1-10, default 5' },
+          },
+          required: ['query'],
+        },
+        async execute(_id, params) {
+          const r = await backendTool('/tools/web-search', params);
+          if (!r.ok) return { content: [{ type: 'text', text: r.text }], details: { ok: false } };
+          const results = r.data.results ?? [];
+          if (!results.length) {
+            return {
+              content: [{ type: 'text', text: `No results for "${params.query}".` }],
+              details: { ok: true },
+            };
+          }
+          const text =
+            `Web results for "${params.query}":\n\n` +
+            results
+              .map(
+                (x, i) =>
+                  `${i + 1}. ${x.title}\n${x.url}${x.published_date ? `\nPublished: ${x.published_date}` : ''}\n${x.text}`
+              )
+              .join('\n\n');
+          return { content: [{ type: 'text', text }], details: { ok: true } };
+        },
+      });
+
+      pi.registerTool({
+        name: 'docs_lookup',
+        label: 'Docs Lookup',
+        description:
+          'Look up current documentation for a third-party library or API. Returns the matching library title and id plus documentation text. Each call uses part of the daily allowance.',
+        promptSnippet: 'Look up library documentation',
+        parameters: {
+          type: 'object',
+          properties: {
+            library: { type: 'string', description: 'Package name, e.g. "electron"' },
+            query: { type: 'string', description: 'One specific question' },
+            library_id: { type: 'string', description: 'Id from a previous lookup, to skip the search' },
+          },
+          required: ['library', 'query'],
+        },
+        async execute(_id, params) {
+          const body = { library: params.library, query: params.query };
+          if (params.library_id) body.library_id = params.library_id;
+          const r = await backendTool('/tools/docs', body);
+          if (!r.ok) return { content: [{ type: 'text', text: r.text }], details: { ok: false } };
+          const d = r.data;
+          const head = [d.title, d.library_id ? `library_id: ${d.library_id}` : null].filter(Boolean).join('\n');
+          const bodyText = d.text || d.documentation || JSON.stringify(d);
+          return { content: [{ type: 'text', text: `${head}\n\n${bodyText}` }], details: { ok: true } };
+        },
+      });
+
+      pi.registerTool({
+        name: 'generate_image',
+        label: 'Generate Image',
+        description:
+          'Generate one image from a text prompt and save it under images/ in the project. Returns the file path. Each call uses part of the daily allowance.',
+        promptSnippet: 'Generate an image file from a prompt',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt: {
+              type: 'string',
+              description: 'Subject, style, any exact text to render, and composition',
+            },
+            aspect_ratio: {
+              type: 'string',
+              enum: ['1:1', '16:9', '9:16', '4:3', '3:2'],
+              description: 'Default 1:1',
+            },
+            name: { type: 'string', description: 'Short file name hint' },
+          },
+          required: ['prompt'],
+        },
+        async execute(_id, params) {
+          const body = { prompt: params.prompt };
+          if (params.aspect_ratio) body.aspect_ratio = params.aspect_ratio;
+          const r = await backendTool('/tools/image', body, { timeoutMs: 120000 });
+          if (!r.ok) return { content: [{ type: 'text', text: r.text }], details: { ok: false } };
+
+          const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[r.data.media_type];
+          if (!ext) {
+            return {
+              content: [{ type: 'text', text: `Unsupported image type: ${r.data.media_type}` }],
+              details: { ok: false },
+            };
+          }
+          const buf = Buffer.from(r.data.image_b64 ?? '', 'base64');
+          if (!buf.length) {
+            return { content: [{ type: 'text', text: 'The server returned an empty image.' }], details: { ok: false } };
+          }
+          const slug = String(params.name || params.prompt)
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 40) || 'image';
+          const dirAbs = path.isAbsolute(imagesDir) ? imagesDir : path.join(cwd, imagesDir);
+          // Where the saved file lands, expressed for display in the prompt.
+          const rel = path.join(imagesDir, `${slug}-${Math.random().toString(16).slice(2, 8)}.${ext}`);
+          try {
+            await fs.promises.mkdir(dirAbs, { recursive: true });
+            await fs.promises.writeFile(path.isAbsolute(rel) ? rel : path.join(cwd, rel), buf, { flag: 'wx' });
+          } catch (err) {
+            return {
+              content: [
+                { type: 'text', text: `Could not save the image: ${err instanceof Error ? err.message : String(err)}` },
+              ],
+              details: { ok: false },
+            };
+          }
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Saved image to ${rel} (${ext}, ${buf.length} bytes). You cannot see the image; reference this path in your answer.`,
+              },
+            ],
+            details: { ok: true, path: rel },
+          };
+        },
+      });
+
+      pi.registerTool({
+        name: 'free_pi_usage',
+        label: 'My Usage',
+        description:
+          'Report how much of the free daily allowance is used, purchased credit, and account tier. Read-only, no arguments.',
+        promptSnippet: 'Check remaining free-pi allowance',
+        parameters: { type: 'object', properties: {} },
+        async execute() {
+          try {
+            const res = await fetch(`${baseUrl}/me/stats`, {
+              headers: { authorization: `Bearer ${auth.jwt}` },
+              signal: AbortSignal.timeout(5000),
+            });
+            if (!res.ok) {
+              return { content: [{ type: 'text', text: `Could not fetch usage (HTTP ${res.status}).` }] };
+            }
+            const s = await res.json();
+            const lines = [
+              typeof s.remaining_credits_today === 'number' && typeof s.allowance_credits === 'number'
+                ? `Credits left today: ${s.remaining_credits_today} / ${s.allowance_credits}`
+                : null,
+              typeof s.bonus_wallet_credits === 'number' && s.bonus_wallet_credits > 0
+                ? `Bonus credit: ${s.bonus_wallet_credits}`
+                : null,
+              s.lane ? `Lane: ${s.lane}` : null,
+              s.refill_at ? `Resets: ${s.refill_at}` : null,
+            ].filter(Boolean);
+            return { content: [{ type: 'text', text: lines.join('\n') || JSON.stringify(s) }] };
+          } catch (err) {
+            return {
+              content: [{ type: 'text', text: `Could not fetch usage: ${err instanceof Error ? err.message : String(err)}` }],
+            };
+          }
+        },
+      });
+    },
+  };
+
+  /**
+   * `look_at_image`: free-pi models are text-only, so images are viewed by asking
+   * the backend's vision endpoint about a file already on disk. Mirrors the tool
+   * free-pi-cli registers.
+   */
+  const visionExtension = {
+    name: 'freepi-desktop-vision',
+    factory(pi) {
+      pi.registerTool({
+        name: 'look_at_image',
+        label: 'Look At Image',
+        description:
+          'Ask a vision model one question about a PNG, JPEG or WebP image inside the project folder. You cannot see images yourself. Each call uses part of the free-pi daily allowance.',
+        promptSnippet: 'Ask a vision model about an image in the project',
+        parameters: {
+          type: 'object',
+          properties: {
+            path: { type: 'string', description: 'Image path, relative to the project or absolute' },
+            question: { type: 'string', description: 'One specific question about the image' },
+          },
+          required: ['path', 'question'],
+        },
+        // pi calls execute(toolCallId, params, signal).
+        async execute(_id, params) {
+          const target = path.resolve(cwd, params?.path || '');
+          if (!target.startsWith(path.resolve(cwd))) {
+            return { content: [{ type: 'text', text: 'Image must be inside the project folder.' }] };
+          }
+          let buf;
+          try {
+            buf = await fs.promises.readFile(target);
+          } catch {
+            return { content: [{ type: 'text', text: `Could not read image: ${params?.path}` }] };
+          }
+          const ext = path.extname(target).toLowerCase();
+          const mediaType =
+            ext === '.jpg' || ext === '.jpeg'
+              ? 'image/jpeg'
+              : ext === '.webp'
+              ? 'image/webp'
+              : 'image/png';
+          try {
+            // The backend's vision upstream returns 502 intermittently; retry briefly.
+            let res;
+            let lastStatus = 0;
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              res = await fetch(`${baseUrl}/tools/vision`, {
+                method: 'POST',
+                headers: {
+                  authorization: `Bearer ${auth.jwt}`,
+                  'content-type': 'application/json',
+                },
+                body: JSON.stringify({
+                  image_b64: buf.toString('base64'),
+                  media_type: mediaType,
+                  question: String(params?.question || 'Describe this image.'),
+                }),
+                signal: AbortSignal.timeout(60000),
+              });
+              lastStatus = res.status;
+              if (res.ok) break;
+              // Only retry transient upstream failures.
+              if (res.status !== 502 && res.status !== 503 && res.status !== 504) break;
+              await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+            }
+            if (!res || !res.ok) {
+              return {
+                content: [
+                  { type: 'text', text: `The vision request failed (HTTP ${lastStatus || 'unknown'}).` },
+                ],
+              };
+            }
+            const data = await res.json();
+            const answer = data.text ?? data.answer ?? JSON.stringify(data);
+            return { content: [{ type: 'text', text: String(answer) }] };
+          } catch (err) {
+            return {
+              content: [
+                { type: 'text', text: `The vision request failed: ${err instanceof Error ? err.message : String(err)}` },
+              ],
+            };
+          }
+        },
+      });
+    },
+  };
+
+  // Preferred default model. Falls back to the first catalog entry if free-pi
+  // renames or drops it, so the app never fails to start.
+  const PREFERRED_MODEL = 'deepseek-v4.1-flash';
+  const defaultModelId = models.some((m) => m.id === PREFERRED_MODEL)
+    ? PREFERRED_MODEL
+    : models[0].id;
+
+  const settingsManager = sdk.SettingsManager.inMemory(
+    {
+      defaultProvider: PROVIDER_NAME,
+      defaultModel: defaultModelId,
+      defaultTools: [...SAFE_TOOLS, 'web_search', 'docs_lookup', 'generate_image', 'free_pi_usage', 'look_at_image'],
+      packages: [],
+      quietStartup: true,
+      defaultThinkingLevel: 'off',
+      hideThinkingBlock: true,
+      enableInstallTelemetry: false,
+    },
+    { projectTrusted: true }
+  );
+
+  const services = await sdk.createAgentSessionServices({
+    cwd,
+    // Passing the app's own root here is what makes skills resolve from
+    // `<DATA_ROOT>/skills` instead of `~/.free-pi/agent/skills`. Credentials and
+    // session files are handled explicitly elsewhere, so this only affects
+    // resources (skills / prompts / themes / extensions).
+    agentDir: skillsAgentDir || agentDir,
+    settingsManager,
+    resourceLoaderOptions: {
+      extensionFactories: [
+        ads.extension,
+        providerExtension,
+        visionExtension,
+        extraToolsExtension,
+        downloadsPolicyExtension,
+      ],
+    },
+  });
+
+  const { session } = await sdk.createAgentSessionFromServices({
+    services,
+    sessionManager,
+    tools: [...SAFE_TOOLS, 'web_search', 'docs_lookup', 'generate_image', 'free_pi_usage', 'look_at_image'],
+  });
+
+  // Show a banner ad as soon as the session opens, so the window is never left
+  // without one while it waits for the first message.
+  ads.prefetchLaunchAd().catch(() => {});
+
+  const modelList = [
+    ...models.map((m) => ({ provider: PROVIDER_NAME, id: m.id, name: m.name })),
+    ...defense.map((m) => ({ provider: DEFENSE_PROVIDER_NAME, id: m.id, name: m.name })),
+  ];
+
+  return {
+    session,
+    services,
+    modelList,
+    auth,
+    baseUrl,
+    /** Fetch and show a fresh banner ad without starting a new turn. */
+    rotateAd: () => ads.rotateAd(),
+    async setModel(provider, modelId) {
+      // getAvailable() is async in pi 1.2 — it resolves to readonly Model<Api>[].
+      const available = await services.modelRuntime.getAvailable();
+      const model = available.find((m) => m.provider === provider && m.id === modelId);
+      if (!model) {
+        const known = available.map((m) => `${m.provider}/${m.id}`).slice(0, 12).join(', ');
+        throw new Error(`model not found: ${provider}/${modelId}. Available: ${known}`);
+      }
+      await session.setModel(model);
+      return { provider: model.provider, id: model.id, name: model.name };
+    },
+    dispose() {
+      try {
+        session.dispose();
+      } catch {}
+    },
+  };
+}
+
+module.exports = {
+  createFreePiSession,
+  adsClientFactory: createAdsClient,
+  resolveAuth,
+  getAgentDir,
+  getCredentialsPath,
+  resolveBaseUrl,
+  saveJwt,
+  CLIENT_VERSION,
+  SAFE_TOOLS,
+  PROVIDER_NAME,
+};

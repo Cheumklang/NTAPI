@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>Chanathip Cheumklang | DeepSeek v4.1 Flash</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="titlebar">
+      <div class="tb-drag">
+        <span class="tb-brand">FreePi.AI</span>
+        <span class="tb-title">Chanathip Cheumklang</span>
+        <span class="tb-sub">DeepSeek v4.1 Flash</span>
+      </div>
+      <div class="tb-controls">
+        <button id="winMin" class="tb-btn" title="Minimize" aria-label="Minimize">
+          <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+            <path d="M2.5 6h7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button id="winMax" class="tb-btn" title="Maximize" aria-label="Maximize">
+          <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+            <rect x="2.6" y="2.6" width="6.8" height="6.8" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.1"/>
+          </svg>
+        </button>
+        <button id="winClose" class="tb-btn tb-close" title="Close" aria-label="Close">
+          <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+            <path d="M3.2 3.2l5.6 5.6M8.8 3.2l-5.6 5.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="brand">
+          <span class="dot"></span>
+          <span>FreePi.AI</span>
+          <span class="badge" id="guestBadge" hidden data-i18n="guestBadge">guest</span>
+          <button id="langBtn" class="chip-btn" title="Language / ภาษา">EN</button>
+          <button id="settingsBtn" class="chip-btn" title="Settings" aria-label="Settings">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <div id="approvalModeBanner" class="approval-banner" hidden role="status">
+          <span class="approval-banner-text" data-i18n="approvalsOff">Not asking for permission</span>
+          <button id="approvalModeReset" class="ghost small" data-i18n="turnPromptsBackOn">Ask me again</button>
+        </div>
+
+        <div class="section">
+          <label data-i18n="workspace">Workspace</label>
+          <button id="pickFolder" class="path-btn" title="Choose a folder">
+            <span id="cwdLabel">…</span>
+            <svg viewBox="0 0 24 24" width="14" height="14"><path d="M4 6h6l2 2h8v10H4z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          </button>
+        </div>
+
+        <div class="section grow">
+          <div class="row-between">
+            <label data-i18n="savedSessions">Saved sessions</label>
+            <button id="newSession" class="ghost small" data-i18n="new">+ New</button>
+          </div>
+          <div id="sessionList" class="session-list"></div>
+        </div>
+
+        <div class="section usage">
+          <div class="usage-title"><span class="live-dot"></span><span data-i18n="status">Status</span></div>
+          <div class="usage-bar-wrap">
+            <div class="usage-bar"><div id="usageBarFill" class="usage-bar-fill"></div></div>
+            <div class="usage-bar-legend">
+              <span id="usagePct">—</span>
+              <span id="usageUsed"></span>
+            </div>
+          </div>
+          <div class="usage-row"><span data-i18n="credits">Credits</span><span id="usageCost" class="mono">—</span></div>
+          <div class="usage-row"><span data-i18n="bonus">Bonus</span><span id="usageTokens" class="mono">—</span></div>
+          <div class="usage-row"><span data-i18n="lane">Lane</span><span id="usageContext" class="mono">—</span></div>
+          <div class="usage-row"><span data-i18n="resets">Resets</span><span id="usageResets" class="mono">—</span></div>
+          <button id="refreshUsage" class="ghost small full" data-i18n="refreshStatus">Refresh status</button>
+        </div>
+      </aside>
+      <div id="sidebarResizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize sidebar"></div>
+
+      <main id="main">
+        <div id="tabbar" hidden>
+          <div id="tabList" class="tab-list"></div>
+        </div>
+
+        <header id="topbar">
+          <div id="titleWrap">
+            <input id="sessionTitle" class="title-input" placeholder="Untitled session" />
+          </div>
+          <div class="controls">
+            <select id="modelSelect" title="Model"></select>
+          </div>
+        </header>
+
+        <!-- Ads pay for the free completions, so they stay visible while a session is open. -->
+        <div id="adSlot" class="ad-slot" hidden role="complementary" aria-label="Sponsored">
+          <span class="ad-tag">AD</span>
+          <div class="ad-copy">
+            <span class="ad-headline"></span>
+            <span class="ad-text"></span>
+          </div>
+          <button type="button" class="ad-refresh" id="adRefresh" aria-label="Change ad" title="Change ad">↻</button>
+          <button type="button" class="ad-cta"></button>
+        </div>
+
+        <section id="transcript" class="transcript">
+          <div id="emptyState" class="empty">
+            <h1 data-i18n="emptyTitle">What are we building?</h1>
+            <p data-i18n="emptySub">Pick a folder on the left, then describe a task. FreePi runs the agent here — no terminal.</p>
+          </div>
+        </section>
+
+        <footer id="composer">
+          <div id="notice" class="notice" hidden></div>
+          <div id="queueBar" class="queue-bar" hidden></div>
+          <div id="attachments" class="attachments" hidden></div>
+          <div class="composer-box">
+            <div id="slashMenu" class="slash-menu" hidden role="listbox" aria-label="Commands"></div>
+            <textarea id="input" rows="1" placeholder="Ask FreePi to build, fix, or explain… (Enter to send, Shift+Enter for newline)"></textarea>
+            <div class="composer-actions">
+              <button id="attachBtn" class="attach" title="Attach files (Ctrl+V to paste)" data-i18n="attach">Attach</button>
+              <button id="stopBtn" class="stop" hidden data-i18n="stop">Stop</button>
+              <button id="sendBtn" class="send" disabled data-i18n="send">Send</button>
+            </div>
+          </div>
+          <div class="hint" id="statusHint" data-i18n="idle">Idle</div>
+        </footer>
+      </main>
+    </div>
+
+    <div id="approvalOverlay" class="overlay" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="approvalTitle">
+        <div class="dialog-wait" data-i18n="waitingForYou">Waiting for you — nothing runs until you choose</div>
+        <h2 id="approvalTitle" data-i18n="approvalTitle">Allow this command?</h2>
+        <p class="dialog-sub">
+          <span data-i18n="approvalSub">The agent wants to run</span>
+          <span id="approvalTool" class="tool-chip">bash</span>
+          <span data-i18n="approvalSub2">in this folder.</span>
+        </p>
+        <pre id="approvalCommand" class="dialog-code"></pre>
+        <label class="dialog-check">
+          <input type="checkbox" id="approvalRemember">
+          <span id="approvalRememberLabel" data-i18n="rememberTool">Don't ask again for bash in this session</span>
+        </label>
+        <div class="dialog-actions">
+          <button id="approvalDeny" class="ghost" data-i18n="deny">Deny</button>
+          <button id="approvalAllowAll" class="ghost danger" data-i18n="allowAll">Allow everything</button>
+          <button id="approvalAllow" class="send" data-i18n="allowOnce">Allow</button>
+        </div>
+        <div class="dialog-hint" data-i18n="approvalKeys">Enter = allow · Esc = deny</div>
+      </div>
+    </div>
+
+    <div id="confirmOverlay" class="overlay" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <h2 id="confirmTitle" data-i18n="deleteTitle">Delete this session?</h2>
+        <p id="deleteSub" class="dialog-sub" data-i18n="deleteSub">
+          This removes the conversation from disk. It cannot be undone.
+        </p>
+        <div id="confirmTarget" class="confirm-target">
+          <div id="confirmText" class="confirm-text"></div>
+          <div id="confirmMeta" class="confirm-meta"></div>
+        </div>
+        <pre id="confirmPath" class="dialog-code confirm-path"></pre>
+        <div class="dialog-actions">
+          <button id="confirmCancel" class="ghost" data-i18n="cancel">Cancel</button>
+          <button id="confirmDelete" class="danger-btn" data-i18n="delete">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="settingsOverlay" class="overlay" hidden>
+      <div class="dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <h2 id="settingsTitle" data-i18n="settings">Settings</h2>
+        <p class="dialog-sub" data-i18n="settingsSub">
+          Choose where the agent saves the files it creates.
+        </p>
+
+        <div class="settings-group">
+          <div class="settings-head" data-i18n="outputFolders">Output folders</div>
+          <div id="settingsFolders" class="settings-list"></div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-head" data-i18n="adsSection">Ads</div>
+          <label class="settings-toggle">
+            <input type="checkbox" id="adsAutoRotate" />
+            <span data-i18n="adsAutoRotate">Change the sponsored banner every minute</span>
+          </label>
+          <p class="settings-hint" data-i18n="adsAutoRotateHint">
+            Only while this window is focused and no message is running. Each new ad is reported as an impression, as the ad network requires.
+          </p>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-head" data-i18n="accountSection">Your account</div>
+          <div id="accountBox" class="account-box"></div>
+          <div class="account-actions">
+            <button id="accountSignIn" class="ghost" data-i18n="signIn">Sign in…</button>
+            <button id="accountSignOut" class="ghost danger" data-i18n="signOut">Sign out</button>
+          </div>
+          <div id="accountNote" class="settings-hint account-note" hidden></div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-head" data-i18n="systemPaths">System locations</div>
+          <div id="settingsSystem" class="settings-list"></div>
+        </div>
+
+        <div class="dialog-actions">
+          <button id="settingsReset" class="ghost" data-i18n="resetDefaults">Reset to defaults</button>
+          <button id="settingsClose" class="primary-btn" data-i18n="close">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="loginOverlay" class="overlay" hidden>
+      <div class="dialog login-dialog" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <h2 id="loginTitle" data-i18n="loginTitle">Sign in to free-pi</h2>
+        <p class="dialog-sub" data-i18n="loginSub">
+          Use your GitHub account. The browser opens automatically — confirm the code below.
+        </p>
+
+        <div class="login-step">
+          <span class="login-step-num">1</span>
+          <div class="login-step-body">
+            <div class="login-step-title" data-i18n="loginStepOpen">Open the GitHub sign-in page</div>
+            <button id="loginOpen" class="primary-btn" data-i18n="loginOpen">Open GitHub</button>
+          </div>
+        </div>
+
+        <div class="login-step">
+          <span class="login-step-num">2</span>
+          <div class="login-step-body">
+            <div class="login-step-title" data-i18n="loginStepCode">Confirm this code</div>
+            <div class="login-code-row">
+              <span id="loginCode" class="login-code mono">----</span>
+              <button id="loginCopy" class="ghost small" data-i18n="loginCopy">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="loginStatus" class="login-status">
+          <span class="s-spin"></span>
+          <span id="loginStatusText" data-i18n="loginWaiting">Waiting for you to approve in the browser…</span>
+        </div>
+        <p id="loginError" class="login-error" hidden></p>
+
+        <div class="dialog-actions">
+          <button id="loginTerminal" class="ghost" data-i18n="loginTerminal">Use terminal instead</button>
+          <button id="loginCancel" class="ghost" data-i18n="cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

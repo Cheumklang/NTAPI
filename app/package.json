@@ -1,0 +1,38 @@
+{
+  "name": "freepi-desktop",
+  "productName": "FreePi",
+  "version": "0.1.0",
+  "description": "Desktop app for free-pi (no terminal needed)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ai.freepi.desktop",
+    "productName": "FreePi",
+    "directories": {
+      "output": "../dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

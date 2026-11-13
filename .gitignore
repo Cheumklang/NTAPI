@@ -1,0 +1,7 @@
+node_modules/
+dist/
+app/Freepiai/
+app/.freepi-attachments/
+.freepi-attachments/
+*.log
+npm-debug.log*
