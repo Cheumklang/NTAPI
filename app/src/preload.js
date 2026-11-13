@@ -127,4 +127,11 @@ contextBridge.exposeInMainWorld('freepi', {
   closeWindow: () => ipcRenderer.send('win:close'),
   getWinState: () => ipcRenderer.invoke('win:state'),
   onWinState: on('win:state'),
+
+  // User-driven updates over GitHub Releases.
+  getUpdateState: () => ipcRenderer.invoke('update:state'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateStatus: on('update:status'),
 });

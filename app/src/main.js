@@ -1124,6 +1124,7 @@ ipcMain.handle('app:boot', async () => {
   const lastCwd = prefs.lastCwd && fs.existsSync(prefs.lastCwd) ? prefs.lastCwd : null;
   return {
     lastCwd,
+    version: app.getVersion(),
     sessions: lastCwd ? await listSessions(lastCwd) : [],
     openTabs: Array.isArray(prefs.openTabs) ? prefs.openTabs : [],
     lang: prefs.lang === 'th' ? 'th' : 'en',
@@ -2603,6 +2604,98 @@ function persistTabs() {
   });
 }
 
+/* ------------------------------ updates ------------------------------ */
+
+/**
+ * Auto-update over GitHub Releases.
+ *
+ * The source repo is private, so installers are published to the public
+ * `NTAPI-releases` repo (see `build.publish` in package.json). Every step is
+ * user-driven: nothing is downloaded until they press the button in Settings.
+ * A dev run (`npm start`) is not packaged, so electron-updater is skipped and
+ * the UI says so instead of throwing.
+ */
+let updater = null;
+let updateState = {
+  status: 'idle',
+  current: app.getVersion(),
+  version: null,
+  progress: 0,
+  error: null,
+};
+
+function sendUpdateState() {
+  send('update:status', { ...updateState, packaged: app.isPackaged, current: app.getVersion() });
+}
+
+function setUpdates() {
+  if (!app.isPackaged) return;
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch {
+    return;
+  }
+  updater = autoUpdater;
+  updater.autoDownload = false;
+  updater.autoInstallOnAppQuit = true;
+
+  const set = (patch) => {
+    updateState = { ...updateState, ...patch };
+    sendUpdateState();
+  };
+
+  updater.on('checking-for-update', () => set({ status: 'checking', error: null }));
+  updater.on('update-available', (info) =>
+    set({ status: 'available', version: info?.version || null, error: null })
+  );
+  updater.on('update-not-available', (info) =>
+    set({ status: 'latest', version: info?.version || null, error: null })
+  );
+  updater.on('error', (err) => set({ status: 'error', error: String(err?.message || err) }));
+  updater.on('download-progress', (p) =>
+    set({ status: 'downloading', progress: Math.round(p?.percent || 0) })
+  );
+  updater.on('update-downloaded', (info) =>
+    set({ status: 'ready', version: info?.version || null, progress: 100 })
+  );
+}
+
+ipcMain.handle('update:state', () => ({
+  ...updateState,
+  packaged: app.isPackaged,
+  current: app.getVersion(),
+}));
+
+ipcMain.handle('update:check', async () => {
+  if (!app.isPackaged || !updater) {
+    return { ok: false, error: 'not-packaged', packaged: app.isPackaged, current: app.getVersion() };
+  }
+  try {
+    await updater.checkForUpdates();
+    return { ok: true, ...updateState };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('update:download', async () => {
+  if (!updater) return { ok: false, error: 'not-packaged' };
+  try {
+    await updater.downloadUpdate();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('update:install', () => {
+  if (!updater) return { ok: false, error: 'not-packaged' };
+  // Let the IPC reply reach the renderer before the app restarts itself.
+  setTimeout(() => updater.quitAndInstall(false, true), 300);
+  return { ok: true };
+});
+
 /* ------------------------------ boot ------------------------------ */
 
 app.whenReady().then(async () => {
@@ -2620,6 +2713,7 @@ app.whenReady().then(async () => {
   } catch {}
 
   createWindow();
+  setUpdates();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

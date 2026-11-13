@@ -274,6 +274,19 @@ const STRINGS = {
     aboutPhone: 'Phone',
     aboutDonation: 'Buy me a coffee',
     aboutQrDesc: 'Scan the QR code to support a coffee',
+    updatesSection: 'Updates',
+    updateCurrent: 'Current version',
+    checkUpdates: 'Check for updates',
+    updateIdle: 'Updates are only checked when you ask.',
+    updateChecking: 'Checking for updates…',
+    updateLatest: 'You are on the latest version.',
+    updateAvailable: 'Version {v} is available.',
+    updateDownload: 'Download update',
+    updateDownloading: 'Downloading… {p}%',
+    updateReady: 'Version {v} is ready. Restart to install.',
+    updateInstall: 'Restart and install',
+    updateDev: 'Auto-update works in the installed build only.',
+    updateError: 'Update check failed: {e}',
   },
   th: {
     workspace: 'โฟลเดอร์งาน',
@@ -501,6 +514,19 @@ const STRINGS = {
     aboutPhone: 'โทรศัพท์',
     aboutDonation: 'สนับสนุนค่ากาแฟ',
     aboutQrDesc: 'สแกน QR Code เพื่อสนับสนุนค่ากาแฟ',
+    updatesSection: 'อัปเดต',
+    updateCurrent: 'เวอร์ชันปัจจุบัน',
+    checkUpdates: 'ตรวจหาอัปเดต',
+    updateIdle: 'ระบบจะตรวจหาอัปเดตเมื่อคุณกดเท่านั้น',
+    updateChecking: 'กำลังตรวจหาอัปเดต…',
+    updateLatest: 'คุณใช้เวอร์ชันล่าสุดแล้ว',
+    updateAvailable: 'มีเวอร์ชันใหม่ {v} ให้อัปเดต',
+    updateDownload: 'ดาวน์โหลดอัปเดต',
+    updateDownloading: 'กำลังดาวน์โหลด… {p}%',
+    updateReady: 'เวอร์ชัน {v} พร้อมแล้ว รีสตาร์ตเพื่อติดตั้ง',
+    updateInstall: 'รีสตาร์ตและติดตั้ง',
+    updateDev: 'ระบบอัปเดตใช้ได้กับเวอร์ชันที่ติดตั้งแล้วเท่านั้น',
+    updateError: 'ตรวจหาอัปเดตไม่สำเร็จ: {e}',
   },
 };
 
@@ -1867,7 +1893,7 @@ async function loadProfile() {
   if (brandEl) brandEl.textContent = prof.brand || 'NTAPI';
   document.title = prof.brand || 'NTAPI';
   const verEl = el('aboutVersion');
-  if (verEl) verEl.textContent = 'v0.1.0';
+  if (verEl) verEl.textContent = `v${boot.version || '0.1.0'}`;
 }
 
 function closeSettings() {
@@ -2318,6 +2344,92 @@ el('settingsReset').addEventListener('click', async () => {
   renderSettings();
 });
 
+// ---- updates (GitHub Releases) ----
+function paintUpdate(state) {
+  const st = state || {};
+  const verEl = el('updateVersion');
+  const statusEl = el('updateStatus');
+  const actionBtn = el('updateActionBtn');
+  const checkBtn = el('updateCheckBtn');
+  if (!verEl || !statusEl || !actionBtn) return;
+
+  if (st.current) verEl.textContent = `v${st.current}`;
+  actionBtn.hidden = true;
+  actionBtn.onclick = null;
+  if (checkBtn) {
+    checkBtn.disabled =
+      st.status === 'checking' || st.status === 'downloading' || st.status === 'ready';
+  }
+
+  const showAction = (label, handler) => {
+    actionBtn.textContent = label;
+    actionBtn.hidden = false;
+    actionBtn.onclick = handler;
+  };
+
+  switch (st.status) {
+    case 'checking':
+      statusEl.textContent = t('updateChecking');
+      break;
+    case 'available':
+      statusEl.textContent = t('updateAvailable', { v: st.version || '' });
+      showAction(t('updateDownload'), async () => {
+        actionBtn.disabled = true;
+        const res = await api.downloadUpdate();
+        actionBtn.disabled = false;
+        if (!res?.ok) statusEl.textContent = t('updateError', { e: res?.error || '' });
+      });
+      break;
+    case 'downloading':
+      statusEl.textContent = t('updateDownloading', { p: st.progress || 0 });
+      break;
+    case 'latest':
+      statusEl.textContent = t('updateLatest');
+      break;
+    case 'ready':
+      statusEl.textContent = t('updateReady', { v: st.version || '' });
+      showAction(t('updateInstall'), () => api.installUpdate());
+      break;
+    case 'error':
+      statusEl.textContent = t('updateError', { e: st.error || '' });
+      break;
+    default:
+      statusEl.textContent = st.packaged === false ? t('updateDev') : t('updateIdle');
+  }
+}
+
+let updateStateCache = null;
+
+async function initUpdates() {
+  const checkBtn = el('updateCheckBtn');
+  if (!checkBtn) return;
+  try {
+    updateStateCache = await api.getUpdateState();
+  } catch {
+    updateStateCache = { status: 'idle', packaged: false };
+  }
+  paintUpdate(updateStateCache);
+
+  checkBtn.addEventListener('click', async () => {
+    paintUpdate({ ...updateStateCache, status: 'checking' });
+    const res = await api.checkForUpdates();
+    if (!res?.ok) {
+      const devBuild = res?.error === 'not-packaged';
+      paintUpdate({
+        ...updateStateCache,
+        status: devBuild ? 'idle' : 'error',
+        error: res?.error,
+        packaged: res?.packaged,
+      });
+    }
+  });
+
+  api.onUpdateStatus?.((s) => {
+    updateStateCache = s;
+    paintUpdate(s);
+  });
+}
+
 // ---- account panel ----
 async function renderAccount() {
   const box = el('accountBox');
@@ -2737,6 +2849,7 @@ async function boot() {
   if (info.lang) lang = info.lang === 'th' ? 'th' : 'en';
   applyLanguage();
   loadProfile();
+  initUpdates();
   refreshCoarenaStatus().catch(() => {});
   refreshZroStatus().catch(() => {});
   refreshNvidiaStatus().catch(() => {});

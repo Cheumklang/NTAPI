@@ -1,0 +1,38 @@
+name: Release
+
+# Push a tag like v0.1.1 to build the Windows installer and publish it.
+# The installer goes to the PUBLIC repo "Cheumklang/NTAPI-releases" so that
+# electron-updater can download it without a token, while this source repo
+# stays private.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Build and publish to NTAPI-releases
+        working-directory: app
+        env:
+          # PAT with "repo" scope, stored as a repository secret.
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run release

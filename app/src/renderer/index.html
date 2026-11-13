@@ -389,6 +389,19 @@
               </div>
 
               <div class="settings-group">
+                <div class="settings-head" data-i18n="updatesSection">Updates</div>
+                <div class="settings-row compact">
+                  <span class="settings-label" data-i18n="updateCurrent">Current version</span>
+                  <div class="settings-resolved"><span id="updateVersion" class="mono">—</span></div>
+                  <div class="settings-actions">
+                    <button id="updateCheckBtn" class="ghost small" data-i18n="checkUpdates">Check for updates</button>
+                  </div>
+                </div>
+                <p id="updateStatus" class="settings-hint" data-i18n="updateIdle">Updates are only checked when you ask.</p>
+                <button id="updateActionBtn" class="primary-btn small" hidden></button>
+              </div>
+
+              <div class="settings-group">
                 <div class="settings-head" data-i18n="resetAll">Reset All Settings</div>
                 <button id="settingsReset" class="ghost danger" data-i18n="resetDefaults">Reset to defaults</button>
                 <p class="settings-hint">This resets folder overrides, sidebar width, and language. Your chats, skills, and API keys are not affected.</p>

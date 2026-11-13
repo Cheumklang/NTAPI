@@ -6,10 +6,15 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win --x64"
+    "dist": "electron-builder --win --x64",
+    "release": "electron-builder --win --x64 --publish always"
   },
-  "author": "",
+  "author": "Chanathip Cheumklang",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cheumklang/NTAPI.git"
+  },
   "devDependencies": {
     "electron": "^38.0.0",
     "electron-builder": "^26.0.12"
@@ -22,17 +27,30 @@
     },
     "files": [
       "src/**/*",
-      "package.json"
+      "package.json",
+      "node_modules/**/*"
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
-      ]
+        "nsis"
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    }
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Cheumklang",
+        "repo": "NTAPI-releases",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }
