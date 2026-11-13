@@ -156,6 +156,9 @@ const STRINGS = {
     advancedSection: 'Advanced',
     folderSettings: 'Folder Settings',
     apiKeys: 'API Keys',
+    accountsKeys: 'Accounts & API keys',
+    freepiSection: 'FreePi',
+    freepiGetKey: 'Sign in at freepi.ai',
     accountSettings: 'Account',
     ntapiSection: 'NTAPI',
     ntapiHint: 'Uses your NTAPI account (GitHub sign-in) instead of an API key.',
@@ -400,6 +403,9 @@ const STRINGS = {
     advancedSection: 'ขั้นสูง',
     folderSettings: 'ตั้งค่าโฟลเดอร์',
     apiKeys: 'API Keys',
+    accountsKeys: 'บัญชีและคีย์ API',
+    freepiSection: 'FreePi',
+    freepiGetKey: 'สมัคร/เข้าสู่ระบบที่ freepi.ai',
     accountSettings: 'บัญชี',
     ntapiSection: 'NTAPI',
     ntapiHint: 'ใช้บัญชี NTAPI (เข้าสู่ระบบด้วย GitHub) แทน API key',
@@ -2658,34 +2664,29 @@ function paintPresence(s) {
 }
 
 // ---- account panel ----
+/**
+ * The FreePi row: one status line and a row of buttons, exactly like the keyed
+ * providers below it. The account details that used to sit in their own labelled
+ * grid (kind, credits, lane, token path) are folded into that one line, so the
+ * free lane stops looking more important than the paid ones.
+ */
 async function renderAccount() {
-  const box = el('accountBox');
-  if (!box) return;
-  box.innerHTML = '';
+  const status = el('accountStatus');
+  if (!status) return;
   const note = el('accountNote');
   note.hidden = true;
 
   const st = await api.accountStatus();
   accountData = st;
 
-  const row = (labelKey, value, cls) => {
-    const d = document.createElement('div');
-    d.className = 'account-row';
-    const l = document.createElement('span');
-    l.className = 'account-label';
-    l.textContent = t(labelKey);
-    const v = document.createElement('span');
-    v.className = 'account-value' + (cls ? ` ${cls}` : '');
-    v.textContent = value;
-    d.append(l, v);
-    box.appendChild(d);
-  };
-
   const kind = !st.hasToken ? 'none' : st.guest ? 'guest' : 'member';
-  row('accountKind', t(kind === 'none' ? 'acctNone' : kind === 'guest' ? 'acctGuest' : 'acctMember'), `acct-${kind}`);
-
-  if (st.credits !== null) row('accountCredits', String(st.credits));
-  if (st.lane) row('accountLane', st.lane);
+  status.replaceChildren();
+  const kindSpan = document.createElement('span');
+  kindSpan.className = `acct-${kind}`;
+  kindSpan.textContent = t(kind === 'none' ? 'acctNone' : kind === 'guest' ? 'acctGuest' : 'acctMember');
+  status.appendChild(kindSpan);
+  if (st.credits !== null) status.append(` · ${t('accountCredits')} ${st.credits}`);
+  if (st.lane) status.append(` · ${t('accountLane')} ${st.lane}`);
 
   const tokenDisplay = st.hasToken
     ? st.credentialsPath.startsWith(st.home)
@@ -2693,33 +2694,14 @@ async function renderAccount() {
       : st.credentialsPath
     : t('accountTokenMissing');
 
-  const pathRow = document.createElement('div');
-  pathRow.className = 'account-row account-row-wrap';
-  const pl = document.createElement('span');
-  pl.className = 'account-label';
-  pl.textContent = t('accountFile');
-  const pv = document.createElement('span');
-  pv.className = 'account-value mono account-path';
-  pv.textContent = tokenDisplay;
-  pv.title = st.hasToken ? st.credentialsPath : '';
-  pathRow.append(pl, pv);
-  box.appendChild(pathRow);
-
-  const tokenNote = document.createElement('div');
-  tokenNote.className = 'account-token-note';
+  // The token path keeps its place, just as a muted footnote with the full path
+  // in the tooltip instead of a row of its own.
+  const tokenNote = el('accountTokenNote');
   tokenNote.textContent = t('accountTokenNote');
-  box.appendChild(tokenNote);
+  tokenNote.title = `${t('accountFile')}: ${tokenDisplay}`;
 
-  if (st.hasToken && st.credentialsDir) {
-    const tokenActions = document.createElement('div');
-    tokenActions.className = 'account-actions';
-    const openToken = document.createElement('button');
-    openToken.className = 'ghost small';
-    openToken.textContent = t('openFolder');
-    openToken.addEventListener('click', () => api.revealPath(st.credentialsDir));
-    tokenActions.appendChild(openToken);
-    box.appendChild(tokenActions);
-  }
+  const folder = el('accountFolder');
+  folder.hidden = !(st.hasToken && st.credentialsDir);
 
   el('accountSignOut').disabled = !st.hasToken;
 
@@ -2878,6 +2860,16 @@ api.onAuthStatus(async (p) => {
 
 el('accountSignOut').addEventListener('click', () => {
   showConfirmSignOut();
+});
+
+// "Open" reveals the folder holding the login token; "Sign in at freepi.ai" is
+// the link-style row the other providers use for their key pages.
+el('accountFolder')?.addEventListener('click', () => {
+  const dir = accountData?.credentialsDir;
+  if (dir) api.revealPath(dir);
+});
+el('accountGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://freepi.ai/').catch(() => {});
 });
 
 el('confirmCancel').addEventListener('click', hideConfirm);

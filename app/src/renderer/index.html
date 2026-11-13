@@ -316,23 +316,25 @@
             <!-- Providers / API Keys -->
             <section class="settings-panel" data-section="providers" id="settingsPanelProviders" role="tabpanel" aria-labelledby="settingsTabProviders">
               <div class="settings-group">
-                <div class="settings-head" data-i18n="ntapiSection">NTAPI</div>
-                <div class="provider-row" id="ntapiRow">
-                  <div class="provider-info">
-                    <span class="provider-name" data-i18n="ntapiSection">NTAPI</span>
-                    <p class="settings-hint" data-i18n="ntapiHint">Uses your NTAPI account (GitHub sign-in) instead of an API key.</p>
-                  </div>
-                  <div id="accountBox" class="account-box"></div>
-                  <div class="account-actions">
-                    <button id="accountSignIn" class="ghost" data-i18n="signIn">Sign in...</button>
-                    <button id="accountSignOut" class="ghost danger" data-i18n="signOut">Sign out</button>
-                  </div>
-                  <div id="accountNote" class="settings-hint account-note" hidden></div>
-                </div>
-              </div>
+                <div class="settings-head" data-i18n="accountsKeys">Accounts &amp; API keys</div>
 
-              <div class="settings-group">
-                <div class="settings-head" data-i18n="apiKeys">API Keys</div>
+                <!-- The free lane is FreePi's account rather than an API key, but
+                     it keeps the same shape as the rows below: provider name, one
+                     status line, one row of buttons. No card, no special frame. -->
+                <div class="provider-row" id="freepiRow">
+                  <div class="provider-info">
+                    <span class="provider-name" data-i18n="freepiSection">FreePi</span>
+                    <p id="accountStatus" class="settings-hint">—</p>
+                  </div>
+                  <div class="provider-actions">
+                    <button id="accountSignIn" class="ghost small" data-i18n="signIn">Sign in...</button>
+                    <button id="accountFolder" class="ghost small" data-i18n="openFolder" hidden>Open</button>
+                    <button id="accountSignOut" class="ghost small danger" data-i18n="signOut">Sign out</button>
+                  </div>
+                </div>
+                <p id="accountTokenNote" class="settings-hint account-token-note"></p>
+                <button id="accountGetKey" class="link-btn" data-i18n="freepiGetKey">Sign in at freepi.ai</button>
+                <p id="accountNote" class="settings-hint account-note" hidden></p>
 
                 <div class="provider-row" id="coarenaRow">
                   <div class="provider-info">
