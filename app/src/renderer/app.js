@@ -568,7 +568,22 @@ function applyLanguage() {
   setBusy(Boolean(activeView()?.busy));
   renderAttachments();
   renderQueue();
-  renderActiveTab();
+  // Language is cosmetic, so it must never disturb a reply in progress.
+  // Rebuilding the transcript mid-turn detaches the live assistant bubble:
+  // the answer jumps to a fresh bubble and can be lost outright (and the
+  // composer draft with it). Re-render only while idle, then put the draft
+  // and the scroll position back exactly as they were.
+  const draft = input.value;
+  const caret = input.selectionStart;
+  const scroll = transcript.scrollTop;
+  if (!activeView()?.busy) renderActiveTab();
+  transcript.scrollTop = scroll;
+  if (input.value !== draft) {
+    input.value = draft;
+    try {
+      input.setSelectionRange(caret, caret);
+    } catch {}
+  }
   // Re-render the status legend so "18% used" follows the language too.
   if (lastUsage) applyUsageLabels(lastUsage);
   if (settingsData && !el('settingsOverlay').hidden) renderSettings();
