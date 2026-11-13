@@ -6,9 +6,10 @@
  * from Node so the renderer rules can be tested without Electron (see
  * scripts/selftest-provider-ui.js).
  *
- * Two providers can be registered in one session: FreePi (`free-pi`,
- * `free-pi-defense`) and Coarena (`coarena`). Ads and the FreePi usage meter
- * belong to FreePi; Coarena shows its own limits meter instead.
+ * Four providers can be registered in one session: FreePi (`free-pi`,
+ * `free-pi-defense`), Coarena (`coarena`), Zro (`zro`) and NVIDIA (`nvidia`).
+ * Ads and the FreePi usage meter belong to FreePi; the keyed providers show
+ * their own meter instead.
  */
 (function (root) {
   'use strict';
@@ -16,6 +17,7 @@
   const FREE_PI_PROVIDERS = new Set(['free-pi', 'free-pi-defense']);
   const COARENA_PROVIDER = 'coarena';
   const ZRO_PROVIDER = 'zro';
+  const NVIDIA_PROVIDER = 'nvidia';
   const SEPARATOR = ' \u00b7 ';
 
   /** Bundled marks, resolved relative to the renderer page. */
@@ -31,6 +33,7 @@
     if (FREE_PI_PROVIDERS.has(provider)) return 'FreePi';
     if (provider === COARENA_PROVIDER) return 'Coarena';
     if (provider === ZRO_PROVIDER) return 'Zro';
+    if (provider === NVIDIA_PROVIDER) return 'NVIDIA';
     return String(provider || '');
   }
 
@@ -87,6 +90,7 @@
     if (isFreePiProvider(provider)) return { showAds: true, meter: null };
     if (provider === COARENA_PROVIDER) return { showAds: false, meter: 'coarena' };
     if (provider === ZRO_PROVIDER) return { showAds: false, meter: 'zro' };
+    if (provider === NVIDIA_PROVIDER) return { showAds: false, meter: 'nvidia' };
     return { showAds: false, meter: null };
   }
 

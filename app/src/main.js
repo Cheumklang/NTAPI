@@ -12,6 +12,7 @@ const { friendlyProviderError } = require('./provider-errors');
 const { createProviderKeyStore } = require('./provider-key');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
 const { checkZroKey } = require('./zro');
+const { checkNvidiaKey } = require('./nvidia');
 const { promptOptionsFor } = require('./prompt-mode');
 
 /**
@@ -156,6 +157,7 @@ const DATA_ROOT = resolveDataRoot();
  */
 const coarenaKeys = createProviderKeyStore({ dir: DATA_ROOT, safeStorage, fileName: 'coarena.json' });
 const zroKeys = createProviderKeyStore({ dir: DATA_ROOT, safeStorage, fileName: 'zro.json' });
+const nvidiaKeys = createProviderKeyStore({ dir: DATA_ROOT, safeStorage, fileName: 'nvidia.json' });
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
 
@@ -784,6 +786,8 @@ async function attachTab(tabId, manager, cwd) {
     coarenaKey: coarenaKeys.read(),
     // Zro's key works the same way; its catalog is static and DeepSeek-only.
     zroKey: zroKeys.read(),
+    // NVIDIA's catalog is text-only and re-resolved against /v1/models.
+    nvidiaKey: nvidiaKeys.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -1128,6 +1132,15 @@ function applyZroKeyToTabs(key) {
   });
 }
 
+function applyNvidiaKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'nvidia',
+    label: 'NVIDIA',
+    key,
+    apply: (handle, next) => handle.applyNvidiaKey(next),
+  });
+}
+
 ipcMain.handle('coarena:status', async () => coarenaStatus());
 
 ipcMain.handle('coarena:setKey', async (_e, { key } = {}) => {
@@ -1215,6 +1228,63 @@ ipcMain.handle('zro:clearKey', async () => {
   return { ok: true, status: zroKeys.status(), applied };
 });
 
+/**
+ * NVIDIA publishes no per-key usage endpoint; the status is the store's own
+ * state. SetKey also reports whether a DeepSeek Flash id is still served.
+ */
+async function nvidiaStatus() {
+  return nvidiaKeys.status();
+}
+
+ipcMain.handle('nvidia:status', async () => nvidiaStatus());
+
+ipcMain.handle('nvidia:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) return { ok: false, status: nvidiaKeys.status(), error: 'Enter an NVIDIA API key first.' };
+
+  // A wrong key is rejected before anything touches the disk. An unreachable
+  // API is not a wrong key: save it and mark it unverified.
+  const check = await checkNvidiaKey(raw);
+  if (!check.ok && !check.offline) {
+    return { ok: false, status: nvidiaKeys.status(), error: check.error };
+  }
+
+  try {
+    nvidiaKeys.save(raw);
+    const applied = await applyNvidiaKeyToTabs(raw);
+    // A valid key with no DeepSeek Flash id means NVIDIA retired the endpoint.
+    const modelMissing =
+      check.ok && !(check.ids || []).some((id) => String(id).startsWith('deepseek-ai/deepseek-v4'));
+    return {
+      ok: true,
+      status: nvidiaKeys.status(),
+      unverified: Boolean(check.offline),
+      modelMissing,
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: nvidiaKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('nvidia:clearKey', async () => {
+  try {
+    nvidiaKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: nvidiaKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyNvidiaKeyToTabs(null);
+  return { ok: true, status: nvidiaKeys.status(), applied };
+});
+
 ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
   const prefs = readPrefs();
   // Settings describes a workspace. With no tab and no remembered folder there
@@ -1258,6 +1328,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     dataRoot: DATA_ROOT,
     coarena: await coarenaStatus(),
     zro: await zroStatus(),
+    nvidia: await nvidiaStatus(),
   };
 });
 

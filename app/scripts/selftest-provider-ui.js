@@ -20,6 +20,7 @@ function check(name, condition, detail) {
 check('free-pi label', UI.providerLabel('free-pi') === 'FreePi' && UI.providerLabel('free-pi-defense') === 'FreePi');
 check('coarena label', UI.providerLabel('coarena') === 'Coarena');
 check('zro label', UI.providerLabel('zro') === 'Zro');
+check('nvidia label', UI.providerLabel('nvidia') === 'NVIDIA');
 check('free-pi logo', UI.providerLogoPath('free-pi') === 'assets/providers/freepi.svg');
 check('defense logo', UI.providerLogoPath('free-pi-defense') === UI.providerLogoPath('free-pi'));
 check('coarena logo', UI.providerLogoPath('coarena') === 'assets/providers/coarena.svg');
@@ -56,6 +57,8 @@ const co = UI.providerChrome({ provider: 'coarena' });
 check('coarena hides ads and shows its meter', co.showAds === false && co.meter === 'coarena');
 const zo = UI.providerChrome({ provider: 'zro' });
 check('zro hides ads and shows its meter', zo.showAds === false && zo.meter === 'zro');
+const nv = UI.providerChrome({ provider: 'nvidia' });
+check('nvidia hides ads and shows its meter', nv.showAds === false && nv.meter === 'nvidia');
 const fp = UI.providerChrome({ provider: 'free-pi' });
 check('free-pi shows ads and no keyed meter', fp.showAds === true && fp.meter === null);
 const unknown = UI.providerChrome({ provider: 'something-else' });

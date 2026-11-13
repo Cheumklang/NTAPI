@@ -108,6 +108,25 @@ const STRINGS = {
     zroUnverified: 'Zro could not be reached — the key was saved unverified.',
     zroSaveFailed: 'Could not save the key:',
     zroRemoved: 'Zro key removed.',
+    nvidiaSection: 'NVIDIA',
+    nvidiaKeyLabel: 'API key',
+    nvidiaSave: 'Save',
+    nvidiaRemove: 'Remove',
+    nvidiaRemoveTitle: 'Remove the NVIDIA key?',
+    nvidiaRemoveSub:
+      'NVIDIA models disappear from the model list. A running turn keeps its current model until it finishes.',
+    nvidiaConfigured: 'Configured',
+    nvidiaUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    nvidiaNotConfigured: 'No key yet — NVIDIA models stay hidden.',
+    nvidiaGetKey: 'Get a key at build.nvidia.com',
+    nvidiaSaved: 'NVIDIA key saved.',
+    nvidiaUnverified: 'NVIDIA could not be reached — the key was saved unverified.',
+    nvidiaModelMissing: 'The key works, but NVIDIA no longer serves a DeepSeek Flash model.',
+    nvidiaSaveFailed: 'Could not save the key:',
+    nvidiaRemoved: 'NVIDIA key removed.',
+    nvidiaFreeTier: 'Free tier',
+    nvidiaLimits: '40/min · 10,000/day',
+    nvidiaTextOnly: 'Text only',
     dataRootLabel: 'App data folder',
     outputFolders: 'Output folders',
     systemPaths: 'System locations',
@@ -281,6 +300,24 @@ const STRINGS = {
     zroUnverified: 'ติดต่อ Zro ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
     zroSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
     zroRemoved: 'ลบคีย์ Zro แล้ว',
+    nvidiaSection: 'NVIDIA',
+    nvidiaKeyLabel: 'API key',
+    nvidiaSave: 'บันทึก',
+    nvidiaRemove: 'ลบออก',
+    nvidiaRemoveTitle: 'ลบคีย์ NVIDIA?',
+    nvidiaRemoveSub: 'โมเดล NVIDIA จะหายจากรายการ โมเดลที่กำลังทำงานอยู่จะใช้ต่อจนจบเทิร์น',
+    nvidiaConfigured: 'ตั้งค่าแล้ว',
+    nvidiaUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    nvidiaNotConfigured: 'ยังไม่มีคีย์ — โมเดล NVIDIA จะไม่แสดง',
+    nvidiaGetKey: 'ขอคีย์ที่ build.nvidia.com',
+    nvidiaSaved: 'บันทึกคีย์ NVIDIA แล้ว',
+    nvidiaUnverified: 'ติดต่อ NVIDIA ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
+    nvidiaModelMissing: 'คีย์ใช้ได้ แต่ NVIDIA ไม่มีโมเดล DeepSeek Flash ให้บริการแล้ว',
+    nvidiaSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    nvidiaRemoved: 'ลบคีย์ NVIDIA แล้ว',
+    nvidiaFreeTier: 'โควตาฟรี',
+    nvidiaLimits: '40/นาที · 10,000/วัน',
+    nvidiaTextOnly: 'ข้อความเท่านั้น',
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
     outputFolders: 'โฟลเดอร์ปลายทาง',
     systemPaths: 'ตำแหน่งของระบบ',
@@ -1184,6 +1221,10 @@ function paintProviderMeter(view) {
   if (chrome.meter === 'coarena') {
     label.textContent = t('coarenaLimits');
     text.textContent = coarenaStatus?.info ? FPProvider.coarenaMeterText(coarenaStatus.info) : '—';
+  } else if (chrome.meter === 'nvidia') {
+    // NVIDIA publishes no usage endpoint; show the free-tier shape instead.
+    label.textContent = t('nvidiaFreeTier');
+    text.textContent = `${t('nvidiaLimits')} · ${t('nvidiaTextOnly')}`;
   } else {
     label.textContent = t('model');
     text.textContent = view?.model?.name || '—';
@@ -1256,6 +1297,39 @@ async function refreshZroStatus() {
   }
   paintZroSettings();
   return zroStatus;
+}
+
+/* NVIDIA also has no per-key usage endpoint: same store-state status. */
+let nvidiaStatus = null;
+
+function paintNvidiaSettings() {
+  const node = el('nvidiaStatus');
+  const remove = el('nvidiaRemove');
+  if (!node) return;
+
+  const s = nvidiaStatus;
+  let text = t('nvidiaNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('nvidiaConfigured')} · ${how}`;
+    if (s.hint) text += ` · …${s.hint}`;
+  } else if (s?.configured) {
+    text = t('nvidiaUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+}
+
+async function refreshNvidiaStatus() {
+  try {
+    nvidiaStatus = await api.nvidiaStatus();
+  } catch {
+    nvidiaStatus = null;
+  }
+  paintNvidiaSettings();
+  return nvidiaStatus;
 }
 
 function applyTabState(state) {
@@ -1549,8 +1623,10 @@ async function openSettings() {
   // so opening the dialog does not spend a rate-limited /key call per open.
   coarenaStatus = settingsData?.coarena || null;
   zroStatus = settingsData?.zro || null;
+  nvidiaStatus = settingsData?.nvidia || null;
   paintCoarenaSettings();
   paintZroSettings();
+  paintNvidiaSettings();
   paintProviderMeter(activeView());
   renderSettings();
   renderAccount();
@@ -1888,6 +1964,47 @@ el('zroGetKey')?.addEventListener('click', () => {
   api.openExternal('https://zro.moonmath.ai/api-keys').catch(() => {});
 });
 
+/* ---------------------------- NVIDIA key ---------------------------- */
+
+el('nvidiaSave')?.addEventListener('click', async () => {
+  const inputEl = el('nvidiaKeyInput');
+  const button = el('nvidiaSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.nvidiaSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      nvidiaStatus = res.status || null;
+      paintNvidiaSettings();
+      paintProviderMeter(activeView());
+      if (res.modelMissing) showNotice(t('nvidiaModelMissing'));
+      else showNotice(res.unverified ? t('nvidiaUnverified') : t('nvidiaSaved'));
+    } else {
+      showNotice(`${t('nvidiaSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('nvidiaSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('nvidiaRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'nvidiaRemove',
+    title: t('nvidiaRemoveTitle'),
+    sub: t('nvidiaRemoveSub'),
+    action: t('nvidiaRemove'),
+  });
+});
+
+el('nvidiaGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://build.nvidia.com/settings/api-keys').catch(() => {});
+});
+
 el('settingsReset').addEventListener('click', async () => {
   const view = activeView();
   const cleared = {};
@@ -2170,6 +2287,19 @@ el('confirmDelete').addEventListener('click', async () => {
     return;
   }
 
+  if (state.kind === 'nvidiaRemove') {
+    const res = await api.nvidiaClearKey();
+    if (res?.ok) {
+      nvidiaStatus = res.status || null;
+      paintNvidiaSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('nvidiaRemoved'));
+    } else {
+      showNotice(`${t('nvidiaSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
   const res = await api.deleteSession(state.cwd, state.session.path);
   if (!res?.ok) {
     showNotice(`Could not delete: ${res?.error || 'unknown error'}`);
@@ -2292,6 +2422,7 @@ async function boot() {
   loadProfile();
   refreshCoarenaStatus().catch(() => {});
   refreshZroStatus().catch(() => {});
+  refreshNvidiaStatus().catch(() => {});
   applySidebarWidth(appPrefs.sidebarWidth || SIDEBAR_DEFAULT);
   if (info.lastCwd) el('cwdLabel').textContent = info.lastCwd;
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});

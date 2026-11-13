@@ -315,6 +315,18 @@
         </div>
 
         <div class="settings-group">
+          <div class="settings-head" data-i18n="nvidiaSection">NVIDIA</div>
+          <label class="settings-label" for="nvidiaKeyInput" data-i18n="nvidiaKeyLabel">API key</label>
+          <div class="settings-actions">
+            <input id="nvidiaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="nvapi-…" aria-label="NVIDIA API key" />
+            <button id="nvidiaSave" class="ghost small" data-i18n="nvidiaSave">Save</button>
+            <button id="nvidiaRemove" class="ghost small danger" data-i18n="nvidiaRemove">Remove</button>
+          </div>
+          <p id="nvidiaStatus" class="settings-hint">—</p>
+          <button id="nvidiaGetKey" class="link-btn" data-i18n="nvidiaGetKey">Get a key at build.nvidia.com</button>
+        </div>
+
+        <div class="settings-group">
           <div class="settings-head" data-i18n="accountSection">Your account</div>
           <div id="accountBox" class="account-box"></div>
           <div class="account-actions">
