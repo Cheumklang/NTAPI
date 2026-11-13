@@ -1,6 +1,7 @@
 'use strict';
 
 const api = window.freepi;
+const MD = window.FPMarkdown;
 
 const el = (id) => document.getElementById(id);
 const transcript = el('transcript');
@@ -38,8 +39,8 @@ const STRINGS = {
     savedSessions: 'Saved sessions',
     new: '+ New',
     status: 'Status',
-    credits: 'Credits',
-    bonus: 'Bonus',
+    credits: 'Daily quota',
+    bonus: 'Bonus credits',
     lane: 'Lane',
     resets: 'Resets',
     refreshStatus: 'Refresh status',
@@ -129,6 +130,12 @@ const STRINGS = {
     removeFromQueue: 'Remove from queue',
     newSession: 'New session',
     noOutput: '(no output)',
+    copied: 'Copied',
+    copyReply: 'Copy reply',
+    copyOutput: 'Copy output',
+    toolRunning: 'running…',
+    toolFailed: 'failed',
+    toolDone: 'done',
     toolsUsed: '{n} tools used',
     toolsUsedOne: '1 tool used',
     toolsFailed: '{n} failed',
@@ -137,7 +144,7 @@ const STRINGS = {
     queuedOne: '1 queued — sends when the current turn finishes',
     queuedMany: '{n} queued — sends when the current turn finishes',
     pctUsed: '{n}% used',
-    spent: '{n} spent',
+    spent: '{n} of {total} used',
     allowOnce: 'Allow',
     deny: 'Deny',
     approvalTitle: 'Allow this command?',
@@ -170,8 +177,8 @@ const STRINGS = {
     savedSessions: 'แชทที่บันทึกไว้',
     new: '+ ใหม่',
     status: 'สถานะ',
-    credits: 'เครดิต',
-    bonus: 'โบนัส',
+    credits: 'โควตาวันนี้',
+    bonus: 'เครดิตโบนัส',
     lane: 'เลน',
     resets: 'รีเซ็ตใน',
     refreshStatus: 'อัปเดตสถานะ',
@@ -261,6 +268,12 @@ const STRINGS = {
     removeFromQueue: 'เอาออกจากคิว',
     newSession: 'เซสชันใหม่',
     noOutput: '(ไม่มีผลลัพธ์)',
+    copied: 'คัดลอกแล้ว',
+    copyReply: 'คัดลอกคำตอบ',
+    copyOutput: 'คัดลอกผลลัพธ์',
+    toolRunning: 'กำลังรัน…',
+    toolFailed: 'ล้มเหลว',
+    toolDone: 'เสร็จ',
     toolsUsed: 'ใช้เครื่องมือ {n} ครั้ง',
     toolsUsedOne: 'ใช้เครื่องมือ 1 ครั้ง',
     toolsFailed: 'ล้มเหลว {n}',
@@ -269,7 +282,7 @@ const STRINGS = {
     queuedOne: 'ต่อคิวไว้ 1 ข้อความ — จะส่งเมื่อรอบนี้เสร็จ',
     queuedMany: 'ต่อคิวไว้ {n} ข้อความ — จะส่งเมื่อรอบนี้เสร็จ',
     pctUsed: 'ใช้ไป {n}%',
-    spent: 'ใช้ไป {n}',
+    spent: 'ใช้ไป {n} จาก {total}',
     allowOnce: 'อนุญาต',
     deny: 'ปฏิเสธ',
     approvalTitle: 'อนุญาตให้รันคําสั่งนี้ไหม?',
@@ -389,13 +402,23 @@ function setBusy(value) {
   input.placeholder = value ? t('placeholderBusy') : t('placeholderIdle');
 }
 
-function showNotice(text) {
+let noticeTimer = null;
+
+function showNotice(text, ms) {
+  clearTimeout(noticeTimer);
   if (!text) {
     noticeEl.hidden = true;
+    noticeEl.textContent = '';
     return;
   }
   noticeEl.hidden = false;
   noticeEl.textContent = text;
+  if (ms > 0) {
+    noticeTimer = setTimeout(() => {
+      noticeEl.hidden = true;
+      noticeEl.textContent = '';
+    }, ms);
+  }
 }
 
 /** Electron wraps IPC failures with "Error invoking remote method …"; drop it. */
@@ -498,6 +521,28 @@ function addMessage(kind) {
     const body = document.createElement('div');
     body.className = 'body';
     wrap.appendChild(body);
+
+    // Copy the reply exactly as the model wrote it (markdown source), not the
+    // rendered text, so pasting it elsewhere keeps its formatting.
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'msg-copy';
+    copyBtn.textContent = t('copyReply');
+    copyBtn.addEventListener('click', () => {
+      const text = body.__fpText || body.textContent || '';
+      if (!text.trim()) return;
+      MD.copyText(text);
+      copyBtn.textContent = t('copied');
+      copyBtn.classList.add('copied');
+      setTimeout(() => {
+        copyBtn.textContent = t('copyReply');
+        copyBtn.classList.remove('copied');
+      }, 1200);
+    });
+    actions.appendChild(copyBtn);
+    wrap.appendChild(actions);
   }
 
   transcript.appendChild(wrap);
@@ -551,11 +596,22 @@ function toolCard(container, { id, name, args }) {
     <div class="tool-head">
       <span class="tool-name">${escapeHtml(name)}</span>
       <span class="tool-arg">${escapeHtml(summarizeArgs(args))}</span>
-      <span class="tool-status">running…</span>
+      <span class="tool-status">${escapeHtml(t('toolRunning'))}</span>
     </div>
     <div class="tool-body"></div>
+    <button type="button" class="tool-copy" hidden>${escapeHtml(t('copyOutput'))}</button>
   `;
   card.querySelector('.tool-head').addEventListener('click', () => card.classList.toggle('collapsed'));
+  card.querySelector('.tool-copy').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const text = card.querySelector('.tool-body')?.textContent || '';
+    if (text.trim()) MD.copyText(text);
+    const btn = e.currentTarget;
+    btn.textContent = t('copied');
+    setTimeout(() => {
+      btn.textContent = t('copyOutput');
+    }, 1200);
+  });
   container.appendChild(card);
   refreshToolsSummary(container);
   scrollToBottom();
@@ -680,7 +736,8 @@ function renderActiveTab() {
       }
       if (text) {
         const body = wrap.querySelector('.body');
-        body.textContent = body.textContent ? `${body.textContent}${text}` : text;
+        body.__fpText = body.__fpText ? `${body.__fpText}${text}` : text;
+        MD.renderInto(body, body.__fpText, { copiedLabel: t('copied') });
       }
       const tc = wrap.querySelector('.tools');
       for (const tool of tools) toolCard(tc, tool);
@@ -738,7 +795,7 @@ function applyTabState(state) {
 
 function deriveLabel(state) {
   const firstUser = (state.messages || []).find((m) => m.kind === 'user' && m.text);
-  if (firstUser) return firstUser.text.replace(/\s+/g, ' ').slice(0, 42);
+  if (firstUser) return MD.toPlainText(firstUser.text).slice(0, 42) || firstUser.text.slice(0, 42);
   return state.cwd ? state.cwd.split(/[\\/]/).pop() : 'New session';
 }
 
@@ -2196,7 +2253,10 @@ function applyUsageLabels(d) {
     // Green while comfortable, amber when getting low, red when nearly gone.
     fill.className = 'usage-bar-fill' + (usedPct >= 90 ? ' danger' : usedPct >= 70 ? ' warn' : '');
     el('usagePct').textContent = t('pctUsed', { n: usedPct });
-    el('usageUsed').textContent = t('spent', { n: (allowance - remaining).toLocaleString() });
+    el('usageUsed').textContent = t('spent', {
+      n: (allowance - remaining).toLocaleString(),
+      total: allowance.toLocaleString(),
+    });
   } else {
     el('usageBarFill').style.width = '0%';
     el('usagePct').textContent = '—';
@@ -2337,7 +2397,10 @@ api.onDelta((p) => {
   } else {
     wrap.classList.add('streaming');
     const body = wrap.querySelector('.body');
-    if (body) body.textContent += p.delta;
+    if (body) {
+      body.__fpText = (body.__fpText || '') + p.delta;
+      MD.renderInto(body, body.__fpText, { streaming: true, copiedLabel: t('copied') });
+    }
   }
   scrollToBottom();
 });
@@ -2349,7 +2412,10 @@ api.onTextEnd((p) => {
   wrap.classList.remove('streaming');
   if (p.text) {
     const body = wrap.querySelector('.body');
-    if (body) body.textContent = p.text;
+    if (body) {
+      body.__fpText = p.text;
+      MD.renderInto(body, p.text, { copiedLabel: t('copied') });
+    }
   }
 });
 
@@ -2397,23 +2463,29 @@ function applyToolResult(card, res) {
   card.classList.toggle('error', res.isError);
   card.classList.toggle('ok', !res.isError);
   card.querySelector('.tool-status').textContent = res.isError
-    ? 'failed'
+    ? t('toolFailed')
     : res.durationMs != null
     ? `${res.durationMs} ms`
-    : 'done';
+    : t('toolDone');
 
-  if (res.diff && (res.diff.added || res.diff.removed)) {
+  const hasDiff = res.diff && (res.diff.added || res.diff.removed);
+  if (hasDiff) {
     renderDiffInto(card, res.diff);
-    // A file change is the important part of an edit/write card: open it so
-    // the user sees exactly what was added and removed.
+  } else {
+    card.querySelector('.tool-body').textContent = res.text;
+  }
+
+  const copy = card.querySelector('.tool-copy');
+  if (copy) copy.hidden = !(card.querySelector('.tool-body')?.textContent || '').trim();
+
+  // A failure or a file change is the important part of the card: open it.
+  if (hasDiff || res.isError) {
     card.classList.remove('collapsed');
     const tools = card.closest('.tools');
     if (tools) {
       tools.hidden = false;
       refreshToolsSummary(tools);
     }
-  } else {
-    card.querySelector('.tool-body').textContent = res.text;
   }
   refreshToolsSummary(card.parentElement);
 }

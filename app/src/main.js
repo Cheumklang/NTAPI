@@ -1656,6 +1656,24 @@ ipcMain.handle('auth:copyCode', async () => {
   return { ok: true };
 });
 
+/** Open a link from a reply in the user's browser. http(s) and mailto only. */
+ipcMain.handle('app:openExternal', async (_e, url) => {
+  const u = String(url || '');
+  if (!/^(https?:\/\/|mailto:)/i.test(u)) return { ok: false };
+  try {
+    await shell.openExternal(u);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+});
+
+ipcMain.handle('app:copyText', async (_e, text) => {
+  const value = typeof text === 'string' ? text.slice(0, 2_000_000) : '';
+  if (!value) return { ok: false };
+  clipboard.writeText(value);
+  return { ok: true };
+});
 ipcMain.handle('auth:cancel', async () => {
   if (loginFlow) {
     loginFlow.cancelled = true;

@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('freepi', {
   abort: (tabId) => ipcRenderer.invoke('prompt:abort', tabId),
   setModel: (tabId, provider, id) => ipcRenderer.invoke('model:set', { tabId, provider, id }),
   fetchUsage: () => ipcRenderer.invoke('usage:fetch'),
+  openExternal: (url) => ipcRenderer.invoke('app:openExternal', String(url || '')),
 
   onBusy: on('agent:busy'),
   onDelta: on('agent:delta'),
@@ -81,6 +82,7 @@ contextBridge.exposeInMainWorld('freepi', {
   authCancel: () => ipcRenderer.invoke('auth:cancel'),
   authOpenBrowser: () => ipcRenderer.invoke('auth:openBrowser'),
   authCopyCode: () => ipcRenderer.invoke('auth:copyCode'),
+  copyText: (text) => ipcRenderer.invoke('app:copyText', String(text ?? '')),
   onAuthStatus: on('auth:status'),
 
   // Custom frameless window controls.
