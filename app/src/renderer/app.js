@@ -557,16 +557,12 @@ function applyLanguage() {
     btn.textContent = lang === 'en' ? 'EN' : 'TH';
     btn.title = lang === 'en' ? 'Switch to Thai' : 'เปลี่ยนเป็นภาษาอังกฤษ';
   }
-  const count = el('brandCount');
-  if (count?.dataset.count) {
-    const n = Number(count.dataset.count);
-    count.title =
-      lang === 'th' ? `ผู้ใช้งานทั้งหมด ${n.toLocaleString()} คน` : `${n.toLocaleString()} users`;
-  }
   const online = el('brandOnline');
   if (online?.dataset.count) {
     const n = Number(online.dataset.count);
-    online.title = lang === 'th' ? `ออนไลน์ตอนนี้ ${n.toLocaleString()} คน` : `${n.toLocaleString()} online now`;
+    online.textContent = onlineLabel(n);
+    online.title =
+      lang === 'th' ? `ออนไลน์ตอนนี้ ${n.toLocaleString()} คน` : `${n.toLocaleString()} online now`;
   }
   // Placeholders and dialog titles are not plain text nodes.
   el('sessionTitle').placeholder = t('untitled');
@@ -2465,31 +2461,19 @@ async function initUpdates() {
   });
 }
 
-// ---- user count ----
-async function loadUserCount() {
-  const badge = el('brandCount');
-  if (!badge) return;
-  try {
-    const r = await api.getUserCount();
-    if (!r || !Number.isFinite(r.value)) return;
-    badge.dataset.count = String(r.value);
-    badge.textContent = `👥 ${r.value.toLocaleString()}`;
-    badge.title =
-      lang === 'th'
-        ? `ผู้ใช้งานทั้งหมด ${r.value.toLocaleString()} คน`
-        : `${r.value.toLocaleString()} users`;
-    badge.hidden = false;
-  } catch {}
-}
-
 // ---- presence (online right now) ----
 
-/** Repaint the green "online now" pill from a presence snapshot. */
+/** "2 online" / "2 คน" — one place so the label follows the language. */
+function onlineLabel(n) {
+  return lang === 'th' ? `${n.toLocaleString()} คน` : `${n.toLocaleString()} online`;
+}
+
+/** Repaint the "online now" pill from a presence snapshot. */
 function paintPresence(s) {
   const badge = el('brandOnline');
   if (!badge || !s || !Number.isFinite(s.online)) return;
   badge.dataset.count = String(s.online);
-  badge.textContent = `🟢 ${s.online.toLocaleString()}`;
+  badge.textContent = onlineLabel(s.online);
   badge.title =
     lang === 'th'
       ? `ออนไลน์ตอนนี้ ${s.online.toLocaleString()} คน`
@@ -2917,7 +2901,6 @@ async function boot() {
   applyLanguage();
   loadProfile();
   initUpdates();
-  loadUserCount();
   api.onPresence(paintPresence);
   api.getPresence().then(paintPresence).catch(() => {});
   refreshCoarenaStatus().catch(() => {});

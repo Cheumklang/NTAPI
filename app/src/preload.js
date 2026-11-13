@@ -137,9 +137,6 @@ contextBridge.exposeInMainWorld('freepi', {
   installUpdate: () => ipcRenderer.invoke('update:install'),
   onUpdateStatus: on('update:status'),
 
-  // Total installs badge (counted once per machine).
-  getUserCount: () => ipcRenderer.invoke('stats:users'),
-
   // How many people are online right now (45 s heartbeat).
   getPresence: () => ipcRenderer.invoke('presence:get'),
   onPresence: on('presence:state'),
