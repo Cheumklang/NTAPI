@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage, Notification } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -18,6 +18,9 @@ const { randomUUID } = require('node:crypto');
  * and installer still say NTAPI.
  */
 app.setName('FreePi');
+// Windows only shows toasts for an app whose AppUserModelID matches its
+// shortcut/installer entry; electron-builder stamps this same id.
+app.setAppUserModelId('ai.ntapi.desktop');
 
 const bridge = require('./freepi-bridge');
 const { diffLines } = require('./diff');
@@ -1049,6 +1052,9 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // The "finished" chime plays without a click, so do not wait for a
+      // user gesture the way a browser would.
+      autoplayPolicy: 'no-user-gesture-required',
     },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
@@ -2792,6 +2798,35 @@ function startPresence() {
 }
 
 ipcMain.handle('presence:get', async () => presenceState || (await presenceBeat()));
+
+/* ---------------------------- notifications ---------------------------- */
+
+/**
+ * Native Windows toast for a finished session, raised only while the app is in
+ * the background. Clicking it brings the window back.
+ */
+ipcMain.handle('notify:done', (_event, payload = {}) => {
+  if (!win || win.isDestroyed() || win.isFocused()) return { ok: false, reason: 'focused' };
+  if (!Notification.isSupported()) return { ok: false, reason: 'unsupported' };
+  try {
+    const notice = new Notification({
+      title: String(payload.title || 'NTAPI'),
+      body: String(payload.body || ''),
+      // The renderer plays its own chime; a second sound would double up.
+      silent: true,
+    });
+    notice.on('click', () => {
+      if (!win || win.isDestroyed()) return;
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    });
+    notice.show();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
 
 /* ------------------------------ boot ------------------------------ */
 

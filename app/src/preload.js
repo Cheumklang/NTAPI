@@ -140,4 +140,7 @@ contextBridge.exposeInMainWorld('freepi', {
   // How many people are online right now (45 s heartbeat).
   getPresence: () => ipcRenderer.invoke('presence:get'),
   onPresence: on('presence:state'),
+
+  // Native toast when a session finishes while the window is in the background.
+  notifyDone: (p) => ipcRenderer.invoke('notify:done', p),
 });

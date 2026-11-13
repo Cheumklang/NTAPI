@@ -287,6 +287,7 @@ const STRINGS = {
     updateReady: 'Version {v} is ready.',
     updateInstall: 'Install & restart',
     updateInstalling: 'Installing... the app will close and reopen on its own.',
+    notifyDone: 'Session finished',
     updateDev: 'Auto-update works in the installed build only.',
     updateError: 'Update check failed: {e}',
   },
@@ -528,7 +529,8 @@ const STRINGS = {
     updateDownloading: 'กําลังดาวน์โหลด... {p}%',
     updateReady: 'เวอร์ชัน {v} พร้อมติดตั้งแล้ว',
     updateInstall: 'ติดตั้งและรีสตาร์ต',
-    updateInstalling: 'กําลังติดตั้ง... โปรแกรมจะปิดและเปิดใหม่เอง',
+    updateInstalling: 'กำลังติดตั้ง... โปรแกรมจะปิดและเปิดใหม่เอง',
+    notifyDone: 'ทำงานเสร็จแล้ว',
     updateDev: 'ระบบอัปเดตใช้ได้กับเวอร์ชันที่ติดตั้งแล้วเท่านั้น',
     updateError: 'ตรวจหาอัปเดตไม่สำเร็จ: {e}',
   },
@@ -664,6 +666,53 @@ function showNotice(text, ms) {
       noticeEl.textContent = '';
     }, ms);
   }
+}
+
+/* --------------------------- sounds & toasts --------------------------- */
+
+const soundCache = {};
+/** Play a UI sound; a missing file or blocked autoplay just stays silent. */
+function playSound(name) {
+  try {
+    const audio = soundCache[name] || (soundCache[name] = new Audio(`assets/sounds/${name}.wav`));
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  } catch {}
+}
+
+/** Small card in the bottom-right corner; clicking runs `onClick`, then fades. */
+function showToast({ title, body, onClick }) {
+  const stack = el('toasts');
+  if (!stack) return;
+  const card = document.createElement('div');
+  card.className = 'toast';
+  card.innerHTML = '<div class="toast-title"></div><div class="toast-body"></div>';
+  card.querySelector('.toast-title').textContent = title;
+  card.querySelector('.toast-body').textContent = body || '';
+  const dismiss = () => {
+    if (card.classList.contains('out')) return;
+    card.classList.add('out');
+    setTimeout(() => card.remove(), 220);
+  };
+  card.addEventListener('click', () => {
+    dismiss();
+    onClick?.();
+  });
+  stack.appendChild(card);
+  setTimeout(dismiss, 6000);
+}
+
+/**
+ * Tell the user a turn finished, but only when they are not already watching
+ * it. Same tab with the window focused means the answer is right there.
+ */
+function notifyFinished(view) {
+  if (payloadTabIsActive(view) && document.hasFocus()) return;
+  playSound('done');
+  const title = t('notifyDone');
+  const body = view.name || view.label || (lang === 'th' ? 'แชท' : 'Chat');
+  showToast({ title, body, onClick: () => activate(view.tabId) });
+  if (!document.hasFocus()) api.notifyDone?.({ title, body });
 }
 
 /** Electron wraps IPC failures with "Error invoking remote method …"; drop it. */
@@ -3479,6 +3528,7 @@ async function submit() {
     autoGrow();
     hideFileMenu();
     try {
+      playSound('send');
       await api.sendPrompt(view.tabId, outgoing, steerImages, 'steer');
       showNotice(t('steerSent'), 2600);
     } catch (err) {
@@ -3508,6 +3558,7 @@ async function submit() {
   setBusy(true);
 
   try {
+    playSound('send');
     await api.sendPrompt(view.tabId, outgoing, images);
   } catch (err) {
     showNotice(errorText(err));
@@ -3894,6 +3945,9 @@ api.onBusy((p) => {
 api.onSettled((p) => {
   const view = viewFor(p);
   if (!view) return;
+  // A queued prompt restarts work immediately, so only the last turn of a run
+  // deserves the "finished" ping.
+  const hadQueue = Boolean(view.queue?.length);
   view.busy = false;
   if (view.liveAssistant) view.liveAssistant.classList.remove('streaming');
   view.liveAssistant = null;
@@ -3901,6 +3955,7 @@ api.onSettled((p) => {
   if (payloadTabIsActive(view)) setBusy(false);
   // Send anything the user queued while this turn was running.
   drainQueue(view);
+  if (!hadQueue) notifyFinished(view);
 });
 
 api.onNotice((p) => {
