@@ -11,6 +11,7 @@ const { sessionDirName } = require('./session-paths');
 const { friendlyProviderError } = require('./provider-errors');
 const { createCoarenaKeyStore } = require('./coarena-key');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
+const { promptOptionsFor } = require('./prompt-mode');
 
 /**
  * Turn pi's own display diff into the shape the renderer draws.
@@ -1444,7 +1445,7 @@ ipcMain.handle('session:clear', async (_e, tabId) => {
   }
 });
 
-ipcMain.handle('prompt:send', async (_e, { tabId, text, images } = {}) => {
+ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode } = {}) => {
   const { tab } = tabFor(tabId);
 
   /**
@@ -1498,7 +1499,11 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images } = {}) => {
   }
   const promptText = parts.join('\n\n');
 
-  const run = tab.handle.session.prompt(promptText);
+  // A second prompt while the agent is running must say how to queue itself:
+  // 'steer' joins this turn, 'followUp' waits for the run to finish. Idle
+  // prompts carry no option at all.
+  const options = promptOptionsFor(Boolean(tab.handle.session.isStreaming), passedMode);
+  const run = tab.handle.session.prompt(promptText, options);
 
   run.catch((err) => {
     reportTabError(tabFor(tabId).tabId, err instanceof Error ? err.message : String(err));
@@ -1506,7 +1511,7 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images } = {}) => {
     sendTab(tabFor(tabId).tabId, 'agent:busy', { busy: false });
   });
 
-  return { ok: true };
+  return { ok: true, mode: options?.streamingBehavior || null };
 });
 
 ipcMain.handle('prompt:abort', async (_e, tabId) => {

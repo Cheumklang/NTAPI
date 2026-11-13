@@ -48,7 +48,8 @@ contextBridge.exposeInMainWorld('freepi', {
   clearSession: (tabId) => ipcRenderer.invoke('session:clear', tabId),
   renameSession: (tabId, name) => ipcRenderer.invoke('session:rename', { tabId, name }),
 
-  sendPrompt: (tabId, text, images) => ipcRenderer.invoke('prompt:send', { tabId, text, images }),
+  sendPrompt: (tabId, text, images, mode) =>
+    ipcRenderer.invoke('prompt:send', { tabId, text, images, mode }),
   abort: (tabId) => ipcRenderer.invoke('prompt:abort', tabId),
   setModel: (tabId, provider, id) => ipcRenderer.invoke('model:set', { tabId, provider, id }),
   fetchUsage: () => ipcRenderer.invoke('usage:fetch'),
