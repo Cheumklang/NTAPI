@@ -96,10 +96,6 @@ function fixtureHtml() {
       </div>
     </section>
     <footer id="composer">
-      <div class="changes-bar" id="changesBar">
-        <span class="changes-summary">2 file(s) changed · +18 −4</span>
-        <button class="ghost small">Review</button>
-      </div>
       <div class="change-row" id="changeRow" style="margin-bottom:10px">
         <div class="change-head">
           <span class="change-path">src/renderer/markdown.js</span>
@@ -176,7 +172,6 @@ app.whenReady().then(async () => {
       rawBackticks: document.getElementById('mdBody').textContent.includes('\\u0060\\u0060\\u0060'),
       usageRowOverflow: overflow('.usage-row'),
       todoOverflow: overflow('.todo-panel'),
-      changesBarOverflow: overflow('#changesBar'),
       diffAdd: document.querySelectorAll('.hl-diff-add').length,
       diffDel: document.querySelectorAll('.hl-diff-del').length,
       docOverflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
@@ -198,7 +193,6 @@ app.whenReady().then(async () => {
   if (report.lists !== 2) fail.push(`expected 2 lists, got ${report.lists}`);
   if (report.rawBackticks) fail.push('raw backticks visible');
   if (report.usageRowOverflow?.overflows) fail.push('usage row overflows');
-  if (report.changesBarOverflow?.overflows) fail.push('changes bar overflows');
   if (!report.diffAdd || !report.diffDel) fail.push('diff lines not colored');
   if (report.docOverflowX) fail.push('page scrolls horizontally');
   const px = (v) => parseFloat(v || '0');

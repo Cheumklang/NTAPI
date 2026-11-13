@@ -2084,21 +2084,6 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 
 /* ==================== review changes ==================== */
 
-.changes-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 6px 10px;
-  margin-bottom: 8px;
-  border: 1px solid #33405c;
-  border-radius: 9px;
-  background: #1a2133;
-  font-size: 12.5px;
-}
-.changes-bar[hidden] { display: none; }
-.changes-summary { color: #cfe0ff; font-family: var(--mono); overflow-wrap: anywhere; }
-
 .changes-dialog { width: min(760px, 94vw); max-height: 84vh; display: flex; flex-direction: column; }
 .dialog-sub { margin: -2px 0 10px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 .changes-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1 1 auto; }

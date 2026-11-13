@@ -4334,6 +4334,12 @@ SLASH_COMMANDS.push(
       if (select && !select.hidden) select.focus();
       else showNotice(t('noMatches'), 2000);
     },
+  },
+  {
+    name: '/changes',
+    en: 'Review the files the agent changed this session',
+    th: 'ตรวจไฟล์ที่ agent แก้ในเซสชันนี้',
+    run: () => openChanges(),
   }
 );
 
@@ -4371,21 +4377,13 @@ Object.assign(STRINGS.th, {
   useSkill: 'ใช้สกิล',
 });
 
-function renderChangesBar(changes) {
-  const bar = el('changesBar');
-  const summary = el('changesSummary');
-  if (!bar || !summary) return;
-  const list = Array.isArray(changes) ? changes : [];
-  if (!list.length) {
-    bar.hidden = true;
-    summary.textContent = '';
-    return;
-  }
-  const added = list.reduce((n, c) => n + (c.added || 0), 0);
-  const removed = list.reduce((n, c) => n + (c.removed || 0), 0);
-  summary.textContent = `${t('filesChanged', { n: list.length })} · +${added} −${removed}`;
-  bar.hidden = false;
-}
+/**
+ * The "files changed" strip used to sit above the composer on every turn, which
+ * crowded the input. It is gone; review stays available from the command
+ * palette (Ctrl+P) and from `/changes`. Callers keep calling this so nothing
+ * has to know the element disappeared.
+ */
+function renderChangesBar() {}
 
 /** Rebuild a unified-diff text block from the stored hunks, for the dialog. */
 function diffTextFor(change) {
@@ -4481,7 +4479,6 @@ async function revertChanges(path, all) {
   showNotice(t('reverted', { n: (res.reverted || []).length }), 2600);
 }
 
-el('changesReview')?.addEventListener('click', openChanges);
 el('changesClose')?.addEventListener('click', () => {
   el('changesOverlay').hidden = true;
 });
