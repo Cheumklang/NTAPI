@@ -14,6 +14,7 @@
 
 const FREE_PI_PROVIDER = 'free-pi';
 const COARENA_PROVIDER = 'coarena';
+const ZRO_PROVIDER = 'zro';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
 /**
@@ -38,14 +39,16 @@ const FREE_PI_TOOL_NAMES = ['web_search', 'docs_lookup', 'generate_image', 'free
  *   available: boolean,
  * }}
  */
-function planProviders({ hasFreePiAuth, coarenaKey, freePiModels, coarenaModels }) {
+function planProviders({ hasFreePiAuth, coarenaKey, zroKey, freePiModels, coarenaModels, zroModels }) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
   const coarenaList = Array.isArray(coarenaModels) ? coarenaModels : [];
+  const zroList = Array.isArray(zroModels) ? zroModels : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
   // empty and a session could not pick a model at all.
   const freePi = Boolean(hasFreePiAuth) && freePiList.length > 0;
   const coarena = Boolean(coarenaKey) && coarenaList.length > 0;
+  const zro = Boolean(zroKey) && zroList.length > 0;
 
   let defaultProvider = null;
   let defaultModel = null;
@@ -59,16 +62,20 @@ function planProviders({ hasFreePiAuth, coarenaKey, freePiModels, coarenaModels 
   } else if (coarena) {
     defaultProvider = COARENA_PROVIDER;
     defaultModel = coarenaList[0].id;
+  } else if (zro) {
+    defaultProvider = ZRO_PROVIDER;
+    defaultModel = zroList[0].id;
   }
 
   return {
     freePi,
     coarena,
+    zro,
     ads: freePi,
     freePiTools: freePi,
     defaultProvider,
     defaultModel,
-    available: freePi || coarena,
+    available: freePi || coarena || zro,
   };
 }
 
@@ -76,6 +83,7 @@ module.exports = {
   planProviders,
   FREE_PI_PROVIDER,
   COARENA_PROVIDER,
+  ZRO_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
 };

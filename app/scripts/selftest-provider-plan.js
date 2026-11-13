@@ -54,8 +54,41 @@ check('falls back to the first free-pi model', noPreferred.defaultModel === 'oth
 const none = planProviders({ hasFreePiAuth: false, coarenaKey: null, freePiModels: [], coarenaModels: [] });
 check('nothing available', none.available === false && none.defaultProvider === null && none.defaultModel === null);
 
+// Zro joins the same plan as a third keyed provider.
+const zro = [{ id: 'deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash' }];
+const zroOnly = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  zroKey: 'k',
+  freePiModels: [],
+  coarenaModels: [],
+  zroModels: zro,
+});
+check('zro-only registers', zroOnly.zro && zroOnly.available && !zroOnly.freePi && !zroOnly.coarena);
+check('zro-only default', zroOnly.defaultProvider === 'zro' && zroOnly.defaultModel === 'deepseek-v4.1-flash');
+
+const zroWithoutKey = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  zroKey: null,
+  freePiModels: [],
+  coarenaModels: [],
+  zroModels: zro,
+});
+check('no key means no zro', zroWithoutKey.zro === false);
+
+const coarenaWins = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: 'k',
+  zroKey: 'k',
+  freePiModels: [],
+  coarenaModels: co,
+  zroModels: zro,
+});
+check('coarena outranks zro', coarenaWins.defaultProvider === 'coarena' && coarenaWins.zro === true);
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);
 }
-console.log('\nPASS: one session can run on free-pi, coarena or neither');
+console.log('\nPASS: one session can run on any configured provider');
