@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -9,6 +9,8 @@ const bridge = require('./freepi-bridge');
 const { diffLines } = require('./diff');
 const { sessionDirName } = require('./session-paths');
 const { friendlyProviderError } = require('./provider-errors');
+const { createCoarenaKeyStore } = require('./coarena-key');
+const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
 
 /**
  * Turn pi's own display diff into the shape the renderer draws.
@@ -144,6 +146,15 @@ function resolveDataRoot() {
 }
 
 const DATA_ROOT = resolveDataRoot();
+
+/**
+ * The Coarena key is per-machine state, never part of prefs.json: it is
+ * encrypted by the OS through safeStorage and stays in the main process. The
+ * renderer only ever sees `status()` (configured / readable / last four chars).
+ */
+const coarenaKeys = createCoarenaKeyStore({ dir: DATA_ROOT, safeStorage });
+/** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
+let coarenaInfoCache = { at: 0, key: null, status: null };
 
 /**
  * Where the agent's generated files land. Users can repoint each of these from
@@ -554,7 +565,15 @@ function tabState(tabId) {
     thinking: safeCall(() => tab.handle.thinking(), null),
     tools: safeCall(() => tab.handle.toolNames(), []),
     changes: tab.changes || [],
+    // A resumed chat can point at a model this account no longer has.
+    modelFallback: safeCall(() => tab.handle.modelFallback, null),
   };
+}
+
+/** Ads and the usage meter belong to FreePi models only. */
+function tabIsFreePi(tab) {
+  const provider = tab?.handle?.session?.model?.provider || '';
+  return provider === 'free-pi' || provider === 'free-pi-defense';
 }
 
 /** Read optional handle data without letting one failure blank the whole state. */
@@ -753,6 +772,9 @@ async function attachTab(tabId, manager, cwd) {
     // The agent may ask a question instead of guessing; the window answers it.
     askUser: (q) => askUserDialog(tabId, q),
     thinkingLevel: readPrefs().thinkingLevel || 'off',
+    // A saved, readable key registers Coarena in this same session. A key that
+    // cannot be decrypted is treated as absent rather than failing the tab.
+    coarenaKey: coarenaKeys.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -1025,6 +1047,103 @@ ipcMain.handle('prefs:set', async (_e, patch = {}) => {
 });
 
 /** Everything the Settings panel needs to render itself. */
+/**
+ * What the renderer may know about the key: whether one exists, whether it can
+ * be read here, and (when it can) the account's limits. The key itself never
+ * crosses the IPC boundary.
+ */
+async function coarenaStatus() {
+  const status = coarenaKeys.status();
+  if (!status.configured || !status.readable) return { ...status, info: null, infoError: null };
+
+  const key = coarenaKeys.read();
+  const now = Date.now();
+  if (coarenaInfoCache.status && coarenaInfoCache.key === key && now - coarenaInfoCache.at < 60_000) {
+    return coarenaInfoCache.status;
+  }
+
+  const res = await readCoarenaKeyInfo(key);
+  const next = { ...status, info: res.ok ? res.info : null, infoError: res.ok ? null : res.error };
+  coarenaInfoCache = { at: now, key, status: next };
+  return next;
+}
+
+/**
+ * Push a new key (or its removal) into every open tab. Registration is live, so
+ * a tab on a Coarena model keeps working without reopening; a tab left on a
+ * removed Coarena model is moved to a model that still exists and told why.
+ */
+async function applyKeyToTabs(key) {
+  let applied = 0;
+  for (const [tabId, tab] of tabs) {
+    try {
+      const res = await tab.handle.applyCoarenaKey(key);
+      if (res?.ok) applied += 1;
+
+      if (!key && tab.handle.session?.model?.provider === COARENA_PROVIDER) {
+        const fallback =
+          (res.models || []).find((m) => m.provider !== COARENA_PROVIDER) || (res.models || [])[0] || null;
+        if (fallback) {
+          await tab.handle.setModel(fallback.provider, fallback.id);
+          sendTab(tabId, 'agent:notice', {
+            text: `Coarena key removed — switched to ${fallback.provider}/${fallback.id}.`,
+          });
+        } else {
+          sendTab(tabId, 'agent:notice', {
+            text: 'Coarena key removed — this tab has no provider left. Add a key or sign in to FreePi.',
+          });
+        }
+      }
+
+      sendTab(tabId, 'model:changed', { model: tab.handle.session?.model || null });
+      sendTab(tabId, 'agent:history', { state: tabState(tabId) });
+    } catch {}
+  }
+  return applied;
+}
+
+ipcMain.handle('coarena:status', async () => coarenaStatus());
+
+ipcMain.handle('coarena:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) return { ok: false, status: coarenaKeys.status(), error: 'Enter a Coarena API key first.' };
+
+  // A wrong key is rejected before anything touches the disk. An unreachable
+  // API is not a wrong key: save it and mark it unverified.
+  const check = await readCoarenaKeyInfo(raw);
+  if (!check.ok && !check.offline) {
+    return { ok: false, status: coarenaKeys.status(), error: check.error };
+  }
+
+  try {
+    coarenaKeys.save(raw);
+    coarenaInfoCache = { at: 0, key: null, status: null };
+    const applied = await applyKeyToTabs(raw);
+    return { ok: true, status: await coarenaStatus(), unverified: Boolean(check.offline), applied };
+  } catch (err) {
+    return {
+      ok: false,
+      status: coarenaKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('coarena:clearKey', async () => {
+  try {
+    coarenaKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: coarenaKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  coarenaInfoCache = { at: 0, key: null, status: null };
+  const applied = await applyKeyToTabs(null);
+  return { ok: true, status: await coarenaStatus(), applied };
+});
+
 ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
   const prefs = readPrefs();
   // Settings describes a workspace. With no tab and no remembered folder there
@@ -1066,6 +1185,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     prefsPath: prefsPath(),
     // Shown at the top of Settings so it is obvious where this app keeps things.
     dataRoot: DATA_ROOT,
+    coarena: await coarenaStatus(),
   };
 });
 
@@ -1149,7 +1269,11 @@ ipcMain.handle('tab:activate', async (_e, tabId) => {
   const tab = tabs.get(tabId);
   if (!tab) throw new Error('unknown tab');
   activeTabId = tabId;
-  if (tab.ad) {
+  if (!tabIsFreePi(tab)) {
+    // Coarena has no ads; clearing the slot also clears whatever the previous
+    // tab left there.
+    sendTab(tabId, 'ads:show', { ad: null });
+  } else if (tab.ad) {
     sendTab(tabId, 'ads:show', { ad: tab.ad });
   } else if (!tab.busy && !tab.adRotating) {
     // The launch ad may have arrived before the window was ready to show it.
@@ -1405,6 +1529,19 @@ ipcMain.handle('model:set', async (_e, { tabId, provider, id }) => {
   const { tabId: tid, tab } = tabFor(tabId);
   const m = await tab.handle.setModel(provider, id);
   sendTab(tid, 'model:changed', { model: m });
+
+  // Switching providers swaps the chrome: ads only exist under FreePi.
+  const freePi = tabIsFreePi(tab);
+  sendTab(tid, 'ads:show', { ad: freePi ? tab.ad : null });
+  if (freePi && !tab.ad && !tab.adRotating) {
+    tab.adRotating = true;
+    tab.handle
+      .rotateAd()
+      .catch(() => {})
+      .finally(() => {
+        tab.adRotating = false;
+      });
+  }
   return m;
 });
 
@@ -1660,6 +1797,9 @@ ipcMain.handle('ads:open', async (_e, url) => {
 ipcMain.handle('ads:rotate', async (_e, { tabId, auto = false } = {}) => {
   const tab = tabs.get(tabId || activeTabId);
   if (!tab || typeof tab.handle.rotateAd !== 'function') return { ok: false, reason: 'no-tab' };
+  // The ads backend is a FreePi endpoint; asking it while a Coarena model is
+  // active would fetch a banner that can never be attached to a turn.
+  if (!tabIsFreePi(tab)) return { ok: false, reason: 'provider' };
   if (tab.busy) return { ok: false, reason: 'busy' };
   if (!win || win.isDestroyed() || !win.isFocused() || win.isMinimized()) {
     return { ok: false, reason: 'not-focused' };

@@ -28,6 +28,10 @@ contextBridge.exposeInMainWorld('freepi', {
   boot: () => ipcRenderer.invoke('app:boot'),
   setPrefs: (patch) => ipcRenderer.invoke('prefs:set', patch),
   getSettings: (cwd) => ipcRenderer.invoke('settings:get', { cwd }),
+  // Coarena key: the renderer sees status only, never the key itself.
+  coarenaStatus: () => ipcRenderer.invoke('coarena:status'),
+  coarenaSetKey: (key) => ipcRenderer.invoke('coarena:setKey', { key }),
+  coarenaClearKey: () => ipcRenderer.invoke('coarena:clearKey'),
   listSkills: () => ipcRenderer.invoke('skills:list'),
   pickSettingsFolder: () => ipcRenderer.invoke('settings:pickFolder'),
   revealPath: (p) => ipcRenderer.invoke('settings:reveal', p),
