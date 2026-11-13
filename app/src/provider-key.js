@@ -1,22 +1,22 @@
 'use strict';
 
 /**
- * Coarena API key storage.
+ * Storage for one provider's API key.
  *
- * The key is per-machine state, not app settings: it lives beside the rest of
- * the data root in `coarena.json`, encrypted with Electron's safeStorage (DPAPI
- * on Windows) whenever that is available. The renderer never receives the raw
- * value — only a status object with a readable hint (the last four characters).
+ * Keys are per-machine state, not app settings: each lives beside the rest of
+ * the data root in its own file (e.g. `coarena.json`, `zro.json`), encrypted
+ * with Electron's safeStorage (DPAPI on Windows) whenever that is available.
+ * The renderer never receives the raw value — only a status object with a
+ * readable hint (the last four characters).
  *
- * A copied data folder must fail soft: the file still says "configured", but
- * it cannot be decrypted here, so the UI asks for the key again instead of
- * deleting it or crashing at startup.
+ * A copied data folder must fail soft: the file still says "configured", but it
+ * cannot be decrypted here, so the UI asks for the key again instead of deleting
+ * it or crashing at startup.
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 
-const FILE_NAME = 'coarena.json';
 const FILE_VERSION = 1;
 const MODE = 0o600;
 
@@ -26,8 +26,9 @@ function lastFour(key) {
   return key.length >= 4 ? key.slice(-4) : key;
 }
 
-function createCoarenaKeyStore({ dir, safeStorage }) {
-  const filePath = path.join(dir, FILE_NAME);
+function createProviderKeyStore({ dir, safeStorage, fileName }) {
+  if (!fileName) throw new Error('fileName is required');
+  const filePath = path.join(dir, fileName);
 
   /** @returns {{ state: 'missing' } | { state: 'corrupt' } | { state: 'ok', record: object }} */
   function readRecord() {
@@ -101,7 +102,7 @@ function createCoarenaKeyStore({ dir, safeStorage }) {
 
     // Write-then-rename so a crash mid-write cannot leave half a key file.
     // PID and time keep two saves in the same millisecond apart.
-    const tmp = path.join(dir, `${FILE_NAME}.${process.pid}.${Date.now()}.tmp`);
+    const tmp = path.join(dir, `${fileName}.${process.pid}.${Date.now()}.tmp`);
     try {
       fs.writeFileSync(tmp, JSON.stringify(record), { mode: MODE });
       fs.renameSync(tmp, filePath);
@@ -111,7 +112,7 @@ function createCoarenaKeyStore({ dir, safeStorage }) {
       } catch {}
       const message = err instanceof Error ? err.message : String(err);
       // Never attach the key itself to the error the settings dialog shows.
-      throw new Error(`could not save the Coarena key: ${message}`);
+      throw new Error(`could not save the key: ${message}`);
     }
 
     return status();
@@ -128,4 +129,4 @@ function createCoarenaKeyStore({ dir, safeStorage }) {
   return { path: filePath, status, read, save, clear };
 }
 
-module.exports = { createCoarenaKeyStore, FILE_NAME };
+module.exports = { createProviderKeyStore };

@@ -9,7 +9,7 @@ const bridge = require('./freepi-bridge');
 const { diffLines } = require('./diff');
 const { sessionDirName } = require('./session-paths');
 const { friendlyProviderError } = require('./provider-errors');
-const { createCoarenaKeyStore } = require('./coarena-key');
+const { createProviderKeyStore } = require('./provider-key');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
 const { promptOptionsFor } = require('./prompt-mode');
 
@@ -153,7 +153,7 @@ const DATA_ROOT = resolveDataRoot();
  * encrypted by the OS through safeStorage and stays in the main process. The
  * renderer only ever sees `status()` (configured / readable / last four chars).
  */
-const coarenaKeys = createCoarenaKeyStore({ dir: DATA_ROOT, safeStorage });
+const coarenaKeys = createProviderKeyStore({ dir: DATA_ROOT, safeStorage, fileName: 'coarena.json' });
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
 
