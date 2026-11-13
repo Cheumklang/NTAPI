@@ -519,6 +519,7 @@ button { font-family: inherit; }
 }
 .ad-slot:hover { border-color: #3b4257; border-left-color: var(--accent); background: var(--bg-3); }
 .ad-slot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ad-slot[hidden] { display: none; }
 
 .ad-tag {
   flex: 0 0 auto;
@@ -1708,9 +1709,10 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 .file-name { font-family: var(--mono); font-size: 12.5px; color: #cfe0ff; flex: 0 0 auto; }
 
 /* find bar */
+/* Floats under the topbar: at 10px it covered the model select. */
 .find-bar {
   position: fixed;
-  top: calc(var(--tb-h) + 10px);
+  top: calc(var(--tb-h) + 62px);
   right: 20px;
   z-index: 40;
   display: flex;
@@ -1722,6 +1724,7 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
 }
+.find-bar[hidden] { display: none; }
 .find-bar input {
   background: var(--bg);
   border: 1px solid var(--line);
@@ -1812,6 +1815,7 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
   background: #1a2133;
   font-size: 12.5px;
 }
+.changes-bar[hidden] { display: none; }
 .changes-summary { color: #cfe0ff; font-family: var(--mono); overflow-wrap: anywhere; }
 
 .changes-dialog { width: min(760px, 94vw); max-height: 84vh; display: flex; flex-direction: column; }
