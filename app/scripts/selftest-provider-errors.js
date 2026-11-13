@@ -53,6 +53,15 @@ check('coarena network failure names Coarena', /Coarena/.test(offline.text) && /
 const freePiOffline = friendlyProviderError('fetch failed');
 check('one-argument calls unchanged', /fetch failed/.test(freePiOffline.text));
 
+const zroBad = friendlyProviderError('401: {"error":{"message":"Invalid API key"}}', { provider: 'zro' });
+check('zro bad key names Settings', /Zro/.test(zroBad.text) && /Settings/.test(zroBad.text));
+const zroBroke = friendlyProviderError('402: {"error":{"message":"Payment required"}}', { provider: 'zro' });
+check('zro empty balance is explained', /balance/i.test(zroBroke.text));
+const zroLimited = friendlyProviderError('429: {"error":{"message":"rate limited"}}', { provider: 'zro' });
+check('zro rate limit is explained', /rate limiting/i.test(zroLimited.text));
+const zroOffline = friendlyProviderError('fetch failed', { provider: 'zro' });
+check('zro network failure names Zro', /Zro/.test(zroOffline.text) && /connection/i.test(zroOffline.text));
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

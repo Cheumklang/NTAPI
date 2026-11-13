@@ -54,6 +54,17 @@ const COARENA_HINTS = {
   insufficient_quota: 'Coarena has no quota left today — it resets at UTC midnight.',
 };
 
+/**
+ * Zro's failures are its own: a 401 is a bad key, a 402 means the key's balance
+ * is empty, and a 429 is a short rate limit.
+ */
+const ZRO_HINTS = {
+  invalid_api_key: 'Zro rejected this API key — open Settings, replace it, then retry.',
+  rate_limit: 'Zro is rate limiting this key. Wait a moment and try again.',
+  rate_limit_exceeded: 'Zro is rate limiting this key. Wait a moment and try again.',
+  insufficient_quota: 'This Zro key has no balance left — top up the account or switch provider.',
+};
+
 const NETWORK_FAILURE_PATTERNS = [
   'fetch failed',
   'econnrefused',
@@ -95,13 +106,21 @@ function friendlyProviderError(raw, { provider } = {}) {
   let hint = null;
   if (provider === 'coarena') {
     if (code && COARENA_HINTS[code]) hint = COARENA_HINTS[code];
+    else if (status === '401') hint = COARENA_HINTS.invalid_api_key;
+    else if (status === '429') hint = COARENA_HINTS.rate_limit;
     // A dead network has no status and no code; the raw body would just say
     // "fetch failed", which tells the user nothing about which service is down.
     else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Coarena — check your connection and retry.';
+  } else if (provider === 'zro') {
+    if (code && ZRO_HINTS[code]) hint = ZRO_HINTS[code];
+    else if (status === '401') hint = ZRO_HINTS.invalid_api_key;
+    else if (status === '402') hint = ZRO_HINTS.insufficient_quota;
+    else if (status === '429') hint = ZRO_HINTS.rate_limit;
+    else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Zro — check your connection and retry.';
   }
   if (!hint) hint = (code && ERROR_HINTS[code]) || message || text || 'The model request failed.';
   const suffix = status ? ` (HTTP ${status}${code ? ` · ${code}` : ''})` : '';
   return { text: `${hint}${suffix}`, code };
 }
 
-module.exports = { ERROR_HINTS, COARENA_HINTS, parseProviderError, friendlyProviderError };
+module.exports = { ERROR_HINTS, COARENA_HINTS, ZRO_HINTS, parseProviderError, friendlyProviderError };
