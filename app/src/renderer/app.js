@@ -59,18 +59,17 @@ const STRINGS = {
     idle: 'Idle',
     working: 'Working…',
     restoring: 'Restoring last session…',
-    placeholderIdle: 'Ask FreePi to build, fix, or explain… (Enter to send, Shift+Enter for newline)',
+    placeholderIdle: 'Ask NTAPI to build, fix, or explain… (Enter to send, Shift+Enter for newline)',
     placeholderBusy: 'Agent is working — Enter sends into the turn, Ctrl+Enter queues',
     steerSent: 'Sent into the running turn.',
     untitled: 'Untitled session',
+    rename: 'Rename',
     noSessions: 'No saved sessions yet.',
     openBadge: 'open',
+    currentBadge: 'current',
+    sessionMenuHint: 'Right-click to rename or delete',
     settings: 'Settings',
     settingsSub: 'Where this app keeps its files. Everything lives in one folder you can copy or back up.',
-    adsSection: 'Ads',
-    adsAutoRotate: 'Change the sponsored banner every minute',
-    adsAutoRotateHint:
-      'Only while this window is focused and no message is running. Each new ad is reported as an impression, as the ad network requires.',
     changeAd: 'Change ad',
     adBusy: 'Wait for the current message to finish before changing the ad.',
     provider: 'Provider',
@@ -148,6 +147,17 @@ const STRINGS = {
     dataRootLabel: 'App data folder',
     outputFolders: 'Output folders',
     systemPaths: 'System locations',
+    workspaceSection: 'Workspace',
+    providersSection: 'Providers',
+    appearanceSection: 'Appearance & Behavior',
+    advancedSection: 'Advanced',
+    folderSettings: 'Folder Settings',
+    apiKeys: 'API Keys',
+    accountSettings: 'Account',
+    ntapiSection: 'NTAPI',
+    ntapiHint: 'Uses your NTAPI account (GitHub sign-in) instead of an API key.',
+    dataLocations: 'Data Locations',
+    resetAll: 'Reset All Settings',
     accountSection: 'Your account',
     accountKind: 'Signed in as',
     accountCredits: 'Credits today',
@@ -163,7 +173,7 @@ const STRINGS = {
     signIn: 'Sign in…',
     refreshAccount: 'Refresh',
     signedIn: 'Signed in — opening your chat…',
-    loginTitle: 'Sign in to free-pi',
+    loginTitle: 'Sign in to NTAPI',
     loginSub: 'Use your GitHub account. The browser opens automatically — confirm the code below.',
     loginStepOpen: 'Open the GitHub sign-in page',
     loginOpen: 'Open GitHub',
@@ -207,7 +217,7 @@ const STRINGS = {
     readyHint: 'Ready — press + to start a session',
     chooseToBegin: 'Choose a workspace folder to begin',
     emptyTitle: 'What are we building?',
-    emptySub: 'Pick a folder on the left, then describe a task. FreePi runs the agent here — no terminal.',
+    emptySub: 'Pick a folder on the left, then describe a task. NTAPI runs the agent here — no terminal.',
     dropFiles: 'Drop files to attach',
     removeFromQueue: 'Remove from queue',
     newSession: 'New session',
@@ -251,8 +261,19 @@ const STRINGS = {
     thinkingShow: 'Show thinking',
     thinkingHide: 'Hide thinking',
     you: 'You',
-    assistant: 'FreePi',
+    assistant: 'NTAPI',
     system: 'System',
+    aboutSection: 'About',
+    aboutApp: 'NTAPI',
+    aboutVersion: 'Version',
+    aboutDeveloper: 'Developer',
+    aboutNameEn: 'Name (English)',
+    aboutNameTh: 'Name (Thai)',
+    aboutNickname: 'Nickname',
+    aboutEmail: 'Email',
+    aboutPhone: 'Phone',
+    aboutDonation: 'Buy me a coffee',
+    aboutQrDesc: 'Scan the QR code to support a coffee',
   },
   th: {
     workspace: 'โฟลเดอร์งาน',
@@ -270,18 +291,17 @@ const STRINGS = {
     idle: 'พร้อมใช้งาน',
     working: 'กำลังทำงาน…',
     restoring: 'กำลังกลับไปยังแชทล่าสุด…',
-    placeholderIdle: 'พิมพ์ให้ FreePi สร้าง แก้ หรืออธิบาย… (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)',
+    placeholderIdle: 'พิมพ์ให้ NTAPI สร้าง แก้ หรืออธิบาย… (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)',
     placeholderBusy: 'AI กำลังทำงาน — Enter ส่งเข้าเทิร์น, Ctrl+Enter เข้าคิว',
     steerSent: 'ส่งเข้าเทิร์นที่กำลังทำงานแล้ว',
     untitled: 'แชทไม่มีชื่อ',
+    rename: 'เปลี่ยนชื่อ',
     noSessions: 'ยังไม่มีแชทที่บันทึกไว้',
     openBadge: 'เปิดอยู่',
+    currentBadge: 'ปัจจุบัน',
+    sessionMenuHint: 'คลิกขวาเพื่อเปลี่ยนชื่อหรือลบ',
     settings: 'ตั้งค่า',
     settingsSub: 'ที่เก็บไฟล์ของแอปนี้ — ทุกอย่างอยู่ในโฟลเดอร์เดียว ก๊อปหรือแบ็กอัปได้ทั้งก้อน',
-    adsSection: 'โฆษณา',
-    adsAutoRotate: 'เปลี่ยนโฆษณาทุก 1 นาที',
-    adsAutoRotateHint:
-      'เปลี่ยนเฉพาะตอนหน้าต่างนี้ถูกเลือกอยู่และไม่มีข้อความกำลังทำงาน แต่ละโฆษณาใหม่จะถูกรายงานเป็น impression ตามที่ ad network กำหนด',
     changeAd: 'เปลี่ยนโฆษณา',
     adBusy: 'รอให้ข้อความนี้ทำงานเสร็จก่อนเปลี่ยนโฆษณา',
     provider: 'ผู้ให้บริการ',
@@ -355,6 +375,17 @@ const STRINGS = {
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
     outputFolders: 'โฟลเดอร์ปลายทาง',
     systemPaths: 'ตำแหน่งของระบบ',
+    workspaceSection: 'โฟลเดอร์งาน',
+    providersSection: 'ผู้ให้บริการ',
+    appearanceSection: 'รูปลักษณ์และพฤติกรรม',
+    advancedSection: 'ขั้นสูง',
+    folderSettings: 'ตั้งค่าโฟลเดอร์',
+    apiKeys: 'API Keys',
+    accountSettings: 'บัญชี',
+    ntapiSection: 'NTAPI',
+    ntapiHint: 'ใช้บัญชี NTAPI (เข้าสู่ระบบด้วย GitHub) แทน API key',
+    dataLocations: 'ตำแหน่งข้อมูล',
+    resetAll: 'รีเซ็ตทั้งหมด',
     accountSection: 'บัญชีของคุณ',
     accountKind: 'ล็อกอินเป็น',
     accountCredits: 'Credits วันนี้',
@@ -370,7 +401,7 @@ const STRINGS = {
     signIn: 'เข้าสู่ระบบ…',
     refreshAccount: 'รีเฟรช',
     signedIn: 'ล็อกอินแล้ว — กำลังเปิดแชทให้…',
-    loginTitle: 'เข้าสู่ระบบ free-pi',
+    loginTitle: 'เข้าสู่ระบบ NTAPI',
     loginSub: 'ใช้บัญชี GitHub ของคุณ — เบราว์เซอร์จะเปิดขึ้นอัตโนมัติ ยืนยันรหัสด้านล่าง',
     loginStepOpen: 'เปิดหน้าเข้าสู่ระบบ GitHub',
     loginOpen: 'เปิด GitHub',
@@ -414,7 +445,7 @@ const STRINGS = {
     readyHint: 'พร้อมแล้ว — กด + เพื่อเริ่มเซสชัน',
     chooseToBegin: 'เลือกโฟลเดอร์ทำงานเพื่อเริ่มต้น',
     emptyTitle: 'จะสร้างอะไรกันดี?',
-    emptySub: 'เลือกโฟลเดอร์ทางซ้าย แล้วบอกงานที่ต้องการ — FreePi ทำงานให้ที่นี่ ไม่ต้องใช้ terminal',
+    emptySub: 'เลือกโฟลเดอร์ทางซ้าย แล้วบอกงานที่ต้องการ — NTAPI ทำงานให้ที่นี่ ไม่ต้องใช้ terminal',
     dropFiles: 'วางไฟล์เพื่อแนบ',
     removeFromQueue: 'เอาออกจากคิว',
     newSession: 'เซสชันใหม่',
@@ -457,8 +488,19 @@ const STRINGS = {
     thinkingShow: 'ดูความคิด',
     thinkingHide: 'ซ่อนความคิด',
     you: 'คุณ',
-    assistant: 'FreePi',
+    assistant: 'NTAPI',
     system: 'ระบบ',
+    aboutSection: 'เกี่ยวกับ',
+    aboutApp: 'NTAPI',
+    aboutVersion: 'เวอร์ชัน',
+    aboutDeveloper: 'ผู้พัฒนา',
+    aboutNameEn: 'ชื่อ (ภาษาอังกฤษ)',
+    aboutNameTh: 'ชื่อ (ภาษาไทย)',
+    aboutNickname: 'ชื่อเล่น',
+    aboutEmail: 'อีเมล',
+    aboutPhone: 'โทรศัพท์',
+    aboutDonation: 'สนับสนุนค่ากาแฟ',
+    aboutQrDesc: 'สแกน QR Code เพื่อสนับสนุนค่ากาแฟ',
   },
 };
 
@@ -1124,6 +1166,7 @@ function renderActiveTab() {
     transcript.appendChild(emptyState);
     emptyState.hidden = false;
     sessionTitle.value = '';
+    el('sessionDot').hidden = true;
     closeModelMenu();
     renderModelPicker(null);
     setBusy(false);
@@ -1131,6 +1174,7 @@ function renderActiveTab() {
   }
 
   sessionTitle.value = view.name || '';
+  el('sessionDot').hidden = false;
   sessionTitle.placeholder = view.sessionId
     ? `Session ${String(view.sessionId).slice(0, 8)}`
     : t('untitled');
@@ -1482,7 +1526,23 @@ async function openNewTab(cwd, sessionId) {
 
 async function renderSessions(cwd) {
   const list = el('sessionList');
-  const sessions = await api.listSessions(cwd);
+  let sessions = await api.listSessions(cwd);
+  
+  // Include active session even if not yet persisted to disk
+  const active = activeView();
+  if (active?.sessionId && !sessions.some(s => s.id === active.sessionId)) {
+    sessions = [
+      {
+        id: active.sessionId,
+        path: active.sessionFile || '',
+        modified: new Date().toISOString(),
+        firstMessage: active.name || active.label || t('untitled'),
+        messageCount: (active.messages || []).filter(m => m.kind === 'user').length,
+      },
+      ...sessions,
+    ];
+  }
+  
   list.innerHTML = '';
   if (!sessions.length) {
     const p = document.createElement('div');
@@ -1496,16 +1556,22 @@ async function renderSessions(cwd) {
     const open = [...views.entries()].find(([, v]) => v.sessionId === s.id);
     const isActive = open && open[0] === activeTabId;
     btn.className = 'session-item' + (open ? ' open' : '') + (isActive ? ' active' : '');
+    if (isActive) btn.setAttribute('aria-current', 'true');
 
     const busy = open?.[1]?.busy;
+    const title = s.name || s.firstMessage || t('untitled');
     btn.innerHTML = `
-      <span class="s-title">${busy ? '<span class="s-spin"></span>' : ''}${escapeHtml(
-      s.firstMessage || t('untitled')
-    )}</span>
+      <span class="s-row">
+        <span class="s-title">${busy ? '<span class="s-spin"></span>' : ''}${escapeHtml(title)}</span>
+        ${isActive ? `<span class="s-current">${t('currentBadge')}</span>` : ''}
+      </span>
       <span class="s-meta">${escapeHtml(new Date(s.modified).toLocaleString())}${
       open ? ` \u00b7 ${t('openBadge')}` : ''
     }</span>
     `;
+    btn.title = isActive
+      ? `${title} \u2014 ${t('currentBadge')}`
+      : t('sessionMenuHint');
     btn.addEventListener('click', async () => {
       const already = [...views.entries()].find(([, v]) => v.sessionId === s.id);
       if (already) {
@@ -1515,10 +1581,10 @@ async function renderSessions(cwd) {
       await openNewTab(cwd, s.path);
     });
 
-    // Right-click deletes the session file from disk.
+    // Right-click opens Open / Rename / Delete for the session file.
     btn.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      openSessionMenu(e.clientX, e.clientY, cwd, s);
+      openSessionMenu(e.clientX, e.clientY, cwd, s, btn);
     });
 
     list.appendChild(btn);
@@ -1536,7 +1602,7 @@ function closeSessionMenu() {
   }
 }
 
-function openSessionMenu(x, y, cwd, session) {
+function openSessionMenu(x, y, cwd, session, itemEl) {
   closeSessionMenu();
 
   const menu = document.createElement('div');
@@ -1554,6 +1620,14 @@ function openSessionMenu(x, y, cwd, session) {
   });
   menu.appendChild(openItem);
 
+  const renameItem = document.createElement('button');
+  renameItem.textContent = t('rename');
+  renameItem.addEventListener('click', () => {
+    closeSessionMenu();
+    beginSessionRename(itemEl, cwd, session);
+  });
+  menu.appendChild(renameItem);
+
   const delItem = document.createElement('button');
   delItem.className = 'danger';
   delItem.textContent = t('deleteFromDisk');
@@ -1570,6 +1644,73 @@ function openSessionMenu(x, y, cwd, session) {
   const rect = menu.getBoundingClientRect();
   if (rect.right > window.innerWidth) menu.style.left = `${window.innerWidth - rect.width - 8}px`;
   if (rect.bottom > window.innerHeight) menu.style.top = `${window.innerHeight - rect.height - 8}px`;
+}
+
+/**
+ * Rename a saved session in place. Electron never implemented
+ * `window.prompt()` — the renderer throws `prompt() is not supported.` — so
+ * swapping the list item for an input is the supported way to ask for a name.
+ * Committing opens the session first when it is not in a tab yet, because the
+ * `session:rename` IPC addresses a tab.
+ */
+function beginSessionRename(itemEl, cwd, session) {
+  if (!itemEl || itemEl.dataset.renaming === '1') return;
+  const currentName = session.name || session.firstMessage || t('untitled');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'session-item renaming';
+  wrap.dataset.renaming = '1';
+  const input = document.createElement('input');
+  input.className = 's-rename';
+  input.type = 'text';
+  input.value = currentName;
+  input.spellcheck = false;
+  input.setAttribute('aria-label', t('rename'));
+  wrap.appendChild(input);
+  itemEl.replaceWith(wrap);
+
+  let settled = false;
+  const finish = async (commit) => {
+    if (settled) return;
+    settled = true;
+    const next = input.value.trim();
+    if (!commit || !next || next === currentName) {
+      await renderSessions(cwd);
+      return;
+    }
+    try {
+      const existing = [...views.entries()].find(([, v]) => v.sessionId === session.id);
+      let tabId = existing?.[0];
+      if (!tabId) {
+        const view = await openNewTab(cwd, session.path);
+        tabId = view.state.tabId;
+      }
+      const summary = await api.renameSession(tabId, next);
+      const view = views.get(tabId);
+      if (view) {
+        view.name = summary?.name || next;
+        view.label = summary?.name || next;
+      }
+      await renderSessions(cwd);
+      if (activeTabId === tabId) renderActiveTab();
+    } catch (err) {
+      showNotice(errorText(err));
+      await renderSessions(cwd);
+    }
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      finish(false);
+    }
+  });
+  input.addEventListener('blur', () => finish(true));
+  input.focus();
+  input.select();
 }
 
 window.addEventListener('click', () => closeSessionMenu());
@@ -1602,7 +1743,7 @@ function showConfirmDelete(cwd, session) {
     state: { cwd, session },
     title: t('deleteTitle'),
     sub: t('deleteSub'),
-    target: session.firstMessage || t('untitled'),
+    target: session.name || session.firstMessage || t('untitled'),
     meta: new Date(session.modified).toLocaleString(),
     path: session.path || '',
     action: t('delete'),
@@ -1688,10 +1829,13 @@ const FOLDER_LABELS = {
 let settingsData = null;
 
 async function openSettings() {
+  if (!settingsSectionsInited) {
+    initSettingsSections();
+    settingsSectionsInited = true;
+  }
+  showSettingsSection(settingsSection);
   const view = activeView();
   settingsData = await api.getSettings(view?.cwd);
-  // settings:get already carries the key status (cached server-side for 60 s),
-  // so opening the dialog does not spend a rate-limited /key call per open.
   coarenaStatus = settingsData?.coarena || null;
   zroStatus = settingsData?.zro || null;
   nvidiaStatus = settingsData?.nvidia || null;
@@ -1703,8 +1847,6 @@ async function openSettings() {
   paintProviderMeter(activeView());
   renderSettings();
   renderAccount();
-  const adsToggle = el('adsAutoRotate');
-  if (adsToggle) adsToggle.checked = appPrefs.adsAutoRotate !== false;
   el('settingsOverlay').hidden = false;
   el('settingsClose').focus();
 }
@@ -1714,15 +1856,61 @@ async function loadProfile() {
   const boot = await api.boot();
   const prof = boot.profile || {};
   profile = prof;
-  document.querySelector('.tb-brand').textContent = prof.brand || 'FreePi.AI';  document.querySelector('.tb-title').textContent = prof.owner || '';
-  document.querySelector('.tb-sub').textContent = prof.subtitle || '';
-  const bits = [prof.owner, prof.subtitle].filter(Boolean);
-  document.title = bits.join(' | ') || 'FreePi.AI';
+  const brandEl = document.querySelector('.tb-brand');
+  if (brandEl) brandEl.textContent = prof.brand || 'NTAPI';
+  document.title = prof.brand || 'NTAPI';
+  const verEl = el('aboutVersion');
+  if (verEl) verEl.textContent = 'v0.1.0';
 }
 
 function closeSettings() {
   el('settingsOverlay').hidden = true;
 }
+
+// Settings section navigation (left list, right panel)
+function initSettingsSections() {
+  const nav = document.querySelector('.settings-nav');
+  if (!nav) return;
+
+  nav.addEventListener('click', (event) => {
+    const item = event.target.closest('.settings-nav-item');
+    if (!item) return;
+    showSettingsSection(item.dataset.section);
+  });
+
+  // Arrow keys move between sections, like a tab list.
+  nav.addEventListener('keydown', (event) => {
+    const items = [...nav.querySelectorAll('.settings-nav-item')];
+    const index = items.indexOf(document.activeElement);
+    if (index === -1) return;
+    let next = null;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = items[(index + 1) % items.length];
+    else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = items[(index - 1 + items.length) % items.length];
+    else if (event.key === 'Home') next = items[0];
+    else if (event.key === 'End') next = items[items.length - 1];
+    if (!next) return;
+    event.preventDefault();
+    next.focus();
+    showSettingsSection(next.dataset.section);
+  });
+}
+
+function showSettingsSection(name) {
+  const target = name || 'workspace';
+  settingsSection = target;
+  for (const item of document.querySelectorAll('.settings-nav-item')) {
+    const on = item.dataset.section === target;
+    item.setAttribute('aria-selected', String(on));
+    item.tabIndex = on ? 0 : -1;
+  }
+  for (const panel of document.querySelectorAll('.settings-panel')) {
+    panel.setAttribute('aria-hidden', String(panel.dataset.section !== target));
+  }
+}
+
+// Call on first settings open
+let settingsSectionsInited = false;
+let settingsSection = 'workspace';
 
 function renderSettings() {
   const list = el('settingsFolders');
@@ -1735,9 +1923,9 @@ function renderSettings() {
     hint.textContent = t('noWorkspaceHint');
     list.appendChild(hint);
   } else {
-  for (const [kind, info] of Object.entries(settingsData.folders)) {
-    const row = document.createElement('div');
-    row.className = 'settings-row';
+    for (const [kind, info] of Object.entries(settingsData.folders)) {
+      const row = document.createElement('div');
+      row.className = 'settings-row';
 
     const top = document.createElement('div');
     top.className = 'settings-row-top';
@@ -1950,11 +2138,6 @@ function applySidebarWidth(px) {
   });
 })();
 el('settingsClose').addEventListener('click', closeSettings);
-
-el('adsAutoRotate')?.addEventListener('change', (e) => {
-  appPrefs.adsAutoRotate = Boolean(e.target.checked);
-  api.setPrefs({ adsAutoRotate: Boolean(e.target.checked) }).catch(() => {});
-});
 
 /* --------------------------- Coarena key --------------------------- */
 
@@ -3367,6 +3550,7 @@ api.onTextEnd((p) => {
       MD.renderInto(body, p.text, { copiedLabel: t('copied') });
     }
   }
+  scrollToBottom(true);
 });
 
 api.onToolStart((p) => {
@@ -3557,7 +3741,7 @@ function renderAd(ad) {
   body.textContent = ad.creative.body || '';
   body.hidden = !ad.creative.body;
   adSlot.querySelector('.ad-cta').textContent = ad.creative.cta || 'Open';
-  adSlot.title = 'Ads keep free-pi free — click to open in your browser';
+  adSlot.title = 'Ads keep NTAPI free — click to open in your browser';
   if (adRefresh) {
     adRefresh.title = t('changeAd');
     adRefresh.setAttribute('aria-label', t('changeAd'));
@@ -3605,10 +3789,10 @@ if (adRefresh) {
 }
 
 // The main process decides whether a rotation is due: focused window, idle tab,
-// and at least a minute since the current creative was shown.
-const AD_ROTATE_POLL_MS = 30 * 1000;
+// and at least a minute since the current creative was shown. Auto-rotation is
+// always on — the renderer only polls; main enforces the one-minute minimum.
+const AD_ROTATE_POLL_MS = 60 * 1000;
 setInterval(() => {
-  if (appPrefs.adsAutoRotate === false) return;
   if (document.visibilityState !== 'visible') return;
   if (!activeTabId) return;
   const view = views.get(activeTabId);

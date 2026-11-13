@@ -27,11 +27,16 @@
     'free-pi-defense': 'assets/providers/freepi.svg',
     coarena: 'assets/providers/coarena.svg',
     zro: 'assets/providers/zro.svg',
+    nvidia: 'assets/providers/nvidia.svg',
+    tokenharbor: 'assets/providers/tokenharbor.svg',
   };
 
   /** Human-facing provider name; unknown providers pass through unchanged. */
   function providerLabel(provider) {
-    if (FREE_PI_PROVIDERS.has(provider)) return 'FreePi';
+    // The FreePi backend is the app's own free lane, so it is shown under the
+    // product name. The provider id stays `free-pi`: it is what the backend and
+    // the saved settings use.
+    if (FREE_PI_PROVIDERS.has(provider)) return 'NTAPI';
     if (provider === COARENA_PROVIDER) return 'Coarena';
     if (provider === ZRO_PROVIDER) return 'Zro';
     if (provider === NVIDIA_PROVIDER) return 'NVIDIA';

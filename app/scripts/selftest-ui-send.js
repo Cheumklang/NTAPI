@@ -53,7 +53,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   const image =
     process.argv[2] ||
-    path.join('C:\\Freepiai', 'outputs', '.freepi-attachments', 'image-2026-11-12T17-24-50-890Z-1.png');
+    (() => {
+      const candidates = [
+        path.join('C:\\NTAPI', 'outputs', '.ntapi-attachments', 'image-2026-11-12T17-24-50-890Z-1.png'),
+        path.join('C:\\Freepiai', 'outputs', '.freepi-attachments', 'image-2026-11-12T17-24-50-890Z-1.png'),
+      ];
+      return candidates.find((p) => fs.existsSync(p)) || candidates[0];
+    })();
   const b64 = fs.readFileSync(image).toString('base64');
 
   const page = (await targets()).find((t) => t.type === 'page' && t.url.includes('index.html'));

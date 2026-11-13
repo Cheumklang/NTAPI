@@ -1,8 +1,8 @@
 {
-  "name": "freepi-desktop",
-  "productName": "FreePi",
+  "name": "ntapi-desktop",
+  "productName": "NTAPI",
   "version": "0.1.0",
-  "description": "Desktop app for free-pi (no terminal needed)",
+  "description": "Desktop app for NTAPI (no terminal needed)",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -15,8 +15,8 @@
     "electron-builder": "^26.0.12"
   },
   "build": {
-    "appId": "ai.freepi.desktop",
-    "productName": "FreePi",
+    "appId": "ai.ntapi.desktop",
+    "productName": "NTAPI",
     "directories": {
       "output": "../dist"
     },

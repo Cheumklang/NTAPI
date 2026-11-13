@@ -99,7 +99,7 @@ const FAKE_CATALOG = `
       `--remote-debugging-port=${PORT}`,
       `--user-data-dir=${path.join(os.tmpdir(), 'freepi-picker-test')}`,
     ],
-    { stdio: 'ignore', env: { ...process.env, FREEPI_DATA_DIR: path.join(OUT_DIR, 'data') } }
+    { stdio: 'ignore', env: { ...process.env, NTAPI_DATA_DIR: path.join(OUT_DIR, 'data') } }
   );
 
   let ws = null;

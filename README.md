@@ -1,12 +1,12 @@
-# FreePi Desktop
+# NTAPI Desktop
 
 A desktop app for **free-pi** — a chat window instead of a terminal. Nothing here is a fork or
 a repackaging of someone else's binary: it's an Electron shell that drives the same pi agent
 session and the same free-pi backend your `npx free-pi-cli` already logs into.
 
 ```
-freepi/
-├─ FreePi.bat            ← double-click this to start (no terminal)
+ntapi/
+├─ NTAPI.bat             ← double-click this to start (no terminal)
 ├─ app/
 │  ├─ package.json
 │  ├─ scripts/
@@ -24,7 +24,7 @@ freepi/
 
 ## Start it
 
-Double-click **FreePi.bat**. Or from a shell:
+Double-click **NTAPI.bat**. Or from a shell:
 
 ```bash
 cd app && npm start
@@ -75,11 +75,12 @@ appears in this app and vice versa:
 - Session list per folder — click to switch, rename inline, **right-click → Delete from disk** to
   remove a conversation permanently (asks for confirmation, then unlinks the `.jsonl` file)
 - **Model picker grouped by provider** — one searchable menu instead of a flat `<select>`:
-  a FreePi section (free + defense ids), a Coarena section and a Zro section, each led by
+  an NTAPI section (free + defense ids), a Coarena section and a Zro section, each led by
   that provider's bundled mark (`app/src/renderer/assets/providers/`). The active model is
   ticked, typing filters every section at once, and `Esc` closes back onto the trigger
-- **Free DeepSeek only** — the FreePi and Coarena catalogs are filtered before a
-  provider is registered (`app/src/model-filter.js`): DeepSeek ids, and on FreePi only
+- **Free DeepSeek only** — the NTAPI and Coarena catalogs are filtered before a
+  provider is registered (`app/src/model-filter.js`): DeepSeek ids, and on the NTAPI
+  lane only
   the routes its own catalog marks `free: true`. The qwen / GLM / Claude / Gemini /
   Kimi entries never reach the dropdown, and neither do the metered DeepSeek routes
   (`deepseek-v4-pro` at ~18x, `...-ultrafast` at ~295x, the defense abliterated id).
@@ -152,7 +153,7 @@ against that limit.
 free-pi's models are text-only — the catalog declares `input: ["text"]`, so an image cannot be sent
 as model content. Attaching an image therefore:
 
-1. saves it to `<workspace>/.freepi-attachments/`,
+1. saves it to `<workspace>/.ntapi-attachments/`,
 2. adds the path to your prompt, and
 3. tells the agent to call `look_at_image` on it.
 
@@ -183,6 +184,12 @@ npm run dist
 
 Output goes to `../dist` (NSIS installer + portable exe).
 
+## Where data lives
+
+App data (settings, chats, skills, generated images) sits in `C:\NTAPI`. An existing install
+that still has `C:\Freepiai` keeps using that folder so nothing is lost on upgrade; set
+`NTAPI_DATA_DIR` to point somewhere else (the old `FREEPI_DATA_DIR` is still honoured).
+
 ## If the app can't find the pi SDK
 
 `main.js` looks for `@earendil-works/pi-coding-agent` in the npx cache. It scans
@@ -190,7 +197,7 @@ Output goes to `../dist` (NSIS installer + portable exe).
 If you installed free-pi globally instead, point it there explicitly:
 
 ```bash
-set FREEPI_SDK_PATH=C:\path\to\node_modules\@earendil-works\pi-coding-agent
+set NTAPI_SDK_PATH=C:\path\to\node_modules\@earendil-works\pi-coding-agent
 ```
 
 ## Security notes

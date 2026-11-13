@@ -5,6 +5,19 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 
+/**
+ * Keep the internal app name as "FreePi" even though the product is branded
+ * NTAPI.
+ *
+ * Electron's safeStorage (Windows app-bound encryption) ties the encryption key
+ * to the app name / userData folder. Renaming the app to "NTAPI" silently made
+ * every saved provider key (Coarena, Zro, NVIDIA, Token Harbor) undecryptable,
+ * so those providers dropped out of the model list and only FreePi was left.
+ * Setting the old name here keeps existing keys readable; the UI, window title
+ * and installer still say NTAPI.
+ */
+app.setName('FreePi');
+
 const bridge = require('./freepi-bridge');
 const { diffLines } = require('./diff');
 const { sessionDirName } = require('./session-paths');
@@ -91,7 +104,7 @@ function findFreePiCli() {
 // app works on a machine that already ran `npx free-pi-cli`.
 function resolveSdk() {
   // Never hardcode a user path: this app is meant to run on other machines too.
-  const candidates = [process.env.FREEPI_SDK_PATH].filter(Boolean);
+  const candidates = [process.env.NTAPI_SDK_PATH, process.env.FREEPI_SDK_PATH].filter(Boolean);
 
   for (const base of candidates) {
     try {
@@ -119,8 +132,33 @@ let sdk;
 let win = null;
 
 /**
+ * After the data folder is renamed, any absolute path saved inside it still
+ * points at the old name. Only prefs.json keeps such paths (the open tab's
+ * session file), so it is rewritten here; chat files are left untouched.
+ */
+function rewriteLegacyPathsInPrefs(root, from, to) {
+  const file = path.join(root, 'prefs.json');
+  try {
+    const text = fs.readFileSync(file, 'utf8');
+    if (!text.includes(from)) return;
+    // JSON on disk escapes backslashes, so patch both the raw and the escaped form.
+    const next = text.split(from).join(to).split(from.replace(/\\/g, '\\\\')).join(to.replace(/\\/g, '\\\\'));
+    if (next !== text) fs.writeFileSync(file, next);
+  } catch {}
+}
+
+/**
  * App data root: one obvious folder people can find, back up, or copy to
- * another machine. `C:\Freepiai` by default; override with FREEPI_DATA_DIR.
+ * another machine. `C:\NTAPI` by default; override with NTAPI_DATA_DIR
+ * (FREEPI_DATA_DIR still works, for setups that set it before the rename).
+ *
+ * Upgrading from the old build: when `C:\NTAPI` does not exist yet but the old
+ * `C:\Freepiai` does, the old folder is renamed to `C:\NTAPI` once, at startup.
+ * That folder holds the provider keys and every saved chat, so moving it is what
+ * makes an existing install both keep its data and end up with the new name.
+ * The rename is only attempted before any session touches a file; if Windows
+ * refuses (a lock, a permission), the old folder is used in place instead so the
+ * app still opens with everything intact.
  *
  * Deliberately NOT inside the workspace, so switching projects never strands
  * settings, and NOT inside `~/.free-pi`, because that folder belongs to the CLI
@@ -130,9 +168,27 @@ let win = null;
  * quietly fall back to the standard per-user location so the app still opens.
  */
 function resolveDataRoot() {
+  const LEGACY_ROOT = 'C:\\Freepiai';
+  const NEW_ROOT = 'C:\\NTAPI';
+  const explicit = process.env.NTAPI_DATA_DIR || process.env.FREEPI_DATA_DIR;
+
+  // One-time rename of the old data folder. Only when nothing overrides the
+  // location and the new folder has not been created yet.
+  if (!explicit && !fs.existsSync(NEW_ROOT) && fs.existsSync(LEGACY_ROOT)) {
+    try {
+      fs.renameSync(LEGACY_ROOT, NEW_ROOT);
+      // prefs.json remembers the open tab's session file by absolute path; without
+      // this rewrite the app would reopen and fail to find its own session.
+      rewriteLegacyPathsInPrefs(NEW_ROOT, LEGACY_ROOT, NEW_ROOT);
+    } catch {
+      // Locked or read-only: keep using the old folder below.
+    }
+  }
+
   const candidates = [
-    process.env.FREEPI_DATA_DIR,
-    'C:\\Freepiai',
+    explicit,
+    NEW_ROOT,
+    LEGACY_ROOT,
     path.join(app.getPath('userData'), 'data'),
   ].filter(Boolean);
 
@@ -150,7 +206,6 @@ function resolveDataRoot() {
 }
 
 const DATA_ROOT = resolveDataRoot();
-
 /**
  * The Coarena key is per-machine state, never part of prefs.json: it is
  * encrypted by the OS through safeStorage and stays in the main process. The
@@ -176,7 +231,7 @@ let coarenaInfoCache = { at: 0, key: null, status: null };
  */
 const FOLDER_DEFAULTS = {
   images: 'images',
-  attachments: '.freepi-attachments',
+  attachments: '.ntapi-attachments',
   downloads: 'downloads',
 };
 
@@ -264,9 +319,9 @@ function migrateLegacyPrefs() {
 
 /** Who the app says it belongs to, shown in the title bar. */
 const PROFILE_DEFAULTS = {
-  owner: 'Chanathip Cheumklang',
+  owner: 'NTAPI',
   subtitle: 'DeepSeek v4.1 Flash',
-  brand: 'FreePi.AI',
+  brand: 'NTAPI',
 };
 function readPrefs() {
   try {
@@ -470,6 +525,8 @@ async function listSessions(cwd) {
         id: i.id,
         path: i.path,
         modified: i.modified,
+        // A user-set name (session:rename) wins over the derived first message.
+        name: i.name || null,
         firstMessage: (i.firstMessage || '').slice(0, 120),
         messageCount: i.messageCount ?? null,
       }));
@@ -941,7 +998,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 560,
     backgroundColor: '#0f1115',
-    title: 'Chanathip Cheumklang | DeepSeek v4.1 Flash',
+    title: 'NTAPI',
     autoHideMenuBar: true,
     // Custom dark title bar: we draw the caption ourselves in the renderer.
     frame: false,
@@ -1046,7 +1103,6 @@ ipcMain.handle('app:boot', async () => {
 ipcMain.handle('prefs:set', async (_e, patch = {}) => {
   const allowed = {};
   if (patch.lang === 'en' || patch.lang === 'th') allowed.lang = patch.lang;
-  if (typeof patch.adsAutoRotate === 'boolean') allowed.adsAutoRotate = patch.adsAutoRotate;
   // The title-bar identity is fixed: this app is always credited to its two
   // authors, so there is deliberately no way to change it through prefs.
   if (typeof patch.sidebarWidth === 'number' && Number.isFinite(patch.sidebarWidth)) {
@@ -1110,7 +1166,7 @@ async function applyKeyToTabs({ provider, label, key, apply }) {
           });
         } else {
           sendTab(tabId, 'agent:notice', {
-            text: `${label} key removed — this tab has no provider left. Add a key or sign in to FreePi.`,
+            text: `${label} key removed — this tab has no provider left. Add a key or sign in to NTAPI.`,
           });
         }
       }
@@ -1564,8 +1620,11 @@ ipcMain.handle('session:delete', async (_e, { cwd, sessionPath } = {}) => {
 
 ipcMain.handle('session:rename', async (_e, { tabId, name } = {}) => {
   const { tabId: id, tab } = tabFor(tabId);
-  await tab.handle.session.setSessionName(name || null);
-  tab.fallbackName = name || null;
+  // `setSessionName('')` clears the custom title; `null` would crash the SDK
+  // (`name.replace(...)`), and the renderer sends `null` when the field is empty.
+  const clean = typeof name === 'string' ? name : '';
+  await tab.handle.session.setSessionName(clean);
+  tab.fallbackName = clean.trim() || null;
   return tabSummary(id);
 });
 
@@ -1913,6 +1972,7 @@ const FILE_INDEX_SKIP = new Set([
   'venv',
   '__pycache__',
   '.cache',
+  '.ntapi-attachments',
   '.freepi-attachments',
   'coverage',
   '.idea',

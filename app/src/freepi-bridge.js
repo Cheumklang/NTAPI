@@ -603,7 +603,7 @@ async function createFreePiSession(options) {
   });
   if (!plan.available) {
     throw new Error(
-      'No AI provider available — sign in to FreePi or add a Coarena, Zro, NVIDIA or Token Harbor key in Settings.'
+      'No AI provider available — sign in to NTAPI or add a Coarena, Zro, NVIDIA or Token Harbor key in Settings.'
     );
   }
   log(
@@ -1036,7 +1036,7 @@ async function createFreePiSession(options) {
               content: [
                 {
                   type: 'text',
-                  text: 'This model cannot see images. Switch to a Coarena model that supports vision, or connect FreePi.',
+                  text: 'This model cannot see images. Switch to a Coarena model that supports vision, or connect the NTAPI free lane.',
                 },
               ],
             };

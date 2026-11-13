@@ -17,7 +17,7 @@ const path = require('node:path');
 const bridge = require('../src/freepi-bridge');
 
 function resolveSdk() {
-  const candidates = [process.env.FREEPI_SDK_PATH].filter(Boolean);
+  const candidates = [process.env.NTAPI_SDK_PATH, process.env.FREEPI_SDK_PATH].filter(Boolean);
   for (const base of candidates) {
     try {
       return require(base);
@@ -38,17 +38,21 @@ function resolveSdk() {
 const image =
   process.argv[2] ||
   (() => {
-    const dir = path.join('C:\\Freepiai', 'outputs', '.freepi-attachments');
-    try {
-      const f = fs
-        .readdirSync(dir)
-        .filter((n) => /\.(png|jpe?g|webp)$/i.test(n))
-        .sort()
-        .pop();
-      return f ? path.join(dir, f) : null;
-    } catch {
-      return null;
+    const roots = ['C:\\NTAPI', 'C:\\Freepiai'];
+    for (const root of roots) {
+      for (const box of ['.ntapi-attachments', '.freepi-attachments']) {
+        const dir = path.join(root, 'outputs', box);
+        try {
+          const f = fs
+            .readdirSync(dir)
+            .filter((n) => /\.(png|jpe?g|webp)$/i.test(n))
+            .sort()
+            .pop();
+          if (f) return path.join(dir, f);
+        } catch {}
+      }
     }
+    return null;
   })();
 
 (async () => {
@@ -64,7 +68,7 @@ const image =
     sdk,
     log: (line) => console.log('log:', line),
     requestApproval: () => true,
-    skillsAgentDir: 'C:\\Freepiai',
+    skillsAgentDir: 'C:\\NTAPI',
     imagesDir: path.join(os.tmpdir(), 'freepi-selftest-images'),
     downloadsDir: path.join(os.tmpdir(), 'freepi-selftest-downloads'),
     onAd: (ad) => {

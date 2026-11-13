@@ -21,7 +21,7 @@ const path = require('node:path');
 const bridge = require('../src/freepi-bridge');
 
 function resolveSdk() {
-  const candidates = [process.env.FREEPI_SDK_PATH].filter(Boolean);
+  const candidates = [process.env.NTAPI_SDK_PATH, process.env.FREEPI_SDK_PATH].filter(Boolean);
   for (const base of candidates) {
     try {
       return require(base);

@@ -17,7 +17,7 @@ function check(name, condition, detail) {
   console.log(`FAIL ${name}${detail ? `\n     ${detail}` : ''}`);
 }
 
-check('free-pi label', UI.providerLabel('free-pi') === 'FreePi' && UI.providerLabel('free-pi-defense') === 'FreePi');
+check('free-pi label', UI.providerLabel('free-pi') === 'NTAPI' && UI.providerLabel('free-pi-defense') === 'NTAPI');
 check('coarena label', UI.providerLabel('coarena') === 'Coarena');
 check('zro label', UI.providerLabel('zro') === 'Zro');
 check('nvidia label', UI.providerLabel('nvidia') === 'NVIDIA');
@@ -26,6 +26,8 @@ check('free-pi logo', UI.providerLogoPath('free-pi') === 'assets/providers/freep
 check('defense logo', UI.providerLogoPath('free-pi-defense') === UI.providerLogoPath('free-pi'));
 check('coarena logo', UI.providerLogoPath('coarena') === 'assets/providers/coarena.svg');
 check('zro logo', UI.providerLogoPath('zro') === 'assets/providers/zro.svg');
+check('nvidia logo', UI.providerLogoPath('nvidia') === 'assets/providers/nvidia.svg');
+check('tokenharbor logo', UI.providerLogoPath('tokenharbor') === 'assets/providers/tokenharbor.svg');
 check('unknown logo', UI.providerLogoPath('other') === '');
 check('unknown initial', UI.providerInitial('other') === 'O' && UI.providerInitial('') === '?');
 
@@ -38,8 +40,8 @@ const groups = UI.groupModelsByProvider([
   { provider: 'broken', name: 'no id' },
 ]);
 check('groups by visible provider', groups.length === 3, JSON.stringify(groups));
-check('free-pi ids share one group', groups[0]?.label === 'FreePi' && groups[0].models.length === 3);
-check('group order follows catalog', groups.map((g) => g.label).join() === 'FreePi,Coarena,Zro');
+check('free-pi ids share one group', groups[0]?.label === 'NTAPI' && groups[0].models.length === 3);
+check('group order follows catalog', groups.map((g) => g.label).join() === 'NTAPI,Coarena,Zro');
 check('group keeps logo', groups.every((g) => g.logo.startsWith('assets/providers/')));
 check('defense-only group', UI.groupModelsByProvider([{ provider: 'free-pi-defense', id: 'x' }])[0]?.logo === UI.providerLogoPath('free-pi'));
 check(

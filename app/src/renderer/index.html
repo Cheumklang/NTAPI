@@ -3,15 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
-    <title>Chanathip Cheumklang | DeepSeek v4.1 Flash</title>
+    <title>NTAPI | DeepSeek v4.1 Flash</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div id="titlebar">
       <div class="tb-drag">
-        <span class="tb-brand">FreePi.AI</span>
-        <span class="tb-title">Chanathip Cheumklang</span>
-        <span class="tb-sub">DeepSeek v4.1 Flash</span>
+        <span class="tb-brand">NTAPI</span>
       </div>
       <div class="tb-controls">
         <button id="winMin" class="tb-btn" title="Minimize" aria-label="Minimize">
@@ -35,7 +33,7 @@
       <aside id="sidebar">
         <div class="brand">
           <span class="dot"></span>
-          <span>FreePi.AI</span>
+          <span>NTAPI.AI</span>
           <span class="badge" id="guestBadge" hidden data-i18n="guestBadge">guest</span>
           <button id="langBtn" class="chip-btn" title="Language / ภาษา">EN</button>
           <button id="settingsBtn" class="chip-btn" title="Settings" aria-label="Settings">
@@ -97,6 +95,7 @@
       <main id="main">
         <header id="topbar">
           <div id="titleWrap">
+            <span id="sessionDot" class="session-dot" hidden aria-hidden="true"></span>
             <input id="sessionTitle" class="title-input" placeholder="Untitled session" />
           </div>
           <div class="controls">
@@ -155,7 +154,7 @@
         <section id="transcript" class="transcript">
           <div id="emptyState" class="empty">
             <h1 data-i18n="emptyTitle">What are we building?</h1>
-            <p data-i18n="emptySub">Pick a folder on the left, then describe a task. FreePi runs the agent here — no terminal.</p>
+            <p data-i18n="emptySub">Pick a folder on the left, then describe a task. NTAPI runs the agent here — no terminal.</p>
           </div>
         </section>
 
@@ -170,7 +169,7 @@
           <div class="composer-box">
             <div id="slashMenu" class="slash-menu" hidden role="listbox" aria-label="Commands"></div>
             <div id="fileMenu" class="slash-menu file-menu" hidden role="listbox" aria-label="Files"></div>
-            <textarea id="input" rows="1" placeholder="Ask FreePi to build, fix, or explain… (Enter to send, Shift+Enter for newline)"></textarea>
+            <textarea id="input" rows="1" placeholder="Ask NTAPI to build, fix, or explain… (Enter to send, Shift+Enter for newline)"></textarea>
             <div class="composer-actions">
               <button id="attachBtn" class="attach" title="Attach files (Ctrl+V to paste)" data-i18n="attach">Attach</button>
               <button id="undoBtn" class="attach" title="Undo the last message (Ctrl+Z)" data-i18n="undo">Undo</button>
@@ -269,92 +268,174 @@
 
     <div id="settingsOverlay" class="overlay" hidden>
       <div class="dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-        <h2 id="settingsTitle" data-i18n="settings">Settings</h2>
-        <p class="dialog-sub" data-i18n="settingsSub">
-          Choose where the agent saves the files it creates.
-        </p>
-
-        <div class="settings-group">
-          <div class="settings-head" data-i18n="outputFolders">Output folders</div>
-          <div id="settingsFolders" class="settings-list"></div>
-        </div>
-
-        <div class="settings-group">
-          <div class="settings-head" data-i18n="adsSection">Ads</div>
-          <label class="settings-toggle">
-            <input type="checkbox" id="adsAutoRotate" />
-            <span data-i18n="adsAutoRotate">Change the sponsored banner every minute</span>
-          </label>
-          <p class="settings-hint" data-i18n="adsAutoRotateHint">
-            Only while this window is focused and no message is running. Each new ad is reported as an impression, as the ad network requires.
-          </p>
-        </div>
-
-        <div class="settings-group">
-          <div class="settings-head" data-i18n="coarenaSection">Coarena</div>
-          <label class="settings-label" for="coarenaKeyInput" data-i18n="coarenaKeyLabel">API key</label>
-          <div class="settings-actions">
-            <input id="coarenaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="coa_…" aria-label="Coarena API key" />
-            <button id="coarenaSave" class="ghost small" data-i18n="coarenaSave">Save</button>
-            <button id="coarenaRemove" class="ghost small danger" data-i18n="coarenaRemove">Remove</button>
+        <header class="settings-header">
+          <div>
+            <h2 id="settingsTitle" data-i18n="settings">Settings</h2>
+            <p class="dialog-sub" data-i18n="settingsSub">
+              Choose where the agent saves the files it creates.
+            </p>
           </div>
-          <p id="coarenaStatus" class="settings-hint">—</p>
-          <button id="coarenaGetKey" class="link-btn" data-i18n="coarenaGetKey">Get a key at coarena.ai</button>
-        </div>
+        </header>
 
-        <div class="settings-group">
-          <div class="settings-head" data-i18n="zroSection">Zro</div>
-          <label class="settings-label" for="zroKeyInput" data-i18n="zroKeyLabel">API key</label>
-          <div class="settings-actions">
-            <input id="zroKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" aria-label="Zro API key" />
-            <button id="zroSave" class="ghost small" data-i18n="zroSave">Save</button>
-            <button id="zroRemove" class="ghost small danger" data-i18n="zroRemove">Remove</button>
+        <div class="settings-body">
+          <nav class="settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+            <button type="button" class="settings-nav-item" data-section="workspace" role="tab" id="settingsTabWorkspace" aria-controls="settingsPanelWorkspace">
+              <span class="settings-nav-icon" aria-hidden="true">📁</span>
+              <span class="settings-nav-label" data-i18n="workspaceSection">Workspace</span>
+            </button>
+            <button type="button" class="settings-nav-item" data-section="providers" role="tab" id="settingsTabProviders" aria-controls="settingsPanelProviders">
+              <span class="settings-nav-icon" aria-hidden="true">🔑</span>
+              <span class="settings-nav-label" data-i18n="providersSection">Providers</span>
+            </button>
+            <button type="button" class="settings-nav-item" data-section="advanced" role="tab" id="settingsTabAdvanced" aria-controls="settingsPanelAdvanced">
+              <span class="settings-nav-icon" aria-hidden="true">⚙️</span>
+              <span class="settings-nav-label" data-i18n="advancedSection">Advanced</span>
+            </button>
+            <button type="button" class="settings-nav-item" data-section="about" role="tab" id="settingsTabAbout" aria-controls="settingsPanelAbout">
+              <span class="settings-nav-icon" aria-hidden="true">ℹ️</span>
+              <span class="settings-nav-label" data-i18n="aboutSection">About</span>
+            </button>
+          </nav>
+
+          <div class="settings-panels">
+            <!-- Workspace & Output Folders -->
+            <section class="settings-panel" data-section="workspace" id="settingsPanelWorkspace" role="tabpanel" aria-labelledby="settingsTabWorkspace">
+              <div class="settings-group">
+                <div class="settings-head" data-i18n="folderSettings">Folder Settings</div>
+                <div id="settingsFolders" class="settings-list"></div>
+              </div>
+            </section>
+
+            <!-- Providers / API Keys -->
+            <section class="settings-panel" data-section="providers" id="settingsPanelProviders" role="tabpanel" aria-labelledby="settingsTabProviders">
+              <div class="settings-group">
+                <div class="settings-head" data-i18n="ntapiSection">NTAPI</div>
+                <div class="provider-row" id="ntapiRow">
+                  <div class="provider-info">
+                    <span class="provider-name" data-i18n="ntapiSection">NTAPI</span>
+                    <p class="settings-hint" data-i18n="ntapiHint">Uses your NTAPI account (GitHub sign-in) instead of an API key.</p>
+                  </div>
+                  <div id="accountBox" class="account-box"></div>
+                  <div class="account-actions">
+                    <button id="accountSignIn" class="ghost" data-i18n="signIn">Sign in...</button>
+                    <button id="accountSignOut" class="ghost danger" data-i18n="signOut">Sign out</button>
+                  </div>
+                  <div id="accountNote" class="settings-hint account-note" hidden></div>
+                </div>
+              </div>
+
+              <div class="settings-group">
+                <div class="settings-head" data-i18n="apiKeys">API Keys</div>
+
+                <div class="provider-row" id="coarenaRow">
+                  <div class="provider-info">
+                    <span class="provider-name" data-i18n="coarenaSection">Coarena</span>
+                    <p id="coarenaStatus" class="settings-hint">—</p>
+                  </div>
+                  <div class="provider-actions">
+                    <input id="coarenaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="coa_…" aria-label="Coarena API key" />
+                    <button id="coarenaSave" class="ghost small" data-i18n="coarenaSave">Save</button>
+                    <button id="coarenaRemove" class="ghost small danger" data-i18n="coarenaRemove">Remove</button>
+                  </div>
+                </div>
+                <button id="coarenaGetKey" class="link-btn" data-i18n="coarenaGetKey">Get a key at coarena.ai</button>
+
+                <div class="provider-row" id="zroRow">
+                  <div class="provider-info">
+                    <span class="provider-name" data-i18n="zroSection">Zro</span>
+                    <p id="zroStatus" class="settings-hint">—</p>
+                  </div>
+                  <div class="provider-actions">
+                    <input id="zroKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" aria-label="Zro API key" />
+                    <button id="zroSave" class="ghost small" data-i18n="zroSave">Save</button>
+                    <button id="zroRemove" class="ghost small danger" data-i18n="zroRemove">Remove</button>
+                  </div>
+                </div>
+                <button id="zroGetKey" class="link-btn" data-i18n="zroGetKey">Get a key at zro.moonmath.ai</button>
+
+                <div class="provider-row" id="nvidiaRow">
+                  <div class="provider-info">
+                    <span class="provider-name" data-i18n="nvidiaSection">NVIDIA</span>
+                    <p id="nvidiaStatus" class="settings-hint">—</p>
+                  </div>
+                  <div class="provider-actions">
+                    <input id="nvidiaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="nvapi-…" aria-label="NVIDIA API key" />
+                    <button id="nvidiaSave" class="ghost small" data-i18n="nvidiaSave">Save</button>
+                    <button id="nvidiaRemove" class="ghost small danger" data-i18n="nvidiaRemove">Remove</button>
+                  </div>
+                </div>
+                <button id="nvidiaGetKey" class="link-btn" data-i18n="nvidiaGetKey">Get a key at build.nvidia.com</button>
+
+                <div class="provider-row" id="tokenharborRow">
+                  <div class="provider-info">
+                    <span class="provider-name" data-i18n="tokenharborSection">Token Harbor</span>
+                    <p id="tokenharborStatus" class="settings-hint">—</p>
+                  </div>
+                  <div class="provider-actions">
+                    <input id="tokenharborKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="thk_live_…" aria-label="Token Harbor API key" />
+                    <button id="tokenharborSave" class="ghost small" data-i18n="tokenharborSave">Save</button>
+                    <button id="tokenharborRemove" class="ghost small danger" data-i18n="tokenharborRemove">Remove</button>
+                  </div>
+                </div>
+                <button id="tokenharborGetKey" class="link-btn" data-i18n="tokenharborGetKey">Get a key at tokenharbor.ai</button>
+              </div>
+            </section>
+
+            <!-- Advanced / System -->
+            <section class="settings-panel" data-section="advanced" id="settingsPanelAdvanced" role="tabpanel" aria-labelledby="settingsTabAdvanced">
+              <div class="settings-group">
+                <div class="settings-head" data-i18n="dataLocations">Data Locations</div>
+                <div id="settingsSystem" class="settings-list"></div>
+              </div>
+
+              <div class="settings-group">
+                <div class="settings-head" data-i18n="resetAll">Reset All Settings</div>
+                <button id="settingsReset" class="ghost danger" data-i18n="resetDefaults">Reset to defaults</button>
+                <p class="settings-hint">This resets folder overrides, sidebar width, and language. Your chats, skills, and API keys are not affected.</p>
+              </div>
+            </section>
+
+            <!-- About / เกี่ยวกับ -->
+            <section class="settings-panel" data-section="about" id="settingsPanelAbout" role="tabpanel" aria-labelledby="settingsTabAbout">
+              <div class="settings-group about-card">
+                <div class="about-head">
+                  <span class="about-app" data-i18n="aboutApp">NTAPI</span>
+                  <span class="about-version" id="aboutVersion"></span>
+                </div>
+                <div class="about-divider"></div>
+                <div class="about-fields">
+                  <div class="about-field">
+                    <span class="about-label" data-i18n="aboutDeveloper">ผู้พัฒนา / Developer</span>
+                    <div class="about-name">
+                      <span class="about-name-en">Chanathip Cheumklang</span>
+                      <span class="about-name-th">ชนาธิป เชื่อมกลาง</span>
+                    </div>
+                    <div class="about-nickname">
+                      <span class="about-label-mini" data-i18n="aboutNickname">ชื่อเล่น / Nickname</span>
+                      <span class="about-nick-en">Nont</span>
+                      <span class="about-nick-th">นนท์</span>
+                    </div>
+                  </div>
+                  <div class="about-field">
+                    <span class="about-label" data-i18n="aboutEmail">อีเมล / Email</span>
+                    <span class="about-value">cheumklang@gmail.com</span>
+                  </div>
+                  <div class="about-field">
+                    <span class="about-label" data-i18n="aboutPhone">โทรศัพท์ / Phone</span>
+                    <span class="about-value">0918869831</span>
+                  </div>
+                  <div class="about-field about-qr">
+                    <span class="about-label" data-i18n="aboutDonation">สนับสนุนค่ากาแฟ / Buy me a coffee</span>
+                    <img src="assets/qr-donation.jpg" alt="QR Code to support a coffee" class="about-qr-img" />
+                    <p class="about-qr-caption" data-i18n="aboutQrDesc">สแกน QR Code เพื่อสนับสนุนค่ากาแฟ</p>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
-          <p id="zroStatus" class="settings-hint">—</p>
-          <button id="zroGetKey" class="link-btn" data-i18n="zroGetKey">Get a key at zro.moonmath.ai</button>
         </div>
 
-        <div class="settings-group">
-          <div class="settings-head" data-i18n="nvidiaSection">NVIDIA</div>
-          <label class="settings-label" for="nvidiaKeyInput" data-i18n="nvidiaKeyLabel">API key</label>
-          <div class="settings-actions">
-            <input id="nvidiaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="nvapi-…" aria-label="NVIDIA API key" />
-            <button id="nvidiaSave" class="ghost small" data-i18n="nvidiaSave">Save</button>
-            <button id="nvidiaRemove" class="ghost small danger" data-i18n="nvidiaRemove">Remove</button>
-          </div>
-          <p id="nvidiaStatus" class="settings-hint">—</p>
-          <button id="nvidiaGetKey" class="link-btn" data-i18n="nvidiaGetKey">Get a key at build.nvidia.com</button>
-        </div>
-
-        <div class="settings-group">
-          <div class="settings-head" data-i18n="tokenharborSection">Token Harbor</div>
-          <label class="settings-label" for="tokenharborKeyInput" data-i18n="tokenharborKeyLabel">API key</label>
-          <div class="settings-actions">
-            <input id="tokenharborKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="thk_live_…" aria-label="Token Harbor API key" />
-            <button id="tokenharborSave" class="ghost small" data-i18n="tokenharborSave">Save</button>
-            <button id="tokenharborRemove" class="ghost small danger" data-i18n="tokenharborRemove">Remove</button>
-          </div>
-          <p id="tokenharborStatus" class="settings-hint">—</p>
-          <button id="tokenharborGetKey" class="link-btn" data-i18n="tokenharborGetKey">Get a key at tokenharbor.ai</button>
-        </div>
-
-        <div class="settings-group">
-          <div class="settings-head" data-i18n="accountSection">Your account</div>
-          <div id="accountBox" class="account-box"></div>
-          <div class="account-actions">
-            <button id="accountSignIn" class="ghost" data-i18n="signIn">Sign in…</button>
-            <button id="accountSignOut" class="ghost danger" data-i18n="signOut">Sign out</button>
-          </div>
-          <div id="accountNote" class="settings-hint account-note" hidden></div>
-        </div>
-
-        <div class="settings-group">
-          <div class="settings-head" data-i18n="systemPaths">System locations</div>
-          <div id="settingsSystem" class="settings-list"></div>
-        </div>
-
-        <div class="dialog-actions">
-          <button id="settingsReset" class="ghost" data-i18n="resetDefaults">Reset to defaults</button>
+        <div class="dialog-actions settings-footer">
           <button id="settingsClose" class="primary-btn" data-i18n="close">Close</button>
         </div>
       </div>
