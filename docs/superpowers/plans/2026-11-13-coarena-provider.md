@@ -1,6 +1,6 @@
 # Coarena provider Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Let the desktop app talk to Coarena's OpenAI-compatible API alongside FreePi, with a key stored through Electron's safeStorage, provider-aware ads and usage, and a session that can run on either provider.
 
@@ -41,7 +41,7 @@
 - Consumes: nothing.
 - Produces: `planProviders({ hasFreePiAuth, coarenaKey, freePiModels, coarenaModels }) -> { freePi: boolean, coarena: boolean, ads: boolean, freePiTools: boolean, defaultProvider: 'free-pi'|'coarena'|null, defaultModel: string|null, available: boolean }`; constants `FREE_PI_PROVIDER`, `COARENA_PROVIDER`, `PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash'`, `FREE_PI_TOOL_NAMES = ['web_search','docs_lookup','generate_image','free_pi_usage','look_at_image']`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `app/scripts/selftest-provider-plan.js` in the style of `selftest-provider-errors.js` (`check(name, ok, detail)`), with these cases:
 
@@ -68,21 +68,21 @@ const none = planProviders({ hasFreePiAuth: false, coarenaKey: null, freePiModel
 check('nothing available', none.available === false && none.defaultProvider === null && none.defaultModel === null);
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `node scripts/selftest-provider-plan.js`
 Expected: `Error: Cannot find module '../src/provider-plan'`.
 
-- [ ] **Step 3: Implement `src/provider-plan.js`**
+- [x] **Step 3: Implement `src/provider-plan.js`**
 
 Rules: register FreePi only when `hasFreePiAuth` and `freePiModels.length`; register Coarena only when `coarenaKey` and `coarenaModels.length`; `ads` and `freePiTools` mirror FreePi; default provider is FreePi when registered, else Coarena, else `null`; default model is `PREFERRED_FREE_PI_MODEL` when present in the FreePi list, otherwise the first model of the chosen provider.
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Run: `node scripts/selftest-provider-plan.js`
 Expected: every line `PASS`, exit code 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/provider-plan.js app/scripts/selftest-provider-plan.js
@@ -108,7 +108,7 @@ git commit -m "feat(provider): plan which providers a session can register"
   - `readCoarenaKeyInfo(key, { fetchImpl }) -> { ok: true, info } | { ok: false, status, error, code, offline? }` where `info` is `{ label, prefix, isFreeTier, expiresAt, limits: { requestsPerMinute, concurrency, usdPerDay, maxOutputTokens }, usageToday: { requests, costUsd, resetsAt } }`
   - `resetCoarenaModelCache()` for tests.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `app/scripts/selftest-coarena.js` uses a fake fetch response helper:
 
@@ -126,21 +126,21 @@ Assertions:
 - The same call with `fake(401, { error: { code: 'invalid_api_key', message: 'bad key' } })` → `ok === false`, `status === 401`, `code === 'invalid_api_key'`.
 - A throwing fetch → `ok === false` and `offline === true`.
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `node scripts/selftest-coarena.js`
 Expected: `Cannot find module '../src/coarena'`.
 
-- [ ] **Step 3: Implement `src/coarena.js`**
+- [x] **Step 3: Implement `src/coarena.js`**
 
 Normalization rules: `name = display_name || id`; `contextWindow = context_length || 128000`; `maxTokens = max_completion_tokens || max_tokens || 16384`. Cache is a module-level `{ at, models }`; `force` bypasses it. Every HTTP call uses `AbortSignal.timeout(8000)` when the injected fetch is the global one (skip the option when a fake fetch is injected). `coarenaProviderConfig` sets `compat: { supportsDeveloperRole: false }`, `input: ['text']`, `reasoning: true`, and zero cost fields. Never include the key in an error string.
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Run: `node scripts/selftest-coarena.js`
 Expected: all checks `PASS`, exit code 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/coarena.js app/scripts/selftest-coarena.js
@@ -159,7 +159,7 @@ git commit -m "feat(coarena): model catalog, provider config and key metadata"
 - Consumes: an injected `safeStorage` with `isEncryptionAvailable()`, `encryptString(string) -> Buffer`, `decryptString(Buffer) -> string`.
 - Produces: `createCoarenaKeyStore({ dir, safeStorage }) -> { path, status(), read(), save(raw), clear() }`; `status()` returns `{ configured, readable, encrypted, hint, error? }`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Use `fs.mkdtempSync(path.join(os.tmpdir(), 'coarena-key-'))` for `dir`. Fake storage:
 
@@ -175,21 +175,21 @@ Assertions:
 - `clear()` removes the file and `status().configured === false`.
 - `save('   ')` throws `Error('empty key')`.
 
-- [ ] **Step 2: Run it and see it fail**
+- [x] **Step 2: Run it and see it fail**
 
 Run: `node scripts/selftest-coarena-key.js`
 Expected: `Cannot find module '../src/coarena-key'`.
 
-- [ ] **Step 3: Implement `src/coarena-key.js`**
+- [x] **Step 3: Implement `src/coarena-key.js`**
 
 File is `<dir>/coarena.json`, shape `{ v: 1, encrypted, key }`, mode `0o600`. A malformed JSON file reports `configured: true, readable: false, error: 'corrupt'`; a DPAPI failure reports `error: 'undecryptable'`. `save` creates the directory, writes atomically (temp file + rename), and returns `status()`. `clear` unlinks and ignores `ENOENT`.
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Run: `node scripts/selftest-coarena-key.js`
 Expected: all checks `PASS`, exit code 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/coarena-key.js app/scripts/selftest-coarena-key.js
@@ -208,7 +208,7 @@ git commit -m "feat(coarena): store the API key with safeStorage"
 - Consumes: nothing.
 - Produces: `friendlyProviderError(raw, { provider } = {})` — same return shape `{ text, code }`, with an optional second argument. Existing one-argument calls are unchanged.
 
-- [ ] **Step 1: Add the failing checks**
+- [x] **Step 1: Add the failing checks**
 
 Append to `selftest-provider-errors.js`:
 
@@ -227,21 +227,21 @@ const freePiOffline = friendlyProviderError('fetch failed');
 check('one-argument calls unchanged', /fetch failed/.test(freePiOffline.text));
 ```
 
-- [ ] **Step 2: Run it and see the new checks fail**
+- [x] **Step 2: Run it and see the new checks fail**
 
 Run: `node scripts/selftest-provider-errors.js`
 Expected: FAIL on the four new checks, the old ones still pass.
 
-- [ ] **Step 3: Implement the hints**
+- [x] **Step 3: Implement the hints**
 
 Add `ERROR_HINTS` entries for `invalid_api_key`, `rate_limit`, `rate_limit_exceeded`, `insufficient_quota`. Copy: bad key = "Coarena rejected this API key — open Settings, replace it, then retry."; limits = "Coarena allows 30 requests per minute. Wait a moment and try again."; quota = "Coarena has no quota left today — it resets at UTC midnight." Add the optional `{ provider }` parameter; when `provider === 'coarena'` and the raw text looks like a network failure (`fetch failed`, `ECONNREFUSED`, `ENOTFOUND`, `ETIMEDOUT`, `socket hang up`, `network error`), use "Could not reach Coarena — check your connection and retry." Keep the HTTP suffix behaviour.
 
-- [ ] **Step 4: Run both error tests**
+- [x] **Step 4: Run both error tests**
 
 Run: `node scripts/selftest-provider-errors.js`
 Expected: all checks `PASS`, exit code 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/provider-errors.js app/scripts/selftest-provider-errors.js
@@ -261,7 +261,7 @@ git commit -m "feat(errors): explain Coarena key and rate-limit failures"
 - Consumes: nothing.
 - Produces on `globalThis.FPProvider` (and `window`): `providerLabel(provider) -> 'FreePi'|'Coarena'|string`, `isFreePiProvider(provider) -> boolean`, `modelOptionLabel({provider, id, name}) -> string`, `providerChrome(model) -> { showAds, showCoarenaMeter }`, `coarenaMeterText(info) -> string`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 require('../src/renderer/provider-ui.js');
@@ -278,12 +278,12 @@ check('meter text', UI.coarenaMeterText({ limits: { requestsPerMinute: 30, concu
 check('meter empty without info', UI.coarenaMeterText(null) === '');
 ```
 
-- [ ] **Step 2: Run it and see it fail**
+- [x] **Step 2: Run it and see it fail**
 
 Run: `node scripts/selftest-provider-ui.js`
 Expected: `Cannot find module '../src/renderer/provider-ui.js'`.
 
-- [ ] **Step 3: Implement `provider-ui.js`**
+- [x] **Step 3: Implement `provider-ui.js`**
 
 Use the same classic-script pattern as `markdown.js`:
 
@@ -293,14 +293,14 @@ Use the same classic-script pattern as `markdown.js`:
 
 `providerChrome(model)` returns `{ showAds: true, showCoarenaMeter: false }` for `free-pi`/`free-pi-defense`, `{ showAds: false, showCoarenaMeter: true }` for `coarena`, and `{ showAds: false, showCoarenaMeter: false }` for anything else.
 
-- [ ] **Step 4: Add the script tag and run the test**
+- [x] **Step 4: Add the script tag and run the test**
 
 In `index.html`, add `<script src="provider-ui.js"></script>` immediately before `<script src="app.js"></script>`.
 
 Run: `node scripts/selftest-provider-ui.js`
 Expected: all checks `PASS`, exit code 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/renderer/provider-ui.js app/src/renderer/index.html app/scripts/selftest-provider-ui.js
@@ -323,7 +323,7 @@ git commit -m "feat(renderer): provider labels and chrome rules"
   - `handle.modelFallback -> { from: { provider, id }, to: { provider, id, name } } | null`
   - `handle.rotateAd()` returns `false` when ads are disabled.
 
-- [ ] **Step 1: Write the failing live test**
+- [x] **Step 1: Write the failing live test**
 
 `selftest-coarena-live.js` reads the key from `process.env.COARENA_KEY`, fails fast with a clear message when it is absent, and otherwise:
 
@@ -344,7 +344,7 @@ check('no ads for coarena', handle.rotateAd() === false);
 
 Then subscribe to `message_end`, prompt "Reply with the single word OK", wait up to 90 s for `agent_settled`, and assert an assistant message with `stopReason !== 'error'` and text containing `OK`. Finally call `handle.applyCoarenaKey(null)` and assert no `coarena` entries remain in `handle.modelList`.
 
-- [ ] **Step 2: Run it and see it fail**
+- [x] **Step 2: Run it and see it fail**
 
 ```powershell
 $env:COARENA_KEY = (Get-Content "$env:TEMP\opencode\coarena-key.txt" -Raw).Trim(); node scripts/selftest-coarena-live.js
@@ -352,7 +352,7 @@ $env:COARENA_KEY = (Get-Content "$env:TEMP\opencode\coarena-key.txt" -Raw).Trim(
 
 Expected: FAIL — the session still throws `no free-pi credentials available`.
 
-- [ ] **Step 3: Rework `createFreePiSession` bootstrap**
+- [x] **Step 3: Rework `createFreePiSession` bootstrap**
 
 - Add the two options above.
 - Replace the hard `resolveAuth` failure with a try/catch that leaves `auth = null` and logs `free-pi auth unavailable: <message>`.
@@ -368,7 +368,7 @@ Expected: FAIL — the session still throws `no free-pi credentials available`.
 - Implement `applyCoarenaKey(nextKey)`: call `piApi.unregisterProvider(COARENA_PROVIDER)` inside a try/catch, then when `nextKey` is set fetch models with `{ force: true }`, register the provider, and rebuild `modelList`; when it is `null`, keep only `freePiEntries`. Return `{ ok: true, models: modelList }`.
 - Keep `setModel`, `thinking`, `undo`, `redo`, `compact`, `exportHtml`, `bash`, stats and todos unchanged.
 
-- [ ] **Step 4: Re-run the live test**
+- [x] **Step 4: Re-run the live test**
 
 ```powershell
 $env:COARENA_KEY = (Get-Content "$env:TEMP\opencode\coarena-key.txt" -Raw).Trim(); node scripts/selftest-coarena-live.js
@@ -376,7 +376,7 @@ $env:COARENA_KEY = (Get-Content "$env:TEMP\opencode\coarena-key.txt" -Raw).Trim(
 
 Expected: all checks `PASS`, one assistant reply containing `OK`, exit code 0.
 
-- [ ] **Step 5: Check the FreePi path and the no-provider path**
+- [x] **Step 5: Check the FreePi path and the no-provider path**
 
 Run: `node scripts/selftest-session.js` with no image.
 Expected: an assistant answer; this proves removing the Authorization hook did not break FreePi.
@@ -384,7 +384,7 @@ Expected: an assistant answer; this proves removing the Authorization hook did n
 Run the live test with `$env:COARENA_KEY=''` and `resolveFreePiAuth: async () => null` temporarily forced by the test's `--no-providers` flag.
 Expected: the clear "No AI provider available" error, no stack trace.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/src/freepi-bridge.js app/scripts/selftest-coarena-live.js
@@ -404,13 +404,13 @@ git commit -m "feat(bridge): register Coarena beside free-pi and allow either pr
 - Consumes: Task 3 (`createCoarenaKeyStore`), Task 2 (`readCoarenaKeyInfo`).
 - Produces IPC: `coarena:status -> status`, `coarena:setKey { key } -> { ok, status?, error?, unverified?, applied? }`, `coarena:clearKey -> { ok, status, applied }`; `settings:get` gains `coarena: status` where status also has `info` and `infoError`.
 
-- [ ] **Step 1: Wire the key store and session option**
+- [x] **Step 1: Wire the key store and session option**
 
 - Import `safeStorage` from `electron` and add `const { createCoarenaKeyStore } = require('./coarena-key'); const { readCoarenaKeyInfo } = require('./coarena');`.
 - Create `const coarenaKeys = createCoarenaKeyStore({ dir: DATA_ROOT, safeStorage });` after `DATA_ROOT` exists.
 - In `attachTab`, pass `coarenaKey: coarenaKeys.read()` and `resolveFreePiAuth` unchanged (default).
 
-- [ ] **Step 2: Add status and key IPC**
+- [x] **Step 2: Add status and key IPC**
 
 Implement `async function coarenaStatus()` (cache `info` for 60 s):
 
@@ -422,7 +422,7 @@ Implement `async function coarenaStatus()` (cache `info` for 60 s):
 - `applyKeyToTabs(key)`: for every tab call `handle.applyCoarenaKey(key)`; when `key` is null and the tab's current model provider is `coarena`, switch to the first FreePi entry in `handle.modelList` (or the first model) with `setModel`, then send `agent:notice` with "Coarena key removed — switched to <provider>/<id>."; always send `agent:history` with `tabState(tabId)`; count successes.
 - Add `coarena: status` to the `settings:get` return object using `await coarenaStatus()`.
 
-- [ ] **Step 3: Make ads and model fallback provider-aware**
+- [x] **Step 3: Make ads and model fallback provider-aware**
 
 - Add `function tabIsFreePi(tab) { return /^free-pi/.test(tab?.handle?.session?.model?.provider || ''); }`.
 - `ads:rotate`: return `{ ok: false, reason: 'provider' }` when `!tabIsFreePi(tab)`.
@@ -430,7 +430,7 @@ Implement `async function coarenaStatus()` (cache `info` for 60 s):
 - `model:set`: after `sendTab('model:changed')`, send `ads:show` with `{ ad: tabIsFreePi(tab) ? tab.ad : null }` and `rotateAd()` once when switching to FreePi and no ad is cached.
 - `tabState`: include `modelFallback: tab.handle.modelFallback || null`.
 
-- [ ] **Step 4: Expose the IPC in preload**
+- [x] **Step 4: Expose the IPC in preload**
 
 ```js
 coarenaStatus: () => ipcRenderer.invoke('coarena:status'),
@@ -438,12 +438,12 @@ coarenaSetKey: (key) => ipcRenderer.invoke('coarena:setKey', { key }),
 coarenaClearKey: () => ipcRenderer.invoke('coarena:clearKey'),
 ```
 
-- [ ] **Step 5: Smoke-check the process starts**
+- [x] **Step 5: Smoke-check the process starts**
 
 Run: `npm start` from `app/`; switch models in the dropdown; close the app.
 Expected: the app boots without an uncaught exception, and the session list still loads. (The full UI check is Task 9.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/src/main.js app/preload.js
@@ -463,7 +463,7 @@ git commit -m "feat(main): expose Coarena key status and keep ads on free-pi mod
 - Consumes: `window.freepi.coarenaStatus/coarenaSetKey/coarenaClearKey`, `globalThis.FPProvider`, `state.modelFallback`.
 - Produces: UI only.
 
-- [ ] **Step 1: Add the markup**
+- [x] **Step 1: Add the markup**
 
 - Wrap the free-pi-specific usage nodes (`usage-bar-wrap`, the five `usage-row`s, `ctx-bar`) in `<div id="freePiUsage">`.
 - After it, add:
@@ -478,11 +478,11 @@ git commit -m "feat(main): expose Coarena key status and keep ads on free-pi mod
 - In `#settingsOverlay`, before the account group, add a group with `id="coarenaKeyInput"` (`type="password"`, `autocomplete="off"`, placeholder `coa_…`), `id="coarenaSave"`, `id="coarenaRemove"`, `id="coarenaStatus"` (class `settings-hint`), and `id="coarenaGetKey"`.
 - CSS: `#freePiUsage { display: contents; } #freePiUsage[hidden] { display: none; }`.
 
-- [ ] **Step 2: Add both language blocks**
+- [x] **Step 2: Add both language blocks**
 
 Add the keys `provider`, `coarenaSection`, `coarenaKeyLabel`, `coarenaSave`, `coarenaRemove`, `coarenaRemoveTitle`, `coarenaRemoveSub`, `coarenaConfigured`, `coarenaUnreadable`, `coarenaNotConfigured`, `coarenaEncrypted`, `coarenaPlaintext`, `coarenaLimits`, `coarenaGetKey`, `coarenaSaved`, `coarenaUnverified`, `coarenaSaveFailed`, `coarenaRemoved`, `coarenaModelSwitched` to `STRINGS.en` and `STRINGS.th`. Suggested English: `Coarena`, `API key`, `Save`, `Remove`, `Remove the Coarena key?`, `Coarena models disappear from the model list. Running turns keep their current model until they finish.`, `Configured · encrypted`, `This key was saved on another machine and cannot be read here — enter it again.`, `No key yet — Coarena models stay hidden.`, `encrypted`, `stored without encryption`, `Limits`, `Get a key at coarena.ai`, `Coarena key saved.`, `Coarena could not be reached — the key was saved unverified.`, `Could not save the key:`, `Coarena key removed.`, `The saved model is unavailable — switched to`.
 
-- [ ] **Step 3: Render the dropdown and chrome**
+- [x] **Step 3: Render the dropdown and chrome**
 
 - `renderActiveTab`: `opt.textContent = FPProvider.modelOptionLabel(m);`.
 - Add `function syncProviderChrome(view)` that reads `FPProvider.providerChrome(view?.model)`, hides `#freePiUsage`/shows `#coarenaUsage` from `showCoarenaMeter`, sets `adSlot.hidden = true` when `!showAds` and the slot has no ad, and calls `paintCoarenaMeter()`.
@@ -491,7 +491,7 @@ Add the keys `provider`, `coarenaSection`, `coarenaKeyLabel`, `coarenaSave`, `co
 - `api.onAd`: ignore ads while the active view's model is not FreePi (`renderAd(null)` is not needed; simply return).
 - `applyTabState`: when `state.modelFallback` and the view has not shown it, call `showNotice(t('coarenaModelSwitched') + ' ' + state.modelFallback.to.provider + '/' + state.modelFallback.to.id)` and set a `fallbackNotified` flag on the view.
 
-- [ ] **Step 4: Render and save the key**
+- [x] **Step 4: Render and save the key**
 
 - Add `let coarenaStatus = null;`.
 - `async function paintCoarenaMeter()`: if `coarenaStatus?.info`, set `#coarenaMeterText` to `FPProvider.coarenaMeterText(coarenaStatus.info)`; otherwise `—`.
@@ -501,14 +501,14 @@ Add the keys `provider`, `coarenaSection`, `coarenaKeyLabel`, `coarenaSave`, `co
 - `#coarenaRemove` click: `showConfirmDialog({ kind: 'coarenaRemove', title: t('coarenaRemoveTitle'), sub: t('coarenaRemoveSub'), action: t('coarenaRemove') })`; in the confirm handler add a branch before `delete` that calls `api.coarenaClearKey()`, updates `coarenaStatus`, refreshes the UI and shows `t('coarenaRemoved')`.
 - `#coarenaGetKey` click: `api.openExternal('https://coarena.ai/developers')`.
 
-- [ ] **Step 5: Check both languages and no hidden regressions**
+- [x] **Step 5: Check both languages and no hidden regressions**
 
 Run: `node_modules/electron/dist/electron.exe scripts/selftest-ui-render.js`
 Expected: "ui render checks passed".
 
 Switch the UI to TH and back; the Coarena group strings change and no English leaks into the Thai dialog.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/src/renderer/index.html app/src/renderer/app.js app/src/renderer/styles.css
@@ -527,14 +527,14 @@ git commit -m "feat(renderer): Coarena settings, model labels and usage meter"
 - Consumes: the running app with `--remote-debugging-port=9222`, the key from `COARENA_KEY`.
 - Produces: a pass/fail JSON report.
 
-- [ ] **Step 1: Start the app with debugging**
+- [x] **Step 1: Start the app with debugging**
 
 ```powershell
 cd app
 Start-Process -FilePath "node_modules\electron\dist\electron.exe" -ArgumentList ".","--remote-debugging-port=9222","--user-data-dir=$env:TEMP\freepi-coarena-test"
 ```
 
-- [ ] **Step 2: Write the CDP check**
+- [x] **Step 2: Write the CDP check**
 
 Adapt the helpers from `selftest-ui.js` and evaluate in the page:
 
@@ -553,7 +553,7 @@ Then call `window.freepi.coarenaClearKey()` and assert the Coarena options are g
 
 Print `{ hasCoarena, adHidden, meterShown, freePiHidden, removedOk }` and exit non-zero unless every flag is true.
 
-- [ ] **Step 3: Run the UI check**
+- [x] **Step 3: Run the UI check**
 
 ```powershell
 $env:COARENA_KEY = (Get-Content "$env:TEMP\opencode\coarena-key.txt" -Raw).Trim(); node scripts/selftest-coarena-ui.js
@@ -561,7 +561,7 @@ $env:COARENA_KEY = (Get-Content "$env:TEMP\opencode\coarena-key.txt" -Raw).Trim(
 
 Expected: every flag true, exit code 0. Stop the Electron process afterwards and delete `$env:TEMP\freepi-coarena-test`.
 
-- [ ] **Step 4: Run the full local suite**
+- [x] **Step 4: Run the full local suite**
 
 ```powershell
 node scripts/selftest-provider-plan.js
@@ -575,12 +575,12 @@ node_modules\electron\dist\electron.exe scripts\selftest-ui-render.js
 
 Expected: all pass.
 
-- [ ] **Step 5: Prove no key leaked**
+- [x] **Step 5: Prove no key leaked**
 
 Run: `git grep -n "coa_"` from the repo root.
 Expected: no matches in tracked files (the design doc uses `coa_…` with an ellipsis; a test uses `coa_test_…`; neither is a real key).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/scripts/selftest-coarena-ui.js
