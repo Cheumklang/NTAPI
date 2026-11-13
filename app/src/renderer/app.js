@@ -2242,9 +2242,12 @@ window.addEventListener('drop', async (e) => {
  */
 async function appendImagePreviews(container, text, cwd) {
   if (!container || !cwd || !text) return;
-  if (container.querySelector('.msg-images')) return;
   const paths = FPProvider.extractImagePaths(text);
   if (!paths.length) return;
+  // A grouped turn renders in several passes; only one may add a strip, or
+  // concurrent reads race into duplicate thumbnails.
+  if (container.querySelector('.msg-images') || container.__fpImagesPending) return;
+  container.__fpImagesPending = true;
 
   const strip = document.createElement('div');
   strip.className = 'msg-images';
@@ -2259,6 +2262,7 @@ async function appendImagePreviews(container, text, cwd) {
     strip.appendChild(im);
   }
   if (strip.children.length) container.appendChild(strip);
+  container.__fpImagesPending = false;
 }
 
 /**
