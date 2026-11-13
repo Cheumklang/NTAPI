@@ -651,7 +651,7 @@ async function createFreePiSession(options) {
   });
   if (!plan.available) {
     throw new Error(
-      'No AI provider available — sign in to NTAPI or add a Coarena, Zro, NVIDIA or Token Harbor key in Settings.'
+      'No AI provider available — sign in to FreePi or add a Coarena, Zro, NVIDIA or Token Harbor key in Settings.'
     );
   }
   log(

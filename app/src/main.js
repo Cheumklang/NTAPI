@@ -1213,7 +1213,7 @@ async function applyKeyToTabs({ provider, label, key, apply }) {
           });
         } else {
           sendTab(tabId, 'agent:notice', {
-            text: `${label} key removed — this tab has no provider left. Add a key or sign in to NTAPI.`,
+            text: `${label} key removed — this tab has no provider left. Add a key or sign in to FreePi.`,
           });
         }
       }

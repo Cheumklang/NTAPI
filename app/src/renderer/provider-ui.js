@@ -33,10 +33,11 @@
 
   /** Human-facing provider name; unknown providers pass through unchanged. */
   function providerLabel(provider) {
-    // The FreePi backend is the app's own free lane, so it is shown under the
-    // product name. The provider id stays `free-pi`: it is what the backend and
-    // the saved settings use.
-    if (FREE_PI_PROVIDERS.has(provider)) return 'NTAPI';
+    // The free lane is FreePi's service (freepi.ai), reached with a GitHub
+    // sign-in, so it is named after the service rather than this app. The
+    // provider id stays `free-pi`: that is what the backend and the saved
+    // settings use.
+    if (FREE_PI_PROVIDERS.has(provider)) return 'FreePi';
     if (provider === COARENA_PROVIDER) return 'Coarena';
     if (provider === ZRO_PROVIDER) return 'Zro';
     if (provider === NVIDIA_PROVIDER) return 'NVIDIA';
