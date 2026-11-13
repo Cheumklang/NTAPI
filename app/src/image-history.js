@@ -15,11 +15,15 @@
 
 const OMITTED = '[image omitted: the provider allows only a few images per request]';
 
-function pruneImages(messages, maxImages = 6) {
+function pruneImages(messages, maxImages = 6, maxBytes = 1_200_000) {
   if (!Array.isArray(messages)) return messages;
 
-  // Count from the end so the most recent pictures survive.
+  // Count from the end so the most recent pictures survive, and stop as soon as
+  // the retained pixels would blow the request-body budget. Providers cap both
+  // count (Coarena: 8) and size (Token Harbor: 4 MB per request), and two full
+  // screenshots already reach the size cap on their own.
   let seen = 0;
+  let bytes = 0;
   const out = new Array(messages.length);
 
   for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -34,12 +38,14 @@ function pruneImages(messages, maxImages = 6) {
     for (let j = message.content.length - 1; j >= 0; j -= 1) {
       const block = message.content[j];
       if (block && block.type === 'image') {
-        if (seen >= maxImages) {
+        const len = typeof block.data === 'string' ? block.data.length : 0;
+        if (seen >= maxImages || bytes + len > maxBytes) {
           content[j] = { type: 'text', text: OMITTED };
           changed = true;
           continue;
         }
         seen += 1;
+        bytes += len;
       }
       content[j] = block;
     }

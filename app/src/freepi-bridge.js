@@ -259,8 +259,42 @@ const LAUNCH_AD_MAX_AGE_MS = 60 * 60000;
  * render-QC run cannot push the session over the limit and brick every turn.
  */
 const MAX_REQUEST_IMAGES = 4;
+/**
+ * Token Harbor rejects a request body over 4 MB. Old screenshots stay in the
+ * conversation, so cap the total base64 size of the images we resend, not just
+ * how many there are.
+ */
+const MAX_REQUEST_IMAGE_BYTES = 1_200_000;
 /** How many images one user turn may look at before it must finish the render. */
 const MAX_IMAGE_REVIEWS_PER_TURN = 4;
+
+/**
+ * Shrink a picture before it enters the conversation.
+ *
+ * pi sends the whole conversation on every call, so a full 1920x1080 PNG adds
+ * ~1.5 MB of base64 to every later turn until it is pruned. Downscale to at most
+ * 1280px and re-encode as JPEG instead. Falls back to the original bytes when
+ * Electron's image decoder is not available (headless selftests).
+ */
+function shrinkImageForModel(buf, mediaType) {
+  const original = { data: buf.toString('base64'), mimeType: mediaType };
+  try {
+    const { nativeImage } = require('electron');
+    const img = nativeImage.createFromBuffer(buf);
+    if (!img || img.isEmpty()) return original;
+    const { width, height } = img.getSize();
+    const maxDim = 1280;
+    const resized =
+      Math.max(width, height) > maxDim
+        ? img.resize(width >= height ? { width: maxDim } : { height: maxDim })
+        : img;
+    const jpeg = resized.toJPEG(72);
+    if (jpeg && jpeg.length && jpeg.length < buf.length) {
+      return { data: jpeg.toString('base64'), mimeType: 'image/jpeg' };
+    }
+  } catch {}
+  return original;
+}
 
 function clientLocaleHeaders() {
   try {
@@ -677,7 +711,7 @@ async function createFreePiSession(options) {
       // Images accumulate in history every time a model reads one. Trim before
       // each provider call, under every provider's per-request cap.
       pi.on('context', (event) => ({
-        messages: pruneImages(event.messages, MAX_REQUEST_IMAGES),
+        messages: pruneImages(event.messages, MAX_REQUEST_IMAGES, MAX_REQUEST_IMAGE_BYTES),
       }));
       // No session-wide Authorization override: each provider config carries
       // its own apiKey and pi-ai sets the Bearer header per request.
@@ -1024,9 +1058,10 @@ async function createFreePiSession(options) {
           // provider, no free-pi allowance, and no 429 when FreePi is capped.
           const model = ctx?.getModel?.() || visionSession?.model;
           if (model?.input?.includes('image')) {
+            const shrunk = shrinkImageForModel(buf, mediaType);
             return {
               content: [
-                { type: 'image', data: buf.toString('base64'), mimeType: mediaType },
+                { type: 'image', data: shrunk.data, mimeType: shrunk.mimeType },
                 { type: 'text', text: `Image attached. Answer this yourself: ${params?.question || 'Describe it.'}` },
               ],
             };
@@ -1042,6 +1077,7 @@ async function createFreePiSession(options) {
             };
           }
           try {
+            const shrunkVision = shrinkImageForModel(buf, mediaType);
             // The backend's vision upstream returns 502 intermittently; retry briefly.
             let res;
             let lastStatus = 0;
@@ -1053,8 +1089,8 @@ async function createFreePiSession(options) {
                   'content-type': 'application/json',
                 },
                 body: JSON.stringify({
-                  image_b64: buf.toString('base64'),
-                  media_type: mediaType,
+                  image_b64: shrunkVision.data,
+                  media_type: shrunkVision.mimeType,
                   question: String(params?.question || 'Describe this image.'),
                 }),
                 signal: AbortSignal.timeout(60000),
