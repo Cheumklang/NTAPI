@@ -195,6 +195,9 @@ body.resizing #sidebar { pointer-events: none; }
   gap: 10px;
   margin: 4px 0 6px;
 }
+/* `display: flex` beats the `hidden` attribute's display rule, so the progress
+   row has to say it again or it shows an empty bar before any download. */
+.update-progress[hidden] { display: none; }
 .update-bar {
   flex: 1;
   height: 6px;
@@ -2480,14 +2483,30 @@ button.ghost.danger:hover { background: rgba(255, 95, 109, .12); }
 
 /* ==================== About card (เกี่ยวกับ) ==================== */
 
-.about-card {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg-3);
-  padding: 16px 18px;
+/*
+ * The About tab is a page of facts, not a form, so nothing on it sits in a box:
+ * a border around the developer details and around the version row only drew
+ * frames around text. One centred column holds the whole tab, so the update
+ * block lines up with the details above it instead of stretching to the edge.
+ */
+#settingsPanelAbout {
   max-width: 560px;
   margin: 0 auto;
 }
+.about-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+#settingsPanelAbout .settings-row {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+#settingsPanelAbout .settings-row.compact { padding: 0; }
 
 .about-head {
   display: flex;
