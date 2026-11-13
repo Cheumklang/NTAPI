@@ -40,6 +40,19 @@ check('ads message is about ads', /ad/i.test(ads.text));
 const unknown = friendlyProviderError('500: {"message":"kaboom","code":"weird_new_code"}');
 check('unknown code keeps the server message', unknown.text.includes('kaboom'));
 
+const badKey = friendlyProviderError('401: {"error":{"message":"Invalid API key","type":"invalid_request_error","code":"invalid_api_key"}}', { provider: 'coarena' });
+check('coarena bad key names Settings', /API key/i.test(badKey.text) && /Settings/i.test(badKey.text));
+check('coarena bad key keeps status', badKey.text.includes('HTTP 401'));
+
+const limited = friendlyProviderError('429: {"error":{"message":"rate limited","code":"rate_limit_exceeded"}}', { provider: 'coarena' });
+check('coarena rate limit names the limit', /30 requests per minute/i.test(limited.text));
+
+const offline = friendlyProviderError('fetch failed', { provider: 'coarena' });
+check('coarena network failure names Coarena', /Coarena/.test(offline.text) && /connection/i.test(offline.text));
+
+const freePiOffline = friendlyProviderError('fetch failed');
+check('one-argument calls unchanged', /fetch failed/.test(freePiOffline.text));
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

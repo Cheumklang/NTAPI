@@ -42,6 +42,33 @@ const ERROR_HINTS = {
   subagents_unavailable: 'Subagents need the free Particle model or purchased credits — switch models.',
 };
 
+/**
+ * Coarena's failures read nothing like free-pi's: its 401 means the key itself
+ * is wrong, and its limits are published per key. Kept separate so the same
+ * code from free-pi can never be described as a Coarena problem.
+ */
+const COARENA_HINTS = {
+  invalid_api_key: 'Coarena rejected this API key — open Settings, replace it, then retry.',
+  rate_limit: 'Coarena allows 30 requests per minute. Wait a moment and try again.',
+  rate_limit_exceeded: 'Coarena allows 30 requests per minute. Wait a moment and try again.',
+  insufficient_quota: 'Coarena has no quota left today — it resets at UTC midnight.',
+};
+
+const NETWORK_FAILURE_PATTERNS = [
+  'fetch failed',
+  'econnrefused',
+  'enotfound',
+  'etimedout',
+  'econnreset',
+  'socket hang up',
+  'network error',
+];
+
+function looksLikeNetworkFailure(text) {
+  const lower = String(text || '').toLowerCase();
+  return NETWORK_FAILURE_PATTERNS.some((p) => lower.includes(p));
+}
+
 function parseProviderError(raw) {
   const text = String(raw || '').trim();
   let code = null;
@@ -58,11 +85,23 @@ function parseProviderError(raw) {
   return { code, message, status, text };
 }
 
-function friendlyProviderError(raw) {
+/**
+ * @param {string} raw
+ * @param {{ provider?: string }} [options] Provider-aware wording; omitted, the
+ *   output is identical to the free-pi-only version this replaces.
+ */
+function friendlyProviderError(raw, { provider } = {}) {
   const { code, message, status, text } = parseProviderError(raw);
-  const hint = (code && ERROR_HINTS[code]) || message || text || 'The model request failed.';
+  let hint = null;
+  if (provider === 'coarena') {
+    if (code && COARENA_HINTS[code]) hint = COARENA_HINTS[code];
+    // A dead network has no status and no code; the raw body would just say
+    // "fetch failed", which tells the user nothing about which service is down.
+    else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Coarena — check your connection and retry.';
+  }
+  if (!hint) hint = (code && ERROR_HINTS[code]) || message || text || 'The model request failed.';
   const suffix = status ? ` (HTTP ${status}${code ? ` · ${code}` : ''})` : '';
   return { text: `${hint}${suffix}`, code };
 }
 
-module.exports = { ERROR_HINTS, parseProviderError, friendlyProviderError };
+module.exports = { ERROR_HINTS, COARENA_HINTS, parseProviderError, friendlyProviderError };
