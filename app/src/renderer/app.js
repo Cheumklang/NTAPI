@@ -51,7 +51,8 @@ const STRINGS = {
     working: 'Working…',
     restoring: 'Restoring last session…',
     placeholderIdle: 'Ask FreePi to build, fix, or explain… (Enter to send, Shift+Enter for newline)',
-    placeholderBusy: 'Agent is working — Enter to queue a message for after it finishes',
+    placeholderBusy: 'Agent is working — Enter sends into the turn, Ctrl+Enter queues',
+    steerSent: 'Sent into the running turn.',
     untitled: 'Untitled session',
     noSessions: 'No saved sessions yet.',
     openBadge: 'open',
@@ -209,7 +210,8 @@ const STRINGS = {
     working: 'กำลังทำงาน…',
     restoring: 'กำลังกลับไปยังแชทล่าสุด…',
     placeholderIdle: 'พิมพ์ให้ FreePi สร้าง แก้ หรืออธิบาย… (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)',
-    placeholderBusy: 'AI กำลังทำงาน — กด Enter เพื่อต่อคิวข้อความไว้ส่งต่อเมื่อเสร็จ',
+    placeholderBusy: 'AI กำลังทำงาน — Enter ส่งเข้าเทิร์น, Ctrl+Enter เข้าคิว',
+    steerSent: 'ส่งเข้าเทิร์นที่กำลังทำงานแล้ว',
     untitled: 'แชทไม่มีชื่อ',
     noSessions: 'ยังไม่มีแชทที่บันทึกไว้',
     openBadge: 'เปิดอยู่',
@@ -2147,22 +2149,29 @@ input.addEventListener('keydown', (e) => {
       return;
     }
   }
-  if (e.key === 'Enter' && !e.shiftKey) {
+  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
     e.preventDefault();
     e.stopPropagation();
     submit();
     return;
   }
-  // Ctrl+Enter always queues, so a message survives a running turn.
+  // Ctrl+Enter is the explicit queue path while the agent works. When idle it
+  // sends like Enter: a queue with no running turn would never drain.
   if (e.key === 'Enter' && e.ctrlKey) {
     e.preventDefault();
+    e.stopPropagation();
     const view = activeView();
     if (!view) return;
+    if (!view.busy) {
+      submit();
+      return;
+    }
     const text = input.value.trim();
     if (!text && pendingImages.length === 0) return;
     queueMessage(text, pendingImages.slice());
     pendingImages = [];
     renderAttachments();
+    updateSendState();
   }
 });
 
@@ -2343,11 +2352,24 @@ async function submit() {
   // queue, the transcript and the session all see the command pi expands.
   const outgoing = await resolveForSend(text);
 
-  // While the agent is working, Ctrl+Enter queues instead of interrupting.
+  // Enter while the agent works steers the running turn: the model sees the
+  // instruction after the current step, before its next call. Ctrl+Enter is
+  // the queue path instead.
   if (view.busy) {
-    await queueMessage(text, pendingImages.slice());
+    renderUserMessage(outgoing, pendingImages);
+    view.messages.push({ kind: 'user', text: outgoing, images: pendingImages.slice() });
+    const steerImages = pendingImages.slice();
     pendingImages = [];
     renderAttachments();
+    input.value = '';
+    autoGrow();
+    hideFileMenu();
+    try {
+      await api.sendPrompt(view.tabId, outgoing, steerImages, 'steer');
+      showNotice(t('steerSent'), 2600);
+    } catch (err) {
+      showNotice(errorText(err));
+    }
     return;
   }
 
