@@ -20,6 +20,7 @@ const crypto = require('node:crypto');
 const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER } = require('./provider-plan');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
 const { ZRO_MODELS, zroProviderConfig, zroModelEntries } = require('./zro');
+const { pruneImages } = require('./image-history');
 
 const DEFAULT_BASE_URL = 'https://api.freepi.ai';
 const PROVIDER_NAME = 'free-pi';
@@ -236,6 +237,11 @@ async function resolveAuth(baseUrl, credentialsPath) {
 const TURN_HEADER = 'x-turn-id';
 const ADS_TIMEOUT_MS = 5000;
 const LAUNCH_AD_MAX_AGE_MS = 60 * 60000;
+/**
+ * Providers cap images per request (Coarena: 8). Keep the newest six so a long
+ * render-QC run cannot push the session over the limit and brick every turn.
+ */
+const MAX_REQUEST_IMAGES = 6;
 
 function clientLocaleHeaders() {
   try {
@@ -607,6 +613,11 @@ async function createFreePiSession(options) {
       if (plan.zro) {
         pi.registerProvider(ZRO_PROVIDER, zroProviderConfig({ apiKey: activeZroKey }));
       }
+      // Images accumulate in history every time a model reads one. Trim before
+      // each provider call, under every provider's per-request cap.
+      pi.on('context', (event) => ({
+        messages: pruneImages(event.messages, MAX_REQUEST_IMAGES),
+      }));
       // No session-wide Authorization override: each provider config carries
       // its own apiKey and pi-ai sets the Bearer header per request.
 
