@@ -2,6 +2,7 @@
 
 const api = window.freepi;
 const MD = window.FPMarkdown;
+const FPProvider = window.FPProvider;
 
 const el = (id) => document.getElementById(id);
 const transcript = el('transcript');
@@ -62,6 +63,26 @@ const STRINGS = {
       'Only while this window is focused and no message is running. Each new ad is reported as an impression, as the ad network requires.',
     changeAd: 'Change ad',
     adBusy: 'Wait for the current message to finish before changing the ad.',
+    provider: 'Provider',
+    coarenaSection: 'Coarena',
+    coarenaKeyLabel: 'API key',
+    coarenaSave: 'Save',
+    coarenaRemove: 'Remove',
+    coarenaRemoveTitle: 'Remove the Coarena key?',
+    coarenaRemoveSub:
+      'Coarena models disappear from the model list. A running turn keeps its current model until it finishes.',
+    coarenaConfigured: 'Configured',
+    coarenaUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    coarenaNotConfigured: 'No key yet — Coarena models stay hidden.',
+    coarenaEncrypted: 'encrypted',
+    coarenaPlaintext: 'stored without encryption',
+    coarenaLimits: 'Limits',
+    coarenaGetKey: 'Get a key at coarena.ai',
+    coarenaSaved: 'Coarena key saved.',
+    coarenaUnverified: 'Coarena could not be reached — the key was saved unverified.',
+    coarenaSaveFailed: 'Could not save the key:',
+    coarenaRemoved: 'Coarena key removed.',
+    coarenaModelSwitched: 'The saved model is unavailable — switched to',
     dataRootLabel: 'App data folder',
     outputFolders: 'Output folders',
     systemPaths: 'System locations',
@@ -200,6 +221,26 @@ const STRINGS = {
       'เปลี่ยนเฉพาะตอนหน้าต่างนี้ถูกเลือกอยู่และไม่มีข้อความกำลังทำงาน แต่ละโฆษณาใหม่จะถูกรายงานเป็น impression ตามที่ ad network กำหนด',
     changeAd: 'เปลี่ยนโฆษณา',
     adBusy: 'รอให้ข้อความนี้ทำงานเสร็จก่อนเปลี่ยนโฆษณา',
+    provider: 'ผู้ให้บริการ',
+    coarenaSection: 'Coarena',
+    coarenaKeyLabel: 'API key',
+    coarenaSave: 'บันทึก',
+    coarenaRemove: 'ลบออก',
+    coarenaRemoveTitle: 'ลบคีย์ Coarena?',
+    coarenaRemoveSub:
+      'โมเดล Coarena จะหายจากรายการ โมเดลที่กำลังทำงานอยู่จะใช้ต่อจนจบเทิร์น',
+    coarenaConfigured: 'ตั้งค่าแล้ว',
+    coarenaUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    coarenaNotConfigured: 'ยังไม่มีคีย์ — โมเดล Coarena จะไม่แสดง',
+    coarenaEncrypted: 'เข้ารหัสแล้ว',
+    coarenaPlaintext: 'บันทึกโดยไม่เข้ารหัส',
+    coarenaLimits: 'ขีดจำกัด',
+    coarenaGetKey: 'ขอคีย์ที่ coarena.ai',
+    coarenaSaved: 'บันทึกคีย์ Coarena แล้ว',
+    coarenaUnverified: 'ติดต่อ Coarena ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
+    coarenaSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    coarenaRemoved: 'ลบคีย์ Coarena แล้ว',
+    coarenaModelSwitched: 'โมเดลที่บันทึกไว้ใช้ไม่ได้แล้ว — เปลี่ยนเป็น',
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
     outputFolders: 'โฟลเดอร์ปลายทาง',
     systemPaths: 'ตำแหน่งของระบบ',
@@ -689,7 +730,7 @@ function renderActiveTab() {
     for (const m of view.models) {
       const opt = document.createElement('option');
       opt.value = `${m.provider}||${m.id}`;
-      opt.textContent = m.name || m.id;
+      opt.textContent = FPProvider.modelOptionLabel(m);
       if (view.model && m.id === view.model.id && m.provider === view.model.provider) opt.selected = true;
       modelSelect.appendChild(opt);
     }
@@ -761,6 +802,65 @@ function renderActiveTab() {
   scrollToBottom(true);
   renderAttachments();
   renderQueue();
+  syncProviderChrome(view);
+}
+
+/* ------------------------- provider chrome ------------------------- */
+
+let coarenaStatus = null;
+
+/**
+ * One window, two providers: the meter and the ad slot follow the active
+ * model. FreePi shows usage and ads; Coarena shows its own published limits.
+ */
+function syncProviderChrome(view) {
+  const chrome = FPProvider.providerChrome(view?.model);
+  const freePiUsage = el('freePiUsage');
+  const coarenaUsage = el('coarenaUsage');
+  if (freePiUsage) freePiUsage.hidden = chrome.showCoarenaMeter;
+  if (coarenaUsage) coarenaUsage.hidden = !chrome.showCoarenaMeter;
+  if (!chrome.showAds) adSlot.hidden = true;
+  paintCoarenaMeter();
+}
+
+function paintCoarenaMeter() {
+  const node = el('coarenaMeterText');
+  if (!node) return;
+  node.textContent = coarenaStatus?.info ? FPProvider.coarenaMeterText(coarenaStatus.info) : '—';
+}
+
+/** Settings copy for the key: never the key itself, only what it is worth. */
+function paintCoarenaSettings() {
+  const node = el('coarenaStatus');
+  const remove = el('coarenaRemove');
+  if (!node) return;
+
+  const s = coarenaStatus;
+  let text = t('coarenaNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('coarenaConfigured')} · ${how}`;
+    if (s.hint) text += ` · …${s.hint}`;
+    if (s.info?.label) text += ` · ${s.info.label}`;
+    if (s.infoError) text += ` · ${s.infoError}`;
+  } else if (s?.configured) {
+    text = t('coarenaUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+}
+
+async function refreshCoarenaStatus() {
+  try {
+    coarenaStatus = await api.coarenaStatus();
+  } catch {
+    coarenaStatus = null;
+  }
+  paintCoarenaSettings();
+  paintCoarenaMeter();
+  return coarenaStatus;
 }
 
 function applyTabState(state) {
@@ -778,6 +878,7 @@ function applyTabState(state) {
     guest: state.guest,
     busy: Boolean(state.busy),
     messages: state.messages || [],
+    modelFallback: state.modelFallback || null,
     liveAssistant: null,
     liveTools: null,
   });
@@ -790,6 +891,15 @@ function applyTabState(state) {
   paintThinking(state.thinking || null);
   view.changes = state.changes || [];
   renderChangesBar(view.changes);
+
+  // A resumed chat can remember a model this account no longer has. Say it once
+  // instead of leaving a dropdown entry that cannot be used.
+  if (state.modelFallback && !view.fallbackNotified) {
+    view.fallbackNotified = true;
+    const to = state.modelFallback.to;
+    showNotice(`${t('coarenaModelSwitched')} ${to ? `${to.provider}/${to.id}` : '—'}`);
+  }
+  syncProviderChrome(view);
 }
 
 function deriveLabel(state) {
@@ -1040,6 +1150,11 @@ let settingsData = null;
 async function openSettings() {
   const view = activeView();
   settingsData = await api.getSettings(view?.cwd);
+  // settings:get already carries the key status (cached server-side for 60 s),
+  // so opening the dialog does not spend a rate-limited /key call per open.
+  coarenaStatus = settingsData?.coarena || null;
+  paintCoarenaSettings();
+  paintCoarenaMeter();
   renderSettings();
   renderAccount();
   const adsToggle = el('adsAutoRotate');
@@ -1293,6 +1408,47 @@ el('settingsClose').addEventListener('click', closeSettings);
 el('adsAutoRotate')?.addEventListener('change', (e) => {
   appPrefs.adsAutoRotate = Boolean(e.target.checked);
   api.setPrefs({ adsAutoRotate: Boolean(e.target.checked) }).catch(() => {});
+});
+
+/* --------------------------- Coarena key --------------------------- */
+
+el('coarenaSave')?.addEventListener('click', async () => {
+  const inputEl = el('coarenaKeyInput');
+  const button = el('coarenaSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.coarenaSetKey(key);
+    if (res?.ok) {
+      // Never keep the raw key in the DOM once it is stored.
+      if (inputEl) inputEl.value = '';
+      coarenaStatus = res.status || null;
+      paintCoarenaSettings();
+      paintCoarenaMeter();
+      showNotice(res.unverified ? t('coarenaUnverified') : t('coarenaSaved'));
+    } else {
+      showNotice(`${t('coarenaSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('coarenaSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('coarenaRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'coarenaRemove',
+    title: t('coarenaRemoveTitle'),
+    sub: t('coarenaRemoveSub'),
+    action: t('coarenaRemove'),
+  });
+});
+
+el('coarenaGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://coarena.ai/developers').catch(() => {});
 });
 
 el('settingsReset').addEventListener('click', async () => {
@@ -1551,6 +1707,19 @@ el('confirmDelete').addEventListener('click', async () => {
     return;
   }
 
+  if (state.kind === 'coarenaRemove') {
+    const res = await api.coarenaClearKey();
+    if (res?.ok) {
+      coarenaStatus = res.status || null;
+      paintCoarenaSettings();
+      paintCoarenaMeter();
+      showNotice(t('coarenaRemoved'));
+    } else {
+      showNotice(`${t('coarenaSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
   const res = await api.deleteSession(state.cwd, state.session.path);
   if (!res?.ok) {
     showNotice(`Could not delete: ${res?.error || 'unknown error'}`);
@@ -1671,6 +1840,7 @@ async function boot() {
   if (info.lang) lang = info.lang === 'th' ? 'th' : 'en';
   applyLanguage();
   loadProfile();
+  refreshCoarenaStatus().catch(() => {});
   applySidebarWidth(appPrefs.sidebarWidth || SIDEBAR_DEFAULT);
   if (info.lastCwd) el('cwdLabel').textContent = info.lastCwd;
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});
@@ -2642,11 +2812,22 @@ setInterval(() => {
   api.rotateAd({ tabId: activeTabId, auto: true }).catch(() => {});
 }, AD_ROTATE_POLL_MS);
 
-api.onAd((p) => renderAd(p?.ad));
+api.onAd((p) => {
+  // A stray ad must never paint over a Coarena turn.
+  const view = activeView();
+  if (view && !FPProvider.isFreePiProvider(view.model?.provider)) return;
+  renderAd(p?.ad);
+});
 
 api.onModelChanged((p) => {
   const view = viewFor(p);
-  if (view) view.model = p.model;
+  if (!view) return;
+  view.model = p.model;
+  if (payloadTabIsActive(view)) syncProviderChrome(view);
+  // Coming back to FreePi needs a banner; main decides whether one is due.
+  if (FPProvider.isFreePiProvider(p.model?.provider)) {
+    api.rotateAd({ tabId: view.tabId, auto: true }).catch(() => {});
+  }
 });
 
 api.onSessionName((p) => {

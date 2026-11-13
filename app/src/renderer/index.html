@@ -69,19 +69,25 @@
 
         <div class="section usage">
           <div class="usage-title"><span class="live-dot"></span><span data-i18n="status">Status</span></div>
-          <div class="usage-bar-wrap">
-            <div class="usage-bar"><div id="usageBarFill" class="usage-bar-fill"></div></div>
-            <div class="usage-bar-legend">
-              <span id="usagePct">—</span>
-              <span id="usageUsed"></span>
+          <div id="freePiUsage">
+            <div class="usage-bar-wrap">
+              <div class="usage-bar"><div id="usageBarFill" class="usage-bar-fill"></div></div>
+              <div class="usage-bar-legend">
+                <span id="usagePct">—</span>
+                <span id="usageUsed"></span>
+              </div>
             </div>
+            <div class="usage-row"><span data-i18n="credits">Credits</span><span id="usageCost" class="mono">—</span></div>
+            <div class="usage-row"><span data-i18n="bonus">Bonus</span><span id="usageTokens" class="mono">—</span></div>
+            <div class="usage-row"><span data-i18n="lane">Lane</span><span id="usageContext" class="mono">—</span></div>
+            <div class="usage-row"><span data-i18n="resets">Resets</span><span id="usageResets" class="mono">—</span></div>
+            <div class="usage-row"><span data-i18n="context">Context</span><span id="contextPct" class="mono">—</span></div>
+            <div class="ctx-bar"><div id="contextFill" class="ctx-bar-fill"></div></div>
           </div>
-          <div class="usage-row"><span data-i18n="credits">Credits</span><span id="usageCost" class="mono">—</span></div>
-          <div class="usage-row"><span data-i18n="bonus">Bonus</span><span id="usageTokens" class="mono">—</span></div>
-          <div class="usage-row"><span data-i18n="lane">Lane</span><span id="usageContext" class="mono">—</span></div>
-          <div class="usage-row"><span data-i18n="resets">Resets</span><span id="usageResets" class="mono">—</span></div>
-          <div class="usage-row"><span data-i18n="context">Context</span><span id="contextPct" class="mono">—</span></div>
-          <div class="ctx-bar"><div id="contextFill" class="ctx-bar-fill"></div></div>
+          <div id="coarenaUsage" hidden>
+            <div class="usage-row"><span data-i18n="provider">Provider</span><span class="mono">Coarena</span></div>
+            <div class="usage-row"><span data-i18n="coarenaLimits">Limits</span><span id="coarenaMeterText" class="mono">—</span></div>
+          </div>
           <button id="refreshUsage" class="ghost small full" data-i18n="refreshStatus">Refresh status</button>
           <button id="openPalette" class="ghost small full" data-i18n="commands">Commands</button>
         </div>
@@ -247,6 +253,18 @@
           <p class="settings-hint" data-i18n="adsAutoRotateHint">
             Only while this window is focused and no message is running. Each new ad is reported as an impression, as the ad network requires.
           </p>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-head" data-i18n="coarenaSection">Coarena</div>
+          <label class="settings-label" for="coarenaKeyInput" data-i18n="coarenaKeyLabel">API key</label>
+          <div class="settings-actions">
+            <input id="coarenaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="coa_…" aria-label="Coarena API key" />
+            <button id="coarenaSave" class="ghost small" data-i18n="coarenaSave">Save</button>
+            <button id="coarenaRemove" class="ghost small danger" data-i18n="coarenaRemove">Remove</button>
+          </div>
+          <p id="coarenaStatus" class="settings-hint">—</p>
+          <button id="coarenaGetKey" class="link-btn" data-i18n="coarenaGetKey">Get a key at coarena.ai</button>
         </div>
 
         <div class="settings-group">
