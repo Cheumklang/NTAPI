@@ -57,11 +57,31 @@
     return parts.join(SEPARATOR);
   }
 
+  /**
+   * Turn a leading `@skill` into the `/skill:name` command pi expands.
+   *
+   * pi only expands the command at the start of a prompt, so a mention later in
+   * the sentence stays literal. The name must be a whole word and match an
+   * installed skill: `@src/app.js` is a file, `@cavemanx` is not `caveman`.
+   */
+  function resolveSkillMention(text, skills) {
+    const value = String(text || '');
+    const match = /^@([A-Za-z0-9._-]+)(?=$|\s)/.exec(value);
+    if (!match) return value;
+    const wanted = match[1].toLowerCase();
+    const skill = (Array.isArray(skills) ? skills : []).find(
+      (entry) => String(entry?.name || '').toLowerCase() === wanted
+    );
+    if (!skill) return value;
+    return `/skill:${skill.name}${value.slice(match[0].length)}`;
+  }
+
   root.FPProvider = {
     providerLabel,
     isFreePiProvider,
     modelOptionLabel,
     providerChrome,
     coarenaMeterText,
+    resolveSkillMention,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

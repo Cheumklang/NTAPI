@@ -45,5 +45,15 @@ check(
 );
 check('meter empty without info', UI.coarenaMeterText(null) === '');
 
+const skills = [{ name: 'caveman' }, { name: 'brainstorming' }];
+check('leading @skill resolves', UI.resolveSkillMention('@caveman hello', skills) === '/skill:caveman hello');
+check('bare @skill resolves', UI.resolveSkillMention('@caveman', skills) === '/skill:caveman');
+check('case-insensitive name', UI.resolveSkillMention('@Caveman x', skills) === '/skill:caveman x');
+check('prefix match is not a skill', UI.resolveSkillMention('@cavemanx', skills) === '@cavemanx');
+check('file mention untouched', UI.resolveSkillMention('@src/app.js', skills) === '@src/app.js');
+check('mid-sentence mention untouched', UI.resolveSkillMention('hello @caveman', skills) === 'hello @caveman');
+check('unknown skill untouched', UI.resolveSkillMention('@nope hi', skills) === '@nope hi');
+check('no skills loaded is safe', UI.resolveSkillMention('@caveman hi', null) === '@caveman hi');
+
 console.log(failures ? `\n${failures} check(s) failed` : '\nall provider ui checks passed');
 process.exit(failures ? 1 : 0);
