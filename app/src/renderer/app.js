@@ -3015,7 +3015,8 @@ function renderFileMenu() {
     return;
   }
   menu.innerHTML = '';
-  fileMenuState.items.forEach((file, i) => {
+  fileMenuState.items.forEach((entry, i) => {
+    const isSkill = entry && entry.kind === 'skill';
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'slash-item' + (i === fileMenuState.index ? ' active' : '');
@@ -3023,13 +3024,13 @@ function renderFileMenu() {
     item.setAttribute('aria-selected', String(i === fileMenuState.index));
     const name = document.createElement('span');
     name.className = 'file-name';
-    name.textContent = file.split('/').pop();
+    name.textContent = isSkill ? entry.name : entry.split('/').pop();
     const full = document.createElement('span');
     full.className = 'slash-desc';
-    full.textContent = file;
+    full.textContent = isSkill ? `/skill:${entry.name}` : entry;
     item.append(name, full);
     item.addEventListener('mousedown', (e) => e.preventDefault());
-    item.addEventListener('click', () => applyFileMention(file));
+    item.addEventListener('click', () => applyFileMention(entry));
     menu.appendChild(item);
   });
   menu.hidden = false;
@@ -3037,10 +3038,17 @@ function renderFileMenu() {
   menu.children[fileMenuState.index]?.scrollIntoView({ block: 'nearest' });
 }
 
-function applyFileMention(file) {
+function applyFileMention(entry) {
   const match = currentMention();
-  const at = match ? match.start : input.value.length;
-  input.value = `${input.value.slice(0, at)}@${file} `;
+  if (entry && entry.kind === 'skill') {
+    // pi only expands `/skill:name` at the start of a prompt, so move any text
+    // already typed to the right of the command.
+    const rest = (match ? input.value.slice(0, match.start) : input.value).trim();
+    input.value = rest ? `/skill:${entry.name} ${rest}` : `/skill:${entry.name} `;
+  } else {
+    const at = match ? match.start : input.value.length;
+    input.value = `${input.value.slice(0, at)}@${entry} `;
+  }
   hideFileMenu();
   autoGrow();
   input.focus();
@@ -3057,6 +3065,17 @@ function updateFileMenu() {
   const view = activeView();
   clearTimeout(fileTimer);
   fileTimer = setTimeout(async () => {
+    let skills = [];
+    if (match.token) {
+      try {
+        skills = (await loadSkills())
+          .filter((skill) => matchSkill(skill, match.token))
+          .slice(0, 6)
+          .map((skill) => ({ kind: 'skill', name: skill.name, description: skill.description || '' }));
+      } catch {
+        skills = [];
+      }
+    }
     if (!activeView()) return;
     if (fileMenuState.token !== match.token) return;
     let files = [];
@@ -3065,11 +3084,12 @@ function updateFileMenu() {
     } catch {
       files = [];
     }
-    if (!files.length) {
+    const items = [...skills, ...files];
+    if (!items.length) {
       hideFileMenu();
       return;
     }
-    fileMenuState.items = files;
+    fileMenuState.items = items;
     fileMenuState.index = 0;
     renderFileMenu();
   }, 90);
