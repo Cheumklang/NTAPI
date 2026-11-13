@@ -2729,6 +2729,46 @@ ipcMain.handle('update:install', () => {
   return { ok: true };
 });
 
+/* ---------------------------- user count ---------------------------- */
+
+/**
+ * Total installs, counted once per machine.
+ *
+ * The app has no telemetry, and GitHub only exposes download counts (every
+ * update inflates those). A free, no-auth counter is incremented the first time
+ * a machine runs NTAPI and only read afterwards, so the badge means "installs"
+ * rather than "downloads". The answer is cached for six hours; an outage hides
+ * the badge instead of breaking the layout.
+ */
+const USER_COUNT_BASE = 'https://abacus.jasoncameron.dev';
+const USER_COUNT_PATH = 'ntapi-desktop/users';
+
+async function fetchUserCount() {
+  const prefs = readPrefs();
+  const cache = prefs.userCount || {};
+  const fresh =
+    Number.isFinite(cache.value) && Date.now() - (cache.at || 0) < 6 * 60 * 60 * 1000;
+  if (fresh) return { value: cache.value, cached: true };
+
+  const counted = Boolean(prefs.userCountCounted);
+  try {
+    const res = await fetch(`${USER_COUNT_BASE}/${counted ? 'get' : 'hit'}/${USER_COUNT_PATH}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const value = Number(data?.value);
+    if (!Number.isFinite(value)) throw new Error('bad counter reply');
+    writePrefs({ userCountCounted: true, userCount: { value, at: Date.now() } });
+    return { value, cached: false };
+  } catch (err) {
+    if (Number.isFinite(cache.value)) return { value: cache.value, cached: true, stale: true };
+    return { value: null, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+ipcMain.handle('stats:users', async () => fetchUserCount());
+
 /* ------------------------------ boot ------------------------------ */
 
 app.whenReady().then(async () => {

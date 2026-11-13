@@ -557,6 +557,12 @@ function applyLanguage() {
     btn.textContent = lang === 'en' ? 'EN' : 'TH';
     btn.title = lang === 'en' ? 'Switch to Thai' : 'เปลี่ยนเป็นภาษาอังกฤษ';
   }
+  const count = el('brandCount');
+  if (count?.dataset.count) {
+    const n = Number(count.dataset.count);
+    count.title =
+      lang === 'th' ? `ผู้ใช้งานทั้งหมด ${n.toLocaleString()} คน` : `${n.toLocaleString()} users`;
+  }
   // Placeholders and dialog titles are not plain text nodes.
   el('sessionTitle').placeholder = t('untitled');
   setBusy(Boolean(activeView()?.busy));
@@ -2439,6 +2445,23 @@ async function initUpdates() {
   });
 }
 
+// ---- user count ----
+async function loadUserCount() {
+  const badge = el('brandCount');
+  if (!badge) return;
+  try {
+    const r = await api.getUserCount();
+    if (!r || !Number.isFinite(r.value)) return;
+    badge.dataset.count = String(r.value);
+    badge.textContent = `👥 ${r.value.toLocaleString()}`;
+    badge.title =
+      lang === 'th'
+        ? `ผู้ใช้งานทั้งหมด ${r.value.toLocaleString()} คน`
+        : `${r.value.toLocaleString()} users`;
+    badge.hidden = false;
+  } catch {}
+}
+
 // ---- account panel ----
 async function renderAccount() {
   const box = el('accountBox');
@@ -2859,6 +2882,7 @@ async function boot() {
   applyLanguage();
   loadProfile();
   initUpdates();
+  loadUserCount();
   refreshCoarenaStatus().catch(() => {});
   refreshZroStatus().catch(() => {});
   refreshNvidiaStatus().catch(() => {});
