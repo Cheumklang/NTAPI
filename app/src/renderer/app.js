@@ -2095,6 +2095,31 @@ input.addEventListener('input', () => {
   updateSlashMenu();
 });
 input.addEventListener('keydown', (e) => {
+  // The @ menu must win over the submit shortcut. Both listeners sit on this
+  // element, so stopPropagation() would not have prevented the other one from
+  // running: this handler has to check the menu itself, before submit().
+  if (fileMenuState.open) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      const n = fileMenuState.items.length;
+      fileMenuState.index = (fileMenuState.index + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+      renderFileMenu();
+      return;
+    }
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      applyFileMention(fileMenuState.items[fileMenuState.index]);
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      hideFileMenu();
+      return;
+    }
+  }
   if (slashState.open) {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -2198,20 +2223,30 @@ window.addEventListener('drop', async (e) => {
 });
 
 /**
- * Message queue: pressing Ctrl+Enter while the agent is busy stores the message
- * instead of dropping it. It is sent automatically as soon as the current turn
+ * Message queue: Ctrl+Enter while the agent is busy stores the message instead
+ * of dropping it. It is sent automatically as soon as the current turn
  * settles. Each view keeps its own queue, so background tabs do not steal it.
  */
-function queueMessage(text, attachments) {
+async function queueMessage(text, attachments) {
   const view = activeView();
   if (!view) return;
   view.queue = view.queue || [];
-  view.queue.push({ text, images: attachments });
+  view.queue.push({ text: await resolveForSend(text), images: attachments });
 
   input.value = '';
   autoGrow();
   renderQueue();
   updateSendState();
+}
+
+/**
+ * pi expands `/skill:name`, but users type `@name`. Resolve it at send time so
+ * Enter on `@caveman` works even when the mention menu was never used.
+ */
+async function resolveForSend(text) {
+  if (!text.startsWith('@')) return text;
+  const skills = await loadSkills().catch(() => []);
+  return FPProvider.resolveSkillMention(text, skills);
 }
 
 /** Send the next queued message if the tab is idle. */
@@ -2304,9 +2339,13 @@ async function submit() {
     return;
   }
 
+  // `@caveman …` becomes `/skill:caveman …` before anything is stored, so the
+  // queue, the transcript and the session all see the command pi expands.
+  const outgoing = await resolveForSend(text);
+
   // While the agent is working, Ctrl+Enter queues instead of interrupting.
   if (view.busy) {
-    queueMessage(text, pendingImages.slice());
+    await queueMessage(text, pendingImages.slice());
     pendingImages = [];
     renderAttachments();
     return;
@@ -2315,11 +2354,11 @@ async function submit() {
   showNotice(null);
 
   if (view.messages.length === 0) {
-    view.label = text ? text.slice(0, 42) : 'Image';
+    view.label = outgoing ? outgoing.slice(0, 42) : 'Image';
   }
 
-  renderUserMessage(text, pendingImages);
-  view.messages.push({ kind: 'user', text, images: pendingImages.slice() });
+  renderUserMessage(outgoing, pendingImages);
+  view.messages.push({ kind: 'user', text: outgoing, images: pendingImages.slice() });
 
   const images = pendingImages.slice();
   pendingImages = [];
@@ -2333,7 +2372,7 @@ async function submit() {
   setBusy(true);
 
   try {
-    await api.sendPrompt(view.tabId, text, images);
+    await api.sendPrompt(view.tabId, outgoing, images);
   } catch (err) {
     showNotice(errorText(err));
     setBusy(false);
@@ -3278,15 +3317,24 @@ function updateFileMenu() {
       } catch {
         skills = [];
       }
+      if (!activeView()) return;
+      if (fileMenuState.token !== match.token) return;
+      // Skills are already on disk and answer instantly; the workspace scan is
+      // not, so show the skills first and merge files when they arrive.
+      if (skills.length) {
+        fileMenuState.items = skills;
+        fileMenuState.index = 0;
+        renderFileMenu();
+      }
     }
-    if (!activeView()) return;
-    if (fileMenuState.token !== match.token) return;
     let files = [];
     try {
       files = await api.listFiles(view?.cwd, match.token);
     } catch {
       files = [];
     }
+    if (!activeView()) return;
+    if (fileMenuState.token !== match.token) return;
     const items = [...skills, ...files];
     if (!items.length) {
       hideFileMenu();
@@ -3598,28 +3646,8 @@ function paintThinking(thinking) {
 input.addEventListener('input', () => updateFileMenu());
 
 input.addEventListener('keydown', (e) => {
-  if (fileMenuState.open) {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      e.stopPropagation();
-      const n = fileMenuState.items.length;
-      fileMenuState.index = (fileMenuState.index + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
-      renderFileMenu();
-      return;
-    }
-    if (e.key === 'Tab' || e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      applyFileMention(fileMenuState.items[fileMenuState.index]);
-      return;
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      hideFileMenu();
-      return;
-    }
-  }
+  // The @ menu and its arrow/Tab/Enter keys are handled by the composer
+  // listener above; this one only owns the `!shell` shortcut.
   if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && input.value.trim().startsWith('!')) {
     e.preventDefault();
     e.stopPropagation();
@@ -3981,15 +4009,27 @@ api.onChanges((p) => {
 /* ------------------------------ skills menu ------------------------- */
 
 let skillsCache = null;
+let skillsAt = 0;
+let skillsPromise = null;
+const SKILLS_TTL_MS = 60_000;
 
 async function loadSkills() {
-  if (skillsCache) return skillsCache;
-  try {
-    skillsCache = await api.listSkills();
-  } catch {
-    skillsCache = [];
-  }
-  return skillsCache;
+  // A skill installed while the app is open should appear without a restart;
+  // 60 s keeps the IPC scan off every keystroke.
+  if (skillsCache && Date.now() - skillsAt < SKILLS_TTL_MS) return skillsCache;
+  if (skillsPromise) return skillsPromise;
+  skillsPromise = (async () => {
+    try {
+      skillsCache = await api.listSkills();
+    } catch {
+      skillsCache = [];
+    }
+    skillsAt = Date.now();
+    return skillsCache;
+  })().finally(() => {
+    skillsPromise = null;
+  });
+  return skillsPromise;
 }
 
 /** Two chars of the skill's own name or description is enough to match. */
