@@ -563,6 +563,11 @@ function applyLanguage() {
     count.title =
       lang === 'th' ? `ผู้ใช้งานทั้งหมด ${n.toLocaleString()} คน` : `${n.toLocaleString()} users`;
   }
+  const online = el('brandOnline');
+  if (online?.dataset.count) {
+    const n = Number(online.dataset.count);
+    online.title = lang === 'th' ? `ออนไลน์ตอนนี้ ${n.toLocaleString()} คน` : `${n.toLocaleString()} online now`;
+  }
   // Placeholders and dialog titles are not plain text nodes.
   el('sessionTitle').placeholder = t('untitled');
   setBusy(Boolean(activeView()?.busy));
@@ -2477,6 +2482,21 @@ async function loadUserCount() {
   } catch {}
 }
 
+// ---- presence (online right now) ----
+
+/** Repaint the green "online now" pill from a presence snapshot. */
+function paintPresence(s) {
+  const badge = el('brandOnline');
+  if (!badge || !s || !Number.isFinite(s.online)) return;
+  badge.dataset.count = String(s.online);
+  badge.textContent = `🟢 ${s.online.toLocaleString()}`;
+  badge.title =
+    lang === 'th'
+      ? `ออนไลน์ตอนนี้ ${s.online.toLocaleString()} คน`
+      : `${s.online.toLocaleString()} online now`;
+  badge.hidden = false;
+}
+
 // ---- account panel ----
 async function renderAccount() {
   const box = el('accountBox');
@@ -2898,6 +2918,8 @@ async function boot() {
   loadProfile();
   initUpdates();
   loadUserCount();
+  api.onPresence(paintPresence);
+  api.getPresence().then(paintPresence).catch(() => {});
   refreshCoarenaStatus().catch(() => {});
   refreshZroStatus().catch(() => {});
   refreshNvidiaStatus().catch(() => {});

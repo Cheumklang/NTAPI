@@ -168,6 +168,10 @@ body.resizing #sidebar { pointer-events: none; }
   background: rgba(255, 255, 255, .06);
   white-space: nowrap;
 }
+.brand-count.online {
+  color: var(--accent-2);
+  background: rgba(70, 211, 154, .12);
+}
 .badge {
   font-size: 11.5px;
   text-transform: uppercase;

@@ -4,6 +4,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage } = r
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
+const { randomUUID } = require('node:crypto');
 
 /**
  * Keep the internal app name as "FreePi" even though the product is branded
@@ -2771,6 +2772,62 @@ async function fetchUserCount() {
 
 ipcMain.handle('stats:users', async () => fetchUserCount());
 
+/* ---------------------------- presence ---------------------------- */
+
+/**
+ * "How many people are using NTAPI right now".
+ *
+ * The app posts an anonymous, per-launch id to the presence service every 45 s
+ * and the service counts the ids it saw in the last 90 s. Nothing else is sent,
+ * and the id is thrown away when the app closes. The heartbeat also keeps the
+ * free Render instance awake, since it sleeps after 15 minutes without traffic.
+ */
+const PRESENCE_URL = process.env.NTAPI_PRESENCE_URL || 'https://ntapi-presence.onrender.com';
+const PRESENCE_HEARTBEAT_MS = 45_000;
+const PRESENCE_TIMEOUT_MS = 60_000; // a sleeping free instance needs ~50 s to wake
+const PRESENCE_SESSION_ID = randomUUID();
+
+let presenceTimer = null;
+let presenceBusy = false;
+let presenceState = null;
+
+async function presenceBeat() {
+  if (presenceBusy) return presenceState;
+  presenceBusy = true;
+  try {
+    const res = await fetch(`${PRESENCE_URL}/beat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: PRESENCE_SESSION_ID }),
+      signal: AbortSignal.timeout(PRESENCE_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    presenceState = {
+      online: Number(data.online) || 0,
+      total: Number(data.total) || 0,
+      at: Date.now(),
+    };
+  } catch (err) {
+    // Offline, or the service is asleep/down: keep the last known number
+    // instead of blanking the badge, and retry on the next tick.
+    console.warn('[presence] heartbeat failed:', err instanceof Error ? err.message : err);
+  } finally {
+    presenceBusy = false;
+  }
+  if (win && !win.isDestroyed()) win.webContents.send('presence:state', presenceState);
+  return presenceState;
+}
+
+function startPresence() {
+  if (presenceTimer) return;
+  presenceBeat();
+  presenceTimer = setInterval(presenceBeat, PRESENCE_HEARTBEAT_MS);
+  if (presenceTimer.unref) presenceTimer.unref();
+}
+
+ipcMain.handle('presence:get', async () => presenceState || (await presenceBeat()));
+
 /* ------------------------------ boot ------------------------------ */
 
 app.whenReady().then(async () => {
@@ -2789,6 +2846,7 @@ app.whenReady().then(async () => {
 
   createWindow();
   setUpdates();
+  startPresence();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
