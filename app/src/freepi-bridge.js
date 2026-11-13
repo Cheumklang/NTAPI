@@ -236,11 +236,6 @@ const TURN_HEADER = 'x-turn-id';
 const ADS_TIMEOUT_MS = 5000;
 const LAUNCH_AD_MAX_AGE_MS = 60 * 60000;
 
-/** Ads and the turn header belong to FreePi; Coarena must never receive them. */
-function isFreePiProviderName(provider) {
-  return provider === PROVIDER_NAME || provider === DEFENSE_PROVIDER_NAME;
-}
-
 function clientLocaleHeaders() {
   try {
     const o = Intl.DateTimeFormat().resolvedOptions();
@@ -400,7 +395,10 @@ function createAdsClient(options) {
       // (and a lie) there.
       pi.on('before_provider_headers', (event, ctx) => {
         if (!turnId) return;
-        if (!isFreePiProviderName(ctx?.getModel?.()?.provider)) return;
+        // Coarena has no ad behind it, so the header would be a lie there. An
+        // unknown provider keeps the FreePi behaviour rather than silently
+        // dropping the header a free-pi completion needs.
+        if (ctx?.getModel?.()?.provider === COARENA_PROVIDER) return;
         event.headers[TURN_HEADER] = turnId;
       });
 
@@ -411,7 +409,7 @@ function createAdsClient(options) {
       pi.on('before_agent_start', async (event, ctx) => {
         if (event.messageType !== 'user') return;
         // Switching to a Coarena model must not fetch or require an ad.
-        if (!isFreePiProviderName(ctx?.getModel?.()?.provider)) return;
+        if (ctx?.getModel?.()?.provider === COARENA_PROVIDER) return;
         // The launch ad already covers the first message of a fresh session —
         // but only if it actually arrived and is still fresh.
         if (launchTurnUnused) {
