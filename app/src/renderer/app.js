@@ -283,9 +283,10 @@ const STRINGS = {
     updateLatest: 'You are on the latest version.',
     updateAvailable: 'Version {v} is available.',
     updateDownload: 'Download update',
-    updateDownloading: 'Downloading… {p}%',
-    updateReady: 'Version {v} is ready. Restart to install.',
-    updateInstall: 'Restart and install',
+    updateDownloading: 'Downloading... {p}%',
+    updateReady: 'Version {v} is ready.',
+    updateInstall: 'Install & restart',
+    updateInstalling: 'Installing... the app will close and reopen on its own.',
     updateDev: 'Auto-update works in the installed build only.',
     updateError: 'Update check failed: {e}',
   },
@@ -524,9 +525,10 @@ const STRINGS = {
     updateLatest: 'คุณใช้เวอร์ชันล่าสุดแล้ว',
     updateAvailable: 'มีเวอร์ชันใหม่ {v} ให้อัปเดต',
     updateDownload: 'ดาวน์โหลดอัปเดต',
-    updateDownloading: 'กำลังดาวน์โหลด… {p}%',
-    updateReady: 'เวอร์ชัน {v} พร้อมแล้ว รีสตาร์ตเพื่อติดตั้ง',
-    updateInstall: 'รีสตาร์ตและติดตั้ง',
+    updateDownloading: 'กําลังดาวน์โหลด... {p}%',
+    updateReady: 'เวอร์ชัน {v} พร้อมติดตั้งแล้ว',
+    updateInstall: 'ติดตั้งและรีสตาร์ต',
+    updateInstalling: 'กําลังติดตั้ง... โปรแกรมจะปิดและเปิดใหม่เอง',
     updateDev: 'ระบบอัปเดตใช้ได้กับเวอร์ชันที่ติดตั้งแล้วเท่านั้น',
     updateError: 'ตรวจหาอัปเดตไม่สำเร็จ: {e}',
   },
@@ -2384,15 +2386,29 @@ function paintUpdate(state) {
   const statusEl = el('updateStatus');
   const actionBtn = el('updateActionBtn');
   const checkBtn = el('updateCheckBtn');
+  const barWrap = el('updateProgressWrap');
+  const barEl = el('updateBar');
+  const pctEl = el('updatePct');
   if (!verEl || !statusEl || !actionBtn) return;
 
   if (st.current) verEl.textContent = `v${st.current}`;
   actionBtn.hidden = true;
+  actionBtn.disabled = false;
   actionBtn.onclick = null;
   if (checkBtn) {
-    checkBtn.disabled =
-      st.status === 'checking' || st.status === 'downloading' || st.status === 'ready';
+    checkBtn.disabled = ['checking', 'downloading', 'ready', 'installing'].includes(st.status);
   }
+  if (barWrap) barWrap.hidden = true;
+
+  /** Paint the progress bar; `slow` stretches the fill over the install step. */
+  const setBar = (pct, slow) => {
+    if (!barWrap || !barEl || !pctEl) return;
+    const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+    barWrap.hidden = false;
+    barEl.style.transition = slow ? 'width 1.9s ease' : 'width .25s ease';
+    barEl.style.width = `${p}%`;
+    pctEl.textContent = `${p}%`;
+  };
 
   const showAction = (label, handler) => {
     actionBtn.textContent = label;
@@ -2415,13 +2431,27 @@ function paintUpdate(state) {
       break;
     case 'downloading':
       statusEl.textContent = t('updateDownloading', { p: st.progress || 0 });
+      setBar(st.progress || 0);
       break;
     case 'latest':
       statusEl.textContent = t('updateLatest');
       break;
     case 'ready':
       statusEl.textContent = t('updateReady', { v: st.version || '' });
-      showAction(t('updateInstall'), () => api.installUpdate());
+      setBar(100);
+      showAction(t('updateInstall'), async () => {
+        actionBtn.disabled = true;
+        await api.installUpdate();
+      });
+      break;
+    case 'installing':
+      statusEl.textContent = t('updateInstalling');
+      actionBtn.hidden = true;
+      if (checkBtn) checkBtn.disabled = true;
+      // Start near zero, then let the bar fill just as the app closes so the
+      // step reads as "installing" instead of a sudden quit.
+      setBar(6);
+      setTimeout(() => setBar(100, true), 80);
       break;
     case 'error':
       statusEl.textContent = t('updateError', { e: st.error || '' });

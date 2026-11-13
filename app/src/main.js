@@ -2727,8 +2727,13 @@ ipcMain.handle('update:download', async () => {
 
 ipcMain.handle('update:install', () => {
   if (!updater) return { ok: false, error: 'not-packaged' };
-  // Let the IPC reply reach the renderer before the app restarts itself.
-  setTimeout(() => updater.quitAndInstall(false, true), 300);
+  // Windows cannot replace a running .exe, so the silently-installed update
+  // runs right after the app quits and `true` relaunches it. Give the renderer
+  // a moment first so the "installing" step is visible instead of a sudden
+  // close.
+  updateState = { ...updateState, status: 'installing', progress: 100, error: null };
+  sendUpdateState();
+  setTimeout(() => updater.quitAndInstall(true, true), 2200);
   return { ok: true };
 });
 

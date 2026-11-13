@@ -186,6 +186,37 @@ body.resizing #sidebar { pointer-events: none; }
   background: var(--accent-2);
   box-shadow: 0 0 6px rgba(70, 211, 154, .65);
 }
+
+/* Update progress: a real bar for the download, then a fill while the silent
+   installer replaces the files and the app reopens itself. */
+.update-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 6px;
+}
+.update-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .08);
+  overflow: hidden;
+}
+.update-bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  transition: width .25s ease;
+}
+.update-pct {
+  min-width: 40px;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 .badge {
   font-size: 11.5px;
   text-transform: uppercase;
