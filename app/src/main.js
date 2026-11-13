@@ -13,6 +13,7 @@ const { createProviderKeyStore } = require('./provider-key');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
 const { checkZroKey } = require('./zro');
 const { checkNvidiaKey } = require('./nvidia');
+const { checkTokenHarborKey } = require('./tokenharbor');
 const { promptOptionsFor } = require('./prompt-mode');
 
 /**
@@ -158,6 +159,11 @@ const DATA_ROOT = resolveDataRoot();
 const coarenaKeys = createProviderKeyStore({ dir: DATA_ROOT, safeStorage, fileName: 'coarena.json' });
 const zroKeys = createProviderKeyStore({ dir: DATA_ROOT, safeStorage, fileName: 'zro.json' });
 const nvidiaKeys = createProviderKeyStore({ dir: DATA_ROOT, safeStorage, fileName: 'nvidia.json' });
+const tokenharborKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'tokenharbor.json',
+});
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
 
@@ -788,6 +794,8 @@ async function attachTab(tabId, manager, cwd) {
     zroKey: zroKeys.read(),
     // NVIDIA's catalog is text-only and re-resolved against /v1/models.
     nvidiaKey: nvidiaKeys.read(),
+    // Token Harbor's free route rotates; also re-resolved per session.
+    tokenharborKey: tokenharborKeys.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -1141,6 +1149,15 @@ function applyNvidiaKeyToTabs(key) {
   });
 }
 
+function applyTokenHarborKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'tokenharbor',
+    label: 'Token Harbor',
+    key,
+    apply: (handle, next) => handle.applyTokenHarborKey(next),
+  });
+}
+
 ipcMain.handle('coarena:status', async () => coarenaStatus());
 
 ipcMain.handle('coarena:setKey', async (_e, { key } = {}) => {
@@ -1285,6 +1302,62 @@ ipcMain.handle('nvidia:clearKey', async () => {
   return { ok: true, status: nvidiaKeys.status(), applied };
 });
 
+/** Token Harbor exposes no usage endpoint: the status is the store's state. */
+async function tokenharborStatus() {
+  return tokenharborKeys.status();
+}
+
+ipcMain.handle('tokenharbor:status', async () => tokenharborStatus());
+
+ipcMain.handle('tokenharbor:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: tokenharborKeys.status(), error: 'Enter a Token Harbor key first.' };
+  }
+
+  // A wrong key is rejected before anything touches the disk. An unreachable
+  // API is not a wrong key: save it and mark it unverified.
+  const check = await checkTokenHarborKey(raw);
+  if (!check.ok && !check.offline) {
+    return { ok: false, status: tokenharborKeys.status(), error: check.error, code: check.code || null };
+  }
+
+  try {
+    tokenharborKeys.save(raw);
+    const applied = await applyTokenHarborKeyToTabs(raw);
+    // A working key with no free id means the dashboard has free models off.
+    const modelMissing =
+      check.ok && !(check.ids || []).includes('deepseek-v4.1-flash:free');
+    return {
+      ok: true,
+      status: tokenharborKeys.status(),
+      unverified: Boolean(check.offline),
+      modelMissing,
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: tokenharborKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('tokenharbor:clearKey', async () => {
+  try {
+    tokenharborKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: tokenharborKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyTokenHarborKeyToTabs(null);
+  return { ok: true, status: tokenharborKeys.status(), applied };
+});
+
 ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
   const prefs = readPrefs();
   // Settings describes a workspace. With no tab and no remembered folder there
@@ -1329,6 +1402,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     coarena: await coarenaStatus(),
     zro: await zroStatus(),
     nvidia: await nvidiaStatus(),
+    tokenharbor: await tokenharborStatus(),
   };
 });
 

@@ -327,6 +327,18 @@
         </div>
 
         <div class="settings-group">
+          <div class="settings-head" data-i18n="tokenharborSection">Token Harbor</div>
+          <label class="settings-label" for="tokenharborKeyInput" data-i18n="tokenharborKeyLabel">API key</label>
+          <div class="settings-actions">
+            <input id="tokenharborKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="thk_live_…" aria-label="Token Harbor API key" />
+            <button id="tokenharborSave" class="ghost small" data-i18n="tokenharborSave">Save</button>
+            <button id="tokenharborRemove" class="ghost small danger" data-i18n="tokenharborRemove">Remove</button>
+          </div>
+          <p id="tokenharborStatus" class="settings-hint">—</p>
+          <button id="tokenharborGetKey" class="link-btn" data-i18n="tokenharborGetKey">Get a key at tokenharbor.ai</button>
+        </div>
+
+        <div class="settings-group">
           <div class="settings-head" data-i18n="accountSection">Your account</div>
           <div id="accountBox" class="account-box"></div>
           <div class="account-actions">

@@ -84,6 +84,24 @@ const NVIDIA_HINTS = {
     'This NVIDIA account does not have Public API Endpoints access yet — the key can list models, but chat is blocked. Ask NVIDIA to enable it (help@build.nvidia.com) and retry.',
 };
 
+/**
+ * Token Harbor's blockers are account setup, not the model: an unverified email
+ * or free models left off both answer 403, and an exhausted weekly allowance
+ * answers 402 without ever charging the wallet.
+ */
+const TOKENHARBOR_HINTS = {
+  email_verification_required:
+    'Token Harbor needs the account email verified — open the link they sent, then retry.',
+  free_models_disabled:
+    'Free models are switched off in the Token Harbor dashboard — enable them under Free, then retry.',
+  vendor_not_allowed: 'This Token Harbor key is not allowed to use that model.',
+  invalid_api_key: 'Token Harbor rejected this key — open Settings, replace it, then retry.',
+  insufficient_quota:
+    'The free allowance for this 7-day window is used up — it resets on its own; no charge was made.',
+  rate_limit: 'Token Harbor allows 60 requests per minute on free accounts. Wait a moment and retry.',
+  request_too_large: 'This request is over Token Harbor’s 4 MB limit — start a new chat or attach a smaller file.',
+};
+
 const NETWORK_FAILURE_PATTERNS = [
   'fetch failed',
   'econnrefused',
@@ -147,10 +165,26 @@ function friendlyProviderError(raw, { provider } = {}) {
     else if (status === '429') hint = NVIDIA_HINTS.rate_limit;
     else if (status === '404') hint = NVIDIA_HINTS.model_not_found;
     else if (looksLikeNetworkFailure(text)) hint = 'Could not reach NVIDIA — check your connection and retry.';
+  } else if (provider === 'tokenharbor') {
+    if (code && TOKENHARBOR_HINTS[code]) hint = TOKENHARBOR_HINTS[code];
+    else if (/free models/i.test(text)) hint = TOKENHARBOR_HINTS.free_models_disabled;
+    else if (status === '401') hint = TOKENHARBOR_HINTS.invalid_api_key;
+    else if (status === '402') hint = TOKENHARBOR_HINTS.insufficient_quota;
+    else if (status === '413') hint = TOKENHARBOR_HINTS.request_too_large;
+    else if (status === '429') hint = TOKENHARBOR_HINTS.rate_limit;
+    else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Token Harbor — check your connection and retry.';
   }
   if (!hint) hint = (code && ERROR_HINTS[code]) || message || text || 'The model request failed.';
   const suffix = status ? ` (HTTP ${status}${code ? ` · ${code}` : ''})` : '';
   return { text: `${hint}${suffix}`, code };
 }
 
-module.exports = { ERROR_HINTS, COARENA_HINTS, ZRO_HINTS, NVIDIA_HINTS, parseProviderError, friendlyProviderError };
+module.exports = {
+  ERROR_HINTS,
+  COARENA_HINTS,
+  ZRO_HINTS,
+  NVIDIA_HINTS,
+  TOKENHARBOR_HINTS,
+  parseProviderError,
+  friendlyProviderError,
+};

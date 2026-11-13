@@ -21,6 +21,7 @@ check('free-pi label', UI.providerLabel('free-pi') === 'FreePi' && UI.providerLa
 check('coarena label', UI.providerLabel('coarena') === 'Coarena');
 check('zro label', UI.providerLabel('zro') === 'Zro');
 check('nvidia label', UI.providerLabel('nvidia') === 'NVIDIA');
+check('tokenharbor label', UI.providerLabel('tokenharbor') === 'Token Harbor');
 check('free-pi logo', UI.providerLogoPath('free-pi') === 'assets/providers/freepi.svg');
 check('defense logo', UI.providerLogoPath('free-pi-defense') === UI.providerLogoPath('free-pi'));
 check('coarena logo', UI.providerLogoPath('coarena') === 'assets/providers/coarena.svg');
@@ -59,6 +60,8 @@ const zo = UI.providerChrome({ provider: 'zro' });
 check('zro hides ads and shows its meter', zo.showAds === false && zo.meter === 'zro');
 const nv = UI.providerChrome({ provider: 'nvidia' });
 check('nvidia hides ads and shows its meter', nv.showAds === false && nv.meter === 'nvidia');
+const th = UI.providerChrome({ provider: 'tokenharbor' });
+check('tokenharbor hides ads and shows its meter', th.showAds === false && th.meter === 'tokenharbor');
 const fp = UI.providerChrome({ provider: 'free-pi' });
 check('free-pi shows ads and no keyed meter', fp.showAds === true && fp.meter === null);
 const unknown = UI.providerChrome({ provider: 'something-else' });

@@ -89,6 +89,23 @@ check(
   /NVIDIA/.test(nvOffline.text) && /connection/i.test(nvOffline.text)
 );
 
+const thUnverified = friendlyProviderError(
+  '403: {"error":{"message":"Verify your email address","code":"email_verification_required"}}',
+  { provider: 'tokenharbor' }
+);
+check('tokenharbor unverified email is explained', /email verified/i.test(thUnverified.text));
+const thFreeOff = friendlyProviderError(
+  '403: {"error":{"message":"Free models are disabled for this account"}}',
+  { provider: 'tokenharbor' }
+);
+check('tokenharbor free models off is explained', /Free models are switched off/i.test(thFreeOff.text));
+const thEmpty = friendlyProviderError('402: {"error":{"message":"Payment required"}}', { provider: 'tokenharbor' });
+check('tokenharbor weekly allowance is explained', /7-day window/i.test(thEmpty.text) && /no charge/i.test(thEmpty.text));
+const thBusy = friendlyProviderError('429: {"error":{"message":"Too many requests"}}', { provider: 'tokenharbor' });
+check('tokenharbor rate limit is explained', /60 requests per minute/i.test(thBusy.text));
+const thBig = friendlyProviderError('413: {"error":{"message":"request_too_large"}}', { provider: 'tokenharbor' });
+check('tokenharbor 4 MB limit is explained', /4 MB/i.test(thBig.text));
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

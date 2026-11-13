@@ -127,6 +127,25 @@ const STRINGS = {
     nvidiaFreeTier: 'Free tier',
     nvidiaLimits: '40/min · 10,000/day',
     nvidiaTextOnly: 'Text only',
+    tokenharborSection: 'Token Harbor',
+    tokenharborKeyLabel: 'API key',
+    tokenharborSave: 'Save',
+    tokenharborRemove: 'Remove',
+    tokenharborRemoveTitle: 'Remove the Token Harbor key?',
+    tokenharborRemoveSub:
+      'Token Harbor models disappear from the model list. A running turn keeps its current model until it finishes.',
+    tokenharborConfigured: 'Configured',
+    tokenharborUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    tokenharborNotConfigured: 'No key yet — Token Harbor models stay hidden.',
+    tokenharborGetKey: 'Get a key at tokenharbor.ai',
+    tokenharborSaved: 'Token Harbor key saved.',
+    tokenharborUnverified: 'Token Harbor could not be reached — the key was saved unverified.',
+    tokenharborModelMissing:
+      'The key works, but free models are switched off in the Token Harbor dashboard.',
+    tokenharborSaveFailed: 'Could not save the key:',
+    tokenharborRemoved: 'Token Harbor key removed.',
+    tokenharborFreeTier: 'Free tier',
+    tokenharborLimits: 'weekly allowance',
     dataRootLabel: 'App data folder',
     outputFolders: 'Output folders',
     systemPaths: 'System locations',
@@ -318,6 +337,23 @@ const STRINGS = {
     nvidiaFreeTier: 'โควตาฟรี',
     nvidiaLimits: '40/นาที · 10,000/วัน',
     nvidiaTextOnly: 'ข้อความเท่านั้น',
+    tokenharborSection: 'Token Harbor',
+    tokenharborKeyLabel: 'API key',
+    tokenharborSave: 'บันทึก',
+    tokenharborRemove: 'ลบออก',
+    tokenharborRemoveTitle: 'ลบคีย์ Token Harbor?',
+    tokenharborRemoveSub: 'โมเดล Token Harbor จะหายจากรายการ โมเดลที่กำลังทำงานอยู่จะใช้ต่อจนจบเทิร์น',
+    tokenharborConfigured: 'ตั้งค่าแล้ว',
+    tokenharborUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    tokenharborNotConfigured: 'ยังไม่มีคีย์ — โมเดล Token Harbor จะไม่แสดง',
+    tokenharborGetKey: 'ขอคีย์ที่ tokenharbor.ai',
+    tokenharborSaved: 'บันทึกคีย์ Token Harbor แล้ว',
+    tokenharborUnverified: 'ติดต่อ Token Harbor ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
+    tokenharborModelMissing: 'คีย์ใช้ได้ แต่ยังไม่ได้เปิด free models ในหน้า dashboard ของ Token Harbor',
+    tokenharborSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    tokenharborRemoved: 'ลบคีย์ Token Harbor แล้ว',
+    tokenharborFreeTier: 'โควตาฟรี',
+    tokenharborLimits: 'โควตารายสัปดาห์',
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
     outputFolders: 'โฟลเดอร์ปลายทาง',
     systemPaths: 'ตำแหน่งของระบบ',
@@ -1225,6 +1261,10 @@ function paintProviderMeter(view) {
     // NVIDIA publishes no usage endpoint; show the free-tier shape instead.
     label.textContent = t('nvidiaFreeTier');
     text.textContent = `${t('nvidiaLimits')} · ${t('nvidiaTextOnly')}`;
+  } else if (chrome.meter === 'tokenharbor') {
+    // Token Harbor shows its allowance as a percentage in its own dashboard.
+    label.textContent = t('tokenharborFreeTier');
+    text.textContent = `${t('tokenharborLimits')} · ${view?.model?.name || '—'}`;
   } else {
     label.textContent = t('model');
     text.textContent = view?.model?.name || '—';
@@ -1330,6 +1370,39 @@ async function refreshNvidiaStatus() {
   }
   paintNvidiaSettings();
   return nvidiaStatus;
+}
+
+/* Token Harbor has no usage endpoint either: same store-state status. */
+let tokenharborStatus = null;
+
+function paintTokenharborSettings() {
+  const node = el('tokenharborStatus');
+  const remove = el('tokenharborRemove');
+  if (!node) return;
+
+  const s = tokenharborStatus;
+  let text = t('tokenharborNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('tokenharborConfigured')} · ${how}`;
+    if (s.hint) text += ` · …${s.hint}`;
+  } else if (s?.configured) {
+    text = t('tokenharborUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+}
+
+async function refreshTokenharborStatus() {
+  try {
+    tokenharborStatus = await api.tokenharborStatus();
+  } catch {
+    tokenharborStatus = null;
+  }
+  paintTokenharborSettings();
+  return tokenharborStatus;
 }
 
 function applyTabState(state) {
@@ -1624,9 +1697,11 @@ async function openSettings() {
   coarenaStatus = settingsData?.coarena || null;
   zroStatus = settingsData?.zro || null;
   nvidiaStatus = settingsData?.nvidia || null;
+  tokenharborStatus = settingsData?.tokenharbor || null;
   paintCoarenaSettings();
   paintZroSettings();
   paintNvidiaSettings();
+  paintTokenharborSettings();
   paintProviderMeter(activeView());
   renderSettings();
   renderAccount();
@@ -2005,6 +2080,47 @@ el('nvidiaGetKey')?.addEventListener('click', () => {
   api.openExternal('https://build.nvidia.com/settings/api-keys').catch(() => {});
 });
 
+/* ------------------------- Token Harbor key ------------------------- */
+
+el('tokenharborSave')?.addEventListener('click', async () => {
+  const inputEl = el('tokenharborKeyInput');
+  const button = el('tokenharborSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.tokenharborSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      tokenharborStatus = res.status || null;
+      paintTokenharborSettings();
+      paintProviderMeter(activeView());
+      if (res.modelMissing) showNotice(t('tokenharborModelMissing'));
+      else showNotice(res.unverified ? t('tokenharborUnverified') : t('tokenharborSaved'));
+    } else {
+      showNotice(`${t('tokenharborSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('tokenharborSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('tokenharborRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'tokenharborRemove',
+    title: t('tokenharborRemoveTitle'),
+    sub: t('tokenharborRemoveSub'),
+    action: t('tokenharborRemove'),
+  });
+});
+
+el('tokenharborGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://tokenharbor.ai/dashboard/api-keys').catch(() => {});
+});
+
 el('settingsReset').addEventListener('click', async () => {
   const view = activeView();
   const cleared = {};
@@ -2300,6 +2416,19 @@ el('confirmDelete').addEventListener('click', async () => {
     return;
   }
 
+  if (state.kind === 'tokenharborRemove') {
+    const res = await api.tokenharborClearKey();
+    if (res?.ok) {
+      tokenharborStatus = res.status || null;
+      paintTokenharborSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('tokenharborRemoved'));
+    } else {
+      showNotice(`${t('tokenharborSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
   const res = await api.deleteSession(state.cwd, state.session.path);
   if (!res?.ok) {
     showNotice(`Could not delete: ${res?.error || 'unknown error'}`);
@@ -2423,6 +2552,7 @@ async function boot() {
   refreshCoarenaStatus().catch(() => {});
   refreshZroStatus().catch(() => {});
   refreshNvidiaStatus().catch(() => {});
+  refreshTokenharborStatus().catch(() => {});
   applySidebarWidth(appPrefs.sidebarWidth || SIDEBAR_DEFAULT);
   if (info.lastCwd) el('cwdLabel').textContent = info.lastCwd;
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});
