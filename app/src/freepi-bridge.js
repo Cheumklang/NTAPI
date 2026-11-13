@@ -17,10 +17,15 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
-const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER } = require('./provider-plan');
+const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER } = require('./provider-plan');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
 const { ZRO_MODELS, zroProviderConfig, zroModelEntries } = require('./zro');
 const { resolveNvidiaModels, nvidiaProviderConfig, nvidiaModelEntries } = require('./nvidia');
+const {
+  resolveTokenHarborModels,
+  tokenharborProviderConfig,
+  tokenharborModelEntries,
+} = require('./tokenharbor');
 const { pruneImages } = require('./image-history');
 const { reviewAllowance } = require('./image-review');
 
@@ -509,6 +514,8 @@ async function createFreePiSession(options) {
     zroKey = null,
     /** NVIDIA NIM key, or null. Only DeepSeek Flash is exposed, text only. */
     nvidiaKey = null,
+    /** Token Harbor key, or null. Only its free DeepSeek route is exposed. */
+    tokenharborKey = null,
     /**
      * Injectable so tests can simulate "no FreePi login" without touching the
      * real credentials file. Production uses the normal resolver.
@@ -519,6 +526,7 @@ async function createFreePiSession(options) {
   let activeCoarenaKey = coarenaKey ? String(coarenaKey).trim() : null;
   let activeZroKey = zroKey ? String(zroKey).trim() : null;
   let activeNvidiaKey = nvidiaKey ? String(nvidiaKey).trim() : null;
+  let activeTokenHarborKey = tokenharborKey ? String(tokenharborKey).trim() : null;
 
   const downloadsDirAbs = path.isAbsolute(downloadsDir)
     ? downloadsDir
@@ -558,25 +566,35 @@ async function createFreePiSession(options) {
   // live catalog still lists. Offline keeps the preferred candidate.
   const nvidiaModels = activeNvidiaKey ? await resolveNvidiaModels(activeNvidiaKey) : [];
 
+  // Token Harbor's free route rotates; keep it only while /v1/models lists it.
+  const tokenharborModels = activeTokenHarborKey
+    ? await resolveTokenHarborModels(activeTokenHarborKey)
+    : [];
+
   const sessionId = sessionManager.getSessionId();
   const plan = planProviders({
     hasFreePiAuth: Boolean(auth),
     coarenaKey: activeCoarenaKey,
     zroKey: activeZroKey,
     nvidiaKey: activeNvidiaKey,
+    tokenharborKey: activeTokenHarborKey,
     freePiModels: models,
     coarenaModels,
     zroModels,
     nvidiaModels,
+    tokenharborModels,
   });
   if (!plan.available) {
-    throw new Error('No AI provider available — sign in to FreePi or add a Coarena, Zro or NVIDIA key in Settings.');
+    throw new Error(
+      'No AI provider available — sign in to FreePi or add a Coarena, Zro, NVIDIA or Token Harbor key in Settings.'
+    );
   }
   log(
     `providers: free-pi=${plan.freePi ? models.length : 0}, ` +
       `coarena=${plan.coarena ? coarenaModels.length : 0} (catalog ${coarenaCatalog.source}), ` +
       `zro=${plan.zro ? zroModels.length : 0}, ` +
-      `nvidia=${plan.nvidia ? nvidiaModels.length : 0}`
+      `nvidia=${plan.nvidia ? nvidiaModels.length : 0}, ` +
+      `tokenharbor=${plan.tokenharbor ? tokenharborModels.length : 0}`
   );
 
   // Ads: one per user turn, tagged with the turn id the completion carries.
@@ -631,6 +649,12 @@ async function createFreePiSession(options) {
         pi.registerProvider(
           NVIDIA_PROVIDER,
           nvidiaProviderConfig({ apiKey: activeNvidiaKey, models: nvidiaModels })
+        );
+      }
+      if (plan.tokenharbor) {
+        pi.registerProvider(
+          TOKENHARBOR_PROVIDER,
+          tokenharborProviderConfig({ apiKey: activeTokenHarborKey, models: tokenharborModels })
         );
       }
       // Images accumulate in history every time a model reads one. Trim before
@@ -1215,7 +1239,8 @@ async function createFreePiSession(options) {
   let coarenaEntries = plan.coarena ? coarenaModelEntries(coarenaModels) : [];
   let zroEntries = plan.zro ? zroModelEntries() : [];
   let nvidiaEntries = plan.nvidia ? nvidiaModelEntries(nvidiaModels) : [];
-  let modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
+  let tokenharborEntries = plan.tokenharbor ? tokenharborModelEntries(tokenharborModels) : [];
+  let modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
 
   /**
    * A resumed session can remember a model this account no longer has (Coarena
@@ -1253,7 +1278,7 @@ async function createFreePiSession(options) {
     activeCoarenaKey = nextKey ? String(nextKey).trim() : null;
     if (!activeCoarenaKey) {
       coarenaEntries = [];
-      modelList = [...freePiEntries, ...zroEntries, ...nvidiaEntries];
+      modelList = [...freePiEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
       return { ok: true, models: modelList };
     }
 
@@ -1267,7 +1292,7 @@ async function createFreePiSession(options) {
       );
     }
     coarenaEntries = coarenaModelEntries(result.models);
-    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
+    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
     return { ok: true, models: modelList };
   }
 
@@ -1285,7 +1310,7 @@ async function createFreePiSession(options) {
     activeZroKey = nextKey ? String(nextKey).trim() : null;
     if (!activeZroKey) {
       zroEntries = [];
-      modelList = [...freePiEntries, ...coarenaEntries, ...nvidiaEntries];
+      modelList = [...freePiEntries, ...coarenaEntries, ...nvidiaEntries, ...tokenharborEntries];
       return { ok: true, models: modelList };
     }
 
@@ -1293,7 +1318,7 @@ async function createFreePiSession(options) {
       piApi.registerProvider(ZRO_PROVIDER, zroProviderConfig({ apiKey: activeZroKey }));
     }
     zroEntries = zroModelEntries();
-    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
+    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
     return { ok: true, models: modelList };
   }
 
@@ -1311,7 +1336,7 @@ async function createFreePiSession(options) {
     activeNvidiaKey = nextKey ? String(nextKey).trim() : null;
     if (!activeNvidiaKey) {
       nvidiaEntries = [];
-      modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries];
+      modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...tokenharborEntries];
       return { ok: true, models: modelList };
     }
 
@@ -1320,7 +1345,37 @@ async function createFreePiSession(options) {
       piApi.registerProvider(NVIDIA_PROVIDER, nvidiaProviderConfig({ apiKey: activeNvidiaKey, models }));
     }
     nvidiaEntries = nvidiaModelEntries(models);
-    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
+    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
+    return { ok: true, models: modelList };
+  }
+
+  /**
+   * Swap the Token Harbor key while the tab is open. The free route can rotate,
+   * so the catalog is re-resolved just like NVIDIA's.
+   */
+  async function applyTokenHarborKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(TOKENHARBOR_PROVIDER);
+      } catch {}
+    }
+
+    activeTokenHarborKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeTokenHarborKey) {
+      tokenharborEntries = [];
+      modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries];
+      return { ok: true, models: modelList };
+    }
+
+    const models = await resolveTokenHarborModels(activeTokenHarborKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        TOKENHARBOR_PROVIDER,
+        tokenharborProviderConfig({ apiKey: activeTokenHarborKey, models })
+      );
+    }
+    tokenharborEntries = tokenharborModelEntries(models);
+    modelList = [...freePiEntries, ...coarenaEntries, ...zroEntries, ...nvidiaEntries, ...tokenharborEntries];
     return { ok: true, models: modelList };
   }
 
@@ -1341,6 +1396,7 @@ async function createFreePiSession(options) {
     applyCoarenaKey,
     applyZroKey,
     applyNvidiaKey,
+    applyTokenHarborKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
 

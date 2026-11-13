@@ -16,6 +16,7 @@ const FREE_PI_PROVIDER = 'free-pi';
 const COARENA_PROVIDER = 'coarena';
 const ZRO_PROVIDER = 'zro';
 const NVIDIA_PROVIDER = 'nvidia';
+const TOKENHARBOR_PROVIDER = 'tokenharbor';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
 /**
@@ -45,15 +46,18 @@ function planProviders({
   coarenaKey,
   zroKey,
   nvidiaKey,
+  tokenharborKey,
   freePiModels,
   coarenaModels,
   zroModels,
   nvidiaModels,
+  tokenharborModels,
 }) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
   const coarenaList = Array.isArray(coarenaModels) ? coarenaModels : [];
   const zroList = Array.isArray(zroModels) ? zroModels : [];
   const nvidiaList = Array.isArray(nvidiaModels) ? nvidiaModels : [];
+  const tokenharborList = Array.isArray(tokenharborModels) ? tokenharborModels : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
   // empty and a session could not pick a model at all.
@@ -61,6 +65,7 @@ function planProviders({
   const coarena = Boolean(coarenaKey) && coarenaList.length > 0;
   const zro = Boolean(zroKey) && zroList.length > 0;
   const nvidia = Boolean(nvidiaKey) && nvidiaList.length > 0;
+  const tokenharbor = Boolean(tokenharborKey) && tokenharborList.length > 0;
 
   let defaultProvider = null;
   let defaultModel = null;
@@ -80,6 +85,9 @@ function planProviders({
   } else if (nvidia) {
     defaultProvider = NVIDIA_PROVIDER;
     defaultModel = nvidiaList[0].id;
+  } else if (tokenharbor) {
+    defaultProvider = TOKENHARBOR_PROVIDER;
+    defaultModel = tokenharborList[0].id;
   }
 
   return {
@@ -87,11 +95,12 @@ function planProviders({
     coarena,
     zro,
     nvidia,
+    tokenharbor,
     ads: freePi,
     freePiTools: freePi,
     defaultProvider,
     defaultModel,
-    available: freePi || coarena || zro || nvidia,
+    available: freePi || coarena || zro || nvidia || tokenharbor,
   };
 }
 
@@ -101,6 +110,7 @@ module.exports = {
   COARENA_PROVIDER,
   ZRO_PROVIDER,
   NVIDIA_PROVIDER,
+  TOKENHARBOR_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
 };

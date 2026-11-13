@@ -126,6 +126,49 @@ const zroWins = planProviders({
 });
 check('zro outranks nvidia', zroWins.defaultProvider === 'zro' && zroWins.nvidia === true);
 
+// Token Harbor is the fifth provider and the last in priority.
+const th = [{ id: 'deepseek-v4.1-flash:free', name: 'DeepSeek V4.1 Flash (Free)' }];
+const thOnly = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  zroKey: null,
+  nvidiaKey: null,
+  tokenharborKey: 'k',
+  freePiModels: [],
+  coarenaModels: [],
+  zroModels: [],
+  nvidiaModels: [],
+  tokenharborModels: th,
+});
+check('tokenharbor-only registers', thOnly.tokenharbor && thOnly.available && !thOnly.nvidia);
+check('tokenharbor-only default', thOnly.defaultProvider === 'tokenharbor' && thOnly.defaultModel === th[0].id);
+const thNoKey = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  zroKey: null,
+  nvidiaKey: null,
+  tokenharborKey: null,
+  freePiModels: [],
+  coarenaModels: [],
+  zroModels: [],
+  nvidiaModels: [],
+  tokenharborModels: th,
+});
+check('no key means no tokenharbor', thNoKey.tokenharbor === false);
+const nvBeatsTh = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  zroKey: null,
+  nvidiaKey: 'k',
+  tokenharborKey: 'k',
+  freePiModels: [],
+  coarenaModels: [],
+  zroModels: [],
+  nvidiaModels: nv,
+  tokenharborModels: th,
+});
+check('nvidia outranks tokenharbor', nvBeatsTh.defaultProvider === 'nvidia' && nvBeatsTh.tokenharbor === true);
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);
