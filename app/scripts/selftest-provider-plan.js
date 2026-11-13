@@ -87,6 +87,45 @@ const coarenaWins = planProviders({
 });
 check('coarena outranks zro', coarenaWins.defaultProvider === 'coarena' && coarenaWins.zro === true);
 
+// NVIDIA is the fourth keyed provider and the last in priority.
+const nv = [{ id: 'deepseek-ai/deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash' }];
+const nvOnly = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  zroKey: null,
+  nvidiaKey: 'k',
+  freePiModels: [],
+  coarenaModels: [],
+  zroModels: [],
+  nvidiaModels: nv,
+});
+check('nvidia-only registers', nvOnly.nvidia && nvOnly.available && !nvOnly.zro);
+check('nvidia-only default', nvOnly.defaultProvider === 'nvidia' && nvOnly.defaultModel === nv[0].id);
+
+const nvNoKey = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  zroKey: null,
+  nvidiaKey: null,
+  freePiModels: [],
+  coarenaModels: [],
+  zroModels: [],
+  nvidiaModels: nv,
+});
+check('no key means no nvidia', nvNoKey.nvidia === false);
+
+const zroWins = planProviders({
+  hasFreePiAuth: false,
+  coarenaKey: null,
+  zroKey: 'k',
+  nvidiaKey: 'k',
+  freePiModels: [],
+  coarenaModels: [],
+  zroModels: zro,
+  nvidiaModels: nv,
+});
+check('zro outranks nvidia', zroWins.defaultProvider === 'zro' && zroWins.nvidia === true);
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

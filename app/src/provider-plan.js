@@ -8,13 +8,14 @@
  * provider, or with both, and the rest of the bridge decides from this one
  * plain object what to register, which tools to offer and whether ads exist.
  *
- * Pure on purpose: no SDK, no network, no fs. The tests pin down the four
- * states the UI can be in (both, FreePi only, Coarena only, neither).
+ * Pure on purpose: no SDK, no network, no fs. The tests pin down the states the
+ * UI can be in (any combination of FreePi, Coarena, Zro and NVIDIA).
  */
 
 const FREE_PI_PROVIDER = 'free-pi';
 const COARENA_PROVIDER = 'coarena';
 const ZRO_PROVIDER = 'zro';
+const NVIDIA_PROVIDER = 'nvidia';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
 /**
@@ -39,16 +40,27 @@ const FREE_PI_TOOL_NAMES = ['web_search', 'docs_lookup', 'generate_image', 'free
  *   available: boolean,
  * }}
  */
-function planProviders({ hasFreePiAuth, coarenaKey, zroKey, freePiModels, coarenaModels, zroModels }) {
+function planProviders({
+  hasFreePiAuth,
+  coarenaKey,
+  zroKey,
+  nvidiaKey,
+  freePiModels,
+  coarenaModels,
+  zroModels,
+  nvidiaModels,
+}) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
   const coarenaList = Array.isArray(coarenaModels) ? coarenaModels : [];
   const zroList = Array.isArray(zroModels) ? zroModels : [];
+  const nvidiaList = Array.isArray(nvidiaModels) ? nvidiaModels : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
   // empty and a session could not pick a model at all.
   const freePi = Boolean(hasFreePiAuth) && freePiList.length > 0;
   const coarena = Boolean(coarenaKey) && coarenaList.length > 0;
   const zro = Boolean(zroKey) && zroList.length > 0;
+  const nvidia = Boolean(nvidiaKey) && nvidiaList.length > 0;
 
   let defaultProvider = null;
   let defaultModel = null;
@@ -65,17 +77,21 @@ function planProviders({ hasFreePiAuth, coarenaKey, zroKey, freePiModels, coaren
   } else if (zro) {
     defaultProvider = ZRO_PROVIDER;
     defaultModel = zroList[0].id;
+  } else if (nvidia) {
+    defaultProvider = NVIDIA_PROVIDER;
+    defaultModel = nvidiaList[0].id;
   }
 
   return {
     freePi,
     coarena,
     zro,
+    nvidia,
     ads: freePi,
     freePiTools: freePi,
     defaultProvider,
     defaultModel,
-    available: freePi || coarena || zro,
+    available: freePi || coarena || zro || nvidia,
   };
 }
 
@@ -84,6 +100,7 @@ module.exports = {
   FREE_PI_PROVIDER,
   COARENA_PROVIDER,
   ZRO_PROVIDER,
+  NVIDIA_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
 };
