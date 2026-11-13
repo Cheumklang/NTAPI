@@ -1,0 +1,13 @@
+{
+  "name": "ntapi-presence",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Counts how many NTAPI installs are online right now.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
