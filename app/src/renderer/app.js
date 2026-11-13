@@ -636,7 +636,14 @@ function toolText(result) {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content
-      .map((c) => (typeof c === 'string' ? c : c.type === 'text' ? c.text : JSON.stringify(c)))
+      .map((c) => {
+        if (typeof c === 'string') return c;
+        if (!c) return '';
+        // Never turn an image (multi-MB base64) into a DOM text node.
+        if (c.type === 'image') return '[image]';
+        if (c.type === 'text') return c.text || '';
+        return JSON.stringify(c);
+      })
       .join('\n');
   }
   return JSON.stringify(content, null, 2);

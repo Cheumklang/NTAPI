@@ -355,6 +355,43 @@ function sendTab(tabId, channel, payload) {
   send(channel, { tabId, ...payload });
 }
 
+/**
+ * Keep tool payloads small before they cross IPC to the renderer.
+ *
+ * `look_at_image` returns the picture itself as an `image` content part, and a
+ * screenshot can be a multi-megabyte base64 string. The renderer only ever
+ * shows tool *text*, so serialising that image through IPC (and then into a DOM
+ * text node) froze the window. Replace image parts with a short marker and cap
+ * runaway text (a `bash` dump) at the same time.
+ */
+const MAX_TOOL_TEXT = 200_000;
+function sanitizeToolPayload(result) {
+  if (!result || typeof result !== 'object' || !Array.isArray(result.content)) {
+    return result;
+  }
+  let budget = MAX_TOOL_TEXT;
+  const content = result.content.map((part) => {
+    if (!part || typeof part !== 'object') return part;
+    if (part.type === 'image') {
+      const bytes = typeof part.data === 'string' ? part.data.length : 0;
+      const kb = bytes ? `, ~${Math.round((bytes * 3) / 4 / 1024)} KB` : '';
+      return { type: 'text', text: `[image${kb}]` };
+    }
+    if (part.type === 'text' && typeof part.text === 'string') {
+      if (budget <= 0) return { type: 'text', text: '… [truncated]' };
+      if (part.text.length > budget) {
+        const slice = part.text.slice(0, budget) + '\n… [truncated]';
+        budget = 0;
+        return { ...part, text: slice };
+      }
+      budget -= part.text.length;
+      return part;
+    }
+    return part;
+  });
+  return { ...result, content };
+}
+
 function newTabId() {
   tabSeq += 1;
   return `tab-${tabSeq}`;
@@ -724,7 +761,7 @@ function subscribeTab(tabId) {
         sendTab(tabId, 'agent:toolUpdate', {
           id: event.toolCallId,
           name: event.toolName,
-          partial: event.partialResult,
+          partial: sanitizeToolPayload(event.partialResult),
         });
         break;
 
@@ -763,7 +800,7 @@ function subscribeTab(tabId) {
         sendTab(tabId, 'agent:toolEnd', {
           id: event.toolCallId,
           name: event.toolName,
-          result: event.result,
+          result: sanitizeToolPayload(event.result),
           isError: Boolean(event.isError),
           durationMs: event.durationMs,
           diff,
