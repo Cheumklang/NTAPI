@@ -126,7 +126,6 @@ const STRINGS = {
     nvidiaRemoved: 'NVIDIA key removed.',
     nvidiaFreeTier: 'Free tier',
     nvidiaLimits: '40/min · 10,000/day',
-    nvidiaTextOnly: 'Text only',
     tokenharborSection: 'Token Harbor',
     tokenharborKeyLabel: 'API key',
     tokenharborSave: 'Save',
@@ -336,7 +335,6 @@ const STRINGS = {
     nvidiaRemoved: 'ลบคีย์ NVIDIA แล้ว',
     nvidiaFreeTier: 'โควตาฟรี',
     nvidiaLimits: '40/นาที · 10,000/วัน',
-    nvidiaTextOnly: 'ข้อความเท่านั้น',
     tokenharborSection: 'Token Harbor',
     tokenharborKeyLabel: 'API key',
     tokenharborSave: 'บันทึก',
@@ -1260,7 +1258,7 @@ function paintProviderMeter(view) {
   } else if (chrome.meter === 'nvidia') {
     // NVIDIA publishes no usage endpoint; show the free-tier shape instead.
     label.textContent = t('nvidiaFreeTier');
-    text.textContent = `${t('nvidiaLimits')} · ${t('nvidiaTextOnly')}`;
+    text.textContent = t('nvidiaLimits');
   } else if (chrome.meter === 'tokenharbor') {
     // Token Harbor shows its allowance as a percentage in its own dashboard.
     label.textContent = t('tokenharborFreeTier');

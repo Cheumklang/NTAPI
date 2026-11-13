@@ -156,8 +156,12 @@ async function waitFor(ws, expression, ok, timeoutMs = 25000) {
     applied: saved?.applied === 1,
     modelMissing: saved?.modelMissing === true,
     optionPresent: Boolean(option),
+    optionCount: (options || []).filter((o) => String(o.value).startsWith('nvidia||')).length,
+    models: (options || [])
+      .filter((o) => String(o.value).startsWith('nvidia||'))
+      .map((o) => String(o.value).split('||')[1]),
     label: option?.label || '',
-    labelOk: /^NVIDIA .* DeepSeek V4/.test(option?.label || ''),
+    labelOk: /^NVIDIA .* (Nemotron|DeepSeek)/.test(option?.label || ''),
     adHidden: switched.adHidden === true,
     meterShown: switched.meterShown === true,
     freePiHidden: switched.freePiHidden === true,
@@ -179,6 +183,9 @@ async function waitFor(ws, expression, ok, timeoutMs = 25000) {
   const ok =
     report.applied &&
     report.optionPresent &&
+    report.optionCount >= 3 &&
+    report.models.some((id) => /nemotron-3-ultra/.test(id)) &&
+    report.models.some((id) => /deepseek-v4/.test(id)) &&
     report.labelOk &&
     report.adHidden &&
     report.meterShown &&

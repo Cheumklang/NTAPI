@@ -4,6 +4,11 @@
  * Run from app/:
  *   $env:NVIDIA_KEY = (Get-Content "$env:TEMP\opencode\nvidia-key.txt" -Raw).Trim()
  *   node scripts/selftest-nvidia-live.js
+ *
+ * The free DSV4 endpoint has been seen accepting a request and then never
+ * answering, so the prompt deadline is bounded (and overridable) instead of
+ * letting the run sit for minutes:
+ *   $env:NVIDIA_TURN_TIMEOUT_MS = 30000
  */
 'use strict';
 
@@ -69,9 +74,19 @@ if (!key) {
       JSON.stringify(handle.session.model)
     );
     check(
-      'a DeepSeek Flash model is listed',
+      'a working Nemotron model is listed',
+      handle.modelList.some((m) => m.provider === 'nvidia' && /nemotron-3/.test(m.id)),
+      JSON.stringify(handle.modelList)
+    );
+    check(
+      'DeepSeek is still offered for when its endpoint recovers',
       handle.modelList.some((m) => m.provider === 'nvidia' && /deepseek-v4/.test(m.id)),
       JSON.stringify(handle.modelList)
+    );
+    check(
+      'the default is the responsive Nemotron',
+      handle.session.model?.id === 'nvidia/nemotron-3-ultra-550b-a55b',
+      JSON.stringify(handle.session.model)
     );
     check('no FreePi entries without auth', !handle.modelList.some((m) => m.provider === 'free-pi'));
     check('no ads for NVIDIA', (await handle.rotateAd()) === false);
@@ -94,10 +109,12 @@ if (!key) {
 
     const started = Date.now();
     await handle.session.prompt('Reply with the single word OK and nothing else.');
-    const deadline = Date.now() + 120000;
+    const deadline = Date.now() + TURN_TIMEOUT_MS;
     while (!settled && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250));
 
     check('turn settled', settled, `${Math.round((Date.now() - started) / 1000)}s`);
+    // A silent endpoint has to surface as a readable error, not an empty transcript.
+    if (assistantError) console.log('assistant error:', assistantError);
     check('no assistant error', assistantError === null, assistantError);
     check('real completion came back', /OK/i.test(answer), answer.trim() || '(empty)');
     console.log('answer:', answer.trim() || '(empty)');

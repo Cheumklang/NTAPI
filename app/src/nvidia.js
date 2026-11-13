@@ -22,26 +22,55 @@ const REQUEST_TIMEOUT_MS = 8000;
 
 /**
  * Preference order. Only the ids NVIDIA actually lists are kept, so the dropdown
- * can hold one entry or three depending on what is live that week.
+ * can hold a subset depending on what is live and provisioned for the account.
+ *
+ * The Nemotron entries come first because they answered while DeepSeek Flash was
+ * stuck on NVIDIA's side; DeepSeek stays available for when that endpoint
+ * recovers. `vision` is per model: the Super VL endpoint accepts images, the
+ * others are text only.
  */
 const NVIDIA_MODEL_CANDIDATES = [
+  {
+    id: 'nvidia/nemotron-3-ultra-550b-a55b',
+    name: 'Nemotron 3 Ultra',
+    contextWindow: 1048576,
+    maxTokens: 32768,
+    vision: false,
+  },
+  {
+    id: 'nvidia/nemotron-3.5-super-vl-120b-a12b',
+    name: 'Nemotron 3.5 Super VL',
+    contextWindow: 1048576,
+    maxTokens: 32768,
+    vision: true,
+  },
+  {
+    id: 'nvidia/nemotron-3.5-lightning-30b-a3b',
+    name: 'Nemotron 3.5 Lightning',
+    contextWindow: 1048576,
+    maxTokens: 32768,
+    vision: false,
+  },
   {
     id: 'deepseek-ai/deepseek-v4.1-flash',
     name: 'DeepSeek V4.1 Flash',
     contextWindow: 1048576,
     maxTokens: 16384,
+    vision: false,
   },
   {
     id: 'deepseek-ai/deepseek-v4-flash-0731',
     name: 'DeepSeek V4 Flash 0731',
     contextWindow: 1048576,
     maxTokens: 16384,
+    vision: false,
   },
   {
     id: 'deepseek-ai/deepseek-v4-flash',
     name: 'DeepSeek V4 Flash',
     contextWindow: 1048576,
     maxTokens: 16384,
+    vision: false,
   },
 ];
 
@@ -58,10 +87,10 @@ function nvidiaProviderConfig({ apiKey, models }) {
       name: m.name,
       reasoning: true,
       compat: { supportsDeveloperRole: false },
-      // Text only: the NIM endpoint does not accept image parts.
-      input: ['text'],
+      // Per-model: only the Super VL endpoint accepts image parts.
+      input: m.vision ? ['text', 'image'] : ['text'],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      // The published API cap is 16,384 output tokens, not the 1M context.
+      // The published API cap varies per endpoint (DeepSeek: 16,384).
       contextWindow: m.contextWindow || 1048576,
       maxTokens: m.maxTokens || 16384,
     })),

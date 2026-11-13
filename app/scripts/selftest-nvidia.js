@@ -40,14 +40,31 @@ const fake = (status, body) => async () => ({
 
   check('candidates listed', NVIDIA_MODEL_CANDIDATES.length > 0);
   check(
-    'every candidate is a deepseek v4 flash id',
-    NVIDIA_MODEL_CANDIDATES.every((m) => String(m.id).startsWith('deepseek-ai/deepseek-v4')),
+    'every candidate has a name and a namespace',
+    NVIDIA_MODEL_CANDIDATES.every((m) => m.id.includes('/') && Boolean(m.name)),
     JSON.stringify(NVIDIA_MODEL_CANDIDATES.map((m) => m.id))
   );
   check(
-    'catalog window and output cap',
-    NVIDIA_MODEL_CANDIDATES.every((m) => m.contextWindow === 1048576 && m.maxTokens === 16384),
+    'the working Nemotron family is offered',
+    NVIDIA_MODEL_CANDIDATES.some((m) => m.id.startsWith('nvidia/nemotron-3'))
+  );
+  check(
+    'DeepSeek stays available',
+    NVIDIA_MODEL_CANDIDATES.some((m) => m.id.startsWith('deepseek-ai/deepseek-v4'))
+  );
+  check(
+    'catalog window and output caps',
+    NVIDIA_MODEL_CANDIDATES.every(
+      (m) => m.contextWindow === 1048576 && m.maxTokens >= 16384
+    ) &&
+      NVIDIA_MODEL_CANDIDATES.filter((m) => m.id.startsWith('deepseek-ai/')).every(
+        (m) => m.maxTokens === 16384
+      ),
     JSON.stringify(NVIDIA_MODEL_CANDIDATES)
+  );
+  check(
+    'only the vision model declares images',
+    NVIDIA_MODEL_CANDIDATES.every((m) => m.vision === (m.id === 'nvidia/nemotron-3.5-super-vl-120b-a12b'))
   );
 
   const config = nvidiaProviderConfig({ apiKey: KEY, models: [NVIDIA_MODEL_CANDIDATES[0]] });
@@ -60,7 +77,7 @@ const fake = (status, body) => async () => ({
     config.models.length === 1 &&
       config.models[0].input.join(',') === 'text' &&
       config.models[0].reasoning === true &&
-      config.models[0].maxTokens === 16384,
+      config.models[0].maxTokens === NVIDIA_MODEL_CANDIDATES[0].maxTokens,
     JSON.stringify(config.models[0])
   );
   check(
@@ -77,8 +94,16 @@ const fake = (status, body) => async () => ({
     entries.length === 1 &&
       entries[0].provider === 'nvidia' &&
       entries[0].name === NVIDIA_MODEL_CANDIDATES[0].name &&
-      /DeepSeek V4/.test(entries[0].name),
+      /Nemotron|DeepSeek/.test(entries[0].name),
     JSON.stringify(entries)
+  );
+
+  const vl = NVIDIA_MODEL_CANDIDATES.find((m) => m.vision);
+  const vlConfig = nvidiaProviderConfig({ apiKey: KEY, models: [vl] });
+  check(
+    'the vision endpoint accepts images',
+    vlConfig.models[0].input.join(',') === 'text,image' && vlConfig.models[0].maxTokens === 32768,
+    JSON.stringify(vlConfig.models[0])
   );
 
   const live = await checkNvidiaKey(KEY, {
