@@ -61,7 +61,8 @@ session and chat.
   `/models`, which is public and cannot reject a bad key.
 - Feedback: `POST /api/v1/feedback` takes
   `{ request_id, rating: "up"|"down"|null }`; `request_id` is the
-  assistant message id (`responseId` in pi-ai). Phase 2, not this change.
+  assistant message id (`responseId` in pi-ai). The owner declined a
+  rating UI, so nothing here uses it.
 
 ## Goals
 
@@ -80,7 +81,8 @@ session and chat.
 
 ## Non-goals
 
-- A Coarena "rate this reply" UI (feedback endpoint). Phase 2.
+- A Coarena "rate this reply" UI (feedback endpoint). The owner declined
+  it on 2026-11-13.
 - Coarena vision input. Its models advertise `vision: true`, but the app
   writes attachments to disk and lets the agent read them; keep
   `input: ['text']` for parity and revisit later.
@@ -326,12 +328,6 @@ Extend `app/src/provider-errors.js`:
   the model sends them.
 - Fallback catalog uses ids verified in the live list.
 - No rating UI in this change.
-
-## Open question for the owner
-
-Do you want the Coarena thumbs up/down (feedback) in the same change?
-It is cheap now that `responseId` is on assistant messages, but it adds a
-message-level control and a second write path. Default: not now.
 
 ## Verification
 
