@@ -1863,3 +1863,49 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 }
 .tool-copy:hover { color: var(--text); }
 .tool.collapsed .tool-copy { display: none; }
+
+/* ==================== review changes ==================== */
+
+.changes-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  border: 1px solid #33405c;
+  border-radius: 9px;
+  background: #1a2133;
+  font-size: 12.5px;
+}
+.changes-summary { color: #cfe0ff; font-family: var(--mono); overflow-wrap: anywhere; }
+
+.changes-dialog { width: min(760px, 94vw); max-height: 84vh; display: flex; flex-direction: column; }
+.dialog-sub { margin: -2px 0 10px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.changes-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1 1 auto; }
+
+.change-row { border: 1px solid var(--line); border-radius: 9px; background: var(--bg-3); overflow: hidden; }
+.change-head { display: flex; align-items: center; gap: 9px; padding: 7px 10px; }
+.change-path {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.change-diff { border-top: 1px solid var(--line); max-height: 320px; overflow: auto; background: #0b0e14; }
+.change-diff .md { margin: 0; padding: 4px 0; }
+.change-diff .md-code { margin: 0; border: 0; border-radius: 0; }
+
+button.ghost.small,
+button.ghost.danger {
+  font-size: 12px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  flex: 0 0 auto;
+}
+button.ghost.danger { color: var(--danger); border-color: rgba(255, 95, 109, .35); }
+button.ghost.danger:hover { background: rgba(255, 95, 109, .12); }

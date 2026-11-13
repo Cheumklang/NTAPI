@@ -794,6 +794,8 @@ function applyTabState(state) {
   paintContext(state.stats || null);
   renderTodos(state.todos || []);
   paintThinking(state.thinking || null);
+  view.changes = state.changes || [];
+  renderChangesBar(view.changes);
 }
 
 function deriveLabel(state) {
@@ -3614,6 +3616,171 @@ SLASH_COMMANDS.push(
     },
   }
 );
+
+/* --------------------------- review changes ------------------------- */
+
+Object.assign(STRINGS.en, {
+  reviewChanges: 'Review',
+  changesTitle: 'Changes in this session',
+  changesSub: 'Files the agent edited. Reverting puts back the version from before it touched them.',
+  revertAll: 'Revert all',
+  revert: 'Revert',
+  showDiff: 'Diff',
+  hideDiff: 'Hide',
+  filesChanged: '{n} file(s) changed',
+  changesEmpty: 'No files changed yet',
+  reverted: 'Reverted {n} file(s)',
+  revertFailed: 'Could not revert: {why}',
+  skills: 'Skills',
+  useSkill: 'Use the skill',
+});
+
+Object.assign(STRINGS.th, {
+  reviewChanges: 'ตรวจการแก้ไข',
+  changesTitle: 'ไฟล์ที่แก้ในเซสชันนี้',
+  changesSub: 'ไฟล์ที่ agent แก้ กดย้อนกลับเพื่อคืนเวอร์ชันก่อนที่ agent จะแตะ',
+  revertAll: 'ย้อนทั้งหมด',
+  revert: 'ย้อนกลับ',
+  showDiff: 'ดู diff',
+  hideDiff: 'ซ่อน',
+  filesChanged: 'แก้ {n} ไฟล์',
+  changesEmpty: 'ยังไม่มีไฟล์ที่ถูกแก้',
+  reverted: 'ย้อนกลับแล้ว {n} ไฟล์',
+  revertFailed: 'ย้อนไม่สำเร็จ: {why}',
+  skills: 'สกิล',
+  useSkill: 'ใช้สกิล',
+});
+
+function renderChangesBar(changes) {
+  const bar = el('changesBar');
+  const summary = el('changesSummary');
+  if (!bar || !summary) return;
+  const list = Array.isArray(changes) ? changes : [];
+  if (!list.length) {
+    bar.hidden = true;
+    summary.textContent = '';
+    return;
+  }
+  const added = list.reduce((n, c) => n + (c.added || 0), 0);
+  const removed = list.reduce((n, c) => n + (c.removed || 0), 0);
+  summary.textContent = `${t('filesChanged', { n: list.length })} · +${added} −${removed}`;
+  bar.hidden = false;
+}
+
+/** Rebuild a unified-diff text block from the stored hunks, for the dialog. */
+function diffTextFor(change) {
+  const lines = [`--- a/${change.rel}`, `+++ b/${change.rel}`];
+  for (const hunk of change.hunks || []) {
+    const first = hunk.ops.find((op) => op.aLine) || hunk.ops[0];
+    const last = [...hunk.ops].reverse().find((op) => op.bLine) || first;
+    if (!first) continue;
+    lines.push(`@@ -${first.aLine || 0} +${last.bLine || 0} @@`);
+    for (const op of hunk.ops) {
+      const mark = op.type === 'ins' ? '+' : op.type === 'del' ? '-' : ' ';
+      lines.push(`${mark}${op.text}`);
+    }
+  }
+  return `\`\`\`diff\n${lines.join('\n')}\n\`\`\``;
+}
+
+function renderChangesList(changes) {
+  const list = el('changesList');
+  if (!list) return;
+  list.innerHTML = '';
+  const rows = Array.isArray(changes) ? changes : [];
+  if (!rows.length) {
+    const empty = document.createElement('div');
+    empty.className = 'slash-empty';
+    empty.textContent = t('changesEmpty');
+    list.appendChild(empty);
+    return;
+  }
+  rows.forEach((change, i) => {
+    const row = document.createElement('div');
+    row.className = 'change-row';
+    const head = document.createElement('div');
+    head.className = 'change-head';
+    const name = document.createElement('span');
+    name.className = 'change-path';
+    name.textContent = change.rel;
+    name.title = change.path;
+    const counts = document.createElement('span');
+    counts.className = 'diff-counts';
+    counts.innerHTML = `<span class="d-add">+${change.added || 0}</span>` +
+      (change.removed ? `<span class="d-del">−${change.removed}</span>` : '');
+    const diffBtn = document.createElement('button');
+    diffBtn.type = 'button';
+    diffBtn.className = 'ghost small';
+    diffBtn.textContent = t('showDiff');
+    const revertBtn = document.createElement('button');
+    revertBtn.type = 'button';
+    revertBtn.className = 'ghost small danger';
+    revertBtn.textContent = t('revert');
+    revertBtn.addEventListener('click', () => revertChanges(change.path));
+
+    const body = document.createElement('div');
+    body.className = 'change-diff';
+    body.hidden = true;
+    diffBtn.addEventListener('click', () => {
+      body.hidden = !body.hidden;
+      diffBtn.textContent = body.hidden ? t('showDiff') : t('hideDiff');
+      if (!body.hidden && !body.dataset.painted) {
+        body.dataset.painted = '1';
+        MD.renderInto(body, diffTextFor(change), { copiedLabel: t('copied') });
+      }
+    });
+
+    head.append(name, counts, diffBtn, revertBtn);
+    row.append(head, body);
+    list.appendChild(row);
+    if (i === 0 && rows.length === 1) diffBtn.click();
+  });
+}
+
+async function openChanges() {
+  const view = activeView();
+  if (!view) return;
+  const res = await api.listChanges(view.tabId);
+  view.changes = res?.changes || [];
+  renderChangesList(view.changes);
+  el('changesOverlay').hidden = false;
+}
+
+async function revertChanges(path, all) {
+  const view = activeView();
+  if (!view) return;
+  const res = await api.revertChanges(view.tabId, path, Boolean(all));
+  if (!res?.ok) {
+    showNotice(t('revertFailed', { why: res?.reason || 'error' }), 4000);
+    return;
+  }
+  const fresh = await api.listChanges(view.tabId);
+  view.changes = fresh?.changes || [];
+  renderChangesList(view.changes);
+  renderChangesBar(view.changes);
+  showNotice(t('reverted', { n: (res.reverted || []).length }), 2600);
+}
+
+el('changesReview')?.addEventListener('click', openChanges);
+el('changesClose')?.addEventListener('click', () => {
+  el('changesOverlay').hidden = true;
+});
+el('changesRevertAll')?.addEventListener('click', () => {
+  if (!el('changesList')?.children.length) return;
+  revertChanges(null, true);
+});
+el('changesOverlay')?.addEventListener('click', (e) => {
+  if (e.target === el('changesOverlay')) el('changesOverlay').hidden = true;
+});
+
+api.onChanges((p) => {
+  const view = viewFor(p);
+  if (!view) return;
+  view.changes = p.changes || [];
+  if (view.tabId !== activeTabId) return;
+  renderChangesBar(view.changes);
+  if (!el('changesOverlay')?.hidden) renderChangesList(view.changes);
+});
 
 /* ------------------------------ skills menu ------------------------- */
 

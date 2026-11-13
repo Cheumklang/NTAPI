@@ -553,6 +553,7 @@ function tabState(tabId) {
     todos: safeCall(() => tab.handle.todoItems(), []),
     thinking: safeCall(() => tab.handle.thinking(), null),
     tools: safeCall(() => tab.handle.toolNames(), []),
+    changes: tab.changes || [],
   };
 }
 
@@ -605,14 +606,19 @@ function subscribeTab(tabId) {
             : path.join(tab.cwd, rawPath)
           : null;
         if (snapPath) {
+          let before = '';
+          let existed = true;
           try {
-            editSnapshots.set(event.toolCallId, {
-              path: snapPath,
-              before: await fs.promises.readFile(snapPath, 'utf8'),
-            });
+            before = await fs.promises.readFile(snapPath, 'utf8');
           } catch {
             // New file — remember that it did not exist.
-            editSnapshots.set(event.toolCallId, { path: snapPath, before: '' });
+            existed = false;
+          }
+          editSnapshots.set(event.toolCallId, { path: snapPath, before });
+          // Keep the first version the agent saw, so the review panel can undo
+          // every change this tab made, not just the last edit.
+          if (!tab.fileBackup.has(snapPath)) {
+            tab.fileBackup.set(snapPath, { before, existed });
           }
         }
         sendTab(tabId, 'agent:toolStart', {
@@ -660,6 +666,8 @@ function subscribeTab(tabId) {
             }
           } catch {}
         }
+
+        if (diff?.path) recordChange(tab, diff);
 
         sendTab(tabId, 'agent:toolEnd', {
           id: event.toolCallId,
@@ -759,6 +767,9 @@ async function attachTab(tabId, manager, cwd) {
     adAt: Date.now(),
     adRotating: false,
     adManualAt: 0,
+    // Review panel: first version of each file this tab changed + what changed.
+    fileBackup: new Map(),
+    changes: [],
   });
   subscribeTab(tabId);
 
@@ -768,6 +779,30 @@ async function attachTab(tabId, manager, cwd) {
   }
 
   return tabState(tabId);
+}
+
+/** Upsert one file's diff summary into the tab's review list. */
+function recordChange(tab, diff) {
+  if (!tab || !diff?.path) return;
+  const rel = path.relative(tab.cwd, diff.path) || path.basename(diff.path);
+  const existing = tab.changes.find((c) => c.path === diff.path);
+  const entry = {
+    path: diff.path,
+    rel: rel.split(path.sep).join('/'),
+    added: diff.added || 0,
+    removed: diff.removed || 0,
+    hunks: diff.hunks || [],
+    at: Date.now(),
+  };
+  if (existing) Object.assign(existing, entry);
+  else tab.changes.push(entry);
+  sendTab(tabIdForTab(tab), 'agent:changes', { changes: tab.changes });
+}
+
+/** Reverse lookup: the tab id that owns this tab object. */
+function tabIdForTab(target) {
+  for (const [id, tab] of tabs) if (tab === target) return id;
+  return null;
 }
 
 /**
@@ -1428,6 +1463,49 @@ ipcMain.handle('session:thinking', async (_e, { tabId, level } = {}) => {
     sendTab(tid, 'session:thinking', { thinking: safeCall(() => tab.handle.thinking(), null) });
   }
   return safeCall(() => tab.handle.thinking(), null);
+});
+
+/* ------------------------- review panel (changes) ------------------------ */
+
+ipcMain.handle('changes:list', async (_e, tabId) => {
+  const { tab } = tabFor(tabId);
+  return {
+    changes: tab.changes || [],
+    revertable: (tab.changes || []).filter((c) => tab.fileBackup?.has(c.path)).length,
+  };
+});
+
+/**
+ * Put one file (or every changed file) back to how it was before this tab
+ * touched it. Only paths the agent actually edited inside the workspace are
+ * eligible, and the backup map decides that — never a path from the renderer.
+ */
+ipcMain.handle('changes:revert', async (_e, { tabId, path: targetPath, all } = {}) => {
+  const { tab } = tabFor(tabId);
+  if (!tab?.fileBackup) return { ok: false, reason: 'nothing to revert' };
+  const targets = all
+    ? tab.changes.map((c) => c.path).filter((p) => tab.fileBackup.has(p))
+    : [targetPath].filter((p) => p && tab.fileBackup.has(p));
+  if (!targets.length) return { ok: false, reason: 'nothing to revert' };
+
+  const reverted = [];
+  for (const file of targets) {
+    const backup = tab.fileBackup.get(file);
+    try {
+      if (!backup.existed) fs.rmSync(file, { force: true });
+      else {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, backup.before, 'utf8');
+      }
+      tab.fileBackup.delete(file);
+      tab.changes = tab.changes.filter((c) => c.path !== file);
+      reverted.push(file);
+    } catch (err) {
+      return { ok: false, reason: err instanceof Error ? err.message : String(err), reverted };
+    }
+  }
+  sendTab(tabIdForTab(tab), 'agent:changes', { changes: tab.changes });
+  return { ok: true, reverted };
 });
 
 /** The message list changed underneath the renderer (undo/redo/compact). */

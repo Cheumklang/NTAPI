@@ -122,6 +122,10 @@
         </section>
 
         <footer id="composer">
+          <div id="changesBar" class="changes-bar" hidden>
+            <span id="changesSummary" class="changes-summary"></span>
+            <button id="changesReview" class="ghost small" data-i18n="reviewChanges">Review</button>
+          </div>
           <div id="todoPanel" class="todo-panel" hidden role="status" aria-live="polite"></div>
           <div id="notice" class="notice" hidden></div>
           <div id="queueBar" class="queue-bar" hidden></div>
@@ -140,6 +144,20 @@
           <div class="hint" id="statusHint" data-i18n="idle">Idle</div>
         </footer>
       </main>
+    </div>
+
+    <div id="changesOverlay" class="overlay" hidden>
+      <div class="dialog changes-dialog" role="dialog" aria-modal="true" aria-labelledby="changesTitle">
+        <h2 id="changesTitle" data-i18n="changesTitle">Changes in this session</h2>
+        <p class="dialog-sub" data-i18n="changesSub">
+          Files the agent edited. Reverting puts back the version from before it touched them.
+        </p>
+        <div id="changesList" class="changes-list"></div>
+        <div class="dialog-actions">
+          <button id="changesRevertAll" class="ghost danger" data-i18n="revertAll">Revert all</button>
+          <button id="changesClose" class="primary-btn" data-i18n="close">Close</button>
+        </div>
+      </div>
     </div>
 
     <div id="findBar" class="find-bar" hidden>
