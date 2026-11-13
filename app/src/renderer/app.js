@@ -1712,20 +1712,29 @@ function beginSessionRename(itemEl, cwd, session) {
       return;
     }
     try {
-      const existing = [...views.entries()].find(([, v]) => v.sessionId === session.id);
-      let tabId = existing?.[0];
-      if (!tabId) {
-        const view = await openNewTab(cwd, session.path);
-        tabId = view.state.tabId;
-      }
-      const summary = await api.renameSession(tabId, next);
-      const view = views.get(tabId);
-      if (view) {
-        view.name = summary?.name || next;
-        view.label = summary?.name || next;
+      // Match by id or by file path: a tab restored from prefs can carry a
+      // different id shape, and opening a second tab for the same file used to
+      // rebuild the transcript and drop messages that were still streaming.
+      const existing = [...views.entries()].find(
+        ([, v]) =>
+          v.sessionId === session.id ||
+          (v.sessionFile && session.path && v.sessionFile === session.path)
+      );
+      const tabId = existing?.[0];
+      if (tabId) {
+        const summary = await api.renameSession(tabId, next);
+        const view = views.get(tabId);
+        if (view) {
+          view.name = summary?.name || next;
+          view.label = summary?.name || next;
+        }
+        // Update the header in place — never rebuild the transcript on rename.
+        if (activeTabId === tabId) sessionTitle.value = view?.name || next;
+      } else {
+        const res = await api.renameSessionFile(cwd, session.path, next);
+        if (!res?.ok) throw new Error(res?.error || 'rename failed');
       }
       await renderSessions(cwd);
-      if (activeTabId === tabId) renderActiveTab();
     } catch (err) {
       showNotice(errorText(err));
       await renderSessions(cwd);

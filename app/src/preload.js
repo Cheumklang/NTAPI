@@ -56,6 +56,8 @@ contextBridge.exposeInMainWorld('freepi', {
   deleteSession: (cwd, sessionPath) => ipcRenderer.invoke('session:delete', { cwd, sessionPath }),
   clearSession: (tabId) => ipcRenderer.invoke('session:clear', tabId),
   renameSession: (tabId, name) => ipcRenderer.invoke('session:rename', { tabId, name }),
+  renameSessionFile: (cwd, sessionPath, name) =>
+    ipcRenderer.invoke('session:renameFile', { cwd, sessionPath, name }),
 
   sendPrompt: (tabId, text, images, mode) =>
     ipcRenderer.invoke('prompt:send', { tabId, text, images, mode }),

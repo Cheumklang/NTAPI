@@ -1667,6 +1667,39 @@ ipcMain.handle('session:rename', async (_e, { tabId, name } = {}) => {
 });
 
 /**
+ * Rename a session that is not open in a tab.
+ *
+ * Opening a tab just to call `setSessionName` switched the active tab and rebuilt
+ * the transcript, which dropped assistant messages (including ones still
+ * streaming). This opens the file, sets the name and disposes the handle
+ * without touching any tab.
+ */
+ipcMain.handle('session:renameFile', async (_e, { cwd, sessionPath, name } = {}) => {
+  const base = path.resolve(String(cwd || readPrefs().lastCwd || process.cwd()));
+  const file = resolveSessionFile(base, String(sessionPath || ''));
+  if (!file) return { ok: false, error: 'session file not found' };
+  const clean = typeof name === 'string' ? name.trim() : '';
+  let handle = null;
+  try {
+    // `SessionManager.open()` reads the JSONL and exposes `appendSessionInfo`,
+    // which is exactly what the SDK's own `setSessionName()` writes. No agent
+    // session or tab is needed for a rename.
+    handle = sdk.SessionManager.open(file, path.dirname(file));
+    if (typeof handle?.appendSessionInfo !== 'function') {
+      return { ok: false, error: 'session manager cannot rename' };
+    }
+    handle.appendSessionInfo(clean);
+    return { ok: true, name: clean || null };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  } finally {
+    try {
+      handle?.dispose?.();
+    } catch {}
+  }
+});
+
+/**
  * Images this session attached to its prompts. Only files inside the chat
  * attachments folder are returned; skills, generated images and downloads are
  * deliberately left alone.
