@@ -1743,6 +1743,73 @@ button { font-family: inherit; }
 }
 #browserBtn .dot.waiting { background: #d9a441; }
 #browserBtn .dot.on { background: #3fb26b; }
+#browserBtn .dot.claimed { background: #3fb26b; box-shadow: 0 0 0 2px rgba(63, 178, 107, .35); }
+#browserBtn .dot.autopilot { background: #5aa9ff; animation: autopilot-pulse 1.6s ease-in-out infinite; }
+@keyframes autopilot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #browserBtn .dot.autopilot { animation: none; }
+}
+
+/* Hand-over: what the agent is doing, and the way to stop it. */
+.activity-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(90, 169, 255, .28);
+  border-radius: 10px;
+  background: rgba(90, 169, 255, .07);
+  font-size: 12px;
+}
+.activity-lines {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.activity-line {
+  font-variant-numeric: tabular-nums;
+  color: #b7bdca;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.activity-line.bad { color: #ffb020; }
+.activity-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+
+/* Hand over / take back / stop asking. Deliberately not `.wrap`: that class is
+   the one the install-helper row owns. */
+.dialog-actions.handover { flex-wrap: wrap; }
+.dialog-actions.handover .ghost { flex: 1 1 auto; }
+.dialog-actions.handover .ghost.danger { color: #ffb020; border-color: rgba(255, 176, 32, .34); }
+
+.tab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 190px;
+  overflow-y: auto;
+  margin: 4px 0 10px;
+}
+.tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+.tab-row:hover { background: rgba(255, 255, 255, .04); }
+.tab-row.claimed { border-color: rgba(90, 169, 255, .45); background: rgba(90, 169, 255, .1); }
+.tab-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tab-title { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab-host { font-size: 12px; color: #8a91a1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dialog-sub.small { font-size: 12px; }
 #browserBtn[aria-pressed="true"] {
   background: rgba(90, 169, 255, .2);
   border-color: rgba(90, 169, 255, .45);

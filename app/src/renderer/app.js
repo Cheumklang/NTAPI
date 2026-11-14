@@ -70,6 +70,29 @@ const STRINGS = {
     browserCopied: 'Copied',
     browserInstalled: 'Extension folder is ready.',
     browserNotInstalled: 'Extension folder is missing from this build.',
+    browserTabsTitle: 'Work in one of your tabs',
+    browserTabsHint: 'Hand the agent a tab you are already signed into. It only ever touches that one.',
+    browserNoTabs: 'No tabs found. Is Chrome running?',
+    browserTabAgent: 'agent window',
+    browserClaimTab: 'Use this tab',
+    browserClaimed: 'Handed over',
+    browserRelease: 'Release the tab',
+    browserClaimFailed: 'Could not hand that tab over',
+    browserAutopilotOn: 'Let it work without asking',
+    browserAutopilotOff: 'Ask me for every step again',
+    browserAutopilotNote: 'Hand-over mode: the agent works in this tab without a dialog per step.',
+    browserAutopilotUntil: 'Stops on its own at',
+    browserDebugBarNote:
+      'Chrome shows a yellow "started debugging this browser" bar while the agent works. Leave it alone — dismissing it disconnects the agent.',
+    activityFocus: 'Show the tab',
+    activityStop: 'Stop',
+    activityFailed: 'failed',
+    autopilotStopIdle: 'Hand-over mode ended after five quiet minutes.',
+    autopilotStopTabClosed: 'Hand-over mode ended: the tab was closed.',
+    autopilotStopLeftSite: 'Hand-over mode ended: the page left this site.',
+    autopilotStopFailures: 'Hand-over mode ended after three failures in a row.',
+    autopilotStopStopped: 'Hand-over mode stopped.',
+    autopilotStopFeatureOff: 'Hand-over mode ended: browser control was turned off.',
     workspace: 'Workspace',
     savedSessions: 'Saved sessions',
     new: '+ New',
@@ -381,6 +404,29 @@ const STRINGS = {
     browserCopied: 'คัดลอกแล้ว',
     browserInstalled: 'โฟลเดอร์ส่วนขยายพร้อมใช้งาน',
     browserNotInstalled: 'ไม่พบโฟลเดอร์ส่วนขยายในบิลด์นี้',
+    browserTabsTitle: 'ทำงานในแท็บของคุณ',
+    browserTabsHint: 'มอบแท็บที่คุณล็อกอินอยู่ให้ AI — มันจะแตะเฉพาะแท็บนั้นเท่านั้น',
+    browserNoTabs: 'ไม่พบแท็บ — Chrome เปิดอยู่ไหมครับ',
+    browserTabAgent: 'หน้าต่างของ AI',
+    browserClaimTab: 'ใช้แท็บนี้',
+    browserClaimed: 'มอบแล้ว',
+    browserRelease: 'ปล่อยแท็บ',
+    browserClaimFailed: 'มอบแท็บนี้ไม่ได้',
+    browserAutopilotOn: 'ให้ทำต่อโดยไม่ถามทุกขั้น',
+    browserAutopilotOff: 'กลับมาถามทุกขั้น',
+    browserAutopilotNote: 'โหมดมอบงาน: AI ทำงานในแท็บนี้โดยไม่เด้งถามทีละขั้น',
+    browserAutopilotUntil: 'จะหยุดเองเมื่อ',
+    browserDebugBarNote:
+      'Chrome จะขึ้นแถบเหลือง "started debugging this browser" ระหว่างที่ AI ทำงาน — อย่าปิดแถบนั้น เพราะจะตัดการเชื่อมต่อทันที',
+    activityFocus: 'ดูแท็บนั้น',
+    activityStop: 'หยุด',
+    activityFailed: 'ล้มเหลว',
+    autopilotStopIdle: 'โหมดมอบงานจบลงหลังเงียบไป 5 นาที',
+    autopilotStopTabClosed: 'โหมดมอบงานจบลง เพราะแท็บถูกปิด',
+    autopilotStopLeftSite: 'โหมดมอบงานจบลง เพราะหน้าเว็บออกนอกไซต์นี้',
+    autopilotStopFailures: 'โหมดมอบงานจบลงหลังล้มเหลวติดกัน 3 ครั้ง',
+    autopilotStopStopped: 'โหมดมอบงานถูกหยุด',
+    autopilotStopFeatureOff: 'โหมดมอบงานจบลง เพราะปิดการควบคุมเบราว์เซอร์',
     workspace: 'โฟลเดอร์งาน',
     savedSessions: 'แชทที่บันทึกไว้',
     new: '+ ใหม่',
@@ -4411,15 +4457,124 @@ el('langBtn').addEventListener('click', () => setLanguage(lang === 'en' ? 'th' :
 /* ------------------------- browser control chip ------------------------- */
 
 let browserState = { enabled: false, connected: false, port: 0, paired: false, installed: true };
+/** The tab the user handed over, if any. Null means the agent's own window. */
+let browserClaim = null;
+/** Hand-over mode, and how long it has left. */
+let autopilotState = { on: false };
+/** Every real tab, for the picker. */
+let browserTabs = [];
+
+const ACTIVITY_MAX = 6;
+
+const AUTOPILOT_REASON_KEY = {
+  idle: 'autopilotStopIdle',
+  tabClosed: 'autopilotStopTabClosed',
+  leftSite: 'autopilotStopLeftSite',
+  failures: 'autopilotStopFailures',
+  featureOff: 'autopilotStopFeatureOff',
+  released: 'autopilotStopStopped',
+  user: 'autopilotStopStopped',
+  stopped: 'autopilotStopStopped',
+};
+
+function hostOf(url) {
+  try {
+    return new URL(String(url)).hostname;
+  } catch {
+    return '';
+  }
+}
 
 function renderBrowserChip() {
   const btn = el('browserBtn');
   if (!btn) return;
   const dot = btn.querySelector('.dot');
-  const state = !browserState.enabled ? 'off' : browserState.connected ? 'on' : 'waiting';
+  const state = !browserState.enabled
+    ? 'off'
+    : autopilotState.on
+      ? 'autopilot'
+      : browserClaim
+        ? 'claimed'
+        : browserState.connected
+          ? 'on'
+          : 'waiting';
   if (dot) dot.className = `dot ${state}`;
   btn.setAttribute('aria-pressed', browserState.enabled ? 'true' : 'false');
-  btn.title = t(state === 'on' ? 'browserChipOn' : state === 'waiting' ? 'browserChipWaiting' : 'browserChipOff');
+  const key =
+    state === 'off'
+      ? 'browserChipOff'
+      : state === 'waiting'
+        ? 'browserChipWaiting'
+        : state === 'claimed' || state === 'autopilot'
+          ? 'browserClaimed'
+          : 'browserChipOn';
+  btn.title = t(key);
+}
+
+function renderTabList() {
+  const list = el('browserTabsList');
+  if (!list) return;
+  list.textContent = '';
+  if (!browserState.enabled) return;
+  if (!browserTabs.length) {
+    const empty = document.createElement('p');
+    empty.className = 'dialog-sub small';
+    empty.textContent = t('browserNoTabs');
+    list.appendChild(empty);
+    return;
+  }
+  for (const tab of browserTabs) {
+    const handedOver = Boolean(browserClaim) && browserClaim.tabId === tab.id;
+    const row = document.createElement('div');
+    row.className = `tab-row${handedOver ? ' claimed' : ''}`;
+    row.setAttribute('role', 'listitem');
+
+    const info = document.createElement('div');
+    info.className = 'tab-info';
+    const title = document.createElement('span');
+    title.className = 'tab-title';
+    title.textContent = tab.title || tab.url || '—';
+    const host = document.createElement('span');
+    host.className = 'tab-host';
+    host.textContent = [hostOf(tab.url), tab.agent ? t('browserTabAgent') : ''].filter(Boolean).join(' · ');
+    info.append(title, host);
+    row.appendChild(info);
+
+    if (handedOver) {
+      const badge = document.createElement('span');
+      badge.className = 'tool-chip';
+      badge.textContent = t('browserClaimed');
+      row.appendChild(badge);
+    } else if (!tab.agent) {
+      const use = document.createElement('button');
+      use.className = 'ghost small';
+      use.textContent = t('browserClaimTab');
+      use.addEventListener('click', () => claimBrowserTab(tab.id));
+      row.appendChild(use);
+    }
+    list.appendChild(row);
+  }
+}
+
+function renderAutopilot() {
+  const button = el('browserAutopilot');
+  if (button) {
+    button.hidden = !browserClaim;
+    button.textContent = t(autopilotState.on ? 'browserAutopilotOff' : 'browserAutopilotOn');
+  }
+  const release = el('browserRelease');
+  if (release) release.hidden = !browserClaim;
+
+  const note = el('browserAutopilotNote');
+  if (note) {
+    note.hidden = !autopilotState.on;
+    if (autopilotState.on) {
+      const left = Math.max(0, Math.round((autopilotState.until - Date.now()) / 60000));
+      note.textContent = `${t('browserAutopilotNote')} ${t('browserAutopilotUntil')} ~${left} min.`;
+    }
+  }
+  const stop = el('activityStop');
+  if (stop) stop.hidden = !autopilotState.on;
 }
 
 function renderBrowserDialog() {
@@ -4435,6 +4590,63 @@ function renderBrowserDialog() {
   if (toggle) toggle.textContent = t(browserState.enabled ? 'browserDisconnect' : 'browserConnect');
   const watch = el('browserWatch');
   if (watch) watch.hidden = !browserState.connected;
+  renderTabList();
+  renderAutopilot();
+}
+
+function describeActivity(entry) {
+  const where = entry.host ? `${entry.host} · ` : '';
+  const what = entry.ref || entry.selector || '';
+  const mark = entry.ok ? '✓' : `✗ ${t('activityFailed')}`;
+  return `${where}${entry.cmd}${what ? ` ${what}` : ''} ${mark}`;
+}
+
+function pushActivity(entry) {
+  const strip = el('activityStrip');
+  const lines = el('activityLines');
+  if (!strip || !lines) return;
+  const row = document.createElement('div');
+  row.className = `activity-line${entry.ok ? '' : ' bad'}`;
+  row.textContent = describeActivity(entry);
+  lines.appendChild(row);
+  while (lines.children.length > ACTIVITY_MAX) lines.removeChild(lines.firstChild);
+  strip.hidden = false;
+  renderAutopilot();
+}
+
+function clearActivity() {
+  const strip = el('activityStrip');
+  const lines = el('activityLines');
+  if (lines) lines.textContent = '';
+  if (strip) strip.hidden = true;
+}
+
+async function refreshBrowserTabs() {
+  const res = await api.browserTabs().catch(() => null);
+  browserTabs = res && res.ok ? res.tabs || [] : [];
+  renderTabList();
+}
+
+async function claimBrowserTab(tabId) {
+  const res = await api.browserClaim(tabId).catch(() => null);
+  if (!res || !res.ok) {
+    showToast({ title: t('browserTitle'), body: String((res && res.error) || t('browserClaimFailed')) });
+    return;
+  }
+  browserClaim = res.claim;
+  renderBrowserChip();
+  renderBrowserDialog();
+  await refreshBrowserTabs();
+}
+
+async function releaseBrowserTab() {
+  await api.browserRelease().catch(() => null);
+  browserClaim = null;
+  autopilotState = { on: false };
+  clearActivity();
+  renderBrowserChip();
+  renderBrowserDialog();
+  await refreshBrowserTabs();
 }
 
 async function refreshBrowserStatus() {
@@ -4454,6 +4666,7 @@ async function openBrowserDialog() {
   el('browserOverlay').hidden = false;
   renderBrowserDialog();
   el('browserToggle').focus();
+  await refreshBrowserTabs();
 }
 
 el('browserBtn').addEventListener('click', async () => {
@@ -4502,10 +4715,68 @@ el('browserClose').addEventListener('click', () => {
 if (typeof api.onBrowserStatus === 'function') {
   api.onBrowserStatus((status) => {
     browserState = { ...browserState, ...status };
+    // The status carries the claim and the mode, so a second window or a
+    // restart cannot leave this one showing a tab nobody handed over.
+    if ('claim' in status) browserClaim = status.claim || null;
+    if (status.autopilot) autopilotState = status.autopilot;
     renderBrowserChip();
     renderBrowserDialog();
   });
 }
+
+if (typeof api.onBrowserClaimState === 'function') {
+  api.onBrowserClaimState(({ claim }) => {
+    browserClaim = claim || null;
+    if (!browserClaim) clearActivity();
+    renderBrowserChip();
+    renderBrowserDialog();
+  });
+}
+
+if (typeof api.onBrowserAutopilotState === 'function') {
+  api.onBrowserAutopilotState(({ state }) => {
+    const wasOn = autopilotState.on;
+    autopilotState = state || { on: false };
+    renderBrowserChip();
+    renderAutopilot();
+    // Say why the run ended; a mode that just vanishes is worse than one that
+    // never turned on.
+    if (wasOn && !autopilotState.on) {
+      showToast({ title: t('browserTitle'), body: t(AUTOPILOT_REASON_KEY[autopilotState.reason] || 'autopilotStopStopped') });
+      clearActivity();
+    }
+  });
+}
+
+if (typeof api.onBrowserActivity === 'function') {
+  api.onBrowserActivity(({ entry }) => {
+    if (entry) pushActivity(entry);
+  });
+}
+
+el('browserRelease').addEventListener('click', releaseBrowserTab);
+
+el('browserAutopilot').addEventListener('click', async () => {
+  const res = await api.browserAutopilot(!autopilotState.on).catch(() => null);
+  if (res && res.state) autopilotState = res.state;
+  if (res && !res.ok && res.error) showToast({ title: t('browserTitle'), body: String(res.error) });
+  renderBrowserChip();
+  renderAutopilot();
+});
+
+el('activityStop').addEventListener('click', async () => {
+  // Stop now, do not wait for the round trip: a Stop button that lags is worse
+  // than no Stop button.
+  autopilotState = { on: false, reason: 'user' };
+  renderBrowserChip();
+  renderAutopilot();
+  clearActivity();
+  await api.browserAutopilot(false).catch(() => null);
+});
+
+el('activityFocus').addEventListener('click', async () => {
+  await api.browserWatch().catch(() => null);
+});
 
 
 // Refresh the balance as soon as a turn ends — it just spent credits.

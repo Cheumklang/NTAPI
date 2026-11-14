@@ -199,6 +199,13 @@
           </div>
           <div id="queueBar" class="queue-bar" hidden></div>
           <div id="attachments" class="attachments" hidden></div>
+          <div id="activityStrip" class="activity-strip" hidden role="status" aria-live="polite">
+            <div id="activityLines" class="activity-lines"></div>
+            <div class="activity-actions">
+              <button id="activityFocus" class="ghost small" data-i18n="activityFocus">Show the tab</button>
+              <button id="activityStop" class="ghost small danger" data-i18n="activityStop">Stop</button>
+            </div>
+          </div>
           <div class="composer-box">
             <div id="slashMenu" class="slash-menu" hidden role="listbox" aria-label="Commands"></div>
             <div id="fileMenu" class="slash-menu file-menu" hidden role="listbox" aria-label="Files"></div>
@@ -304,6 +311,16 @@
       <div class="dialog browser-dialog" role="dialog" aria-modal="true" aria-labelledby="browserTitle">
         <h2 id="browserTitle" data-i18n="browserTitle">Browser control</h2>
         <p id="browserStatusLine" class="dialog-sub">—</p>
+
+        <p class="dialog-sub" data-i18n="browserTabsTitle">Work in one of your tabs</p>
+        <p class="dialog-sub small" data-i18n="browserTabsHint">Hand the agent a tab you are already signed into. It only ever touches that one.</p>
+        <div id="browserTabsList" class="tab-list" role="list"></div>
+        <div class="dialog-actions handover">
+          <button id="browserRelease" class="ghost danger" data-i18n="browserRelease" hidden>Release the tab</button>
+          <button id="browserAutopilot" class="ghost" data-i18n="browserAutopilotOn" hidden>Let it work without asking</button>
+        </div>
+        <p id="browserAutopilotNote" class="dialog-sub small" hidden></p>
+        <p class="dialog-sub small" data-i18n="browserDebugBarNote">Chrome shows a yellow "started debugging this browser" bar while the agent works. Leave it alone — dismissing it disconnects the agent.</p>
 
         <p class="dialog-sub" data-i18n="browserInstallTitle">One-time setup</p>
         <pre id="browserSteps" class="dialog-code" data-i18n="browserInstallSteps">1. Open the extension folder

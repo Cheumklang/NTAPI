@@ -50,6 +50,16 @@
         opacity: 0.5;
         cursor: default;
       }
+      button.secondary {
+        color: #e7e9ee;
+        background: #232732;
+        border: 1px solid #333947;
+      }
+      hr {
+        margin: 14px 0 10px;
+        border: 0;
+        border-top: 1px solid #232732;
+      }
       #status {
         margin-top: 10px;
         color: #9aa1ad;
@@ -68,7 +78,10 @@
     <label for="code">Pairing code</label>
     <input id="code" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="000000" />
     <button id="save">Connect</button>
-    <div id="status">Checking…</div>
+    <hr />
+    <p>Hand the tab you are looking at over to the agent. It will only ever touch that one.</p>
+    <button id="claim" class="secondary">ใช้แท็บที่เปิดอยู่</button>
+    <div id="status">Checking...</div>
     <script src="popup.js"></script>
   </body>
 </html>

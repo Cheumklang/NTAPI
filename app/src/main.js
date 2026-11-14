@@ -3592,7 +3592,10 @@ ipcMain.handle('browser:openFolder', async () => {
 
 ipcMain.handle('browser:watch', async () => {
   try {
-    await browserBridge.call('tabs', { focus: true });
+    const claim = browserClaims.get();
+    // "Show the tab" means the tab the agent is working in, whoever owns it.
+    if (claim) await browserBridge.call('tabs-real', { focus: true, tab: claim.tabId }, { timeoutMs: 8000 });
+    else await browserBridge.call('tabs', { focus: true });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message, code: err.code };
