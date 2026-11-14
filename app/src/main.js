@@ -573,10 +573,20 @@ async function listSessions(cwd) {
     const infos = await sdk.SessionManager.list(path.resolve(cwd), dir);
     return infos
       .slice()
-      .sort((a, b) => new Date(b.modified) - new Date(a.modified))
+      // Newest conversation on top, by *creation* time. Creation never changes,
+      // so the sidebar order stays put while you chat. Sorting by `modified`
+      // used to reshuffle the list every time a session was written to, which
+      // made two sessions trade places under the cursor.
+      // `id` breaks ties so sessions made in the same millisecond never swap.
+      .sort((a, b) => {
+        const ta = new Date(a.created).getTime() || new Date(a.modified).getTime() || 0;
+        const tb = new Date(b.created).getTime() || new Date(b.modified).getTime() || 0;
+        return tb - ta || String(b.id).localeCompare(String(a.id));
+      })
       .map((i) => ({
         id: i.id,
         path: i.path,
+        created: i.created,
         modified: i.modified,
         // A user-set name (session:rename) wins over the derived first message.
         name: i.name || null,

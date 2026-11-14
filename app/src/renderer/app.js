@@ -1822,6 +1822,7 @@ async function renderSessions(cwd) {
       {
         id: active.sessionId,
         path: active.sessionFile || '',
+        created: new Date().toISOString(),
         modified: new Date().toISOString(),
         firstMessage: active.name || active.label || t('untitled'),
         messageCount: (active.messages || []).filter(m => m.kind === 'user').length,
@@ -1829,6 +1830,15 @@ async function renderSessions(cwd) {
       ...sessions,
     ];
   }
+
+  // Newest conversation on top, by creation time, with `id` as a deterministic
+  // tie-break. Creation never changes, so the order does not shuffle while you
+  // chat — only a newly started chat appears above the rest.
+  sessions = sessions.slice().sort((a, b) => {
+    const ta = new Date(a.created || a.modified).getTime() || 0;
+    const tb = new Date(b.created || b.modified).getTime() || 0;
+    return tb - ta || String(b.id).localeCompare(String(a.id));
+  });
   
   list.innerHTML = '';
   if (!sessions.length) {
@@ -1852,7 +1862,7 @@ async function renderSessions(cwd) {
         <span class="s-title">${busy ? '<span class="s-spin"></span>' : ''}${escapeHtml(title)}</span>
         ${isActive ? `<span class="s-current">${t('currentBadge')}</span>` : ''}
       </span>
-      <span class="s-meta">${escapeHtml(new Date(s.modified).toLocaleString())}${
+      <span class="s-meta">${escapeHtml(new Date(s.created || s.modified).toLocaleString())}${
       open ? ` \u00b7 ${t('openBadge')}` : ''
     }</span>
     `;
