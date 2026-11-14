@@ -893,3 +893,17 @@ Electron FAIL 5 โดยเฉพาะ `the old text is never sent — {"sent"
   (**บทเรียน: เพิ่ม element หน้าแถวแล้วต้องรันเทสต์ geometry เก่าทั้งชุด**)
 - `body()` ที่จับ `{...}` ด้วยการนับวงเล็บใช้ไม่ได้กับไฟล์ CRLF ที่มี regex ยาว — ใช้ `slice` แทน
 - **`look_at_image` ยังใช้ไม่ได้** — path ต้องอยู่ใน project แต่ก็ยัง reject; ทำงานจากคำอธิบายผู้ใช้แทน
+
+## 2026-11-15 — ปล่อย v0.4.3 (`ef5e1e1`)
+
+ผู้ใช้สั่ง "ออกเลยคับ" หลังทดสอบเองเจอ 2 เรื่อง → patch release ตามเงื่อนไขยกเว้น
+
+- `98125ea` ดินสอแก้ไขในคิวหยุด countdown (กันส่งข้อความเก่าระหว่างแก้)
+- `d16be22` ghost ตอนลากย่อเป็นแคปซูล 176px (เคย 850px) + เลขลำดับหน้าคิว
+- `ef5e1e1` bump 0.4.3
+
+**ตรวจจาก tag object โดยตรง** (`git show v0.4.3:...` ไม่ใช่ HEAD):
+`version 0.4.3` · `cancelHoldFor` 1 · `shortenGhost` 1 · `queue-num` 1 · `max-width: 260px` 3
+· `npm test` 48/48 · working tree สะอาด · master = origin/master
+
+CI ดูไม่ได้ (gh ไม่มี, repo private) — ผู้ใช้ตรวจที่ NTAPI-releases
