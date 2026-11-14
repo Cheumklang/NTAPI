@@ -179,6 +179,58 @@ app.whenReady().then(async () => {
   check('the button is centred', geom.horizontallyCentred, geom);
   check('the button sits above the transcript edge', geom.aboveTheBottom, geom);
 
+  // --- your own message is the exception ---------------------------------
+  //
+  // Output waits for the reader; your own message does not. If it did, typing
+  // while scrolled up would put your bubble at the bottom and leave the view
+  // where it was, so you would scroll down to find a message already on screen.
+  const own = await win.webContents.executeJavaScript(`(async () => {
+    const dist = () => transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight;
+    const out = [];
+    for (const where of ['scrolled-up', 'at-bottom']) {
+      activeTabId = 'own';
+      const view = views.get('own') || createView('own');
+      views.set('own', view);
+      view.busy = false;
+      transcript.innerHTML = '';
+      for (let i = 0; i < 40; i += 1) {
+        const d = document.createElement('div');
+        d.className = 'msg';
+        d.style.height = '60px';
+        d.textContent = 'old ' + i;
+        transcript.appendChild(d);
+      }
+      if (where === 'scrolled-up') transcript.scrollTop = 0;
+      else transcript.scrollTop = transcript.scrollHeight;
+      await new Promise((r) => setTimeout(r, 60));
+      const before = dist();
+      renderUserMessage('my new words', []);
+      await new Promise((r) => setTimeout(r, 60));
+      out.push({ where, before, after: dist(), jumpHidden: document.getElementById('jumpToBottom').hidden });
+    }
+    return out;
+  })()`);
+
+  const up = own.find((x) => x.where === 'scrolled-up');
+  const bottom = own.find((x) => x.where === 'at-bottom');
+  check('sending while scrolled up was far from the bottom before', up.before > 100, up);
+  check('sending from up the transcript jumps to the bottom', up.after === 0, up);
+  check('sending at the bottom stays at the bottom', bottom.after === 0, bottom);
+  check('the Newest button hides once your message is in view', up.jumpHidden === true, up);
+
+  // An arriving answer still must not move a reader. This is the pair that keeps
+  // the two rules from collapsing into one.
+  const arriving = await win.webContents.executeJavaScript(`(async () => {
+    const dist = () => transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight;
+    transcript.scrollTop = 0;
+    await new Promise((r) => setTimeout(r, 60));
+    const before = dist();
+    addMessage('assistant');
+    await new Promise((r) => setTimeout(r, 60));
+    return { before, after: dist() };
+  })()`);
+  check('an arriving answer still leaves the reader alone', arriving.after > 100, arriving);
+
   win.destroy();
 
   if (failures) {

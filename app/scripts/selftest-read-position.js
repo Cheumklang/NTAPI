@@ -82,7 +82,11 @@ const forceCalls = [...app.matchAll(/scrollToBottom\(true\)/g)].map((m) => {
   const before = app.slice(0, m.index);
   return before.split('\n').length;
 });
-check('force is used in only a few places', forceCalls.length <= 3, forceCalls);
+// Four now, and each is deliberate: the boot render, the tab switch, the queued
+// message, and the message the user just sent. The list is kept short on purpose —
+// every forced call is somewhere a reader can be pulled away from what they were
+// reading — so this is a budget, not a formality. Raise it only with a reason.
+check('force is used in only a few places', forceCalls.length <= 4, forceCalls);
 
 function lineOf(pattern) {
   const idx = app.indexOf(pattern);
@@ -132,6 +136,45 @@ check('the arrow survives a language switch', /\.jump-bottom::after/.test(css) &
 
 check('the label exists in English', /jumpToBottom: 'Newest'/.test(app));
 check('the label exists in Thai', /jumpToBottom: 'ล่าสุด'/.test(app));
+
+// --- your own message always comes into view ------------------------------
+//
+// The deliberate exception to "the reader decides". Holding still for arriving
+// output protects someone re-reading an old answer; holding still for the words
+// you just typed does the opposite, because it hides the bubble you are watching
+// for and leaves you scrolling to the bottom to find a message that is already
+// there. renderUserMessage() is the single place the user speaks — the plain
+// send, the steer while busy, and the queued message all go through it — so it is
+// the right place to force the view down, and the only one.
+
+const userMsg = body(app, 'renderUserMessage');
+check('the sent message scrolls the transcript', /scrollToBottom\(true\)/.test(userMsg));
+check('it forces the scroll past the reading guard', /scrollToBottom\(true\)/.test(userMsg));
+check('it does not use the position-guarded call', !/scrollToBottom\(\)/.test(userMsg));
+
+// The forced scroll must be the last thing before returning, so it runs after the
+// bubble has been appended: scrolling before the node exists measures the old
+// height and lands in the wrong place.
+const scrollAt = userMsg.lastIndexOf('scrollToBottom(true)');
+const appendAt = userMsg.lastIndexOf('bubble.appendChild');
+check('the scroll happens after the bubble is filled', scrollAt > appendAt && appendAt !== -1);
+check('the scroll happens before the function returns', scrollAt < userMsg.lastIndexOf('return wrap'));
+
+// Everything that speaks for the user must go through that function.
+const steerBlock = app.slice(app.indexOf('if (view.busy) {'), app.indexOf('if (view.busy) {') + 1400);
+check('the steer path draws through renderUserMessage', /renderUserMessage\(outgoing/.test(steerBlock));
+const submitBody = body(app, 'submit');
+check('the plain send draws through renderUserMessage', /renderUserMessage\(outgoing/.test(submitBody));
+const queuedBody = body(app, 'sendQueued');
+check('the queued message draws through renderUserMessage', /renderUserMessage\(item\.text/.test(queuedBody));
+
+// --- and output still does not yank the reader ---------------------------
+//
+// Guarding this file against itself: it would be easy to "fix" the scroll above
+// by making scrollToBottom() stop honouring the reading position, which would
+// bring back the original complaint.
+const addBody = body(app, 'addMessage');
+check('an arriving answer still respects the reader', /[^)]scrollToBottom\(\);/.test(addBody) && !/scrollToBottom\(true\)/.test(addBody));
 
 if (failures) {
   console.log(`\n${failures} check(s) failed`);

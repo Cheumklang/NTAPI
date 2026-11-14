@@ -1116,6 +1116,17 @@ function renderUserMessage(text, attachments) {
   }
 
   // Returned so the caller can hang a countdown row under this exact message.
+  //
+  // The transcript always follows this one to the bottom, even when the reader
+  // has scrolled up. The guarded scroll deliberately holds still for an incoming
+  // answer, so someone re-reading an old reply is not yanked away mid-sentence —
+  // but a message the user just sent is different: they are watching their own
+  // words land, and leaving the view where it was means they have to scroll down
+  // to find a bubble that is already at the bottom. The normal "am I near the
+  // bottom" test cannot be reused here either, because it reads false exactly in
+  // the case that matters: they had scrolled up to read, then typed.
+  scrollToBottom(true);
+
   return wrap;
 }
 
