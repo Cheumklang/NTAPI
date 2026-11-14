@@ -1,9 +1,10 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.5** (สาขา `feat/browser-agent-mode`)
+**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.5** (`master`, tag `v0.3.5`)
 
-> สวิตช์อนุมัติ 3 ระดับ — แทนสวิตช์ล่องหน 4 ตัว (v0.3.5) → ดูหัวข้อ 1o
-> งานเบราว์เซอร์ยังไม่ merge เข้า `master`
+> v0.3.5 รวม: สวิตช์อนุมัติ 3 ระดับ · browser agent mode · /compact เข้าคิว ·
+> แถบกิจกรรมแบบข้อความ · v0.3.4 (FreePi 426 / จัดการเวอร์ชันไคลเอนต์อัตโนมัติ) รวมอยู่ในนี้แล้ว
+> ดูหัวข้อ 1o (อนุมัติ) และ 1n (FreePi 426)
 
 > นี่คือไฟล์ **"อ่านอันเดียวจบ"** ของ session ใหม่ — อ่านบนลงล่าง
 > ถ้าคุณเป็น AI แล้วเพิ่งเปิดโปรเจกต์: อ่านหัวข้อ 0–3 ให้ครบก่อนแตะโค้ด
@@ -148,6 +149,27 @@ CSS `.approval-banner` แล้ว · เทสต์เปลี่ยนเ�
 - ยังไม่ merge เข้า `master`
 - **เลื่อนไป phase 2:** console/network inspection, อัปโหลดไฟล์, มอบหลายแท็บพร้อมกัน, แผง mirror
 - **ข้อจำกัดที่ต้องยืนยันตอนเทสต์มือ:** iframe ที่เป็น out-of-process จริง (site isolation) อาจไม่ถึงด้วย `chrome.debugger` API แบบ flat; iframe ข้ามโดเมนแบบ same-process ใช้ได้
+
+### 1n) FreePi 426 `upgrade_required` — แก้เสร็จ ปล่อย v0.3.4 แล้ว (2026-11-14) ✅
+
+**อาการ:** ใช้ FreePi ไม่ได้ ขึ้น "ไคลเอนต์เวอร์ชันเก่าเกินไป — รัน `npx free-pi-cli@latest`"
+ทั้งที่ CLI บนเครื่องเป็น 0.6.21 (ล่าสุดแล้ว)
+
+**รากปัญหา:** (1) fallback hardcode `0.6.20` ต่ำกว่า min ของ backend (0.6.21)
+(2) `CLIENT_VERSION` คำนวณครั้งเดียวตอน module load → อัป CLI ระหว่างเปิดแอปไม่มีผล
+(3) `AppData\Roaming\npm` มี 0.6.19 ค้าง และไม่มีการกันค่าที่ต่ำกว่า min
+
+**แก้:** ไฟล์ใหม่ `src/client-version.js` (detection สดทุกครั้ง · `CLIENT_VERSION_FLOOR`
+`resolveClientVersionFloor()` ถาม backend ตอนเปิดแอป · `upgradedClientVersion()` กู้หลัง 426 ·
+`isUpgradeRequired()`) + `freepi-bridge.js` (`currentClientVersion()`, `refreshClientVersion()`)
++ `main.js` (startup fetch + กู้ 426 ครั้งเดียวต่อแท็บ) + `selftest-client-version.js` (29 checks)
+
+**เทสต์:** `npm test` → **PASS 33/33** · ยืนยันกับ backend จริง (min = 0.6.21) ผ่าน ·
+จำลอง backend อนาคตบนเครื่องไม่มี CLI → ส่ง 0.8.3 ได้เอง
+
+**ไม่ต้องคอยอัปเดตแอปอีก:** เครื่องที่มี CLI ใหม่ → อ่านสด · backend ขึ้น min กลาง session → กู้ 426
+เอง · เครื่องใหม่ไม่มี CLI → ถาม backend ตอนเปิดแอป เหลือแค่ `CLIENT_VERSION_FLOOR` เป็นค่าสำรอง
+ตอนออฟไลน์ครั้งแรก
 
 ### 1z) แบทช์ v0.3.3 (2026-11-14) — 5 เรื่อง + บั๊กใหญ่ 2 ตัว ✅ commit + tag แล้ว
 

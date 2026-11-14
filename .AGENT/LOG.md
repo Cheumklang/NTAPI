@@ -255,6 +255,7 @@
   - เทสต์กันซ้ำ: `selftest-duration.js` ตรวจว่า script/link ทุกตัวใน index.html มีไฟล์จริง + ต้องเป็น IIFE; เพิ่ม `scripts/check-duration-wiring.js` (Electron) พิสูจน์ผลจริง
   - หน่วยมิลลิวินาที: th = "มิลลิวินาที", en = "ms"
 
+
 ## 2026-11-14 · Branch feat/browser-agent-mode — Browser agent mode (งาน 1–12)
 
 ทำตามดีไซน์/แผนที่ผู้ใช้อนุมัติ (brainstorming → writing-plans → executing-plans แบบ inline)
@@ -305,6 +306,13 @@
 **เทสต์:** `cd app && npm test` → PASS 33/33 (เพิ่ม 1 สคริปต์)
 **ยืนยันกับของจริง:** `/client-version` ตอบ `{min: 0.6.21, latest: 0.6.21}`; bridge ส่ง 0.6.21
 ผ่านแล้ว; จำลอง backend ในอนาคต (min 0.8.0) บนเครื่องไม่มี CLI → ส่ง 0.8.3 ได้เองโดยไม่อัปแอป
+
+**bump + ปล่อย:** `app/package.json` 0.3.3 → **0.3.4** — commit `56efa0f` บน `master` (cherry-pick จากสาขา
+browser-agent เพื่อไม่ให้ฟีเจอร์ที่ยังไม่ทดสอบ Chrome หลุดออกไป), tag `v0.3.4`, GitHub Actions ปล่อยขึ้น
+`NTAPI-releases` แล้ว (assets: NTAPI-Setup-0.3.4.exe 113 MB + latest.yml + .blockmap)
+
+**ยังค้าง:** `browser-extension/popup.js` + `selftest-browser-popup.js` (งาน session ก่อน),
+ทดสอบ browser agent mode กับ Chrome จริง
 
 **bump:** `app/package.json` 0.3.3 → **0.3.4** (ผู้ใช้สั่ง bump) — ยังไม่ tag, ยังไม่ build installer
 
