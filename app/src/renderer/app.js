@@ -6,6 +6,7 @@ const FPProvider = window.FPProvider;
 
 const el = (id) => document.getElementById(id);
 const transcript = el('transcript');
+const jumpToBottom = el('jumpToBottom');
 const input = el('input');
 const sendBtn = el('sendBtn');
 const stopBtn = el('stopBtn');
@@ -116,6 +117,7 @@ const STRINGS = {
     holdEdit: 'Edit',
     holdCancel: 'Cancel',
     holdDropped: 'Dropped.',
+    jumpToBottom: 'Newest',
     untitled: 'Untitled session',
     rename: 'Rename',
     noSessions: 'No saved sessions yet.',
@@ -444,6 +446,7 @@ const STRINGS = {
     holdEdit: 'แก้ไข',
     holdCancel: 'ยกเลิก',
     holdDropped: 'ยกเลิกแล้ว',
+    jumpToBottom: 'ล่าสุด',
     untitled: 'แชทไม่มีชื่อ',
     rename: 'เปลี่ยนชื่อ',
     noSessions: 'ยังไม่มีแชทที่บันทึกไว้',
@@ -822,9 +825,47 @@ function createView(tabId) {
   return view;
 }
 
+/**
+ * Distance from the bottom, in pixels, that still counts as "reading the newest
+ * message". It was 180, which is about three lines: scrolling up to re-read the
+ * previous answer still looked like being at the bottom, so the next streamed
+ * token pulled the view back down. 48 is under a line of slack for the fade and
+ * for a message that grows while it is on screen.
+ */
+const NEAR_BOTTOM_PX = 48;
+
+/**
+ * True when the user has deliberately scrolled up to read something further back.
+ *
+ * While this is true, new output must not move the view. The way back down is the
+ * "jump to newest" button, which is the point: a reader keeps their place instead
+ * of being yanked away mid-sentence.
+ */
+function isReadingUp() {
+  return transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight > NEAR_BOTTOM_PX;
+}
+
+/** Show the button only when there is somewhere below to go. */
+function syncJumpToBottom() {
+  if (!jumpToBottom) return;
+  jumpToBottom.hidden = !isReadingUp();
+}
+
+/**
+ * Keep the view pinned to the newest message, but only for a reader who is
+ * already there.
+ *
+ * `force` is for a view change (opening a tab, replaying history) where following
+ * the newest message is what the user asked for — not for output arriving while
+ * they read.
+ */
 function scrollToBottom(force = false) {
-  const nearBottom = transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 180;
-  if (force || nearBottom) transcript.scrollTop = transcript.scrollHeight;
+  if (!force && isReadingUp()) {
+    syncJumpToBottom();
+    return;
+  }
+  transcript.scrollTop = transcript.scrollHeight;
+  syncJumpToBottom();
 }
 
 function setBusy(value) {
@@ -1042,7 +1083,8 @@ function addMessage(kind) {
   }
 
   transcript.appendChild(wrap);
-  scrollToBottom(true);
+  // A new answer must not pull someone back down who is re-reading an older one.
+  scrollToBottom();
   return wrap;
 }
 
@@ -3942,6 +3984,26 @@ async function addAttachmentsFromFiles(files) {
   renderAttachments();
 }
 
+/* --------------------------- jump to newest --------------------------- */
+
+/**
+ * The reader decides when to follow new output.
+ *
+ * Two things happen here: the button appears and disappears as you scroll, and a
+ * click puts you back at the newest message. `scroll-behavior: smooth` on the
+ * transcript animates it, and the button hides once the smooth scroll lands —
+ * the scroll event does that, so no timer is needed and nothing can race.
+ */
+jumpToBottom?.addEventListener('click', () => {
+  scrollToBottom(true);
+});
+
+transcript.addEventListener('scroll', syncJumpToBottom, { passive: true });
+
+// A resize can make the transcript short enough that there is nothing below to
+// jump to, so the button has to be re-checked rather than left showing.
+window.addEventListener('resize', syncJumpToBottom);
+
 /* ------------------------------ actions ------------------------------ */
 
 async function boot() {
@@ -5240,7 +5302,8 @@ api.onTextEnd((p) => {
       MD.renderInto(body, p.text, { copiedLabel: t('copied') });
     }
   }
-  scrollToBottom(true);
+  // Streaming output follows only a reader who is already at the bottom.
+  scrollToBottom();
 });
 
 api.onToolStart((p) => {
@@ -5901,7 +5964,7 @@ function shellCard(command) {
   wrap.append(role, card);
   transcript.appendChild(wrap);
   emptyState.hidden = true;
-  scrollToBottom(true);
+  scrollToBottom();
   return { wrap, body, status, command };
 }
 

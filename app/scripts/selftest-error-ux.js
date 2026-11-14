@@ -88,10 +88,14 @@ check(
 );
 
 // 5. scrollToBottom keeps its "only when near the bottom" rule.
+//
+// The rule moved into isReadingUp(), which the jump-to-newest button shares, so
+// the check is on that helper instead of the old inline nearBottom expression.
 const scroll = bodyOf('scrollToBottom');
 check(
   'scrollToBottom only moves when the reader is near the bottom',
-  Boolean(scroll) && /nearBottom/.test(scroll) && /if\s*\(\s*force\s*\|\|\s*nearBottom\s*\)/.test(scroll)
+  Boolean(scroll) && /if\s*\(\s*!force\s*&&\s*isReadingUp\(\)\s*\)/.test(scroll),
+  'scrollToBottom must defer to isReadingUp() when not forced'
 );
 
 // 6. The banner carries its own gutter.

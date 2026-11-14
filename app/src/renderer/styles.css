@@ -971,13 +971,62 @@ button { font-family: inherit; }
 
 /* ---------------- transcript ---------------- */
 
+/*
+ * The transcript scrolls inside this wrapper, which is what the "jump to newest"
+ * button is positioned against. Without the wrapper the button would have to be
+ * positioned against the scrolling element and would scroll away with the text.
+ */
+.transcript-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .transcript {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 22px 0 12px;
   scroll-behavior: smooth;
 }
 .transcript > * { max-width: var(--read-width); margin: 0 auto 14px; padding: 0 22px; }
+
+/*
+ * Sits at the bottom edge of the messages, over the fading tail of the text, with
+ * the composer right below it. It only exists while you are reading further up.
+ */
+.jump-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
+  cursor: pointer;
+  z-index: 3;
+}
+.jump-bottom[hidden] { display: none; }
+.jump-bottom:hover { background: var(--bg-3, var(--bg-2)); border-color: var(--line-2, var(--line)); }
+.jump-bottom:focus-visible { outline: 2px solid var(--accent, #4d7cff); outline-offset: 2px; }
+/* The arrow is drawn, not a child element, because applyLanguage() replaces the
+ * button's textContent and would wipe any child it had. */
+.jump-bottom::after {
+  content: '\2193';
+  font-size: 13px;
+  line-height: 1;
+  opacity: .85;
+}
 
 .empty { text-align: center; color: var(--muted); margin-top: 12vh; }
 .empty h1 { font-size: 22px; color: var(--text); margin-bottom: 6px; font-weight: 620; }

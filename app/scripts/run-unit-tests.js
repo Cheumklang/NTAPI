@@ -28,6 +28,7 @@ const TESTS = [
   'selftest-hold-before-send.js',
   'selftest-update-splash.js',
   'selftest-attachments.js',
+  'selftest-read-position.js',
   'selftest-browser-autopilot.js',
   'selftest-browser-bridge.js',
   'selftest-browser-claims.js',
