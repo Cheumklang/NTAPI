@@ -1,10 +1,11 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.4** (แก้ FreePi 426 upgrade_required + จัดการเวอร์ชันไคลเอนต์อัตโนมัติ) (`origin/master`)
+**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.4** (แก้ FreePi 426 upgrade_required + จัดการเวอร์ชันไคลเอนต์อัตโนมัติ)
+(`origin/master`, tag `v0.3.4`, release ที่ `NTAPI-releases`)
 
 ## 1) กำลังทำ / ค้างอยู่ตอนนี้ (สำคัญสุด — อ่านก่อน)
 
-### 1n) FreePi 426 `upgrade_required` — แก้เสร็จ + bump 0.3.4 (2026-11-14) ✅ UNCOMMITTED
+### 1n) FreePi 426 `upgrade_required` — แก้เสร็จ ปล่อย v0.3.4 แล้ว (2026-11-14) ✅
 
 **อาการ:** ใช้ FreePi ไม่ได้ ขึ้น "ไคลเอนต์เวอร์ชันเก่าเกินไป — รัน `npx free-pi-cli@latest`"
 ทั้งที่ CLI บนเครื่องเป็น 0.6.21 (ล่าสุดแล้ว)
