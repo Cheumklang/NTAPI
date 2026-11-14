@@ -449,3 +449,24 @@ claim ที่ล้มเหลวไม่เงียบอีก, error ใ
   มี note, ไม่มี `#approvalPolicyHint` แบบเก่า, คำว่า "ไม่อนุมัติเลย" และไม่มีคำเก่า
   ทดสอบย้อนกลับ: ใส่คำเก่า + ลบหัวข้อ → FAIL 4 จริง
 - `npm test` **36/36** · คำเก่าใน `src/` เหลือ 0 · **ยังไม่ build** (รออนุมัติ)
+
+## 2026-11-14 · ปล่อย v0.3.5 (merge เข้า master + tag)
+
+**merge:** `feat/browser-agent-mode` → `master` (merge commit `daf9ef8`)
+แก้ конфликтов 3 ไฟล์: `app/package.json` (เก็บ 0.3.5 — ใหม่กว่า 0.3.4), `.AGENT/HANDOFF.md`,
+`.AGENT/LOG.md` (เก็บทั้งสองฝั่งตามลำดับเวลา) · โค้ด `freepi-bridge.js` / `main.js` auto-merge
+และยืนยันว่า `client-version` (จาก v0.3.4) กับ `approval-policy` (v0.3.5) อยู่ครบ
+**ไม่ทับงาน v0.3.4** — master ไม่ได้ถูก force push (fast-forward จาก `cec649a` → `daf9ef8`)
+· `npm test` **36/36** ผ่านหลัง merge
+
+**build:** `npm run dist` (local) สำเร็จ — `dist/NTAPI-Setup-0.3.5.exe` 119,275,063 bytes
+`dist/latest.yml` regenerate ด้วย hash ใหม่ · ตรวจ asar แล้วว่ามี approval-policy,
+client-version, "ไม่อนุมัติเลย", status-row, compactFailed ครบ
+
+**publish:** `npm run release` **ล้มเหลวโดยไม่ตั้งใจ** — ไม่มี `GH_TOKEN` ในเครื่องนี้
+(Learned: โปรเจกต์นี้ออกแบบให้ปล่อยผ่าน GitHub Actions ไม่ใช่ local token)
+→ ใช้ `.github/workflows/release.yml` ที่รันบน tag `v*` และอัปโหลดไป `Cheumklang/NTAPI-releases`
+ด้วย `secrets.RELEASE_TOKEN` จึง push tag `v0.3.5` (ชี้ `daf9ef8` = master) เพื่อให้ Actions ทำงาน
+
+**สถานะ:** tag ขึ้น remote แล้ว · Actions เริ่ม build+release (ตรวจผ่าน API ไม่ได้เพราะ repo private)
+**ถ้า Actions ล้มเหลว:** ดู log ที่ Actions ของ repo หรือตั้ง `GH_TOKEN` แล้วรัน `npm run release` ในเครื่อง

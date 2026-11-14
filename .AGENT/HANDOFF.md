@@ -94,8 +94,12 @@ CSS `.approval-banner` แล้ว · เทสต์เปลี่ยนเ�
 **"ไม่อนุมัติเลย"** (เดิม "ไม่อนุมัติเสมอ") พร้อม `APPROVAL_TITLES` ให้ตรงกัน
 · เทสต์เปลี่ยนจาก "ไม่มีหัวข้อ" → ตรวจว่ามี `<label for>` จริง (ย้อนกลับ FAIL 4 จริง)
 
-**ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตารอบสอง (`npm start`) · ยังไม่ build v0.3.5 รอบล่าสุด
-(ผู้ใช้ขอให้รออนุมัติ)
+**ปล่อย v0.3.5 แล้ว (2026-11-14):** merge เข้า `master` (`daf9ef8`) · build + `latest.yml` ใหม่ ·
+push tag `v0.3.5` → GitHub Actions (`release.yml`) build และอัปโหลดไป `Cheumklang/NTAPI-releases`
+· `npm run release` ในเครื่องใช้ไม่ได้ (ไม่มี `GH_TOKEN`) — ใช้ Actions เท่านั้น
+
+**ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตารอบสอง (`npm start`) และยังไม่ได้ทดสอบ
+browser agent mode กับ Chrome จริงรอบยืนยัน
 
 ### 1n) FreePi 426 `upgrade_required` — แก้เสร็จ + bump 0.3.4 (2026-11-14) ✅ UNCOMMITTED
 
