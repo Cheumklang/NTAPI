@@ -317,89 +317,123 @@
             <section class="settings-panel" data-section="providers" id="settingsPanelProviders" role="tabpanel" aria-labelledby="settingsTabProviders">
               <div class="settings-group">
                 <div class="settings-head" data-i18n="accountsKeys">Accounts &amp; API keys</div>
+                <p class="settings-hint providers-intro" data-i18n="providersIntro">
+                  One card per company. Each key is only used by the service named on its card.
+                </p>
 
-                <!-- The free lane is FreePi's account rather than an API key, but
-                     it keeps the same shape as the rows below: provider name, one
-                     status line, one row of buttons. No card, no special frame. -->
-                <div class="provider-row" id="freepiRow">
-                  <div class="provider-info">
-                    <span class="provider-name" data-i18n="freepiSection">FreePi</span>
-                    <p id="accountStatus" class="settings-hint">—</p>
+                <div class="provider-cards">
+                  <!-- The free lane is FreePi's account rather than an API key, but
+                       it uses the same card shape as the rows below. -->
+                  <div class="provider-card" id="freepiRow" data-provider="free-pi">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/freepi.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="freepiSection">FreePi</span>
+                        <p id="accountStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <button id="accountSignIn" class="ghost small" data-i18n="signIn">Sign in...</button>
+                      <button id="accountFolder" class="ghost small" data-i18n="openFolder" hidden>Open</button>
+                      <button id="accountSignOut" class="ghost small danger" data-i18n="signOut">Sign out</button>
+                    </div>
+                    <p id="accountTokenNote" class="settings-hint account-token-note"></p>
+                    <p id="accountNote" class="settings-hint account-note" hidden></p>
+                    <div class="provider-card-foot">
+                      <button id="accountGetKey" class="link-btn" data-i18n="freepiGetKey">Sign in at freepi.ai</button>
+                    </div>
                   </div>
-                  <div class="provider-actions">
-                    <button id="accountSignIn" class="ghost small" data-i18n="signIn">Sign in...</button>
-                    <button id="accountFolder" class="ghost small" data-i18n="openFolder" hidden>Open</button>
-                    <button id="accountSignOut" class="ghost small danger" data-i18n="signOut">Sign out</button>
+
+                  <div class="provider-card" id="coarenaRow" data-provider="coarena">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/coarena.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="coarenaSection">Coarena</span>
+                        <p id="coarenaStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="coarenaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="coa_&hellip;" aria-label="Coarena API key" />
+                      <button id="coarenaSave" class="ghost small" data-i18n="coarenaSave">Save</button>
+                      <button id="coarenaRemove" class="ghost small danger" data-i18n="coarenaRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="coarenaGetKey" class="link-btn" data-i18n="coarenaGetKey">Get a key at coarena.ai</button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="zroRow" data-provider="zro">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/zro.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="zroSection">Zro</span>
+                        <p id="zroStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="zroKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-&hellip;" aria-label="Zro API key" />
+                      <button id="zroSave" class="ghost small" data-i18n="zroSave">Save</button>
+                      <button id="zroRemove" class="ghost small danger" data-i18n="zroRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="zroGetKey" class="link-btn" data-i18n="zroGetKey">Get a key at zro.moonmath.ai</button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="nvidiaRow" data-provider="nvidia">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/nvidia.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="nvidiaSection">NVIDIA</span>
+                        <p id="nvidiaStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="nvidiaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="nvapi-&hellip;" aria-label="NVIDIA API key" />
+                      <button id="nvidiaSave" class="ghost small" data-i18n="nvidiaSave">Save</button>
+                      <button id="nvidiaRemove" class="ghost small danger" data-i18n="nvidiaRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="nvidiaGetKey" class="link-btn" data-i18n="nvidiaGetKey">Get a key at build.nvidia.com</button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="tokenharborRow" data-provider="tokenharbor">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/tokenharbor.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="tokenharborSection">Token Harbor</span>
+                        <p id="tokenharborStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="tokenharborKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="thk_live_&hellip;" aria-label="Token Harbor API key" />
+                      <button id="tokenharborSave" class="ghost small" data-i18n="tokenharborSave">Save</button>
+                      <button id="tokenharborRemove" class="ghost small danger" data-i18n="tokenharborRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="tokenharborGetKey" class="link-btn" data-i18n="tokenharborGetKey">Get a key at tokenharbor.ai</button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="llm7Row" data-provider="llm7">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/llm7.png" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="llm7Section">LLM7.io</span>
+                        <p id="llm7Status" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="llm7KeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="YOUR_LLM7_API_TOKEN" aria-label="LLM7.io API token" />
+                      <button id="llm7Save" class="ghost small" data-i18n="llm7Save">Save</button>
+                      <button id="llm7Remove" class="ghost small danger" data-i18n="llm7Remove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="llm7GetKey" class="link-btn" data-i18n="llm7GetKey">Get a token at dash.llm7.io</button>
+                    </div>
                   </div>
                 </div>
-                <p id="accountTokenNote" class="settings-hint account-token-note"></p>
-                <button id="accountGetKey" class="link-btn" data-i18n="freepiGetKey">Sign in at freepi.ai</button>
-                <p id="accountNote" class="settings-hint account-note" hidden></p>
-
-                <div class="provider-row" id="coarenaRow">
-                  <div class="provider-info">
-                    <span class="provider-name" data-i18n="coarenaSection">Coarena</span>
-                    <p id="coarenaStatus" class="settings-hint">—</p>
-                  </div>
-                  <div class="provider-actions">
-                    <input id="coarenaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="coa_…" aria-label="Coarena API key" />
-                    <button id="coarenaSave" class="ghost small" data-i18n="coarenaSave">Save</button>
-                    <button id="coarenaRemove" class="ghost small danger" data-i18n="coarenaRemove">Remove</button>
-                  </div>
-                </div>
-                <button id="coarenaGetKey" class="link-btn" data-i18n="coarenaGetKey">Get a key at coarena.ai</button>
-
-                <div class="provider-row" id="zroRow">
-                  <div class="provider-info">
-                    <span class="provider-name" data-i18n="zroSection">Zro</span>
-                    <p id="zroStatus" class="settings-hint">—</p>
-                  </div>
-                  <div class="provider-actions">
-                    <input id="zroKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" aria-label="Zro API key" />
-                    <button id="zroSave" class="ghost small" data-i18n="zroSave">Save</button>
-                    <button id="zroRemove" class="ghost small danger" data-i18n="zroRemove">Remove</button>
-                  </div>
-                </div>
-                <button id="zroGetKey" class="link-btn" data-i18n="zroGetKey">Get a key at zro.moonmath.ai</button>
-
-                <div class="provider-row" id="nvidiaRow">
-                  <div class="provider-info">
-                    <span class="provider-name" data-i18n="nvidiaSection">NVIDIA</span>
-                    <p id="nvidiaStatus" class="settings-hint">—</p>
-                  </div>
-                  <div class="provider-actions">
-                    <input id="nvidiaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="nvapi-…" aria-label="NVIDIA API key" />
-                    <button id="nvidiaSave" class="ghost small" data-i18n="nvidiaSave">Save</button>
-                    <button id="nvidiaRemove" class="ghost small danger" data-i18n="nvidiaRemove">Remove</button>
-                  </div>
-                </div>
-                <button id="nvidiaGetKey" class="link-btn" data-i18n="nvidiaGetKey">Get a key at build.nvidia.com</button>
-
-                <div class="provider-row" id="tokenharborRow">
-                  <div class="provider-info">
-                    <span class="provider-name" data-i18n="tokenharborSection">Token Harbor</span>
-                    <p id="tokenharborStatus" class="settings-hint">—</p>
-                  </div>
-                  <div class="provider-actions">
-                    <input id="tokenharborKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="thk_live_…" aria-label="Token Harbor API key" />
-                    <button id="tokenharborSave" class="ghost small" data-i18n="tokenharborSave">Save</button>
-                    <button id="tokenharborRemove" class="ghost small danger" data-i18n="tokenharborRemove">Remove</button>
-                  </div>
-                </div>
-                <button id="tokenharborGetKey" class="link-btn" data-i18n="tokenharborGetKey">Get a key at tokenharbor.ai</button>
-
-                <div class="provider-row" id="routewayRow">
-                  <div class="provider-info">
-                    <span class="provider-name" data-i18n="routewaySection">Routeway</span>
-                    <p id="routewayStatus" class="settings-hint">—</p>
-                  </div>
-                  <div class="provider-actions">
-                    <input id="routewayKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-..." aria-label="Routeway API key" />
-                    <button id="routewaySave" class="ghost small" data-i18n="routewaySave">Save</button>
-                    <button id="routewayRemove" class="ghost small danger" data-i18n="routewayRemove">Remove</button>
-                  </div>
-                </div>
-                <button id="routewayGetKey" class="link-btn" data-i18n="routewayGetKey">Get a key at routeway.ai</button>
               </div>
             </section>
 

@@ -147,23 +147,23 @@ const STRINGS = {
     tokenharborRemoved: 'Token Harbor key removed.',
     tokenharborFreeTier: 'Free tier',
     tokenharborLimits: 'weekly allowance',
-    routewaySection: 'Routeway',
-    routewayKeyLabel: 'API key',
-    routewaySave: 'Save',
-    routewayRemove: 'Remove',
-    routewayRemoveTitle: 'Remove the Routeway key?',
-    routewayRemoveSub:
-      'Routeway models disappear from the model list. A running turn keeps its current model until it finishes.',
-    routewayConfigured: 'Configured',
-    routewayUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
-    routewayNotConfigured: 'No key yet — Routeway models stay hidden.',
-    routewayGetKey: 'Get a key at routeway.ai',
-    routewaySaved: 'Routeway key saved.',
-    routewayUnverified: 'Routeway could not confirm the key — it was saved as unverified.',
-    routewaySaveFailed: 'Could not save the key:',
-    routewayRemoved: 'Routeway key removed.',
-    routewayFreeTier: 'Free routes',
-    routewayLimits: '20/min · 200/day',
+    llm7Section: 'LLM7.io',
+    llm7KeyLabel: 'API key',
+    llm7Save: 'Save',
+    llm7Remove: 'Remove',
+    llm7RemoveTitle: 'Remove the LLM7.io token?',
+    llm7RemoveSub:
+      'LLM7.io models disappear from the model list. A running turn keeps its current model until it finishes.',
+    llm7Configured: 'Configured',
+    llm7Unreadable: 'This token was saved on another machine and cannot be read here — enter it again.',
+    llm7NotConfigured: 'No token yet — LLM7.io models stay hidden.',
+    llm7GetKey: 'Get a token at dash.llm7.io',
+    llm7Saved: 'LLM7.io token saved.',
+    llm7Unverified: 'LLM7.io could not confirm the token — it was saved as unverified.',
+    llm7SaveFailed: 'Could not save the token:',
+    llm7Removed: 'LLM7.io token removed.',
+    llm7FreeTier: 'Free turbo models',
+    llm7Limits: '100K tokens/day · 60/min',
     dataRootLabel: 'App data folder',
     outputFolders: 'Output folders',
     systemPaths: 'System locations',
@@ -174,6 +174,7 @@ const STRINGS = {
     folderSettings: 'Folder Settings',
     apiKeys: 'API Keys',
     accountsKeys: 'Accounts & API keys',
+    providersIntro: 'One card per company. Each key is only used by the service named on its card.',
     freepiSection: 'FreePi',
     freepiGetKey: 'Sign in at freepi.ai',
     accountSettings: 'Account',
@@ -411,22 +412,22 @@ const STRINGS = {
     tokenharborRemoved: 'ลบคีย์ Token Harbor แล้ว',
     tokenharborFreeTier: 'โควตาฟรี',
     tokenharborLimits: 'โควตารายสัปดาห์',
-    routewaySection: 'Routeway',
-    routewayKeyLabel: 'API key',
-    routewaySave: 'บันทึก',
-    routewayRemove: 'ลบออก',
-    routewayRemoveTitle: 'ลบคีย์ Routeway?',
-    routewayRemoveSub: 'โมเดล Routeway จะหายจากรายการ โมเดลที่กําลังทํางานอยู่จะใช้ต่อจนจบเทิร์น',
-    routewayConfigured: 'ตั้งค่าแล้ว',
-    routewayUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
-    routewayNotConfigured: 'ยังไม่มีคีย์ — โมเดล Routeway จะไม่แสดง',
-    routewayGetKey: 'ขอคีย์ที่ routeway.ai',
-    routewaySaved: 'บันทึกคีย์ Routeway แล้ว',
-    routewayUnverified: 'Routeway ยืนยันคีย์ไม่ได้ — บันทึกไว้แบบยังไม่ยืนยัน',
-    routewaySaveFailed: 'บันทึกคีย์ไม่สําเร็จ:',
-    routewayRemoved: 'ลบคีย์ Routeway แล้ว',
-    routewayFreeTier: 'สายฟรี',
-    routewayLimits: '20/นาที · 200/วัน',
+    llm7Section: 'LLM7.io',
+    llm7KeyLabel: 'API key',
+    llm7Save: 'บันทึก',
+    llm7Remove: 'ลบออก',
+    llm7RemoveTitle: 'ลบโทเคน LLM7.io?',
+    llm7RemoveSub: 'โมเดล LLM7.io จะหายจากรายการ โมเดลที่กำลังทำงานอยู่จะใช้ต่อจนจบเทิร์น',
+    llm7Configured: 'ตั้งค่าแล้ว',
+    llm7Unreadable: 'โทเคนนี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    llm7NotConfigured: 'ยังไม่มีโทเคน — โมเดล LLM7.io จะไม่แสดง',
+    llm7GetKey: 'ขอโทเคนที่ dash.llm7.io',
+    llm7Saved: 'บันทึกโทเคน LLM7.io แล้ว',
+    llm7Unverified: 'LLM7.io ยืนยันโทเคนไม่ได้ — บันทึกไว้แบบยังไม่ยืนยัน',
+    llm7SaveFailed: 'บันทึกโทเคนไม่สำเร็จ:',
+    llm7Removed: 'ลบโทเคน LLM7.io แล้ว',
+    llm7FreeTier: 'โมเดลฟรี (turbo)',
+    llm7Limits: '100K โทเคน/วัน · 60/นาที',
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
     outputFolders: 'โฟลเดอร์ปลายทาง',
     systemPaths: 'ตำแหน่งของระบบ',
@@ -437,6 +438,7 @@ const STRINGS = {
     folderSettings: 'ตั้งค่าโฟลเดอร์',
     apiKeys: 'API Keys',
     accountsKeys: 'บัญชีและคีย์ API',
+    providersIntro: 'หนึ่งการ์ดต่อหนึ่งบริษัท คีย์แต่ละอันใช้กับบริการบนการ์ดนั้นเท่านั้น',
     freepiSection: 'FreePi',
     freepiGetKey: 'สมัคร/เข้าสู่ระบบที่ freepi.ai',
     accountSettings: 'บัญชี',
@@ -653,6 +655,9 @@ async function setLanguage(next) {
  */
 const views = new Map();
 let activeTabId = null;
+/** Last folder the user worked in. Kept after every tab is closed so "+ New"
+ *  still has somewhere to start instead of asking for a folder again. */
+let lastWorkspace = null;
 /** Images staged for the next message in the active tab. */
 let pendingImages = [];
 
@@ -1549,11 +1554,11 @@ function paintProviderMeter(view) {
     // Token Harbor shows its allowance as a percentage in its own dashboard.
     label.textContent = t('tokenharborFreeTier');
     text.textContent = `${t('tokenharborLimits')} · ${view?.model?.name || '—'}`;
-  } else if (chrome.meter === 'routeway') {
-    // The balance lives in Routeway's dashboard; the free routes are the part
-    // worth naming here, since a zero balance still leaves them usable.
-    label.textContent = t('routewayFreeTier');
-    text.textContent = `${t('routewayLimits')} · ${view?.model?.name || '—'}`;
+  } else if (chrome.meter === 'llm7') {
+    // The balance lives in LLM7.io's dashboard; the free turbo lane is the part
+    // worth naming here, since a zero balance still leaves it usable.
+    label.textContent = t('llm7FreeTier');
+    text.textContent = `${t('llm7Limits')} · ${view?.model?.name || '—'}`;
   } else {
     label.textContent = t('model');
     text.textContent = view?.model?.name || '—';
@@ -1694,23 +1699,23 @@ async function refreshTokenharborStatus() {
   return tokenharborStatus;
 }
 
-/* Routeway answers balance only to a separate management key, so the status is
-   the store's own state, exactly like Token Harbor's. */
-let routewayStatus = null;
+/* LLM7.io shows balance only in its own dashboard, so the status is the key
+   store's own state, exactly like Token Harbor's. */
+let llm7Status = null;
 
-function paintRoutewaySettings() {
-  const node = el('routewayStatus');
-  const remove = el('routewayRemove');
+function paintLlm7Settings() {
+  const node = el('llm7Status');
+  const remove = el('llm7Remove');
   if (!node) return;
 
-  const s = routewayStatus;
-  let text = t('routewayNotConfigured');
+  const s = llm7Status;
+  let text = t('llm7NotConfigured');
   if (s?.configured && s.readable) {
     const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
-    text = `${t('routewayConfigured')} · ${how}`;
+    text = `${t('llm7Configured')} · ${how}`;
     if (s.hint) text += ` · ...${s.hint}`;
   } else if (s?.configured) {
-    text = t('routewayUnreadable');
+    text = t('llm7Unreadable');
   }
 
   node.textContent = text;
@@ -1718,14 +1723,14 @@ function paintRoutewaySettings() {
   if (remove) remove.disabled = !s?.configured;
 }
 
-async function refreshRoutewayStatus() {
+async function refreshLlm7Status() {
   try {
-    routewayStatus = await api.routewayStatus();
+    llm7Status = await api.llm7Status();
   } catch {
-    routewayStatus = null;
+    llm7Status = null;
   }
-  paintRoutewaySettings();
-  return routewayStatus;
+  paintLlm7Settings();
+  return llm7Status;
 }
 
 function applyTabState(state) {
@@ -1747,6 +1752,7 @@ function applyTabState(state) {
     liveAssistant: null,
     liveTools: null,
   });
+  if (state.cwd) lastWorkspace = state.cwd;
   if (!view.label) view.label = state.name || deriveLabel(state);
   activeTabId = state.tabId;
   renderActiveTab();
@@ -2130,12 +2136,12 @@ async function openSettings() {
   zroStatus = settingsData?.zro || null;
   nvidiaStatus = settingsData?.nvidia || null;
   tokenharborStatus = settingsData?.tokenharbor || null;
-  routewayStatus = settingsData?.routeway || null;
+  llm7Status = settingsData?.llm7 || null;
   paintCoarenaSettings();
   paintZroSettings();
   paintNvidiaSettings();
   paintTokenharborSettings();
-  paintRoutewaySettings();
+  paintLlm7Settings();
   paintProviderMeter(activeView());
   renderSettings();
   renderAccount();
@@ -2594,44 +2600,44 @@ el('tokenharborGetKey')?.addEventListener('click', () => {
   api.openExternal('https://tokenharbor.ai/dashboard/api-keys').catch(() => {});
 });
 
-/* --------------------------- Routeway key --------------------------- */
+/* ------------------------- LLM7.io token ------------------------- */
 
-el('routewaySave')?.addEventListener('click', async () => {
-  const inputEl = el('routewayKeyInput');
-  const button = el('routewaySave');
+el('llm7Save')?.addEventListener('click', async () => {
+  const inputEl = el('llm7KeyInput');
+  const button = el('llm7Save');
   const key = (inputEl?.value || '').trim();
   if (!key) return;
 
   button.disabled = true;
   try {
-    const res = await api.routewaySetKey(key);
+    const res = await api.llm7SetKey(key);
     if (res?.ok) {
       if (inputEl) inputEl.value = '';
-      routewayStatus = res.status || null;
-      paintRoutewaySettings();
+      llm7Status = res.status || null;
+      paintLlm7Settings();
       paintProviderMeter(activeView());
-      showNotice(res.unverified ? t('routewayUnverified') : t('routewaySaved'));
+      showNotice(res.unverified ? t('llm7Unverified') : t('llm7Saved'));
     } else {
-      showNotice(`${t('routewaySaveFailed')} ${res?.error || ''}`.trim());
+      showNotice(`${t('llm7SaveFailed')} ${res?.error || ''}`.trim());
     }
   } catch (err) {
-    showNotice(`${t('routewaySaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+    showNotice(`${t('llm7SaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
   } finally {
     button.disabled = false;
   }
 });
 
-el('routewayRemove')?.addEventListener('click', () => {
+el('llm7Remove')?.addEventListener('click', () => {
   showConfirmDialog({
-    kind: 'routewayRemove',
-    title: t('routewayRemoveTitle'),
-    sub: t('routewayRemoveSub'),
-    action: t('routewayRemove'),
+    kind: 'llm7Remove',
+    title: t('llm7RemoveTitle'),
+    sub: t('llm7RemoveSub'),
+    action: t('llm7Remove'),
   });
 });
 
-el('routewayGetKey')?.addEventListener('click', () => {
-  api.openExternal('https://routeway.ai/dashboard').catch(() => {});
+el('llm7GetKey')?.addEventListener('click', () => {
+  api.openExternal('https://dash.llm7.io/').catch(() => {});
 });
 
 el('settingsReset').addEventListener('click', async () => {
@@ -3062,15 +3068,15 @@ el('confirmDelete').addEventListener('click', async () => {
     return;
   }
 
-  if (state.kind === 'routewayRemove') {
-    const res = await api.routewayClearKey();
+  if (state.kind === 'llm7Remove') {
+    const res = await api.llm7ClearKey();
     if (res?.ok) {
-      routewayStatus = res.status || null;
-      paintRoutewaySettings();
+      llm7Status = res.status || null;
+      paintLlm7Settings();
       paintProviderMeter(activeView());
-      showNotice(t('routewayRemoved'));
+      showNotice(t('llm7Removed'));
     } else {
-      showNotice(`${t('routewaySaveFailed')} ${res?.error || ''}`.trim());
+      showNotice(`${t('llm7SaveFailed')} ${res?.error || ''}`.trim());
     }
     return;
   }
@@ -3202,9 +3208,12 @@ async function boot() {
   refreshZroStatus().catch(() => {});
   refreshNvidiaStatus().catch(() => {});
   refreshTokenharborStatus().catch(() => {});
-  refreshRoutewayStatus().catch(() => {});
+  refreshLlm7Status().catch(() => {});
   applySidebarWidth(appPrefs.sidebarWidth || SIDEBAR_DEFAULT);
-  if (info.lastCwd) el('cwdLabel').textContent = info.lastCwd;
+  if (info.lastCwd) {
+    lastWorkspace = info.lastCwd;
+    el('cwdLabel').textContent = info.lastCwd;
+  }
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});
 
   if (info.openTabs?.length) {
@@ -3252,6 +3261,7 @@ async function boot() {
 el('pickFolder').addEventListener('click', async () => {
   const folder = await api.pickFolder();
   if (!folder) return;
+  lastWorkspace = folder;
   try {
     const res = await api.openTab({ cwd: folder });
     applyTabState(res.state);
@@ -3262,12 +3272,15 @@ el('pickFolder').addEventListener('click', async () => {
 
 el('newSession').addEventListener('click', async () => {
   const view = activeView();
-  if (!view?.cwd) {
+  // A folder picked earlier still counts even with no tab open (all tabs
+  // closed, or the app just started): reuse the workspace instead of nagging.
+  const cwd = view?.cwd || lastWorkspace;
+  if (!cwd) {
     showNotice(t('chooseWorkspace'));
     return;
   }
   try {
-    const res = await api.openTab({ cwd: view.cwd });
+    const res = await api.openTab({ cwd });
     applyTabState(res.state);
   } catch (err) {
     showNotice(errorText(err));

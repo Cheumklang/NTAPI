@@ -1803,18 +1803,32 @@ button { font-family: inherit; }
 
 /* ---------------- settings: provider rows ---------------- */
 
-.provider-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+.providers-intro { margin: 0 0 10px; }
+.provider-cards { display: flex; flex-direction: column; gap: 10px; }
+.provider-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-3);
+  padding: 12px;
 }
-.provider-row:last-child { border-bottom: none; }
-.provider-info { display: flex; flex-direction: column; gap: 4px; }
-.provider-name { font-size: 13.5px; font-weight: 500; color: var(--text); }
-.provider-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.provider-card:hover { border-color: rgba(124, 92, 255, .28); }
+.provider-card-head { display: flex; align-items: center; gap: 10px; }
+.provider-logo {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 7px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, .06);
+}
+.provider-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.provider-info .settings-hint { margin: 0; }
+.provider-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.provider-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .provider-actions .settings-input { flex: 1 1 200px; min-width: 180px; }
+.provider-card-foot { display: flex; justify-content: flex-end; margin-top: 8px; }
+.provider-card-foot .link-btn { font-size: 12px; }
+.provider-card .account-token-note { margin-top: 8px; }
 
 /* ---------------- settings: toggle ---------------- */
 

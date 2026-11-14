@@ -9,7 +9,7 @@
  * plain object what to register, which tools to offer and whether ads exist.
  *
  * Pure on purpose: no SDK, no network, no fs. The tests pin down the states the
- * UI can be in (any combination of FreePi, Coarena, Zro and NVIDIA).
+ * UI can be in (any combination of FreePi, Coarena, Zro, NVIDIA, Token Harbor and LLM7.io).
  */
 
 const FREE_PI_PROVIDER = 'free-pi';
@@ -17,7 +17,7 @@ const COARENA_PROVIDER = 'coarena';
 const ZRO_PROVIDER = 'zro';
 const NVIDIA_PROVIDER = 'nvidia';
 const TOKENHARBOR_PROVIDER = 'tokenharbor';
-const ROUTEWAY_PROVIDER = 'routeway';
+const LLM7_PROVIDER = 'llm7';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
 /**
@@ -37,7 +37,7 @@ const FREE_PI_TOOL_NAMES = ['web_search', 'docs_lookup', 'generate_image', 'free
  *   coarena: boolean,
  *   ads: boolean,
  *   freePiTools: boolean,
- *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'routeway'|null,
+ *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'llm7'|null,
  *   defaultModel: string|null,
  *   available: boolean,
  * }}
@@ -48,20 +48,20 @@ function planProviders({
   zroKey,
   nvidiaKey,
   tokenharborKey,
-  routewayKey,
+  llm7Key,
   freePiModels,
   coarenaModels,
   zroModels,
   nvidiaModels,
   tokenharborModels,
-  routewayModels,
+  llm7Models,
 }) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
   const coarenaList = Array.isArray(coarenaModels) ? coarenaModels : [];
   const zroList = Array.isArray(zroModels) ? zroModels : [];
   const nvidiaList = Array.isArray(nvidiaModels) ? nvidiaModels : [];
   const tokenharborList = Array.isArray(tokenharborModels) ? tokenharborModels : [];
-  const routewayList = Array.isArray(routewayModels) ? routewayModels : [];
+  const llm7List = Array.isArray(llm7Models) ? llm7Models : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
   // empty and a session could not pick a model at all.
@@ -70,7 +70,7 @@ function planProviders({
   const zro = Boolean(zroKey) && zroList.length > 0;
   const nvidia = Boolean(nvidiaKey) && nvidiaList.length > 0;
   const tokenharbor = Boolean(tokenharborKey) && tokenharborList.length > 0;
-  const routeway = Boolean(routewayKey) && routewayList.length > 0;
+  const llm7 = Boolean(llm7Key) && llm7List.length > 0;
 
   let defaultProvider = null;
   let defaultModel = null;
@@ -93,13 +93,13 @@ function planProviders({
   } else if (tokenharbor) {
     defaultProvider = TOKENHARBOR_PROVIDER;
     defaultModel = tokenharborList[0].id;
-  } else if (routeway) {
-    defaultProvider = ROUTEWAY_PROVIDER;
+  } else if (llm7) {
+    defaultProvider = LLM7_PROVIDER;
     // A gateway's catalog opens with whichever model it happens to list first,
     // which can be a paid one. Opening a new session on a free route is the
     // honest default; the paid rows are one click away in the picker.
-    const free = routewayList.find((m) => m.plan === 'free');
-    defaultModel = (free || routewayList[0]).id;
+    const free = llm7List.find((m) => m.plan === 'free');
+    defaultModel = (free || llm7List[0]).id;
   }
 
   return {
@@ -108,12 +108,12 @@ function planProviders({
     zro,
     nvidia,
     tokenharbor,
-    routeway,
+    llm7,
     ads: freePi,
     freePiTools: freePi,
     defaultProvider,
     defaultModel,
-    available: freePi || coarena || zro || nvidia || tokenharbor || routeway,
+    available: freePi || coarena || zro || nvidia || tokenharbor || llm7,
   };
 }
 
@@ -124,7 +124,7 @@ module.exports = {
   ZRO_PROVIDER,
   NVIDIA_PROVIDER,
   TOKENHARBOR_PROVIDER,
-  ROUTEWAY_PROVIDER,
+  LLM7_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
 };

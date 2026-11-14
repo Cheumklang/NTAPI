@@ -169,9 +169,9 @@ const nvBeatsTh = planProviders({
 });
 check('nvidia outranks tokenharbor', nvBeatsTh.defaultProvider === 'nvidia' && nvBeatsTh.tokenharbor === true);
 
-// Routeway joins as a sixth keyed provider, and it is the one gateway whose
-// catalog opens on a paid model — the default has to find a free route.
-const rw = [
+// LLM7 joins as a sixth keyed provider, and it is a gateway whose catalog can
+// open on a paid model — the default has to find a free turbo model.
+const l7 = [
   { id: 'claude-fable-5-2', name: 'Claude Fable 5.2', plan: 'paid' },
   { id: 'deepseek-v4.1-flash:free', name: 'DeepSeek V4.1 Flash (Free)', plan: 'free' },
 ];
@@ -181,30 +181,30 @@ const rwOnly = planProviders({
   zroKey: null,
   nvidiaKey: null,
   tokenharborKey: null,
-  routewayKey: 'k',
+  llm7Key: 'k',
   freePiModels: [],
   coarenaModels: [],
   zroModels: [],
   nvidiaModels: [],
   tokenharborModels: [],
-  routewayModels: rw,
+  llm7Models: l7,
 });
-check('routeway-only registers', rwOnly.routeway && rwOnly.available && !rwOnly.freePi);
+check('llm7-only registers', rwOnly.llm7 && rwOnly.available && !rwOnly.freePi);
 check(
-  'a new Routeway session opens on a free route, not the first paid one',
-  rwOnly.defaultProvider === 'routeway' && rwOnly.defaultModel === 'deepseek-v4.1-flash:free',
+  'a new LLM7 session opens on a free turbo model, not the first paid one',
+  rwOnly.defaultProvider === 'llm7' && rwOnly.defaultModel === 'deepseek-v4.1-flash:free',
   JSON.stringify(rwOnly)
 );
 
 const rwNoKey = planProviders({
   hasFreePiAuth: false,
   coarenaKey: null,
-  routewayKey: null,
+  llm7Key: null,
   freePiModels: [],
   coarenaModels: [],
-  routewayModels: rw,
+  llm7Models: l7,
 });
-check('no key means no routeway', rwNoKey.routeway === false);
+check('no key means no llm7', rwNoKey.llm7 === false);
 check('nothing at all stays unavailable', rwNoKey.available === false);
 
 if (failed) {

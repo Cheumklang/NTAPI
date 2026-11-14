@@ -28,10 +28,11 @@ const { sessionDirName } = require('./session-paths');
 const { friendlyProviderError } = require('./provider-errors');
 const { createProviderKeyStore } = require('./provider-key');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
+
 const { checkZroKey } = require('./zro');
 const { checkNvidiaKey } = require('./nvidia');
 const { checkTokenHarborKey } = require('./tokenharbor');
-const { checkRoutewayKey } = require('./routeway');
+const { checkLlm7Key } = require('./llm7');
 const { promptOptionsFor } = require('./prompt-mode');
 
 /**
@@ -224,10 +225,10 @@ const tokenharborKeys = createProviderKeyStore({
   safeStorage,
   fileName: 'tokenharbor.json',
 });
-const routewayKeys = createProviderKeyStore({
+const llm7Keys = createProviderKeyStore({
   dir: DATA_ROOT,
   safeStorage,
-  fileName: 'routeway.json',
+  fileName: 'llm7.json',
 });
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
@@ -900,9 +901,9 @@ async function attachTab(tabId, manager, cwd) {
     nvidiaKey: nvidiaKeys.read(),
     // Token Harbor's free route rotates; also re-resolved per session.
     tokenharborKey: tokenharborKeys.read(),
-    // Routeway's catalog is public, so one key reaches its free routes and the
-    // pay-as-you-go ones alike; re-resolved per session.
-    routewayKey: routewayKeys.read(),
+    // LLM7's catalog is public, so one token reaches its free-turbo models and
+    // the paid pro ones alike; re-resolved per session.
+    llm7Key: llm7Keys.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -1270,12 +1271,12 @@ function applyTokenHarborKeyToTabs(key) {
   });
 }
 
-function applyRoutewayKeyToTabs(key) {
+function applyLlm7KeyToTabs(key) {
   return applyKeyToTabs({
-    provider: 'routeway',
-    label: 'Routeway',
+    provider: 'llm7',
+    label: 'LLM7.io',
     key,
-    apply: (handle, next) => handle.applyRoutewayKey(next),
+    apply: (handle, next) => handle.applyLlm7Key(next),
   });
 }
 
@@ -1480,59 +1481,58 @@ ipcMain.handle('tokenharbor:clearKey', async () => {
 });
 
 /**
- * Routeway exposes balance only to a management key, which is a different kind
- * of credential than the one this app is given, so the status is the store's
+ * LLM7 exposes balance only in its dashboard, so the status is the key store's
  * own state.
  */
-async function routewayStatus() {
-  return routewayKeys.status();
+async function llm7Status() {
+  return llm7Keys.status();
 }
 
-ipcMain.handle('routeway:status', async () => routewayStatus());
+ipcMain.handle('llm7:status', async () => llm7Status());
 
-ipcMain.handle('routeway:setKey', async (_e, { key } = {}) => {
+ipcMain.handle('llm7:setKey', async (_e, { key } = {}) => {
   const raw = String(key || '').trim();
   if (!raw) {
-    return { ok: false, status: routewayKeys.status(), error: 'Enter a Routeway API key first.' };
+    return { ok: false, status: llm7Keys.status(), error: 'Enter an LLM7 API token first.' };
   }
 
-  // Only Routeway saying the key itself is wrong refuses it. A rate limit or an
+  // Only LLM7 saying the key itself is wrong refuses it. A rate limit or an
   // unreachable API is inconclusive, so the key is saved and marked unverified.
-  const check = await checkRoutewayKey(raw);
+  const check = await checkLlm7Key(raw);
   if (!check.ok && !check.unverified) {
-    return { ok: false, status: routewayKeys.status(), error: check.error, code: check.code || null };
+    return { ok: false, status: llm7Keys.status(), error: check.error, code: check.code || null };
   }
 
   try {
-    routewayKeys.save(raw);
-    const applied = await applyRoutewayKeyToTabs(raw);
+    llm7Keys.save(raw);
+    const applied = await applyLlm7KeyToTabs(raw);
     return {
       ok: true,
-      status: routewayKeys.status(),
+      status: llm7Keys.status(),
       unverified: Boolean(check.unverified),
       applied,
     };
   } catch (err) {
     return {
       ok: false,
-      status: routewayKeys.status(),
+      status: llm7Keys.status(),
       error: err instanceof Error ? err.message : String(err),
     };
   }
 });
 
-ipcMain.handle('routeway:clearKey', async () => {
+ipcMain.handle('llm7:clearKey', async () => {
   try {
-    routewayKeys.clear();
+    llm7Keys.clear();
   } catch (err) {
     return {
       ok: false,
-      status: routewayKeys.status(),
+      status: llm7Keys.status(),
       error: err instanceof Error ? err.message : String(err),
     };
   }
-  const applied = await applyRoutewayKeyToTabs(null);
-  return { ok: true, status: routewayKeys.status(), applied };
+  const applied = await applyLlm7KeyToTabs(null);
+  return { ok: true, status: llm7Keys.status(), applied };
 });
 
 ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
@@ -1580,7 +1580,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     zro: await zroStatus(),
     nvidia: await nvidiaStatus(),
     tokenharbor: await tokenharborStatus(),
-    routeway: await routewayStatus(),
+    llm7: await llm7Status(),
   };
 });
 

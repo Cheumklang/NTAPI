@@ -103,19 +103,24 @@ const TOKENHARBOR_HINTS = {
 };
 
 /**
- * Routeway is a gateway in front of many vendors, so its failures are usually
- * about the key or the balance rather than about one model. Free routes are
- * capped at 20 requests a minute and 200 a day.
+ * LLM7 is a gateway in front of many vendors, so its failures are usually about
+ * the token, the free-token allowance or one model's upstream. The free lane is
+ * capped at 100,000 tokens per 24 hours.
  */
-const ROUTEWAY_HINTS = {
-  invalid_api_key: 'Routeway rejected this key — open Settings, replace it, then retry.',
+const LLM7_HINTS = {
+  invalid_api_key: 'LLM7 rejected this token — open Settings, replace it, then retry.',
   insufficient_quota:
-    'This Routeway key is out of credit — top up the balance in the dashboard, or pick a model marked Free.',
+    'The LLM7 free-token allowance for today is used up (100,000 tokens per 24 hours). Wait for it to reset, or use a pro model with a topped-up balance.',
   rate_limit:
-    'Routeway allows 20 requests a minute and 200 a day on free models. Wait a moment, or switch to a paid model.',
+    'LLM7 allows 1 request a second, 60 a minute and 250 an hour on free tokens. Wait a moment and retry.',
   model_not_found:
-    'Routeway no longer lists this model. Pick another one from the dropdown — its catalog changes often.',
-  content_filter: 'Routeway blocked this request with its content filter. Rephrase it and retry.',
+    'LLM7 no longer lists this model. Pick another one from the dropdown — its catalog changes often.',
+  content_filter: 'LLM7 blocked this request with its content filter. Rephrase it and retry.',
+  service_unavailable:
+    'LLM7’s upstream for this model is unavailable right now (it is their side, not your token). Retry in a few minutes, or pick another model.',
+  upstream_error: 'The vendor behind LLM7 failed this request — retry, or pick another model.',
+  request_timeout:
+    'LLM7 accepted the request and never answered. Retry once; if it keeps going quiet, switch model.',
 };
 
 /**
@@ -133,8 +138,8 @@ const STALL_HINTS = {
     'NVIDIA accepted the request and never answered. This free endpoint is often slow to cold-start and can stay silent — retry once, then pick another model or provider.',
   tokenharbor:
     'Token Harbor stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
-  routeway:
-    'Routeway stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
+  llm7:
+    'LLM7 stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
   default: 'The model stopped responding — the connection is fine, the provider went quiet. Retry.',
 };
 
@@ -214,13 +219,13 @@ function friendlyProviderError(raw, { provider } = {}) {
     else if (status === '413') hint = TOKENHARBOR_HINTS.request_too_large;
     else if (status === '429') hint = TOKENHARBOR_HINTS.rate_limit;
     else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Token Harbor — check your connection and retry.';
-  } else if (provider === 'routeway') {
-    if (code && ROUTEWAY_HINTS[code]) hint = ROUTEWAY_HINTS[code];
-    else if (status === '401') hint = ROUTEWAY_HINTS.invalid_api_key;
-    else if (status === '402' || status === '403') hint = ROUTEWAY_HINTS.insufficient_quota;
-    else if (status === '404') hint = ROUTEWAY_HINTS.model_not_found;
-    else if (status === '429') hint = ROUTEWAY_HINTS.rate_limit;
-    else if (looksLikeNetworkFailure(text)) hint = 'Could not reach Routeway — check your connection and retry.';
+  } else if (provider === 'llm7') {
+    if (code && LLM7_HINTS[code]) hint = LLM7_HINTS[code];
+    else if (status === '401') hint = LLM7_HINTS.invalid_api_key;
+    else if (status === '402' || status === '403') hint = LLM7_HINTS.insufficient_quota;
+    else if (status === '404') hint = LLM7_HINTS.model_not_found;
+    else if (status === '429') hint = LLM7_HINTS.rate_limit;
+    else if (looksLikeNetworkFailure(text)) hint = 'Could not reach LLM7 — check your connection and retry.';
   }
   // Only reached when no provider-specific branch matched: a stalled request
   // must not fall through to the raw "This operation was aborted", which reads
@@ -237,6 +242,7 @@ module.exports = {
   ZRO_HINTS,
   NVIDIA_HINTS,
   TOKENHARBOR_HINTS,
+  LLM7_HINTS,
   STALL_HINTS,
   parseProviderError,
   friendlyProviderError,
