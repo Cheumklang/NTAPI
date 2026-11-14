@@ -21,6 +21,7 @@ const fs = require('node:fs');
 const TESTS = [
   'selftest-browser-bridge.js',
   'selftest-browser-extension.js',
+  'selftest-browser-tools.js',
   'selftest-empty-answer.js',
   'selftest-image-history.js',
   'selftest-image-review.js',

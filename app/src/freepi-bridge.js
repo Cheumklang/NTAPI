@@ -19,6 +19,14 @@ const crypto = require('node:crypto');
 
 const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER } = require('./provider-plan');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
+const {
+  EXTENSION_ID,
+  DEFAULT_PORT,
+  CHROME_EXTENSIONS_URL,
+  BROWSER_TOOLS,
+  browserGuardedTools,
+  createBrowserBridge,
+} = require('./browser-bridge');
 const { ZRO_MODELS, zroProviderConfig, zroModelEntries } = require('./zro');
 const { resolveNvidiaModels, nvidiaProviderConfig, nvidiaModelEntries } = require('./nvidia');
 const {
@@ -538,7 +546,7 @@ async function createFreePiSession(options) {
      */
     requestApproval = null,
     /** Tools that always need approval. Read-only ones never do. */
-    guardedTools = ['bash', 'edit', 'write'],
+    guardedTools = DEFAULT_GUARDED_TOOLS,
     /**
      * Directory the pi SDK treats as its agent root for resource discovery, i.e.
      * skills are read from `<skillsAgentDir>/skills`. Defaults to the CLI dir.
@@ -569,6 +577,12 @@ async function createFreePiSession(options) {
      * dismiss it. Omitted means the `ask_user` tool is not registered.
      */
     askUser = null,
+    /**
+     * The app's browser bridge (see src/browser-bridge.js). When present the
+     * agent gets the browser_* tools; when null they are not registered at all,
+     * so a disabled feature cannot be called by accident.
+     */
+    browserBridge = null,
     /** Reasoning level for models that support it: off | minimal | low | medium | high. */
     thinkingLevel = 'off',
     /**
@@ -835,6 +849,63 @@ async function createFreePiSession(options) {
    * download goes into the configured downloads folder, not wherever a command
    * happens to run. Only injected when a downloads folder is configured.
    */
+  /**
+   * Browser control. Registers one tool per entry in BROWSER_TOOLS and forwards
+   * the call to the bridge, which talks to the companion Chrome extension. Write
+   * commands are in the guarded list, so pi's tool_call hook asks first.
+   */
+  const browserExtension = {
+    name: 'freepi-desktop-browser',
+    factory(pi) {
+      if (!browserBridge) return;
+      for (const spec of browserToolSpecs()) {
+        pi.registerTool({
+          name: spec.name,
+          label: spec.name.replace('browser_', 'Browser ').replace(/_/g, ' '),
+          description: spec.description,
+          promptSnippet: spec.promptSnippet,
+          parameters: spec.parameters,
+          async execute(_id, params, _signal, _onUpdate, ctx) {
+            const args = { ...(params || {}) };
+            const timeoutMs = spec.cmd === 'screenshot' ? 30000 : 15000;
+            let result;
+            try {
+              result = await browserBridge.call(spec.cmd, args, { timeoutMs });
+            } catch (err) {
+              const code = (err && err.code) || 'ERROR';
+              return {
+                content: [{ type: 'text', text: `Browser error (${code}): ${(err && err.message) || String(err)}` }],
+                details: { ok: false, code },
+              };
+            }
+            const canSeeImages = Boolean(ctx && ctx.getModel && ctx.getModel() && ctx.getModel().input && ctx.getModel().input.includes('image'));
+            if (spec.cmd === 'screenshot') {
+              const asImage = browserResultContent(spec, result, imagesDir, canSeeImages);
+              if (asImage) return { content: asImage, details: { ok: true, url: result.url } };
+              const buffer = Buffer.from(result.data || '', 'base64');
+              const dirAbs = path.isAbsolute(imagesDir) ? imagesDir : path.join(cwd, imagesDir);
+              const rel = path.join(imagesDir, `screenshot-${Math.random().toString(16).slice(2, 8)}.png`);
+              try {
+                await fs.promises.mkdir(dirAbs, { recursive: true });
+                await fs.promises.writeFile(path.isAbsolute(rel) ? rel : path.join(cwd, rel), buffer);
+              } catch (err) {
+                return {
+                  content: [{ type: 'text', text: `Could not save the screenshot: ${err.message}` }],
+                  details: { ok: false },
+                };
+              }
+              return {
+                content: [{ type: 'text', text: `Saved screenshot to ${rel} (${result.url || ''}). This model cannot see images, so reference the path.` }],
+                details: { ok: true, path: rel },
+              };
+            }
+            return { content: [{ type: 'text', text: browserResultContent(spec, result, imagesDir, canSeeImages) }], details: { ok: true } };
+          },
+        });
+      }
+    },
+  };
+
   const downloadsPolicyExtension = {
     name: 'freepi-downloads-policy',
     factory(pi) {
@@ -1315,6 +1386,7 @@ async function createFreePiSession(options) {
         providerExtension,
         ...(plan.freePiTools ? [visionExtension, extraToolsExtension] : []),
         downloadsPolicyExtension,
+        ...(browserBridge ? [browserExtension] : []),
         todoExtension,
         ...(askUserExtension ? [askUserExtension] : []),
         // The CLI loads these as built-in extensions; an SDK session must add
@@ -1664,12 +1736,193 @@ async function createFreePiSession(options) {
 }
 
 /**
+ * Built-in tools that always ask first: shell/file writes plus the browser
+ * commands that change a page. Read-only browser commands never prompt.
+ */
+const DEFAULT_GUARDED_TOOLS = ['bash', 'edit', 'write', ...browserGuardedTools()];
+
+/* --------------------------- browser control tools ---------------------------
+ * The agent drives the user's own Chrome through a companion extension. Read
+ * commands (tabs/read/screenshot/wait/scroll) run freely; everything that
+ * changes the page goes through the approval dialog, which is why those names
+ * are in DEFAULT_GUARDED_TOOLS.
+ */
+
+/** One-line docs per browser tool, kept next to the command they map to. */
+const BROWSER_TOOL_DOCS = {
+  browser_tabs: {
+    description: 'List the tabs open in the NTAPI browser window, or focus one. Read-only.',
+    snippet: 'List or focus agent browser tabs',
+    props: { tab: { type: 'integer', description: 'Tab id to focus' }, focus: { type: 'boolean' } },
+  },
+  browser_read: {
+    description:
+      'Read the visible text of the current page (or of one element). Read-only. Use this before clicking so you know what is on screen.',
+    snippet: 'Read the text of the current page',
+    props: {
+      tab: { type: 'integer' },
+      selector: { type: 'string', description: 'CSS selector to read only part of the page' },
+      maxChars: { type: 'integer', description: 'Truncate the text (default 8000)' },
+    },
+  },
+  browser_screenshot: {
+    description:
+      'Take a PNG screenshot of the current tab. Works on background tabs. Use when layout matters or the text alone is not enough.',
+    snippet: 'Screenshot the current page',
+    props: { tab: { type: 'integer' }, fullPage: { type: 'boolean', description: 'Capture the whole page' } },
+  },
+  browser_wait: {
+    description: 'Wait until a selector or a piece of text appears on the page. Read-only.',
+    snippet: 'Wait for the page to show something',
+    props: {
+      tab: { type: 'integer' },
+      selector: { type: 'string' },
+      text: { type: 'string' },
+      timeoutMs: { type: 'integer', description: 'Default 10000' },
+    },
+  },
+  browser_scroll: {
+    description: 'Scroll the page by a number of pixels.',
+    snippet: 'Scroll the current page',
+    props: { tab: { type: 'integer' }, dy: { type: 'integer', description: 'Pixels to scroll, default 600' } },
+  },
+  browser_open: {
+    description: 'Open a URL in a new tab in the NTAPI browser window (the user is already signed in there).',
+    snippet: 'Open a URL in the agent browser',
+    required: ['url'],
+    props: { url: { type: 'string' }, foreground: { type: 'boolean', description: 'Bring the tab to the front' } },
+  },
+  browser_goto: {
+    description: 'Navigate the current tab to a URL.',
+    snippet: 'Navigate the current tab',
+    required: ['url'],
+    props: { tab: { type: 'integer' }, url: { type: 'string' } },
+  },
+  browser_click: {
+    description:
+      'Click an element on the page. Give a CSS selector, visible text, or x/y coordinates. Asks the user for approval.',
+    snippet: 'Click something on the page',
+    props: {
+      tab: { type: 'integer' },
+      selector: { type: 'string' },
+      text: { type: 'string', description: 'Visible text of the element to click' },
+      x: { type: 'number' },
+      y: { type: 'number' },
+    },
+  },
+  browser_type: {
+    description: 'Type text into an input, as if the user typed it. Asks for approval.',
+    snippet: 'Type into a field',
+    required: ['selector', 'text'],
+    props: {
+      tab: { type: 'integer' },
+      selector: { type: 'string' },
+      text: { type: 'string' },
+      clear: { type: 'boolean', description: 'Clear the field first' },
+      submit: { type: 'boolean', description: 'Press Enter afterwards' },
+    },
+  },
+  browser_fill: {
+    description: 'Fill several form fields at once. Asks for approval.',
+    snippet: 'Fill several form fields',
+    required: ['fields'],
+    props: {
+      tab: { type: 'integer' },
+      fields: {
+        type: 'array',
+        description: 'Fields to fill',
+        items: {
+          type: 'object',
+          properties: { selector: { type: 'string' }, value: { type: 'string' } },
+          required: ['selector'],
+        },
+      },
+    },
+  },
+  browser_key: {
+    description: 'Press a key in the page: Enter, Tab, Escape, Backspace, ArrowUp, ArrowDown. Asks for approval.',
+    snippet: 'Press a key',
+    required: ['key'],
+    props: { tab: { type: 'integer' }, key: { type: 'string' } },
+  },
+  browser_eval: {
+    description:
+      'Run JavaScript in the page and return its value. Powerful: it can do anything the page can, so it always asks for approval.',
+    snippet: 'Run JavaScript in the page',
+    required: ['expression'],
+    props: { tab: { type: 'integer' }, expression: { type: 'string' } },
+  },
+  browser_close: {
+    description: 'Close a tab the agent opened. Asks for approval.',
+    snippet: 'Close an agent tab',
+    props: { tab: { type: 'integer' } },
+  },
+};
+
+/** The tool list as data, so it can be tested without a session. */
+function browserToolSpecs() {
+  return Object.keys(BROWSER_TOOLS).map((name) => {
+    const doc = BROWSER_TOOL_DOCS[name] || {};
+    const entry = BROWSER_TOOLS[name];
+    return {
+      name,
+      cmd: entry.cmd,
+      write: entry.write,
+      description: doc.description || name,
+      promptSnippet: doc.snippet || name,
+      parameters: {
+        type: 'object',
+        properties: doc.props || {},
+        ...(doc.required ? { required: doc.required } : {}),
+      },
+    };
+  });
+}
+
+/** How a browser tool result becomes content for the model. */
+function browserResultContent(spec, result, imagesDir, canSeeImages) {
+  if (spec.cmd === 'screenshot' && result.data) {
+    if (canSeeImages) {
+      return [
+        { type: 'image', data: result.data, mimeType: result.mimeType || 'image/png' },
+        { type: 'text', text: `Screenshot attached. ${result.url || ''}` },
+      ];
+    }
+    return null; // the caller saves the PNG and returns a path instead
+  }
+  if (spec.cmd === 'tabs') {
+    const list = (result.tabs || []).map((t) => `- [${t.id}] ${t.title} - ${t.url}`).join('\n');
+    return list || 'No tabs are open in the NTAPI browser window.';
+  }
+  if (spec.cmd === 'read') {
+    return `${result.title || ''}\n${result.url || ''}
+
+${result.text || ''}`.trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(result, 'value')) {
+    return `${result.title || ''}\n${result.url || ''}
+
+${JSON.stringify(result.value)}`.trim();
+  }
+  const head = [result.title, result.url].filter(Boolean).join(' - ');
+  const detail = result.clicked
+    ? `Clicked ${result.clicked}`
+    : result.filled
+      ? `Filled ${result.filled} field(s)`
+      : result.waited
+        ? `Found after ${result.waited}ms`
+        : 'Done';
+  return `${head}
+${detail}`.trim();
+}
+
+/**
  * Tools that always take an approval prompt: shell/file writes, plus every MCP
  * tool (`mcp__<server>__<tool>`). An MCP server runs with its own privileges and
  * its tool descriptions can carry instructions, so a call it triggers must be as
  * visible as `bash` — never auto-run.
  */
-function isGuardedTool(toolName, guarded = ['bash', 'edit', 'write']) {
+function isGuardedTool(toolName, guarded = DEFAULT_GUARDED_TOOLS) {
   const name = String(toolName || '');
   return guarded.includes(name) || name.startsWith('mcp__');
 }
@@ -1722,6 +1975,9 @@ module.exports = {
   SAFE_TOOLS,
   PROVIDER_NAME,
   isGuardedTool,
+  browserToolSpecs,
+  browserResultContent,
+  DEFAULT_GUARDED_TOOLS,
   mcpToolLabel,
   loadAppMcpConfig,
 };
