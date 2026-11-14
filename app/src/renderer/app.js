@@ -1152,6 +1152,12 @@ const holds = new Map();
  *
  * `onCancel` receives `true` when the user chose "edit" (their words are owed
  * back to the composer) and `false` when they dropped it.
+ *
+ * The callback is read off the returned record when the button is pressed, not
+ * captured here. A caller that has to know the item it just queued
+ * (`queueMessage`) can only create its cancel handler after this returns, and a
+ * captured `undefined` left Cancel doing nothing at all: the countdown row
+ * disappeared but the message stayed in the queue.
  */
 function holdMessage(view, wrap, { text, images, send, what, rowInto, onCancel }) {
   cancelHold(view, { silent: true });
@@ -1219,8 +1225,11 @@ function holdMessage(view, wrap, { text, images, send, what, rowInto, onCancel }
   const giveBack = (taken) => {
     if (record.finished) return;
     detach();
-    if (typeof onCancel === 'function') {
-      onCancel(taken);
+    // Read from the record, not the destructured parameter: the caller may set
+    // it after this function returned.
+    const handler = record.onCancel || onCancel;
+    if (typeof handler === 'function') {
+      handler(taken);
       return;
     }
     // Transcript path: remove the entry and the bubble it drew.

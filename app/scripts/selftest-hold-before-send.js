@@ -137,6 +137,29 @@ check('the clock uses tabular figures so digits do not jump', /tabular-nums/.tes
 check('the queue row may wrap for the countdown', /\.queue-item\s*\{[^}]*flex-wrap:\s*wrap/.test(css));
 check('the buttons are keyboard reachable', /\.hold-btn:focus-visible/.test(css));
 
+// --- a cancel handler set after the call still runs -----------------------
+//
+// queueMessage() cannot pass a handler in, because the handler has to know the
+// item, and the item is created just before the call. It assigns hold.onCancel
+// afterwards instead. So look the handler up when the button is pressed: capturing
+// the destructured parameter left Cancel doing nothing, and the countdown row
+// vanished while the message stayed in the queue.
+
+const holdBody = body(app, 'holdMessage');
+check('the cancel handler is read from the record, not the parameter',
+  /const handler = record\.onCancel \|\| onCancel/.test(holdBody));
+check('the given handler is still the fallback',
+  /record\.onCancel \|\| onCancel/.test(holdBody));
+check('a missing handler does not swallow the click',
+  /typeof handler === 'function'/.test(holdBody));
+
+const queueMsg = body(app, 'queueMessage');
+check('the queue sets its cancel handler after the hold is created',
+  /hold\.onCancel = /.test(queueMsg));
+check('the queue cancel handler removes the item',
+  /view\.queue\.splice\(at, 1\)/.test(queueMsg));
+check('the queue cancel handler repaints the queue', /renderQueue\(\)/.test(queueMsg));
+
 if (failures) {
   console.log(`\n${failures} check(s) failed`);
   process.exit(1);

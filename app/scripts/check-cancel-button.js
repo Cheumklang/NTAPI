@@ -185,6 +185,76 @@ app.whenReady().then(async () => {
   const bothSent = await win.webContents.executeJavaScript('window.__sent || []');
   check('only the live hold is sent', bothSent.length === 1 && bothSent[0] === 'second', bothSent);
 
+  // --- 6. the queue countdown: the regression that was reported -----------
+  //
+  // "In the queue there is a Cancel button but pressing it does not remove the
+  // message." queueMessage() assigns hold.onCancel after holdMessage() returns, so
+  // a handler captured at call time was undefined: the countdown row went away and
+  // the message stayed queued.
+  const queueCancel = await win.webContents.executeJavaScript(`(async () => {
+    activeTabId = 'qcancel';
+    const view = views.get('qcancel') || createView('qcancel');
+    views.set('qcancel', view);
+    view.busy = true;
+    view.queue = [];
+    input.value = '';
+    await queueMessage('queued message', []);
+    const before = {
+      queue: view.queue.length,
+      rows: document.querySelectorAll('#queueBar .queue-item').length,
+      hasRow: Boolean(document.querySelector('.hold-row')),
+    };
+    const drop = [...document.querySelectorAll('.hold-row .hold-btn')]
+      .find((b) => /Cancel|ยกเลิก/.test(b.textContent));
+    if (!drop) return { error: 'no cancel button', before };
+    drop.click();
+    return {
+      before,
+      afterQueue: view.queue.length,
+      afterRows: document.querySelectorAll('#queueBar .queue-item').length,
+      afterHold: Boolean(document.querySelector('.hold-row')),
+      inputBack: input.value,
+    };
+  })()`);
+  check('the queued message has a countdown with Cancel',
+    queueCancel.before && queueCancel.before.hasRow === true, queueCancel.before);
+  check('pressing Cancel removes the message from the queue',
+    queueCancel.afterQueue === 0, queueCancel);
+  check('pressing Cancel removes the row', queueCancel.afterRows === 0, queueCancel);
+  check('pressing Cancel clears the countdown', queueCancel.afterHold === false, queueCancel);
+  check('Cancel does not move the text into the composer', queueCancel.inputBack === '', queueCancel);
+
+  // A cancelled queued message must not arrive later either.
+  await new Promise((r) => setTimeout(r, 6200));
+  const queueAfterWait = await win.webContents.executeJavaScript(`(() => {
+    const view = views.get('qcancel');
+    return { queue: view.queue.length, busy: view.busy };
+  })()`);
+  check('a cancelled queued message is not sent later',
+    queueAfterWait.queue === 0, queueAfterWait);
+
+  // --- 7. the queue Edit path gives the words back ------------------------
+  const queueEdit = await win.webContents.executeJavaScript(`(async () => {
+    activeTabId = 'qedit';
+    const view = views.get('qedit') || createView('qedit');
+    views.set('qedit', view);
+    view.busy = true;
+    view.queue = [];
+    input.value = '';
+    await queueMessage('edit me back', []);
+    const edit = [...document.querySelectorAll('.hold-row .hold-btn')]
+      .find((b) => /Edit|แก้ไข/.test(b.textContent));
+    if (!edit) return { error: 'no edit button' };
+    edit.click();
+    return {
+      queue: view.queue.length,
+      inputBack: input.value,
+      rows: document.querySelectorAll('#queueBar .queue-item').length,
+    };
+  })()`);
+  check('Edit on a queued message removes it from the queue', queueEdit.queue === 0, queueEdit);
+  check('Edit on a queued message returns the words', queueEdit.inputBack === 'edit me back', queueEdit);
+
   win.destroy();
 
   if (failures) {
