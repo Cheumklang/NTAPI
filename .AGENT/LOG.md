@@ -720,3 +720,97 @@ save ย้ายไปท้าย → FAIL 3 (`["first","third","second, corre
 
 **Learned:** `field.focus()` บน element ที่ยังไม่อยู่ใน DOM ไม่ทำอะไร — ต้อง `appendChild`
 ก่อน แล้วค่อย focus · เทสต์ focus ต้อง `show: true` ไม่งั้น window ที่ซ่อนรับ focus ไม่ได้
+
+## 2026-11-14/15 — v0.4.0 (`b81b71d`) · v0.4.1 (`8515bbf`) · v0.4.2 (`81349d1`)
+
+**หมายเหตุ:** บันทึกช่วงนี้เขียนย้อนหลังหลังปล่อย v0.4.2 — ของเดิมไฟล์ยังค้างที่ v0.3.5
+(ผู้ใช้สั่งให้บันทึกทุกครั้งที่ปิดงาน ไม่ต้องรอทดสอบ)
+
+### v0.4.0 — คิวในช่องพิมพ์
+
+- **คิวเต็มความกว้าง** (`8100fca`): `#queueBar` เป็นลูกตรงของ `.composer-box` (ไม่อยู่ใน
+  `.composer-side`) + `flex-wrap: wrap; flex: 1 0 100%` → วัดได้ 750px จาก composer 772px
+- **แก้ในที่** (`e30114e`): `item.editing`/`item.draft` อยู่ใน item → รอด re-render ·
+  `drainQueue` เช็ค `queue[0].editing` ก่อน `shift()` · save เขียนทับตำแหน่งเดิม
+- **ลากสลับลำดับ** (`e30114e`): `⠿` และแถวเองลากได้ · `queueDropIndex()` เทียบจุดกึ่งกลางแถว ·
+  pointerup ที่ `window` (ปล่อยนอกคิวได้) · แถวที่กำลังแก้ลากไม่ได้ (input จะหลุด)
+- **แนบไฟล์ได้ทุกชนิด** (`51c327e`): `mimeFor()` คืน `null` แทน `'image/png'` สำหรับนามสกุลที่ไม่รู้จัก ·
+  inline เฉพาะ `INLINE_IMAGE_TYPES` (png/jpeg/webp/gif/bmp) · อื่น ๆ ส่งเป็น path + `describeFile()`
+- **ไม่ดีดลงล่างตอนอ่าน** (`dd7d496`): เดิมมี 4 จุดเรียก `scrollToBottom(force=true)` ซึ่งข้ามการเช็ค
+- **เอาปุ่มคัดลอกต่อคำตอบออก** (`c56fc12`) — เหลือปุ่มคัดลอกของ code block
+- **$ (Hold 5 วิแล้วแก้ไข)** (`a4bc9e6`), **merge history** (`9e33dbb`), **reload safety** (`1861464`)
+
+### v0.4.1 — 3 บั๊กที่ผู้ใช้เจอ
+
+- **`×` อยู่ขวาสุด** (`5e9c052`): ราก `.queue-text { flex: 1 1 auto }` ดันปุ่มไปปลายแถว →
+  `flex: 0 1 auto; min-width: 0; max-width: calc(100% - 50px)` · ลำดับ `⠿ → × → ข้อความ`
+  · `.queue-item .queue-remove` (0,1,1) ต้องมี prefix เพื่อชนะ `.queue-item button {opacity:0}` (0,1,0)
+  · วัดได้: × ที่ 10px, ข้อความ 26px, overlap −4
+- **ปุ่มยกเลิกในคิวกดแล้วไม่หาย** (`d7f5972`): ราก `holdMessage()` destruct `onCancel` เป็นพารามิเตอร์
+  และ `giveBack` capture ค่าตอนสร้าง; `queueMessage()` ตั้ง `hold.onCancel` ได้หลังฟังก์ชันคืนค่าแล้ว
+  → ค่าที่ capture เป็น `undefined` → ตกไป fallback ซึ่ง `cancelHold()` ตั้ง `record.finished = true` ไปแล้ว
+  → `giveBack` คืนค่าเฉย ๆ · probe: `before {queue:1,rows:1,hold:true}` → `after {queue:1,rows:1,hold:false}`
+  · แก้ `const handler = record.onCancel || onCancel` อ่านตอนกด · หลังแก้ → `queue:0, rows:0`
+- **สวิตช์อนุมัติ 3 ตำแหน่ง** (`f781a90`): `<select>` → `role=radiogroup` + `.approval-thumb`
+  เลื่อนด้วย `--at` · radio ซ่อนด้วย `clip-path: inset(50%)` ไม่ใช่ `display:none` (โฟกัสต้องอยู่)
+  · เลือก radio เพราะลูกศรกดได้ + screen reader อ่าน "2 of 3" + `:checked` คือ state
+  · วัด: ask `thumbLeft 4` = option `4`; allow `82` = `82`; deny `161` = `161`
+- **ส่งแล้วเลื่อนล่างสุด** (`8515bbf`): `renderUserMessage()` ไม่เคยเลื่อน และ `scrollToBottom()`
+  เคารพ `isReadingUp()` ซึ่งผิดสำหรับข้อความผู้ใช้เอง · ก่อนแก้: `scrollTop 0 / 2549px จากล่าง` →
+  หลัง: `2549 → 0` · แก้ด้วย `scrollToBottom(true)` เป็นบรรทัดท้ายของ `renderUserMessage()`
+
+### v0.4.2 — บั๊กใหญ่ 2 ตัว + UI คิว
+
+- **คำตอบหลายก้อนถูกทับ** (`cb3ba1a`): 1 เทิร์นมีหลาย block ของ prose แต่ละ block มาเป็น `text_end`
+  ของตัวเอง และ `onTextEnd` ทำ `body.__fpText = p.text` ทับก้อนก่อน
+  · ก่อนแก้: `["จะทำ A และ B"]` → `["ทำ A เสร็จ ต่อด้วย C"]` (ก้อนแรกหาย)
+  · แก้: `currentBody(wrap)` คืน `.body` ตัวสุดท้าย (สร้างใหม่ถ้า `__fpDone`) ·
+  `sealBody(wrap)` ใน `api.onToolStart` **ก่อน** `toolCard()` · CSS `.body + .body { margin-top: .7em }`
+  · หลังแก้: ครบทั้ง 3 ก้อน · ช่องว่างระหว่างก้อน 16px
+  · **`sealBody` จำเป็นจริง** ถ้าไม่มี `text_end` มาก่อน tool call (เทสต์พิสูจน์)
+  · replay ไม่มีบั๊กเพราะ append อยู่แล้ว → เกิดเฉพาะ live stream
+- **ติดล่างเสมอ** (`80fd1dd`): เดิม `scrollToBottom()` **วัดระยะทุกครั้ง** เนื้อหาโตใต้ตาคนที่ไม่ได้แตะ
+  scrollbar → ระยะดูเหมือนเลื่อนหนี · วัดก่อนแก้: `0 → 84 → 168 → 252 → 336 → 420 → 504`
+  · แก้: `pinnedToBottom` เก็บสถานะแทนการวัด · `syncFollow()` · `isReadingUp()` = `!pinnedToBottom`
+  · `jumpingToBottom` guard + `scrollend` + fallback 420ms
+  · หลังแก้: อยู่ล่าง `0,0,0,0,0,0` pinned · เลื่อนขึ้น `2389` ไม่ถูกดึง · กด "ล่าสุด" → gap 0
+- **ปุ่มแก้ไขเป็นดินสอ + ghost ตอนลาก** (`d2c6c2e`): ปุ่ม `queueEdit` ย้ายไปหน้าเท็กซ์ เป็น `✎`
+  (`\u270e`) + `title`/`aria-label` · ปุ่มนำแถวทั้งหมด `opacity .55` ตอน rest (ไม่ซ่อนรอ hover)
+  · ghost = `<div class=queue-ghost>` `position:fixed; pointer-events:none; opacity .82`
+  สร้างจาก `.queue-text` (ไม่ clone — ต้องไม่มีปุ่มข้างใน) · ซ่อนตอน `pointerup` + `pointercancel`
+  · วัดจริง `⠿ 0 · ✎ 10 · × 30 · ข้อความ 47` (ดินสอจบ 26 ไม่ทับ) · ghost `665px → 756px`
+
+**เทสต์:** `npm test` **46/46** · เทสต์ใหม่ `selftest-turn-blocks.js`, `selftest-queue-controls.js`,
+`check-turn-blocks.js`, `check-queue-controls.js` (27) · npm script `check:blocks`, `check:queue-controls`
+
+**ย้อนกลับที่จับได้จริง:**
+| คืนบั๊ก | ผล |
+|---|---|
+| overwrite ใน `onTextEnd` | FAIL 2 — `["อ่านเสร็จแล้ว","อ่านเสร็จแล้ว"]` |
+| ลบ `sealBody` | FAIL 2 — `["จะทำก่อนแล้วทำต่อ"]` |
+| คืนการวัดระยะ scroll | FAIL 2 — `[84,168,252,336,420,504]` |
+| คืน `onCancel` capture | FAIL 7 — `afterQueue:1` |
+| ย้ายดินสอกลับท้ายแถว | FAIL 4 — `edit:146, text:27` |
+| ลบ `showDragGhost` | FAIL 4 — `count:0` |
+
+**Learned:**
+1. **scroll event เป็น async** — `dispatchEvent` กับการเขียน `scrollTop` อาจมาสลับลำดับ
+   ต้องรอ `requestAnimationFrame` 2 ครั้ง + 80ms ก่อนอ่าน state
+2. **ปุ่ม `hidden` มี rect เป็นศูนย์** — เทสต์ geometry ต้อง unhide ก่อน แล้วคืนค่า
+3. **`scrollTop = …` เฉย ๆ ไม่ใช่ scroll** — ต้อง `dispatchEvent(new Event('scroll'))`
+   ไม่งั้น `pinnedToBottom` ยังเป็น `true` และเทสต์ผ่านโดยบังเอิญ
+4. **regex ในเทสต์อาจไปชน comment** — comment ที่มี `scrollToBottom()` ทำให้ check ผ่านผิด
+   (แก้ด้วยการเปลี่ยนถ้อยคำใน comment)
+5. **bash heredoc กับ backtick ใน template string ชนกัน** — ไฟล์เทสต์ขาดกลางบรรทัด
+   → ใช้ `write` tool เขียนแล้ว `cat` ต่อ
+6. **`git checkout` กลางคัน** ทำให้ suite รายงาน FAIL หลอก — รอ restore เสร็จแล้วรันใหม่
+7. **เทสต์ที่สร้างแถวปลอมผ่านทั้งที่ของจริงพัง** — `check-queue-placement.js` เดิมสร้าง fake rows
+   ทำให้ผ่านแม้ `×` อยู่ท้ายสุด · ต้องเรียก `renderQueue()` จริง (ต้องมี `preload.js`)
+
+**เครื่องมือ:** `look_at_image` reject ทุก path ทั้ง session · `gh` ไม่มี, repo private → ดู CI ไม่ได้
+
+**คำถามผู้ใช้ 2026-11-15 — Ctrl+Shift+R ต่างจากปิดเปิดใหม่ไหม:**
+- `Ctrl+Shift+R` ทิ้ง renderer แต่ **main process + agent ที่กำลังรันไม่ตาย** → `tab:open` reattach
+  ด้วย session file (`main.js` ~2384) ไม่สร้างแท็บซ้ำ
+- **`main.js` / `preload.js` ไม่ถูกโหลดใหม่** → แก้สองไฟล์นี้ต้อง `npm start` ใหม่
+- ปิดโปรแกรม → agent ตาย · **คิว + hold อยู่ใน memory ของ renderer ไม่ลง disk** → หายทั้งสองกรณี

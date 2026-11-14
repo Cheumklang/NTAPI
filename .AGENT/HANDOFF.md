@@ -1,10 +1,14 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.5** (`master`, tag `v0.3.5`)
+**อัปเดตล่าสุด:** 2026-11-15 · **v0.4.2** (`master` = `81349d1`, tag `v0.4.2`)
 
-> v0.3.5 รวม: สวิตช์อนุมัติ 3 ระดับ · browser agent mode · /compact เข้าคิว ·
-> แถบกิจกรรมแบบข้อความ · v0.3.4 (FreePi 426 / จัดการเวอร์ชันไคลเอนต์อัตโนมัติ) รวมอยู่ในนี้แล้ว
-> ดูหัวข้อ 1o (อนุมัติ) และ 1n (FreePi 426)
+> v0.4.2 รวมทุกอย่างตั้งแต่ v0.3.5: สวิตช์อนุมัติแบบสไลด์ · คิวในช่องพิมพ์
+> (แก้/ลาก/ดินสอ/ghost) · คำตอบหลายก้อนไม่หาย · scroll ติดล่างเสมอ
+> ดูหัวข้อ **1q** (v0.4.0–0.4.2) เป็นหลัก
+
+> **นโยบายบันทึก (ผู้ใช้สั่ง 2026-11-15):** เขียน HANDOFF + LOG **ทุกครั้งที่ปิดงาน
+> ทันที** ไม่ต้องรอผู้ใช้ทดสอบก่อน — ถ้าพบปัญหาทีหลังก็แก้เพิ่มในบันทึก
+> ดีกว่าปล่อยให้บันทึกขาดช่วง
 
 > นี่คือไฟล์ **"อ่านอันเดียวจบ"** ของ session ใหม่ — อ่านบนลงล่าง
 > ถ้าคุณเป็น AI แล้วเพิ่งเปิดโปรเจกต์: อ่านหัวข้อ 0–3 ให้ครบก่อนแตะโค้ด
@@ -37,6 +41,102 @@
   ถ้าอยากรู้เวอร์ชันที่ติดตั้งจริง ให้ถามผู้ใช้ หรือดู `prefs.lastVersion` ใน `prefs.json`
 
 ## 1) กําลังทํา / ค้างอยู่ตอนนี้ (สําคัญสุด — อ่านก่อน)
+
+### 1q) v0.4.0 → v0.4.2 (2026-11-14/15) ✅ ปล่อยแล้ว ไม่มีงานค้าง
+
+`v0.4.0` = `b81b71d` · `v0.4.1` = `8515bbf` · **`v0.4.2` = `81349d1`** (ล่าสุด)
+
+**(ก) คิวในช่องพิมพ์ (v0.4.0)**
+- `queue compact` — เก็บแถวให้เตี้ย แสดงเฉพาะหัวคิว
+- `queue placement` (`8eb9d3d`) — ย้าย `#queueBar` ออกจาก `.composer-side` มาเป็นลูกตรง
+  ของ `.composer-box` + `flex-wrap: wrap` + `flex: 1 0 100%` → **เต็มความกว้างใต้ปุ่มส่ง**
+- `queue edit-in-place` (`e30114e`) — `item.editing` + `item.draft` อยู่ในตัว item → รอด re-render
+  · `drainQueue` เช็ค `queue[0].editing` **ก่อน** `shift()` → ของที่กำลังแก้ไม่ถูกส่ง
+  · `saveQueueEdit` เขียนทับที่ตำแหน่งเดิม ไม่ splice/push
+- `queue drag` — ที่จับ `⠿` และแถวเองลากได้ · `moveQueueItem(id,delta)` ใช้ร่วมกับ Alt+↑/↓
+  · `queueDropIndex(clientY)` เทียบจุดกึ่งกลางแถว · แถวที่กำลังแก้ลากไม่ได้
+  · ฟัง `pointerup` ที่ `window` เพราะปล่อยนอกคิวได้
+- `× before text` (`5e9c052`) — `.queue-text` เคยเป็น `flex: 1 1 auto` ดันปุ่มไปขวาสุด
+  → เปลี่ยนเป็น `flex: 0 1 auto; max-width: calc(100% - 50px)` · ลำดับแถว `⠿ → × → ข้อความ`
+  · selector `.queue-item .queue-remove` (0,1,1) ต้องชนะ `.queue-item button` (0,1,0)
+- `cancel button` (`d7f5972`) — **บั๊ก:** `holdMessage()` destruct `onCancel` แล้ว `giveBack`
+  capture ค่าตอนสร้าง; `queueMessage()` ตั้ง `hold.onCancel` ได้**หลัง**ฟังก์ชันคืนค่า
+  → ค่าที่ capture เป็น `undefined` → กดยกเลิกแล้วไม่มีอะไรเกิดขึ้น
+  · แก้: `const handler = record.onCancel || onCancel` อ่านตอนกด
+- `approval switch` (`f781a90`) — `<select>` → `<div role=radiogroup>` 3 ปุ่ม radio
+  + `.approval-thumb` เลื่อนด้วย `--at` (`translateX(calc(var(--at) * 100%))`)
+  · radio ที่ซ่อนใช้ `clip-path: inset(50%)` **ไม่ใช่** `display:none` → โฟกัสยังอยู่
+  · เหตุผลที่เลือก radio ไม่ใช่ปุ่ม: ลูกศรกดได้, screen reader อ่าน "2 of 3", `:checked` คือ state
+- `send scrolls` (`8515bbf`) — `renderUserMessage()` ไม่เคยเลื่อน; `scrollToBottom()` เคารพ
+  `isReadingUp()` ซึ่งถูกสำหรับคำตอบที่มาใหม่ แต่ผิดสำหรับข้อความที่ผู้ใช้พิมพ์เอง
+  · แก้: `scrollToBottom(true)` เป็นบรรทัดท้ายของ `renderUserMessage()` — ฟังก์ชันนี้คือ
+  จุดเดียวที่ "ผู้ใช้พูด" (ส่งปกติ, steer, จากคิว)
+- `edit pencil + drag ghost` (`d2c6c2e`) — ย้ายปุ่มแก้ไขไป**หน้า**ข้อความ เป็น `✎` (`\u270e`)
+  พร้อม `title` + `aria-label` (glyph เดี่ยว screen reader อ่านไม่ออก)
+  · ปุ่มนำแถวทั้งคู่เห็นได้ตอน rest (`opacity .55`) ไม่ซ่อนรอ hover — เดิมซ่อนแล้วเหลือช่องว่าง
+  · ghost: `showDragGhost/moveDragGhost/hideDragGhost` สร้าง `<div class=queue-ghost>`
+  `position: fixed; pointer-events: none; opacity .82` · **ไม่มีปุ่มข้างใน** (คลิกพลาดต้องไม่ลบ)
+  · สร้างจาก `.queue-text` ไม่ใช่ `cloneNode` · ซ่อนตอน `pointerup` **และ** `pointercancel`
+  · วัดจริง: `⠿ 0 · ✎ 10 · × 30 · ข้อความ 47` (ดินสอจบ 26 ไม่ทับ)
+
+**(ข) บั๊กใหญ่ 2 ตัวที่แก้ใน v0.4.2**
+
+`cb3ba1a` — **คำตอบหลายก้อนในเทิร์นเดียวถูกทับ**
+- ราก: 1 เทิร์นมี **หลาย block ของ prose** (วางแผน → เรียกเครื่องมือ → รายงาน)
+  แต่ละ block มาเป็น `text_end` ของตัวเอง และ `onTextEnd` ทำ `body.__fpText = p.text` → ทับก้อนก่อน
+- แก้ 3 จุด: (1) `currentBody(wrap)` คืน `.body` **ตัวสุดท้าย** สร้างใหม่ถ้าตัวสุดท้าย `__fpDone`
+  (2) `sealBody(wrap)` เรียกใน `api.onToolStart` **ก่อน** `toolCard()` ปิด body ที่มีข้อความ
+  (3) `onDelta`/`onTextEnd` ใช้ `currentBody()` · CSS `.msg.assistant .body + .body { margin-top: .7em }`
+- **`sealBody` จำเป็นจริง** — ถ้าไม่มี `text_end` มาก่อน tool call (เทสต์พิสูจน์แล้ว)
+- replay (`renderActiveTab`) ไม่มีบั๊กนี้เพราะ append อยู่แล้ว → บั๊กเกิดเฉพาะ live stream
+
+`80fd1dd` — **อยู่ล่างสุดแล้วต้องติดล่างเสมอ**
+- ราก: `scrollToBottom()` **วัดระยะทุกครั้ง** (`distanceFromBottom() > NEAR_BOTTOM_PX`)
+  เนื้อหาโตใต้ตาผู้อ่านที่ไม่เคยแตะ scrollbar → ระยะดูเหมือนเลื่อนหนี
+  · วัดก่อนแก้: `0 → 84 → 168 → 252 → 336 → 420 → 504` (ไหลออกไปเรื่อย ๆ)
+- แก้: เก็บสถานะ `pinnedToBottom` แทนการวัด · `syncFollow()` ตั้งค่าจากระยะ,
+  `isReadingUp()` คืน `!pinnedToBottom` · `scrollToBottom(force)` ใช้ `if (!force && !pinnedToBottom) return`
+  · `jumpingToBottom` guard + `scrollend` + fallback 420ms (scroll event กลางทางการ jump จะ unpin ผิด)
+  · listener เปลี่ยน `scroll` → `syncFollow`
+
+**(ค) เทสต์**
+- `npm test` = **46/46** (ทุกไฟล์ผ่าน `node --check` ก่อน)
+  · **ต้องลงทะเบียน `selftest-*.js` ใน `TESTS` ของ `scripts/run-unit-tests.js`** ไม่งั้นไม่รัน
+- npm scripts: `check:queue` `check:reload` `check:history` `check:hold` `check:attach`
+  `check:read` `check:cancel` `check:queue-edit` `check:approval` `check:blocks` `check:queue-controls`
+- เทสต์ Electron ที่สำคัญ: `check-queue-controls.js` (27) · `check-turn-blocks.js` (17)
+  · `check-read-position.js` · `check-cancel-button.js`
+
+**ย้อนกลับที่พิสูจน์แล้ว (reverse test):**
+- คืน overwrite ใน `onTextEnd` → FAIL 2 (`["อ่านเสร็จแล้ว","อ่านเสร็จแล้ว"]`)
+- ลบ `sealBody` → FAIL 2 (`["จะทำก่อนแล้วทำต่อ"]`)
+- คืนการวัดระยะ → FAIL 2 (`[84,168,252,336,420,504]`)
+- ย้ายดินสอกลับท้ายแถว → FAIL 4 (`edit:146, text:27`)
+- ลบ `showDragGhost` → FAIL 4 (`count:0`)
+- ลบ `record.onCancel ||` → FAIL 7 (`afterQueue:1`)
+
+**Learned (สำคัญสำหรับ session ถัดไป):**
+1. **scroll event เป็น async** — `dispatchEvent` กับการเขียน `scrollTop` อาจมาสลับลำดับ
+   ต้องรอ `requestAnimationFrame` 2 ครั้ง + 80ms ก่อนอ่าน state
+2. **ปุ่ม `hidden` มี rect เป็นศูนย์** — เทสต์ geometry ต้อง unhide ก่อน แล้วคืนค่า
+3. **`scrollTop = …` เฉย ๆ ไม่ใช่ scroll** — ต้อง `dispatchEvent(new Event('scroll'))`
+   ไม่งั้น `pinnedToBottom` ยังเป็น `true` และเทสต์ผ่านโดยบังเอิญ
+4. **regex ในเทสต์อาจไปชน comment** — comment ที่มี `scrollToBottom()` ทำให้ check ผ่าน/ตกผิด
+   (เคยเจอ: comment มีคำว่า `scrollToBottom()` แล้ว regex จับ)
+5. **bash heredoc กับ backtick ใน template string ชนกัน** — ไฟล์เทสต์ขาดกลางบรรทัด
+   ต้องเขียนด้วย `write` tool แล้ว `cat` ต่อ
+6. **`git checkout` กลางคัน** ทำให้ suite รายงาน FAIL หลอก — รอ restore เสร็จแล้วรันใหม่
+
+**หมายเหตุเครื่องมือ:** `look_at_image` ใช้ไม่ได้ทั้ง session (reject ทุก path) ·
+`gh` ไม่มีในเครื่อง และ repo เป็น private → **ดู CI ไม่ได้** ต้องให้ผู้ใช้เปิด
+`https://github.com/Cheumklang/NTAPI-releases/releases`
+
+**ต่างกันระหว่าง Ctrl+Shift+R กับปิดเปิดใหม่ (ผู้ใช้ถาม 2026-11-15):**
+- `Ctrl+Shift+R` ทิ้ง renderer แต่ **main process + agent ที่กำลังรันอยู่ยังไม่ตาย**
+  · `tab:open` reattach ด้วย session file (ดู `main.js` ~2384) ไม่สร้างแท็บซ้ำ
+  · **`main.js` / `preload.js` ไม่ถูกโหลดใหม่** → แก้สองไฟล์นี้ต้อง `npm start` ใหม่
+- ปิดโปรแกรม → ทุกอย่างตายทั้ง agent + คิว + hold
+- **คิวและ hold อยู่ใน memory ของ renderer เท่านั้น ไม่ลง disk** → หายทั้งสองกรณี
 
 ### 1p) งาน 4 เรื่องหลัง v0.3.5 (2026-11-14) — commit แล้ว ยังไม่ build
 
@@ -421,6 +521,12 @@ browser agent mode กับ Chrome จริงรอบยืนยัน
 - **ยืนยัน:** `npm test` 18 PASS, smoke test Electron PASS
 
 ## 2) ขั้นถัดไปที่ตกลงไว้ (ทำต่อได้เลยเมื่อผู้ใช้สั่ง)
+
+**สถานะ 2026-11-15:** ไม่มีงานค้าง — working tree สะอาด, `master` = `origin/master` = `81349d1`,
+tag `v0.4.2` push แล้ว รอผู้ใช้ลองติดตั้ง
+
+**รอบ build ถัดไป: v0.5.0** (ตามกติกาทุก 0.5.0)
+
 จากลำดับใน `docs/review-2026-11-13.md` ที่ยังเหลือ:
 - **P1:** MCP อ่าน `mcp.json` ได้แล้ว (`freepi-bridge.js` ~บรรทัด 1308 ผ่าน `sdk.createMcpExtension()`)
   แต่ยังไม่มี UI จัดการ — ผู้ใช้ยังต้องแก้ไฟล์เองหรือใช้ `free-pi-cli mcp add`
