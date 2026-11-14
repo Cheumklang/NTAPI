@@ -20,6 +20,7 @@ const fs = require('node:fs');
  */
 const TESTS = [
   'selftest-browser-bridge.js',
+  'selftest-browser-claims.js',
   'selftest-browser-extension.js',
   'selftest-browser-snapshot.js',
   'selftest-browser-target.js',
