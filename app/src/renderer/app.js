@@ -5541,6 +5541,38 @@ function ensureLive(view) {
 
 const payloadTabIsActive = (view) => view && view.tabId === activeTabId;
 
+/**
+ * The bubble the agent is writing into right now.
+ *
+ * An assistant message used to hold exactly one `.body`, because one turn was
+ * assumed to produce one block of prose. It does not: the agent states a plan,
+ * calls a tool, then reports again, and each of those is a separate block. The
+ * text bubbles are therefore a list, and "the current one" is the last child.
+ */
+/**
+ * Finish the bubble being written and make the next text start a new one.
+ *
+ * Called at a real boundary in the agent's output — a tool call, which always
+ * separates one statement from the next.
+ */
+function sealBody(wrap) {
+  const bodies = wrap.querySelectorAll('.body');
+  const last = bodies[bodies.length - 1];
+  if (last && (last.__fpText || '').trim()) last.__fpDone = true;
+}
+
+function currentBody(wrap) {
+  const bodies = wrap.querySelectorAll('.body');
+  const last = bodies[bodies.length - 1];
+  // A sealed bubble is finished: writing into it would append the new block to
+  // the old one, so a fresh bubble goes below instead.
+  if (last && !last.__fpDone) return last;
+  const created = document.createElement('div');
+  created.className = 'body';
+  wrap.appendChild(created);
+  return created;
+}
+
 api.onDelta((p) => {
   const view = viewFor(p);
   if (!view) return;
@@ -5568,7 +5600,10 @@ api.onDelta((p) => {
     }
   } else {
     wrap.classList.add('streaming');
-    const body = wrap.querySelector('.body');
+    // The last body, not the first: a turn that already spoke once continues in a
+    // new bubble, and appending to the old one would put the new words above the
+    // tool result that came between them.
+    const body = currentBody(wrap);
     if (body) {
       body.__fpText = (body.__fpText || '') + p.delta;
       MD.renderInto(body, body.__fpText, { streaming: true, copiedLabel: t('copied') });
@@ -5583,11 +5618,16 @@ api.onTextEnd((p) => {
   const wrap = ensureLive(view);
   wrap.classList.remove('streaming');
   if (p.text) {
-    const body = wrap.querySelector('.body');
-    if (body) {
-      body.__fpText = p.text;
-      MD.renderInto(body, p.text, { copiedLabel: t('copied') });
-    }
+    // A turn can speak more than once — "I will do A" then, after a tool call,
+    // "A is done, now C". Each block arrives as its own text_end carrying the whole
+    // of that block, so assigning it to the one bubble replaced the previous block
+    // and the first thing the agent said disappeared from the transcript.
+    // currentBody() starts a new bubble once the last one was sealed at a tool
+    // call, which is exactly the boundary between two blocks.
+    const body = currentBody(wrap);
+    body.__fpText = p.text;
+    body.__fpDone = true;
+    MD.renderInto(body, p.text, { copiedLabel: t('copied') });
   }
   // Streaming output follows only a reader who is already at the bottom.
   scrollToBottom();
@@ -5601,6 +5641,11 @@ api.onToolStart((p) => {
     return;
   }
   const wrap = ensureLive(view);
+  // A tool call ends the block of prose before it. Closing the bubble here is what
+  // makes the next block land in a new one: without it the incoming delta appends
+  // to this bubble, and then text_end sees changed text and creates a second one,
+  // leaving the words attached to two bubbles at once.
+  sealBody(wrap);
   view.liveTools = wrap.querySelector('.tools');
   if (view.liveTools) toolCard(view.liveTools, p);
 });

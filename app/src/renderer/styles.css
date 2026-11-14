@@ -2620,6 +2620,12 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 /* Markdown replies are laid out as blocks; pre-wrap is only for the plain-text
    fallback (tool output, notices). */
 .msg.assistant .body { white-space: normal; line-height: 1.62; }
+/*
+ * One turn can produce more than one block of prose — a plan, then a report after
+ * the tool calls it made. Each block is its own .body, and without a gap two
+ * stacked blocks read as one paragraph that suddenly changes subject.
+ */
+.msg.assistant .body + .body { margin-top: .7em; }
 
 /* ============================== markdown ============================== */
 

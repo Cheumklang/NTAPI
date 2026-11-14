@@ -29,6 +29,7 @@ const TESTS = [
   'selftest-update-splash.js',
   'selftest-attachments.js',
   'selftest-read-position.js',
+  'selftest-turn-blocks.js',
   'selftest-copy-button.js',
   'selftest-queue-edit.js',
   'selftest-browser-autopilot.js',

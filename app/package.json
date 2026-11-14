@@ -17,7 +17,8 @@
     "check:read": "electron scripts/check-read-position.js",
     "check:cancel": "electron scripts/check-cancel-button.js",
     "check:queue-edit": "electron scripts/check-queue-edit.js",
-    "check:approval": "electron scripts/check-approval-switch.js"
+    "check:approval": "electron scripts/check-approval-switch.js",
+    "check:blocks": "electron scripts/check-turn-blocks.js"
   },
   "author": "Chanathip Cheumklang",
   "license": "MIT",
