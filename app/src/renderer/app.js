@@ -320,6 +320,7 @@ const STRINGS = {
     queueSave: 'Save',
     queueCancelEdit: 'Cancel',
     queueReorder: 'Drag to reorder',
+    queuePosition: 'Position {n} in the queue',
     queueEditingNote: 'Editing — not sent yet',
     newSession: 'New session',
     noOutput: '(no output)',
@@ -648,6 +649,7 @@ const STRINGS = {
     queueSave: 'บันทึก',
     queueCancelEdit: 'ยกเลิก',
     queueReorder: 'ลากเพื่อสลับลำดับ',
+    queuePosition: 'ลำดับที่ {n} ในคิว',
     queueEditingNote: 'กำลังแก้ — ยังไม่ส่ง',
     newSession: 'เซสชันใหม่',
     noOutput: '(ไม่มีผลลัพธ์)',
@@ -4720,12 +4722,24 @@ function renderQueue() {
   head.textContent = items.length === 1 ? t('queuedOne') : t('queuedMany', { n: items.length });
   bar.appendChild(head);
 
-  items.forEach((item) => {
+  items.forEach((item, index) => {
     const row = document.createElement('div');
     row.className = 'queue-item';
     row.dataset.queueId = item.queueId || '';
     // The item's own position, resolved at click time by queueId rather than by
     // the index captured here — a drag can move it before the click lands.
+
+    // Position in the queue, in front of everything else. Without it the only cue
+    // to order was the vertical stacking, and while dragging — the one moment
+    // order actually matters — the ghost is away from the list and you cannot
+    // tell which of two similar messages is number two. It also says plainly
+    // which message is next, because number one is the one that goes out when
+    // the current turn ends.
+    const num = document.createElement('span');
+    num.className = 'queue-num';
+    num.textContent = String(index + 1);
+    num.setAttribute('aria-label', t('queuePosition', { n: index + 1 }));
+    row.appendChild(num);
 
     if (item.kind !== 'action') {
       const grip = document.createElement('button');
@@ -4978,25 +4992,37 @@ function enableQueueDrag(row, handle) {
 function showDragGhost(row, clientY) {
   hideDragGhost();
   if (!row) return;
-  const bar = el('queueBar');
-  if (!bar) return;
   const ghost = document.createElement('div');
   ghost.className = 'queue-ghost';
   ghost.setAttribute('aria-hidden', 'true');
-  ghost.textContent = row.querySelector('.queue-text')?.textContent || '';
-  const width = bar.getBoundingClientRect().width;
-  ghost.style.width = `${Math.round(width)}px`;
+  // A short label, not the whole message. The ghost is a tag that says what is
+  // being carried; the words are already on screen in the row it came from, so
+  // copying all of them made a full-width band that covered the list you were
+  // dragging into — the one thing you need to see.
+  const raw = row.querySelector('.queue-text')?.textContent || '';
+  ghost.textContent = shortenGhost(raw);
   document.body.appendChild(ghost);
   queueGhost = ghost;
   moveDragGhost(clientY);
 }
 
+/** Cut the ghost's label to a length that fits a small pill. */
+function shortenGhost(text, limit = 32) {
+  const flat = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!flat) return '';
+  // Iterate by code point: Thai vowels and tone marks are separate code points,
+  // and slicing by UTF-16 units can cut a combining mark away from its base.
+  const chars = [...flat];
+  if (chars.length <= limit) return flat;
+  return `${chars.slice(0, limit).join('').trimEnd()}…`;
+}
+
 /** Put the ghost under the pointer. */
 function moveDragGhost(clientY) {
   if (!queueGhost) return;
-  // Centred vertically on the cursor, and nudged left of the pointer so the text
-  // is not hidden behind the arrow.
-  queueGhost.style.transform = `translateY(${Math.round(clientY - 16)}px)`;
+  // Centred vertically on the cursor. The ghost is a small pill that sizes itself
+  // to its label, so only the vertical position needs driving.
+  queueGhost.style.transform = `translateY(${Math.round(clientY - 14)}px)`;
 }
 
 function hideDragGhost() {

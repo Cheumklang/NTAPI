@@ -83,7 +83,13 @@ app.whenReady().then(async () => {
         // words: the × must be next to the message, not at the far right.
         order: [...r.children].map((c) => c.className).join(','),
         xBeforeText: !!(rm.compareDocumentPosition(tx) & Node.DOCUMENT_POSITION_FOLLOWING),
-        gripFirst: !!r.firstElementChild && r.firstElementChild.classList.contains('queue-grip'),
+        // The grip still has to be the first *control*, but the row now opens with
+        // its position number, so it is no longer the first child.
+        gripFirst: (() => {
+          const kids = [...r.children].filter((c) => !c.classList.contains('queue-num'));
+          return kids.length > 0 && kids[0].classList.contains('queue-grip');
+        })(),
+        numFirst: !!r.firstElementChild && r.firstElementChild.classList.contains('queue-num'),
         xFromLeft: Math.round(xb.left - rb.left),
         gap: Math.round(tb.left - xb.right),
         // Overlap means the text starts before the button ends. Comparing right
@@ -135,13 +141,16 @@ app.whenReady().then(async () => {
     one.rows.every((r) => r.xBeforeText === true), one.rows.map((r) => r.order));
   check('the grip still leads the row so it can be grabbed',
     one.rows.every((r) => r.gripFirst === true), one.rows.map((r) => r.order));
+  check('the row opens with its position number',
+    one.rows.every((r) => r.numFirst === true), one.rows.map((r) => r.order));
+  // Measured from the left edge, allowing for the number and the grip in front.
   check('the remove button is close to the left edge',
-    one.rows.every((r) => r.xFromLeft >= 0 && r.xFromLeft <= 40), one.rows.map((r) => r.xFromLeft));
+    one.rows.every((r) => r.xFromLeft >= 0 && r.xFromLeft <= 60), one.rows.map((r) => r.xFromLeft));
   // The original complaint: the × was a whole screen away from the words on the
   // right edge of a 750px row. It must be a fixed short distance from the start,
   // not a share of the row width.
   check('the remove button is a fixed short distance from the left',
-    one.rows.every((r) => r.xFromLeft <= 40 && r.xFromLeft < one.queueWidth / 4),
+    one.rows.every((r) => r.xFromLeft <= 60 && r.xFromLeft < one.queueWidth / 4),
     { xs: one.rows.map((r) => r.xFromLeft), rowW: one.queueWidth });
   check('the message starts right after the remove button',
     one.rows.every((r) => r.gap >= 0 && r.gap <= 12), one.rows.map((r) => r.gap));

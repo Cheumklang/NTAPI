@@ -20,7 +20,8 @@
     "check:approval": "electron scripts/check-approval-switch.js",
     "check:blocks": "electron scripts/check-turn-blocks.js",
     "check:queue-controls": "electron scripts/check-queue-controls.js",
-    "check:queue-edit-hold": "electron scripts/check-queue-edit-hold.js"
+    "check:queue-edit-hold": "electron scripts/check-queue-edit-hold.js",
+    "check:queue-number": "electron scripts/check-queue-number.js"
   },
   "author": "Chanathip Cheumklang",
   "license": "MIT",

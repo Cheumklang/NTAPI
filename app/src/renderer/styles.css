@@ -1896,25 +1896,45 @@ button { font-family: inherit; }
  * no buttons inside it, so a stray click cannot remove the message it is carrying.
  */
 .queue-ghost {
+  /* A small pill, sized to its label — not a bar the width of the queue. At full
+   * width the ghost covered the list it was being dragged into, hiding the rows
+   * and the position numbers you were aiming at. */
   position: fixed;
-  left: 0;
-  right: 0;
+  left: 8px;
   top: 0;
   z-index: 60;
   pointer-events: none;
-  padding: 3px 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  max-width: 260px;
+  padding: 2px 8px;
+  border: 1px solid var(--accent, #4d7cff);
+  border-radius: 999px;
   background: var(--bg-2);
   color: var(--text);
-  font-size: 11.5px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.5;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  opacity: .82;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+  opacity: .9;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .4);
   transform: translateY(0);
+}
+
+/*
+ * Position in the queue, in front of the row. Dim and small so it reads as an
+ * index rather than as content, but always visible — the number is the point.
+ * Tabular figures keep single- and double-digit numbers the same width, so the
+ * messages do not shift horizontally at the tenth item.
+ */
+.queue-num {
+  flex: 0 0 auto;
+  min-width: 11px;
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  opacity: .75;
+  text-align: right;
+  user-select: none;
 }
 
 /* ---------------- live status ---------------- */
