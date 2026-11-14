@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; img-src data: file:"
+    />
+    <title>NTAPI installer — real assets</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 32px; color: #e8e9f2;
+        background:
+          radial-gradient(900px 420px at 20% -10%, rgba(124, 92, 255, .16), transparent 60%),
+          radial-gradient(700px 380px at 95% 5%, rgba(90, 169, 255, .10), transparent 60%),
+          #0c0d12;
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+      h1 { margin: 0 0 4px; font-size: 17px; }
+      .sub { margin: 0 0 24px; font-size: 12.5px; color: #8b93a7; }
+      .row { display: flex; gap: 26px; flex-wrap: wrap; align-items: flex-start; }
+      .stack { display: flex; flex-direction: column; gap: 10px; }
+      .cap { font-size: 11.5px; color: #8b93a7; max-width: 460px; line-height: 1.5; }
+      .cap b { color: #e8e9f2; }
+
+      .win { width: 520px; background: #f4f5f9; border-radius: 8px; overflow: hidden; box-shadow: 0 22px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06); }
+      .tb { height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 12px; background: #1b1d26; color: #cfd3e0; font-size: 11.5px; }
+      .x { width: 32px; height: 32px; display: grid; place-items: center; color: #8b93a7; }
+      .split { display: flex; }
+      .side img { display: block; width: 164px; height: 314px; }
+      .content { flex: 1; padding: 18px 20px 16px; display: flex; flex-direction: column; background: #f4f5f9; }
+      h2 { margin: 2px 0 8px; font-size: 15.5px; font-weight: 660; color: #191b24; }
+      p.body { margin: 0 0 8px; font-size: 11.8px; line-height: 1.6; color: #4c5266; }
+      .grow { flex: 1; }
+      .actions { display: flex; gap: 8px; justify-content: flex-end; }
+      button { font: inherit; font-size: 11.5px; padding: 6px 16px; border-radius: 5px; border: 1px solid #c3c7d6; background: linear-gradient(#fdfdfe, #eceef5); color: #2a2f3d; }
+      button.primary { border: 1px solid #5a41d6; color: #fff; background: linear-gradient(#8b6dff, #6a4bf0); box-shadow: 0 2px 10px rgba(124,92,255,.35); }
+      .hdr img { display: block; width: 150px; height: 57px; }
+    </style>
+  </head>
+  <body>
+    <h1>NTAPI installer — ของจริงที่เพิ่งสร้าง</h1>
+    <p class="sub">ภาพที่เห็นคือไฟล์ BMP/ICO ที่จะถูกฝังลงตัวติดตั้งจริง (ยังไม่ได้ต่อเข้า build)</p>
+
+    <div class="row">
+      <div class="stack">
+        <div class="win">
+          <div class="tb"><span>NTAPI 0.3.2 Setup</span><div class="x">✕</div></div>
+          <div class="split">
+            <div class="side"><img src="../../app/build/installerSidebar.bmp" /></div>
+            <div class="content">
+              <h2>ยินดีต้อนรับสู่ NTAPI</h2>
+              <p class="body">ผู้ช่วยเขียนโค้ดที่ทำงานในเครื่องคุณ ต่อกับโมเดลฟรีได้ทันที</p>
+              <p class="body">ใช้พื้นที่ประมาณ 320 MB · Windows 10/11 (64-bit)</p>
+              <div class="grow"></div>
+              <div class="actions"><button>ยกเลิก</button><button class="primary">ติดตั้ง</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Welcome</b> — sidebar 164×314 (24-bit BMP) ที่วาดจากโลโก้จริง + พาเลตเดียวกับ splash</div>
+      </div>
+
+      <div class="stack">
+        <div class="win">
+          <div class="tb"><span>NTAPI 0.3.2 Setup</span><div class="x">✕</div></div>
+          <div class="hdr"><img src="../../app/build/installerHeader.bmp" /></div>
+          <div class="content" style="min-height: 200px">
+            <h2>กำลังติดตั้ง NTAPI</h2>
+            <p class="body">กำลังแตกไฟล์และสร้างทางลัด กรุณารอสักครู่</p>
+            <div style="height: 8px; border-radius: 99px; background: #e2e4ee; overflow: hidden; margin: 12px 0 8px">
+              <i style="display:block;height:100%;width:62%;background:linear-gradient(90deg,#6a4bf0,#5aa9ff);border-radius:99px"></i>
+            </div>
+            <div style="font-size:10.5px;color:#7b8298">C:\Users\คุณ\AppData\Local\Programs\NTAPI</div>
+          </div>
+        </div>
+        <div class="cap"><b>Installing</b> — header 150×57 + progress bar ของ NSIS</div>
+      </div>
+    </div>
+  </body>
+</html>

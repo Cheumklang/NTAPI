@@ -26,6 +26,7 @@ const TESTS = [
   'selftest-model-fallback.js',
   'selftest-error-messages.js',
   'selftest-update-splash.js',
+  'selftest-installer-assets.js',
   'selftest-empty-answer.js',
   'selftest-image-history.js',
   'selftest-image-review.js',

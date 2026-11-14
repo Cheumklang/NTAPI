@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+    />
+    <title>NTAPI installer mockups</title>
+    <style>
+      :root {
+        --bg: #0c0d12;
+        --card: #191b24;
+        --line: rgba(124, 92, 255, .28);
+        --text: #e8e9f2;
+        --muted: #8b93a7;
+        --accent: #7c5cff;
+        --accent-2: #5aa9ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 34px;
+        background:
+          radial-gradient(900px 420px at 18% -10%, rgba(124, 92, 255, .16), transparent 60%),
+          radial-gradient(700px 380px at 92% 8%, rgba(90, 169, 255, .10), transparent 60%),
+          var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+      h1 { margin: 0 0 4px; font-size: 17px; font-weight: 650; letter-spacing: .2px; }
+      .sub { margin: 0 0 26px; font-size: 12.5px; color: var(--muted); }
+      .row { display: flex; gap: 26px; flex-wrap: wrap; align-items: flex-start; }
+      .stack { display: flex; flex-direction: column; gap: 12px; }
+      .caption { font-size: 12px; color: var(--muted); max-width: 520px; line-height: 1.55; }
+      .caption b { color: var(--text); font-weight: 600; }
+      .badge {
+        display: inline-block; font-size: 10.5px; padding: 2px 8px; border-radius: 999px;
+        border: 1px solid var(--line); color: #c9c2ff; margin-left: 6px;
+      }
+
+      /* ---- a window ---- */
+      .win {
+        width: 520px;
+        background: #f4f5f9;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 22px 60px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .06);
+      }
+      .win.dark { background: var(--bg); }
+      .titlebar {
+        height: 32px; display: flex; align-items: center; justify-content: space-between;
+        padding: 0 4px 0 12px; background: #1b1d26; color: #cfd3e0; font-size: 11.5px;
+      }
+      .titlebar .dots { display: flex; gap: 4px; }
+      .titlebar .x { width: 32px; height: 32px; display: grid; place-items: center; color: #8b93a7; }
+      .split { display: flex; min-height: 314px; }
+
+      /* sidebar art, 164×314 like a real NSIS welcome page */
+      .sidebar {
+        width: 164px; flex: 0 0 164px;
+        background:
+          radial-gradient(120px 160px at 30% 18%, rgba(124, 92, 255, .55), transparent 70%),
+          radial-gradient(140px 180px at 86% 92%, rgba(90, 169, 255, .35), transparent 70%),
+          linear-gradient(160deg, #14161f, #0b0c11);
+        position: relative; overflow: hidden;
+        display: flex; flex-direction: column; justify-content: space-between;
+        padding: 16px 14px;
+      }
+      .sidebar::after {
+        content: ""; position: absolute; inset: 0;
+        background-image:
+          radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .12) 1px, transparent 0);
+        background-size: 14px 14px; opacity: .35;
+      }
+      .mark { display: flex; align-items: center; gap: 8px; z-index: 1; }
+      .mark .ring {
+        width: 26px; height: 26px; border-radius: 50%;
+        border: 2px solid #b9aeff; position: relative;
+      }
+      .mark .ring::before, .mark .ring::after {
+        content: ""; position: absolute; border: 1.5px solid rgba(185, 174, 255, .75); border-radius: 50%;
+      }
+      .mark .ring::before { inset: 5px 0; }
+      .mark .ring::after { inset: 0 7px; }
+      .mark span { font-size: 13px; font-weight: 650; letter-spacing: .6px; }
+      .side-foot { z-index: 1; font-size: 10px; color: #9aa0b4; line-height: 1.6; }
+      .side-foot b { display: block; color: #d7d9e6; font-size: 10.5px; letter-spacing: .3px; }
+
+      /* content */
+      .content { flex: 1; padding: 18px 20px 16px; display: flex; flex-direction: column; background: #f4f5f9; }
+      .content.dark { background: #101219; }
+      h2 { margin: 2px 0 8px; font-size: 15.5px; font-weight: 660; color: #191b24; }
+      .content.dark h2 { color: var(--text); }
+      p.body { margin: 0 0 10px; font-size: 11.8px; line-height: 1.6; color: #4c5266; }
+      .content.dark p.body { color: #aab0c2; }
+      .meta { font-size: 10.5px; color: #7b8298; }
+      .content.dark .meta { color: #6f778c; }
+      .grow { flex: 1; }
+      .actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+      button {
+        font: inherit; font-size: 11.5px; padding: 6px 16px; border-radius: 5px; cursor: default;
+        border: 1px solid #c3c7d6; background: linear-gradient(#fdfdfe, #eceef5); color: #2a2f3d;
+      }
+      button.primary {
+        border: 1px solid #5a41d6; color: #fff;
+        background: linear-gradient(#8b6dff, #6a4bf0);
+        box-shadow: 0 2px 10px rgba(124, 92, 255, .35);
+      }
+      .content.dark button { border-color: #2c3040; background: #1b1e28; color: #d7d9e6; }
+      .content.dark button.primary { border-color: #5a41d6; background: linear-gradient(#8b6dff, #6a4bf0); color: #fff; }
+
+      /* header strip used on non-welcome pages */
+      .header {
+        height: 57px; display: flex; align-items: center; justify-content: space-between;
+        padding: 0 18px; background: linear-gradient(120deg, #14161f, #1b1f2e 60%, #241d47);
+      }
+      .header .mark span { font-size: 12px; }
+      .header .ver { font-size: 10px; color: #9aa0b4; }
+
+      .progress { margin: 14px 0 6px; height: 8px; border-radius: 99px; background: #e2e4ee; overflow: hidden; }
+      .progress > i {
+        display: block; height: 100%; width: 62%;
+        background: linear-gradient(90deg, #6a4bf0, #5aa9ff); border-radius: 99px;
+      }
+      .content.dark .progress { background: #22263a; }
+
+      .check { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #3d4356; margin: 10px 0 2px; }
+      .content.dark .check { color: #aab0c2; }
+      .box {
+        width: 13px; height: 13px; border-radius: 3px; border: 1px solid #8b90a3; display: grid; place-items: center;
+        font-size: 9px; color: #fff; background: #fff;
+      }
+      .box.on { background: #6a4bf0; border-color: #5a41d6; }
+
+      /* variant label above each window */
+      .label { font-size: 11.5px; color: #cfd3e0; display: flex; align-items: center; gap: 8px; }
+      .label .num {
+        width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+        background: rgba(124, 92, 255, .2); border: 1px solid var(--line); color: #c9c2ff; font-size: 10.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>NTAPI installer — ตัวอย่างหน้าตา</h1>
+    <p class="sub">ของจริงคือ NSIS จาก electron-builder · ขนาดหน้าต่างประมาณ 520 × 380 px</p>
+
+    <!-- ============ A: realistic NSIS ============ -->
+    <div class="row">
+      <div class="stack">
+        <div class="label"><span class="num">A</span> Welcome — ทำได้จริงแบบ NSIS <span class="badge">แนะนำ</span></div>
+        <div class="win">
+          <div class="titlebar"><span>NTAPI 0.3.2 Setup</span><div class="dots"><div class="x">✕</div></div></div>
+          <div class="split">
+            <div class="sidebar">
+              <div class="mark"><div class="ring"></div><span>NTAPI</span></div>
+              <div class="side-foot"><b>เวอร์ชัน 0.3.2</b>ติดตั้งลงเครื่องนี้<br />ไม่ต้องติดตั้ง Node หรืออะไรเพิ่ม</div>
+            </div>
+            <div class="content">
+              <h2>ยินดีต้อนรับสู่ NTAPI</h2>
+              <p class="body">
+                ผู้ช่วยเขียนโค้ดที่ทำงานในเครื่องคุณ ต่อกับโมเดลฟรีได้ทันที
+                ตัวติดตั้งจะวางโปรแกรมไว้ในเครื่องและสร้างทางลัดให้
+              </p>
+              <p class="body">ใช้พื้นที่ประมาณ 320 MB · ใช้ได้กับ Windows 10/11 (64-bit)</p>
+              <div class="grow"></div>
+              <div class="actions">
+                <button>ยกเลิก</button>
+                <button class="primary">ติดตั้ง</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="caption">
+          <b>ทำได้ด้วย:</b> รูป sidebar 164×314 + header 150×57 (ธีมเดียวกับ splash) แล้วแก้ข้อความผ่าน <code>nsis.include</code>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="label"><span class="num">B</span> Installing — หน้าระหว่างติดตั้ง</div>
+        <div class="win">
+          <div class="titlebar"><span>NTAPI 0.3.2 Setup</span><div class="dots"><div class="x">✕</div></div></div>
+          <div class="header">
+            <div class="mark"><div class="ring"></div><span>NTAPI</span></div>
+            <div class="ver">กำลังติดตั้ง…</div>
+          </div>
+          <div class="content" style="min-height: 314px">
+            <h2>กำลังติดตั้ง NTAPI</h2>
+            <p class="body">กำลังแตกไฟล์และสร้างทางลัด กรุณารอสักครู่</p>
+            <div class="progress"><i></i></div>
+            <div class="meta">C:\Users\คุณ\AppData\Local\Programs\NTAPI</div>
+            <div class="grow"></div>
+          </div>
+        </div>
+        <div class="caption"><b>ทำได้ด้วย:</b> header bitmap + ปุ่ม/ข้อความของ MUI (สีพื้นหลังยังเป็นสีระบบ)</div>
+      </div>
+    </div>
+
+    <!-- ============ C: full dark ============ -->
+    <div class="row" style="margin-top: 30px">
+      <div class="stack">
+        <div class="label"><span class="num">C</span> ถ้าอยากได้ทั้งหน้าต่างมืด (เหมือน splash 100%)</div>
+        <div class="win dark">
+          <div class="titlebar"><span>NTAPI 0.3.2 Setup</span><div class="dots"><div class="x">✕</div></div></div>
+          <div class="split">
+            <div class="sidebar">
+              <div class="mark"><div class="ring"></div><span>NTAPI</span></div>
+              <div class="side-foot"><b>เวอร์ชัน 0.3.2</b>ติดตั้งลงเครื่องนี้<br />ไม่ต้องติดตั้ง Node หรืออะไรเพิ่ม</div>
+            </div>
+            <div class="content dark">
+              <h2>ยินดีต้อนรับสู่ NTAPI</h2>
+              <p class="body">
+                ผู้ช่วยเขียนโค้ดที่ทำงานในเครื่องคุณ ต่อกับโมเดลฟรีได้ทันที
+                ตัวติดตั้งจะวางโปรแกรมไว้ในเครื่องและสร้างทางลัดให้
+              </p>
+              <label class="check"><span class="box on">✓</span> สร้างทางลัดบนเดสก์ท็อป</label>
+              <div class="grow"></div>
+              <div class="actions">
+                <button>ยกเลิก</button>
+                <button class="primary">ติดตั้ง</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="caption">
+          <b>ต้นทุน:</b> ต้องเขียนหน้าเองทั้งหมดด้วย nsDialogs (~300 บรรทัด NSIS) และ<b>สีพื้นหลังของหน้าติดตั้งจริงยังเปลี่ยนไม่ได้</b> —
+          จะมืดได้แค่หน้า Welcome/Finish ที่เราวาดเอง เสี่ยงทำให้ตัวติดตั้ง/อัปเดตอัตโนมัติพัง
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="label"><span class="num">D</span> Finish</div>
+        <div class="win">
+          <div class="titlebar"><span>NTAPI 0.3.2 Setup</span><div class="dots"><div class="x">✕</div></div></div>
+          <div class="split">
+            <div class="sidebar">
+              <div class="mark"><div class="ring"></div><span>NTAPI</span></div>
+              <div class="side-foot"><b>ติดตั้งเสร็จแล้ว</b>เปิดโปรแกรมได้เลย<br />ตั้งค่าโมเดลได้ในหน้าต่าง Settings</div>
+            </div>
+            <div class="content">
+              <h2>ติดตั้งเสร็จเรียบร้อย</h2>
+              <p class="body">NTAPI พร้อมใช้งานแล้ว ครั้งแรกจะให้เลือกโมเดลและใส่คีย์ (ถ้ามี)</p>
+              <label class="check"><span class="box on">✓</span> เปิด NTAPI ทันที</label>
+              <label class="check"><span class="box"></span> เปิดโฟลเดอร์ที่ติดตั้ง</label>
+              <div class="grow"></div>
+              <div class="actions"><button class="primary">เสร็จสิ้น</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="caption"><b>ทำได้ด้วย:</b> หน้า Finish ของ MUI + ข้อความ/checkbox ตามต้องการ</div>
+      </div>
+    </div>
+  </body>
+</html>
