@@ -1121,12 +1121,17 @@ function modelOptionButton(model, current) {
   const selected = Boolean(
     current && current.provider === model.provider && current.id === model.id
   );
+  const fav = favoriteModels.has(modelKey(model));
+
+  const holder = document.createElement('div');
+  holder.className = 'model-row';
 
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'model-option';
   row.setAttribute('role', 'option');
   row.setAttribute('aria-selected', String(selected));
+  row.setAttribute('aria-label', `${FPProvider.modelOptionLabel(model)} — ${planTitle(model)}`);
   row.dataset.provider = model.provider;
   row.dataset.id = model.id;
   row.dataset.value = `${model.provider}||${model.id}`;
@@ -1135,7 +1140,6 @@ function modelOptionButton(model, current) {
   // the whole list and "paid" (or "เสียเงิน") narrows to the rows that cost.
   row.dataset.search =
     `${provider} ${name} ${model.id} ${plan} ${plan === 'paid' ? 'paid เสียเงิน' : 'free ฟรี'}`.toLowerCase();
-  row.title = `${FPProvider.modelOptionLabel(model)}\n${model.id}\n${planTitle(model)}`;
   row.tabIndex = -1;
 
   const check = document.createElement('span');
@@ -1149,22 +1153,39 @@ function modelOptionButton(model, current) {
 
   // The heading above already says the row is free, so only a row that spends
   // money carries a badge — and it carries the cost when the catalog knew one.
+  row.append(check, label);
   if (plan === 'paid') {
     const badge = document.createElement('span');
     badge.className = 'model-plan paid';
     badge.textContent = planText(model);
-    row.append(check, label, badge);
-  } else {
-    row.append(check, label);
+    row.appendChild(badge);
   }
-  return row;
+
+  const star = document.createElement('button');
+  star.type = 'button';
+  star.className = 'model-star' + (fav ? ' on' : '');
+  star.dataset.provider = model.provider;
+  star.dataset.id = model.id;
+  star.textContent = fav ? '\u2605' : '\u2606';
+  star.title = fav ? t('unstar') : t('star');
+  star.setAttribute('aria-label', star.title);
+  star.setAttribute('aria-pressed', String(fav));
+
+  holder.append(row, star);
+  return holder;
 }
 
 function renderModelMenu(models, current) {
   modelList.replaceChildren();
-  const groups = FPProvider.groupModelsByProvider(models);
-  const selectedValue = modelKey(current);
+  const list = Array.isArray(models) ? models : [];
 
+  // Favourites sit in their own folder on top so a starred model is one click
+  // away regardless of provider. It is a shortcut: the model still appears
+  // under its provider below.
+  const favorites = list.filter((model) => favoriteModels.has(modelKey(model)));
+  if (favorites.length) modelList.appendChild(favoriteGroup(favorites, current));
+
+  const groups = FPProvider.groupModelsByProvider(list);
   for (const group of groups) {
     const section = document.createElement('div');
     section.className = 'model-group';
@@ -1207,9 +1228,7 @@ function renderModelMenu(models, current) {
       bucket.appendChild(sub);
 
       for (const model of part.models) {
-        const row = modelOptionButton(model, current);
-        if (modelKey(model) === selectedValue) row.setAttribute('aria-selected', 'true');
-        bucket.appendChild(row);
+        bucket.appendChild(modelOptionButton(model, current));
       }
       section.appendChild(bucket);
     }
@@ -1221,6 +1240,7 @@ function visibleModelOptions() {
   return [...modelList.querySelectorAll('.model-option')].filter(
     (row) =>
       !row.hidden &&
+      !row.closest('.model-row')?.hidden &&
       !row.closest('.model-section')?.hidden &&
       !row.closest('.model-group')?.hidden
   );
@@ -1238,7 +1258,7 @@ function filterModelMenu() {
         const match =
           (!query || row.dataset.search.includes(query)) &&
           (!freeOnly || row.dataset.plan === 'free');
-        row.hidden = !match;
+        (row.closest('.model-row') || row).hidden = !match;
         if (match) inSection += 1;
       }
       section.hidden = inSection === 0;
@@ -1279,6 +1299,7 @@ function openModelMenu() {
 function closeModelMenu({ focus = false } = {}) {
   if (modelMenu.hidden) return;
   modelMenu.hidden = true;
+  hideModelTip();
   modelPickerBtn.setAttribute('aria-expanded', 'false');
   if (focus) modelPickerBtn.focus({ preventScroll: true });
 }
@@ -1332,6 +1353,8 @@ function renderModelPicker(view) {
 
   modelPickerBtn.disabled = models.length === 0;
   paintModelTrigger(current);
+  menuModels = models;
+  menuCurrent = current;
   renderModelMenu(models, current);
   syncModelMenuSelection();
 
@@ -1353,6 +1376,118 @@ modelFreeOnly.addEventListener('change', () => {
   } catch {}
   filterModelMenu();
 });
+
+/* ------------------------- favourite models ------------------------- */
+
+// Stars live in localStorage next to the "free only" preference: cosmetic,
+// per machine, and never sent to a provider.
+const FAVORITES_KEY = 'ntapi.favoriteModels';
+let favoriteModels = new Set();
+try {
+  const saved = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+  if (Array.isArray(saved)) favoriteModels = new Set(saved.filter((v) => typeof v === 'string'));
+} catch {}
+let menuModels = [];
+let menuCurrent = null;
+
+function saveFavorites() {
+  try {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favoriteModels]));
+  } catch {}
+}
+
+function toggleFavorite(provider, id) {
+  if (!provider || !id) return;
+  const key = `${provider}||${id}`;
+  if (favoriteModels.has(key)) favoriteModels.delete(key);
+  else favoriteModels.add(key);
+  saveFavorites();
+  renderModelMenu(menuModels, menuCurrent);
+  filterModelMenu();
+  syncModelMenuSelection();
+}
+
+/** The starred models as their own folder at the top of the list. */
+function favoriteGroup(models, current) {
+  const group = document.createElement('div');
+  group.className = 'model-group model-group-fav';
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', t('favorites'));
+
+  const head = document.createElement('div');
+  head.className = 'model-group-head';
+  const mark = document.createElement('span');
+  mark.className = 'model-group-mark model-group-mark-star';
+  mark.setAttribute('aria-hidden', 'true');
+  mark.textContent = '\u2605';
+  const label = document.createElement('span');
+  label.className = 'model-group-name';
+  label.textContent = t('favorites');
+  const count = document.createElement('span');
+  count.className = 'model-group-count';
+  count.textContent = String(models.length);
+  head.append(mark, label, count);
+  group.appendChild(head);
+
+  const bucket = document.createElement('div');
+  bucket.className = 'model-section';
+  bucket.dataset.plan = 'free';
+  for (const model of models) bucket.appendChild(modelOptionButton(model, current));
+  group.appendChild(bucket);
+  return group;
+}
+
+/* --------------------- provider bubble on hover --------------------- */
+
+// A native title cannot show a logo, so the provider a row belongs to is shown
+// in a rounded bubble instead.
+const modelTip = el('modelTip');
+
+function showModelTip(row) {
+  if (!modelTip) return;
+  const provider = row.dataset.provider;
+  const logo = FPProvider.providerLogoPath(provider);
+  modelTip.replaceChildren();
+  if (logo) {
+    const img = document.createElement('img');
+    img.src = logo;
+    img.alt = '';
+    modelTip.appendChild(img);
+  } else {
+    const letter = document.createElement('span');
+    letter.className = 'model-tip-letter';
+    letter.textContent = FPProvider.providerInitial(provider);
+    modelTip.appendChild(letter);
+  }
+  const text = document.createElement('span');
+  text.textContent = FPProvider.providerLabel(provider);
+  modelTip.appendChild(text);
+
+  modelTip.hidden = false;
+  const r = row.getBoundingClientRect();
+  const w = modelTip.offsetWidth;
+  const h = modelTip.offsetHeight;
+  let top = r.top - h - 8;
+  if (top < 8) top = r.bottom + 8;
+  let left = r.left;
+  if (left + w > window.innerWidth - 8) left = window.innerWidth - w - 8;
+  if (left < 8) left = 8;
+  modelTip.style.top = `${top}px`;
+  modelTip.style.left = `${left}px`;
+}
+
+function hideModelTip() {
+  if (modelTip) modelTip.hidden = true;
+}
+
+modelList.addEventListener('pointerover', (e) => {
+  const row = e.target.closest?.('.model-option');
+  if (row) showModelTip(row);
+});
+modelList.addEventListener('pointerout', (e) => {
+  if (!e.relatedTarget || !e.relatedTarget.closest?.('.model-option')) hideModelTip();
+});
+modelList.addEventListener('scroll', hideModelTip);
 modelPickerBtn.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
@@ -1375,6 +1510,13 @@ modelSearch.addEventListener('keydown', (e) => {
 });
 
 modelList.addEventListener('click', (e) => {
+  const star = e.target.closest('.model-star');
+  if (star) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFavorite(star.dataset.provider, star.dataset.id);
+    return;
+  }
   const row = e.target.closest('.model-option');
   if (!row) return;
   chooseModel(row.dataset.provider, row.dataset.id);
@@ -1546,13 +1688,38 @@ function paintProviderMeter(view) {
   const name = el('providerName');
   const label = el('providerMeterLabel');
   const text = el('providerMeterText');
+  const barWrap = el('providerBarWrap');
+  const resetsRow = el('providerResetsRow');
   if (!name || !text || !label) return;
   if (chrome.meter === null) return;
+
+  // The budget bar and resets row belong to Coarena; hide them for every other
+  // provider so switching models never leaves a stale bar behind.
+  if (barWrap) barWrap.hidden = true;
+  if (resetsRow) resetsRow.hidden = true;
 
   name.textContent = FPProvider.providerLabel(view?.model?.provider);
   if (chrome.meter === 'coarena') {
     label.textContent = t('coarenaLimits');
     text.textContent = coarenaStatus?.info ? FPProvider.coarenaMeterText(coarenaStatus.info) : '—';
+    // When the key reports a daily USD allowance, show it as a bar so the user
+    // can see how close to the cap they are, not just a raw limits line.
+    const budget = FPProvider.coarenaBudget(coarenaStatus?.info);
+    if (budget && barWrap) {
+      barWrap.hidden = false;
+      const fill = el('providerBarFill');
+      fill.style.width = `${budget.pct}%`;
+      fill.className =
+        'usage-bar-fill' + (budget.pct >= 90 ? ' danger' : budget.pct >= 70 ? ' warn' : '');
+      el('providerPct').textContent = t('pctUsed', { n: budget.pct });
+      el('providerUsed').textContent = `$${budget.used.toFixed(2)} / $${budget.limit.toFixed(2)}`;
+      if (budget.resetsAt && resetsRow) {
+        const when = new Date(budget.resetsAt);
+        resetsRow.hidden = false;
+        el('providerResets').textContent = formatShortDateTime(when);
+        el('providerResets').title = when.toLocaleString();
+      }
+    }
   } else if (chrome.meter === 'nvidia') {
     // NVIDIA publishes no usage endpoint; show the free-tier shape instead.
     label.textContent = t('nvidiaFreeTier');
@@ -4529,6 +4696,9 @@ Object.assign(STRINGS.en, {
   planNoteWallet: 'billed to wallet',
   planNoteRouted: 'routed model',
   freeOnly: 'Free only',
+  favorites: 'Favorites',
+  star: 'Add to favorites',
+  unstar: 'Remove from favorites',
   newChat: 'New chat',
   settingsItem: 'Settings',
   searchItem: 'Search conversation',
@@ -4579,6 +4749,9 @@ Object.assign(STRINGS.th, {
   planNoteWallet: 'หักจากเครดิต',
   planNoteRouted: 'ตามโมเดล',
   freeOnly: 'เฉพาะฟรี',
+  favorites: 'รายการโปรด',
+  star: 'เพิ่มในรายการโปรด',
+  unstar: 'เอาออกจากรายการโปรด',
   newChat: 'แชทใหม่',
   settingsItem: 'ตั้งค่า',
   searchItem: 'ค้นหาในบทสนทนา',
@@ -5151,7 +5324,6 @@ input.addEventListener('keydown', (e) => {
 
 /* --------------------------- wiring: buttons ------------------------ */
 
-el('openPalette')?.addEventListener('click', openPalette);
 el('thinkingSelect')?.addEventListener('change', async (e) => {
   const view = activeView();
   if (!view) return;

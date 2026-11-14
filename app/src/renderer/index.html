@@ -86,9 +86,16 @@
           <div id="providerUsage" hidden>
             <div class="usage-row"><span data-i18n="provider">Provider</span><span id="providerName" class="mono">—</span></div>
             <div class="usage-row"><span id="providerMeterLabel" data-i18n="coarenaLimits">Limits</span><span id="providerMeterText" class="mono">—</span></div>
+            <div class="usage-bar-wrap" id="providerBarWrap" hidden>
+              <div class="usage-bar"><div id="providerBarFill" class="usage-bar-fill"></div></div>
+              <div class="usage-bar-legend">
+                <span id="providerPct">—</span>
+                <span id="providerUsed"></span>
+              </div>
+            </div>
+            <div class="usage-row" id="providerResetsRow" hidden><span data-i18n="resets">Resets</span><span id="providerResets" class="mono">—</span></div>
           </div>
           <button id="refreshUsage" class="ghost small full" data-i18n="refreshStatus">Refresh status</button>
-          <button id="openPalette" class="ghost small full" data-i18n="commands">Commands</button>
         </div>
       </aside>
       <div id="sidebarResizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize sidebar"></div>
@@ -142,6 +149,7 @@
                 </div>
                 <div class="model-list" id="modelList" role="listbox" aria-label="Model"></div>
                 <div class="model-menu-empty" id="modelMenuEmpty" hidden>No models match</div>
+                <div class="model-tip" id="modelTip" hidden aria-hidden="true"></div>
               </div>
             </div>
           </div>

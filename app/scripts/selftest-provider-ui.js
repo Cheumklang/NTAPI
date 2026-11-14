@@ -42,10 +42,19 @@ const groups = UI.groupModelsByProvider([
   { provider: 'broken', name: 'no id' },
 ]);
 check('groups by visible provider', groups.length === 3, JSON.stringify(groups));
-check('free-pi ids share one group', groups[0]?.label === 'FreePi' && groups[0].models.length === 3);
-check('group order follows catalog', groups.map((g) => g.label).join() === 'FreePi,Coarena,Zro');
+const freePiGroup = groups.find((g) => g.label === 'FreePi');
+check('free-pi ids share one group', freePiGroup?.models.length === 3);
+check('providers are sorted A-Z', groups.map((g) => g.label).join() === 'Coarena,FreePi,Zro');
+check('models inside a group are sorted A-Z', freePiGroup?.models.map((m) => m.name).join() === 'A,C,E');
 check('group keeps logo', groups.every((g) => g.logo.startsWith('assets/providers/')));
 check('defense-only group', UI.groupModelsByProvider([{ provider: 'free-pi-defense', id: 'x' }])[0]?.logo === UI.providerLogoPath('free-pi'));
+
+const sortedNames = UI.groupModelsByProvider([
+  { provider: 'free-pi', id: '1', name: 'Zeta' },
+  { provider: 'free-pi', id: '2', name: 'alpha' },
+  { provider: 'free-pi', id: '3', name: 'Beta' },
+]);
+check('model names sort A-Z (case-insensitive)', sortedNames[0].models.map((m) => m.name).join() === 'alpha,Beta,Zeta');
 
 // Free / paid split inside a group.
 const mixed = UI.groupModelsByProvider([
@@ -54,17 +63,18 @@ const mixed = UI.groupModelsByProvider([
   { provider: 'free-pi', id: 'c', name: 'C', plan: 'free' },
   { provider: 'coarena', id: 'd', name: 'D', plan: 'free' },
 ]);
-check('a mixed group splits into two sections', mixed[0].sections.length === 2, JSON.stringify(mixed[0].sections));
+const mixedFreePi = mixed.find((g) => g.label === 'FreePi');
+check('a mixed group splits into two sections', mixedFreePi.sections.length === 2, JSON.stringify(mixedFreePi.sections));
 check(
-  'the free routes come first, in catalog order',
-  mixed[0].sections[0].plan === 'free' && mixed[0].sections[0].models.map((m) => m.id).join() === 'a,c'
+  'the free routes come first, A-Z',
+  mixedFreePi.sections[0].plan === 'free' && mixedFreePi.sections[0].models.map((m) => m.id).join() === 'a,c'
 );
 check(
   'the paid routes follow',
-  mixed[0].sections[1].plan === 'paid' && mixed[0].sections[1].models[0].id === 'b'
+  mixedFreePi.sections[1].plan === 'paid' && mixedFreePi.sections[1].models[0].id === 'b'
 );
-check('an all-free group has one section', mixed[1].sections.length === 1 && mixed[1].sections[0].plan === 'free');
-check('the group still lists every entry', mixed[0].models.length === 3);
+check('an all-free group has one section', mixed[0].label === 'Coarena' && mixed[0].sections.length === 1 && mixed[0].sections[0].plan === 'free');
+check('the group still lists every entry', mixedFreePi.models.length === 3);
 check(
   'an untagged entry counts as free',
   UI.modelPlan({ id: 'x' }) === 'free' && UI.modelPlan({ id: 'x', plan: 'paid' }) === 'paid'
@@ -103,6 +113,14 @@ check(
   JSON.stringify(UI.coarenaMeterText({ limits: { requestsPerMinute: 30, concurrency: 2 }, usageToday: { requests: 4 } }))
 );
 check('meter empty without info', UI.coarenaMeterText(null) === '');
+
+const budget = UI.coarenaBudget({
+  limits: { usdPerDay: 5 },
+  usageToday: { costUsd: 2.5, requests: 12, resetsAt: '2026-01-01T00:00:00Z' },
+});
+check('coarena budget percent', budget?.limit === 5 && budget.pct === 50 && budget.requests === 12);
+check('coarena budget clamps over 100%', UI.coarenaBudget({ limits: { usdPerDay: 1 }, usageToday: { costUsd: 9 } }).pct === 100);
+check('coarena budget null without a daily limit', UI.coarenaBudget({ limits: { requestsPerMinute: 30 } }) === null);
 
 const skills = [{ name: 'caveman' }, { name: 'brainstorming' }];
 check('leading @skill resolves', UI.resolveSkillMention('@caveman hello', skills) === '/skill:caveman hello');

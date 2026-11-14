@@ -73,6 +73,16 @@
    * routes and the ones that spend money. A group with only one kind of route
    * gets a single section, so the caller can render both cases the same way.
    */
+  /** Stable A-Z order for model names; ties fall back to the id. */
+  function byModelName(a, b) {
+    const an = String(a?.name || a?.id || '');
+    const bn = String(b?.name || b?.id || '');
+    return (
+      an.localeCompare(bn, undefined, { sensitivity: 'base', numeric: true }) ||
+      String(a?.id || '').localeCompare(String(b?.id || ''))
+    );
+  }
+
   function groupModelsByProvider(models) {
     const groups = [];
     const byLabel = new Map();
@@ -88,7 +98,14 @@
       if (!group.logo) group.logo = providerLogoPath(model.provider);
       group.models.push(model);
     }
-    for (const group of groups) group.sections = planSections(group.models);
+    // Providers A-Z, and the models inside each provider A-Z, so a long
+    // dropdown is scannable instead of following whatever order the catalog
+    // returned.
+    for (const group of groups) {
+      group.models.sort(byModelName);
+      group.sections = planSections(group.models);
+    }
+    groups.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
     return groups;
   }
 
@@ -141,6 +158,25 @@
     if (Number.isFinite(limits.concurrency)) parts.push(`${limits.concurrency} at once`);
     if (Number.isFinite(usage.requests)) parts.push(`${usage.requests} today`);
     return parts.join(SEPARATOR);
+  }
+
+  /**
+   * Coarena's daily USD allowance as a used/limit pair, or null when the key
+   * reports no daily budget. This is what lets the sidebar show a near-limit bar
+   * instead of only the raw limits line.
+   */
+  function coarenaBudget(info) {
+    const limit = info?.limits?.usdPerDay;
+    if (!Number.isFinite(limit) || limit <= 0) return null;
+    const used = Number.isFinite(info?.usageToday?.costUsd) ? info.usageToday.costUsd : 0;
+    const pct = Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
+    return {
+      limit,
+      used,
+      pct,
+      requests: Number.isFinite(info?.usageToday?.requests) ? info.usageToday.requests : null,
+      resetsAt: info?.usageToday?.resetsAt || null,
+    };
   }
 
   /**
@@ -197,6 +233,8 @@
     modelOptionLabel,
     providerChrome,
     coarenaMeterText,
+    coarenaBudget,
+    byModelName,
     resolveSkillMention,
     extractImagePaths,
   };

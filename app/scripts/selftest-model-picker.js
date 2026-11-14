@@ -91,6 +91,9 @@ const FAKE_CATALOG = `
 
 (async () => {
   fs.mkdirSync(OUT_DIR, { recursive: true });
+  // The temp profile persists between runs; wipe it so a star left by an
+  // earlier run cannot change what this run sees.
+  fs.rmSync(path.join(os.tmpdir(), 'freepi-picker-test'), { recursive: true, force: true });
 
   const child = spawn(
     ELECTRON,
@@ -193,6 +196,45 @@ const FAKE_CATALOG = `
       true
     );
 
+    // Star a model: it must appear in a Favorites folder on top and persist.
+    await evaluate(
+      ws,
+      `(() => {
+         const star = document.querySelector('.model-option[data-id="claude-fable-5"]')
+           ?.closest('.model-row')?.querySelector('.model-star');
+         star?.click();
+         return true;
+       })()`,
+      true
+    );
+    await sleep(200);
+    const favorite = await evaluate(
+      ws,
+      `(() => {
+         const fav = [...document.querySelectorAll('.model-group')].find((g) => g.classList.contains('model-group-fav'));
+         const row = document.querySelector('.model-option[data-id="claude-fable-5"]');
+         return {
+           favLabel: fav?.querySelector('.model-group-name')?.textContent || '',
+           favCount: fav?.querySelectorAll('.model-option').length || 0,
+           starOn: Boolean(row?.closest('.model-row')?.querySelector('.model-star.on')),
+           stored: localStorage.getItem('ntapi.favoriteModels') || '',
+         };
+       })()`,
+      true
+    );
+
+    // Hovering a row shows the provider bubble with its logo, not a native title.
+    const tip = await evaluate(
+      ws,
+      `(() => {
+         const row = document.querySelector('.model-option');
+         row.dispatchEvent(new Event('pointerover', { bubbles: true }));
+         const t = document.getElementById('modelTip');
+         return { hidden: t.hidden, hasLogo: Boolean(t.querySelector('img')), text: t.textContent };
+       })()`,
+      true
+    );
+
     const shotOpen = await rpc(ws, 'Page.captureScreenshot', { format: 'png' });
     const openPath = path.join(OUT_DIR, 'picker-open.png');
     fs.writeFileSync(openPath, Buffer.from(shotOpen.data, 'base64'));
@@ -211,7 +253,7 @@ const FAKE_CATALOG = `
     const filtered = await evaluate(
       ws,
       `(() => ({
-         visible: [...document.querySelectorAll('.model-option')].filter((o) => !o.hidden).length,
+         visible: [...document.querySelectorAll('.model-row')].filter((o) => !o.hidden).length,
          groupsVisible: [...document.querySelectorAll('.model-group')].filter((g) => !g.hidden).length,
          emptyHidden: document.getElementById('modelMenuEmpty').hidden,
        }))()`,
@@ -231,7 +273,7 @@ const FAKE_CATALOG = `
     const noMatch = await evaluate(
       ws,
       `(() => ({
-         visible: [...document.querySelectorAll('.model-option')].filter((o) => !o.hidden).length,
+         visible: [...document.querySelectorAll('.model-row')].filter((o) => !o.hidden).length,
          emptyHidden: document.getElementById('modelMenuEmpty').hidden,
          emptyText: document.getElementById('modelMenuEmpty').textContent,
        }))()`,
@@ -259,6 +301,8 @@ const FAKE_CATALOG = `
       groups: open.groups,
       optionCount: open.optionCount,
       selectedMarks: open.options.filter((o) => o.selected).map((o) => o.value),
+      favorite,
+      tip,
       searchZro: filtered,
       searchNoMatch: noMatch,
       esc: closed,
@@ -274,13 +318,19 @@ const FAKE_CATALOG = `
       report.menuOpen &&
       report.searchFocused &&
       report.groups.length === 3 &&
-      report.groups[0].label === 'FreePi' &&
-      report.groups[0].count === 4 &&
-      report.groups[1].label === 'Coarena' &&
+      report.groups[0].label === 'Coarena' &&
+      report.groups[1].label === 'FreePi' &&
+      report.groups[1].count === 4 &&
       report.groups[2].label === 'Zro' &&
       report.groups.every((g) => g.logo) &&
       report.optionCount === 8 &&
       report.selectedMarks.length === 1 &&
+      report.favorite.favLabel === 'Favorites' &&
+      report.favorite.favCount === 1 &&
+      report.favorite.starOn === true &&
+      report.favorite.stored.includes('coarena||claude-fable-5') &&
+      report.tip.hidden === false &&
+      report.tip.hasLogo === true &&
       filtered.visible === 1 &&
       filtered.groupsVisible === 1 &&
       noMatch.visible === 0 &&

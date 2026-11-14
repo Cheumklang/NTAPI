@@ -792,6 +792,69 @@ button { font-family: inherit; }
 }
 .model-option[aria-selected="true"] .model-option-id { color: #8e83c9; }
 
+/* A row plus its star toggle, so the star is not nested inside the option
+   button (buttons cannot hold buttons). */
+.model-row { position: relative; display: flex; align-items: center; }
+.model-row[hidden] { display: none; }
+.model-row .model-option { padding-right: 36px; }
+.model-star {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #565f73;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.model-star:hover { background: #2a3143; color: #e3b341; }
+.model-star.on { color: #e3b341; }
+.model-star:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(124, 92, 255, .35); }
+.model-group-mark-star { color: #e3b341; font-size: 13px; text-align: center; }
+.model-group-fav .model-group-name { color: #e3b341; }
+
+/* Provider bubble shown on hover: a logo and the provider name, with no
+   corners (a pill), positioned fixed above the row. */
+.model-tip {
+  position: fixed;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  background: #1b2130;
+  border: 1px solid #38415a;
+  border-radius: 999px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .5);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 650;
+  pointer-events: none;
+  animation: tip-pop .12s ease-out;
+}
+.model-tip[hidden] { display: none; }
+.model-tip img { width: 18px; height: 18px; object-fit: contain; display: block; border-radius: 50%; }
+.model-tip .model-tip-letter {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #2a3143;
+  font-size: 11px;
+}
+@keyframes tip-pop { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .model-tip { animation: none; } }
+
 .model-menu-empty {
   padding: 18px 12px 20px;
   color: var(--muted);
