@@ -4596,17 +4596,14 @@ function applyToolResult(card, res, cwd) {
   const copy = card.querySelector('.tool-copy');
   if (copy) copy.hidden = !(card.querySelector('.tool-body')?.textContent || '').trim();
 
-  // A failing tool is worth surfacing on its own. A successful edit is not:
-  // the +/- counts in the header already say what changed, and auto-opening
-  // every diff buried the reply behind a wall of code. Click a card's header
-  // to read it.
+  // Failures used to pop their card open and open the whole tool group. That
+  // reads as the app taking over: the box expands by itself and the view is
+  // already scrolling toward it. Keep the card where the reader left it — the
+  // red border, the "Failed" label and the group's failed count already say
+  // what happened, and one click still opens the details.
   if (res.isError) {
-    card.classList.remove('collapsed');
     const tools = card.closest('.tools');
-    if (tools) {
-      tools.hidden = false;
-      refreshToolsSummary(tools);
-    }
+    if (tools) refreshToolsSummary(tools);
   }
   refreshToolsSummary(card.parentElement);
 }
@@ -4715,7 +4712,9 @@ function appendErrorBanner(text, scroll = true) {
   div.className = 'error-banner';
   div.textContent = `Error: ${text}`;
   transcript.appendChild(div);
-  if (scroll) scrollToBottom(true);
+  // Only follow a reader who is already at the bottom; someone scrolled up to
+  // read is never yanked away by an error.
+  if (scroll) scrollToBottom();
   return div;
 }
 
