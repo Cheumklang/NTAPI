@@ -39,7 +39,14 @@ contextBridge.exposeInMainWorld('freepi', {
   browserInstallInfo: () => ipcRenderer.invoke('browser:installInfo'),
   browserOpenFolder: () => ipcRenderer.invoke('browser:openFolder'),
   browserWatch: () => ipcRenderer.invoke('browser:watch'),
+  browserTabs: () => ipcRenderer.invoke('browser:tabs'),
+  browserClaim: (tabId) => ipcRenderer.invoke('browser:claim', { tabId }),
+  browserRelease: () => ipcRenderer.invoke('browser:release'),
+  browserAutopilot: (on) => ipcRenderer.invoke('browser:autopilot', { on: Boolean(on) }),
   onBrowserStatus: on('browser:status'),
+  onBrowserActivity: on('browser:activity'),
+  onBrowserClaimState: on('browser:claimState'),
+  onBrowserAutopilotState: on('browser:autopilotState'),
 
   // Coarena key: the renderer sees status only, never the key itself.
   coarenaStatus: () => ipcRenderer.invoke('coarena:status'),

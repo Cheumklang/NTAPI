@@ -116,6 +116,7 @@ function createBrowserBridge(options = {}) {
 
   let claims = null;
   const activityListeners = new Set();
+  const extensionEventListeners = new Set();
 
   function status() {
     return { enabled: Boolean(server), connected, port: actualPort, paired: Boolean(token) };
@@ -153,6 +154,20 @@ function createBrowserBridge(options = {}) {
     for (const fn of activityListeners) {
       try {
         fn(entry);
+      } catch {}
+    }
+  }
+
+  /** Unsolicited frames from the extension (the user handing a tab over). */
+  function onExtensionEvent(fn) {
+    extensionEventListeners.add(fn);
+    return () => extensionEventListeners.delete(fn);
+  }
+
+  function emitExtensionEvent(event) {
+    for (const fn of extensionEventListeners) {
+      try {
+        fn(event);
       } catch {}
     }
   }
@@ -258,6 +273,11 @@ function createBrowserBridge(options = {}) {
         connected = true;
         ws.send(JSON.stringify({ type: 'hello', ok: true, extensionId }));
         emit();
+        return;
+      }
+
+      if (msg && typeof msg.event === 'string') {
+        emitExtensionEvent(msg);
         return;
       }
 
@@ -393,7 +413,7 @@ function createBrowserBridge(options = {}) {
     });
   }
 
-  return { start, stop, status, call, setToken, setClaims, targetFor, onActivity, onStatus };
+  return { start, stop, status, call, setToken, setClaims, targetFor, onActivity, onExtensionEvent, onStatus };
 }
 
 module.exports = {

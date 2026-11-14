@@ -44,6 +44,8 @@ const {
   DEFAULT_PORT,
   CHROME_EXTENSIONS_URL,
 } = require('./browser-bridge');
+const { createClaims } = require('./browser-claims');
+const { createAutopilot } = require('./browser-autopilot');
 const { formatSystemInfo, safeErrorMessage } = require('./system-info');
 const { sdkCandidatePaths } = require('./sdk-path');
 const {
@@ -444,6 +446,76 @@ const browserBridge = createBrowserBridge({
 
 browserBridge.onStatus((status) => send('browser:status', status));
 
+/**
+ * The tab the user handed over, and the mode that lets the agent work in it
+ * without a dialog per step. Neither survives a restart: a blank cheque that
+ * outlives the session is how people end up surprised at what the agent did.
+ */
+const browserClaims = createClaims({});
+const browserAutopilot = createAutopilot({});
+browserBridge.setClaims(browserClaims);
+
+function pushClaimState() {
+  send('browser:claimState', { claim: browserClaims.get() });
+}
+
+function pushAutopilotState() {
+  send('browser:autopilotState', { state: browserAutopilot.state() });
+}
+
+/**
+ * Every browser command's outcome passes through here, which is what keeps the
+ * idle clock and the failure streak honest — including the failures that never
+ * reached an approval dialog.
+ */
+browserBridge.onActivity((entry) => {
+  const wasOn = browserAutopilot.state().on;
+  if (entry.ok) browserAutopilot.noteAction();
+  else browserAutopilot.noteFailure();
+  send('browser:activity', { entry });
+  if (wasOn && !browserAutopilot.state().on) pushAutopilotState();
+});
+
+/** The user pressed "use this tab" in the extension popup. */
+browserBridge.onExtensionEvent((event) => {
+  if (!event || event.event !== 'claim') return;
+  claimBrowserTab({ tabId: event.tabId, url: event.url, title: event.title });
+});
+
+/** Hand one tab to the agent. Nothing restores a claim on its own. */
+function claimBrowserTab({ tabId, url, title } = {}) {
+  try {
+    const previous = browserClaims.get();
+    if (previous && previous.tabId !== tabId && browserAutopilot.state().on) {
+      browserAutopilot.stop('released');
+      pushAutopilotState();
+    }
+    const claim = browserClaims.claim({ tabId, url, title });
+    // Put the user in front of the page the agent is about to work on.
+    browserBridge.call('tabs-real', { focus: true, tab: claim.tabId }, { timeoutMs: 8000 }).catch(() => {});
+    pushClaimState();
+    return { ok: true, claim };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function releaseBrowserTab(reason) {
+  if (!browserClaims.get()) return { ok: true };
+  browserClaims.release();
+  if (browserAutopilot.state().on) {
+    browserAutopilot.stop(reason || 'released');
+    pushAutopilotState();
+  }
+  pushClaimState();
+  return { ok: true };
+}
+
+/** Nothing may run quiet forever: this is what ends an idle hand-over run. */
+setInterval(() => {
+  if (browserAutopilot.shouldExpire({ type: 'tick' })) pushAutopilotState();
+}, 60000);
+
 /** Path of the app's own MCP config, next to the rest of the data. */
 function mcpConfigPath() {
   return path.join(DATA_ROOT, 'mcp.json');
@@ -576,6 +648,14 @@ function askUserDialog(tabId, { question, options }) {
 
 function askApproval(tabId, { toolName, args, label, kind }) {
   if (allowEverything || allowedTools.has(toolName)) {
+    return Promise.resolve(true);
+  }
+
+  // Hand-over mode answers for the tab the user gave the agent. It never covers
+  // browser_eval, and never anything whose label reads like paying or deleting.
+  const claim = browserClaims.get();
+  const targetTab = args && Number.isInteger(args.tab) ? args.tab : claim ? claim.tabId : null;
+  if (browserAutopilot.allows({ tool: toolName, tabId: targetTab, label }).allowed) {
     return Promise.resolve(true);
   }
   approvalSeq += 1;
@@ -3473,6 +3553,8 @@ function browserStatus() {
     port,
     paired,
     installed: fs.existsSync(path.join(browserExtensionDir(), 'manifest.json')),
+    claim: browserClaims.get(),
+    autopilot: browserAutopilot.state(),
   };
 }
 
@@ -3488,6 +3570,9 @@ ipcMain.handle('browser:toggle', async (_e, { enabled } = {}) => {
       return { ...browserStatus(), error: `Could not start the bridge: ${err.message}` };
     }
   } else {
+    browserAutopilot.shouldExpire({ type: 'featureOff' });
+    releaseBrowserTab('featureOff');
+    await browserBridge.call('detachAll', {}, { timeoutMs: 5000 }).catch(() => {});
     await browserBridge.stop();
   }
   return browserStatus();
@@ -3512,6 +3597,45 @@ ipcMain.handle('browser:watch', async () => {
   } catch (err) {
     return { ok: false, error: err.message, code: err.code };
   }
+});
+
+/** Every tab the browser has, so the user can pick one to hand over. */
+ipcMain.handle('browser:tabs', async () => {
+  try {
+    const result = await browserBridge.call('tabs-real', {}, { timeoutMs: 8000 });
+    return { ok: true, tabs: result.tabs || [], windowId: result.windowId };
+  } catch (err) {
+    return { ok: false, error: err.message, code: err.code };
+  }
+});
+
+ipcMain.handle('browser:claim', async (_e, { tabId } = {}) => {
+  let listed = null;
+  try {
+    listed = await browserBridge.call('tabs-real', {}, { timeoutMs: 8000 });
+  } catch (err) {
+    return { ok: false, error: err.message, code: err.code };
+  }
+  const tab = Array.isArray(listed.tabs) ? listed.tabs.find((t) => t.id === tabId) : null;
+  if (!tab) return { ok: false, error: 'That tab is not open any more.' };
+  return claimBrowserTab({ tabId: tab.id, url: tab.url, title: tab.title });
+});
+
+ipcMain.handle('browser:release', async () => releaseBrowserTab('user'));
+
+ipcMain.handle('browser:autopilot', async (_e, { on } = {}) => {
+  if (!on) {
+    browserAutopilot.stop('user');
+    pushAutopilotState();
+    return { ok: true, state: browserAutopilot.state() };
+  }
+  const claim = browserClaims.get();
+  if (!claim) {
+    return { ok: false, error: 'Hand a tab over before turning hand-over mode on.', state: browserAutopilot.state() };
+  }
+  browserAutopilot.grant({ tabId: claim.tabId, domain: claim.domain });
+  pushAutopilotState();
+  return { ok: true, state: browserAutopilot.state() };
 });
 
 app.whenReady().then(async () => {

@@ -82,7 +82,7 @@ function makeChrome() {
     windows: {
       get: async (id) => ({ id }),
       create: async () => ({ id: 3, tabs: [{ id: 7 }] }),
-      update: async () => {},
+      update: async (id, opts) => record('windows.update', { id, ...opts }),
     },
     tabs: {
       query: async (info) => (info && Number.isInteger(info.windowId) ? state.tabs : state.allTabs || state.tabs),
@@ -313,6 +313,10 @@ async function main() {
   check('real tabs carry no page content', !('text' in real.tabs[0]) && !('html' in real.tabs[0]) && !('nodes' in real.tabs[0]));
   check('the agent window tabs are flagged', real.tabs.find((t) => t.id === 7).agent === true);
   check('the user window tabs are not flagged', real.tabs.find((t) => t.id === 3).agent === false);
+
+  await handle('tabs-real', { focus: true, tab: 3 });
+  check('handing a tab over brings it to the front', calls.some((c) => c.name === 'tabs.update' && c.payload.id === 3 && c.payload.active === true));
+  check('and focuses the window it lives in', calls.some((c) => c.name === 'windows.update' && c.payload.id === 1 && c.payload.focused === true));
 
   const ws = sockets[sockets.length - 1];
   ws.readyState = 1;

@@ -167,7 +167,7 @@ async function dispatch(cmd, args) {
     case 'dialog':
       return answerDialog(args);
     case 'tabs-real':
-      return listRealTabs();
+      return listRealTabs(args);
     case 'detachAll':
       return detachEverything();
     case 'click':
@@ -641,8 +641,17 @@ if (typeof module !== 'undefined') {
  * Every tab in the browser, metadata only. The app shows these so the user can
  * pick one to hand over; nothing here reads a page.
  */
-async function listRealTabs() {
+async function listRealTabs(args = {}) {
   const tabs = await chrome.tabs.query({});
+  // Handing a tab over is the moment to bring it to the front, so the user can
+  // see what the agent is about to work on.
+  if (args.focus && Number.isInteger(args.tab)) {
+    try {
+      await chrome.tabs.update(args.tab, { active: true });
+      const target = tabs.find((t) => t.id === args.tab);
+      if (target) await chrome.windows.update(target.windowId, { focused: true });
+    } catch {}
+  }
   return {
     windowId: agentWindowId,
     tabs: tabs.map((tab) => ({
