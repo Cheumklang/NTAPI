@@ -331,15 +331,6 @@ const STRINGS = {
     approvalTitle: 'Allow this command?',
     approvalSub: 'The agent wants to run',
     approvalSub2: 'in this folder.',
-    allowAll: 'Allow everything',
-    rememberTool: "Don't ask again for {tool} in this session",
-    confirmAllowAll:
-      'Stop asking before every bash / edit / write for the rest of this session?\n\nThe agent will be able to run commands and change files without showing you first. Turning this off again is a click in the sidebar.',
-    allowAllTitle: 'Allow everything?',
-    allowAllSub:
-      'The agent can run bash, edit and write without asking again until this app restarts. You can turn prompts back on from the sidebar.',
-    allowAllMeta: 'Tools: bash · edit · write',
-    confirmAllowAllAction: 'Allow everything',
     signOutTitle: 'Sign out on this computer?',
     signOutSub:
       'The saved login token will be deleted from this computer. The next start will ask you to sign in again.',
@@ -660,15 +651,6 @@ const STRINGS = {
     approvalTitle: 'อนุญาตให้รันคําสั่งนี้ไหม?',
     approvalSub: 'AI ต้องการรัน',
     approvalSub2: 'ในโฟลเดอร์นี้',
-    allowAll: 'ยินยอมทั้งหมด',
-    rememberTool: 'ไม่ต้องถามซ้ำสําหรับ {tool} ในเซสชันนี้',
-    confirmAllowAll:
-      'หยุดถามก่อนทุกคําสั่ง bash / edit / write ตลอดเซสชันนี้ใช่ไหม?\n\nAI จะรันคําสั่งและแก้ไฟล์ได้โดยไม่แสดงให้คุณดูก่อน — เปิดกลับได้ด้วยคลิกเดียวที่แถบข้าง',
-    allowAllTitle: 'ยินยอมทั้งหมด?',
-    allowAllSub:
-      'AI จะรัน bash / edit / write และแก้ไฟล์ได้โดยไม่ถามอีกจนกว่าจะปิดแอป — เปิดกลับได้จากแถบข้าง',
-    allowAllMeta: 'เครื่องมือ: bash · edit · write',
-    confirmAllowAllAction: 'ยินยอมทั้งหมด',
     signOutTitle: 'ออกจากระบบบนเครื่องนี้?',
     signOutSub: 'token ล็อกอินจะถูกลบออกจากเครื่องนี้ ครั้งถัดไปต้องล็อกอินใหม่',
     signOutMeta: 'ไม่ลบแชทหรือไฟล์ของคุณ',
@@ -2399,17 +2381,6 @@ function showConfirmClear(tabId) {
   });
 }
 
-/** Themed replacement for window.confirm on the "Allow everything" button. */
-function showConfirmAllowAll() {
-  showConfirmDialog({
-    kind: 'allowAll',
-    title: t('allowAllTitle'),
-    sub: t('allowAllSub'),
-    target: t('allowAllMeta'),
-    action: t('confirmAllowAllAction'),
-  });
-}
-
 /** Themed replacement for window.confirm on Sign out. */
 function showConfirmSignOut() {
   showConfirmDialog({
@@ -3517,12 +3488,6 @@ el('confirmDelete').addEventListener('click', async () => {
 
   if (state.kind === 'clear') {
     await clearSession(state.tabId);
-    return;
-  }
-
-  if (state.kind === 'allowAll') {
-    await api.setApprovalMode({ allowEverything: true });
-    await answerApproval(true);
     return;
   }
 
@@ -5223,64 +5188,72 @@ function describeReason(toolName, args) {
 function showApproval({ id, toolName, label, args }) {
   pendingApprovalId = id;
   const shown = label || toolName;
-  el('approvalTool').textContent = shown;
-  el('approvalCommand').textContent = describeReason(toolName, args) || '(no arguments)';
-  // Keep the persist checkbox off by default: the safe answer is the default.
-  el('approvalRemember').checked = false;
-  el('approvalRememberLabel').textContent = t('rememberTool').replace('{tool}', shown);
-  approvalOverlay().hidden = false;
-  el('approvalAllow').focus();
+  try {
+    el('approvalTool').textContent = shown;
+    el('approvalCommand').textContent = describeReason(toolName, args) || '(no arguments)';
+    approvalOverlay().hidden = false;
+    el('approvalAllow').focus();
+  } catch (err) {
+    console.error('[approval] could not show the prompt:', err);
+    if (id) api.respondApproval(id, false);
+    pendingApprovalId = null;
+  }
 }
 
-async function answerApproval(allow, opts = {}) {
+async function answerApproval(allow) {
   const id = pendingApprovalId;
   pendingApprovalId = null;
   approvalOverlay().hidden = true;
-  if (id) await api.respondApproval(id, allow, opts);
+  if (id) await api.respondApproval(id, allow);
   input.focus();
 }
 
-el('approvalAllow').addEventListener('click', () =>
-  answerApproval(true, { remember: el('approvalRemember').checked })
-);
+el('approvalAllow').addEventListener('click', () => answerApproval(true));
 el('approvalDeny').addEventListener('click', () => answerApproval(false));
 
 /*
- * While "allow everything" is on, prompts stop arriving — which is easy to
- * forget about mid-task. A permanent banner in the sidebar plus one click to
- * restore is the cheapest way to keep that visible.
+ * One switch decides whether prompts appear at all: ask, always allow, always
+ * deny. It is stored in prefs, so the answer is the same after a restart — the
+ * old in-memory grants and the per-tool remember checkbox are gone, because
+ * they were why the same command asked on one launch and ran silently on the
+ * next. Whenever prompts are off, the sidebar says so permanently.
  */
-function applyApprovalMode({ allowEverything, allowedTools = [] } = {}) {
-  const on = Boolean(allowEverything);
+const APPROVAL_HINTS = {
+  ask: 'ถามทุกครั้งก่อนให้ AI รันคำสั่ง',
+  allow: 'ไม่ถามเลย — AI รันคำสั่งได้ทันที',
+  deny: 'ไม่ถามเลย — AI รันคำสั่งไม่ได้',
+};
+
+function applyApprovalMode({ policy } = {}) {
+  const mode = policy === 'allow' || policy === 'deny' ? policy : 'ask';
+  const select = el('approvalPolicy');
+  if (select && select.value !== mode) select.value = mode;
+  const hint = el('approvalPolicyHint');
+  if (hint) hint.textContent = APPROVAL_HINTS[mode];
+
+  const off = mode !== 'ask';
   const banner = el('approvalModeBanner');
   if (banner) {
-    banner.hidden = !on;
-    if (on) {
-      const label = banner.querySelector('.approval-banner-text');
-      if (label) label.textContent = t('approvalsOff');
-    }
+    banner.hidden = !off;
+    const label = banner.querySelector('.approval-banner-text');
+    if (label) label.textContent = mode === 'deny' ? 'กำลังไม่อนุมัติทุกคำสั่ง' : t('approvalsOff');
   }
-  document.body.classList.toggle('approvals-off', on);
-  // Remembered tool grants are also "not asking", just narrower — surface them
-  // with the same banner so the state is never invisible.
-  if (!on && allowedTools.length) {
-    if (banner) banner.hidden = false;
-    document.body.classList.add('approvals-off');
-  }
+  document.body.classList.toggle('approvals-off', off);
+  document.body.classList.toggle('approvals-deny', mode === 'deny');
 }
 
 api.onApprovalMode(applyApprovalMode);
 
 el('approvalModeReset').addEventListener('click', async () => {
-  await api.setApprovalMode({ reset: true });
-  applyApprovalMode({ allowEverything: false, allowedTools: [] });
+  const res = await api.setApprovalMode({ policy: 'ask' });
+  applyApprovalMode(res);
 });
-// "Allow everything" is a big hammer, so it takes one confirmation after the
-// click rather than firing straight away — a mis-click here removes every
-// remaining safety prompt for the session.
-el('approvalAllowAll').addEventListener('click', () => {
-  showConfirmAllowAll();
+
+el('approvalPolicy').addEventListener('change', async (e) => {
+  const res = await api.setApprovalMode({ policy: e.target.value });
+  applyApprovalMode(res);
 });
+
 window.addEventListener('keydown', (e) => {
   if (!el('loginOverlay').hidden) {
     if (e.key === 'Escape') {
@@ -5307,7 +5280,7 @@ window.addEventListener('keydown', (e) => {
   if (approvalOverlay().hidden) return;
   if (e.key === 'Enter') {
     e.preventDefault();
-    answerApproval(true, { remember: el('approvalRemember').checked });
+    answerApproval(true);
   } else if (e.key === 'Escape') {
     e.preventDefault();
     answerApproval(false);

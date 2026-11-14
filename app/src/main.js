@@ -46,6 +46,12 @@ const {
 } = require('./browser-bridge');
 const { createClaims } = require('./browser-claims');
 const { createAutopilot } = require('./browser-autopilot');
+const {
+  isPolicy,
+  normalizePolicy,
+  policyFromLegacy,
+  needsDialog,
+} = require('./approval-policy');
 const { formatSystemInfo, safeErrorMessage } = require('./system-info');
 const { sdkCandidatePaths } = require('./sdk-path');
 const {
@@ -510,6 +516,12 @@ function claimBrowserTab({ tabId, url, title } = {}) {
     pushClaimState();
     return { ok: true, claim };
   } catch (err) {
+    // This catch used to be silent, so a failed hand-over looked exactly like
+    // one that never happened: no dialog, no message, no clue.
+    console.log('[browser] claim failed:', err && err.message ? err.message : err, `(tab ${tabId}, url ${url})`);
+    sendTab(null, 'app:log', {
+      text: `มอบแท็บไม่สำเร็จ: ${err && err.message ? err.message : err}`,
+    });
     return { ok: false, error: err.message };
   }
 }
@@ -635,14 +647,31 @@ const approvals = new Map();
 let approvalSeq = 0;
 
 /**
- * Per-tool "always allow" grants, held for the lifetime of the process only.
- * Deliberately not written to prefs: a blank cheque that survives a restart is
- * how people end up with an agent deleting something they forgot about.
- * `allowedTools` holds exact tool names (bash / edit / write).
+ * One switch decides every approval question: ask, always allow, or always
+ * deny. Stored in prefs so the answer is the same after a restart — the old
+ * in-memory grants are why the same command asked on one launch and ran
+ * silently on the next.
+ *
+ * Loaded lazily on first use so an upgrade from the old switches is read once
+ * the prefs file is available.
  */
-const allowedTools = new Set();
-/** When true, every tool is approved until the app restarts or the user opts out. */
-let allowEverything = false;
+let approvalPolicy = null;
+
+function getApprovalPolicy() {
+  if (approvalPolicy === null) {
+    const prefs = readPrefs();
+    approvalPolicy = isPolicy(prefs.approvalPolicy)
+      ? prefs.approvalPolicy
+      : policyFromLegacy({ allowEverything: prefs.allowEverything, allowedTools: prefs.allowedTools });
+  }
+  return approvalPolicy;
+}
+
+function setApprovalPolicy(next) {
+  approvalPolicy = normalizePolicy(next);
+  writePrefs({ approvalPolicy });
+  return approvalPolicy;
+}
 
 /**
  * Pending `ask_user` questions, keyed by request id. The agent's tool call blocks
@@ -686,23 +715,32 @@ async function askApproval(tabId, { toolName, args, label, kind }) {
   // hand over "something" is not a question anyone can answer.
   if (toolName === 'browser_claim') {
     const target = await resolveClaimTarget();
-    if (!target) return false;
+    if (!target) {
+      // Returning false here without a word is what made a missing tab look like
+      // the user refusing: no dialog appeared, yet the agent reported a refusal.
+      // Say so, and leave the agent no way to mistake it for consent.
+      console.log('[browser] claim refused: no usable tab to hand over (agent window and blank tabs excluded)');
+      // Tell the window as well: silence here looked exactly like a refusal.
+      sendTab(tabId, 'app:log', {
+        text: 'ไม่มีแท็บให้มอบให้ agent — เปิดหน้าที่ต้องการใน Chrome ก่อน แล้วกดปุ่ม «ใช้แท็บที่เปิดอยู่» อีกครั้ง',
+      });
+      return false;
+    }
     pendingClaimTarget = target;
     label = `${target.title || target.url} — ${hostOfUrl(target.url)}`;
   }
 
   const claim = browserClaims.get();
-  const explicitTab = args && Number.isInteger(args.tab) ? args.tab : null;
-  const verdict = approvalVerdict({
-    toolName,
-    label,
-    allowEverything,
-    remembered: allowedTools.has(toolName),
-    autopilot: browserAutopilot,
-    targetTabId: explicitTab,
-    claimTabId: claim ? claim.tabId : null,
-  });
-  if (verdict.skip) return true;
+  // The one switch decides. Nothing here looks at the model, the provider, the
+  // tool, the tab or the autopilot state: all of that used to change the answer
+  // silently, which is exactly the "sometimes it asks" bug this replaces.
+  if (!needsDialog(getApprovalPolicy())) {
+    const allowed = getApprovalPolicy() === 'allow';
+    if (!allowed) pendingClaimTarget = null;
+    console.log(`[approval] ${toolName} settled by policy "${getApprovalPolicy()}": ${allowed ? 'allowed' : 'denied'}`);
+    return allowed;
+  }
+  console.log(`[approval] asking for ${toolName} on tab ${tabId} (claim ${claim ? claim.tabId : 'none'})`);
 
   approvalSeq += 1;
   const id = `approval-${approvalSeq}`;
@@ -712,11 +750,10 @@ async function askApproval(tabId, { toolName, args, label, kind }) {
       id,
       toolName,
       // A readable name for the dialog (e.g. an MCP server tool); `toolName`
-      // stays the raw id used for "remember this tool".
+      // stays the raw id used to name the tool in the prompt.
       label: label || toolName,
       kind: kind || 'tool',
       args,
-      allowEverything,
     });
   });
   return answer.then((allowed) => {
@@ -3336,45 +3373,31 @@ ipcMain.handle('auth:cancel', async () => {
   return { ok: true };
 });
 
-ipcMain.handle('approval:respond', async (_e, { id, allow, remember, rememberAll } = {}) => {
+ipcMain.handle('approval:respond', async (_e, { id, allow } = {}) => {
   const pending = approvals.get(id);
   if (!pending) return { ok: false };
   approvals.delete(id);
 
-  if (allow && rememberAll) {
-    allowEverything = true;
-  } else if (allow && remember && pending.toolName) {
-    allowedTools.add(pending.toolName);
-  }
-
+  // Answering the dialog with "allow" is a one-off: it must not quietly turn
+  // into "never ask again". Only the switch in the sidebar does that.
   pending.resolve(Boolean(allow));
-  broadcastApprovalMode();
-  return { ok: true, allowEverything, allowedTools: [...allowedTools] };
+  return { ok: true, policy: getApprovalPolicy() };
 });
 
-/** Let the sidebar reflect whether prompts are still being asked. */
+/** Let the sidebar reflect which answer is in force. */
 function broadcastApprovalMode() {
   if (!win || win.isDestroyed()) return;
-  win.webContents.send('approval:mode', { allowEverything, allowedTools: [...allowedTools] });
+  win.webContents.send('approval:mode', { policy: getApprovalPolicy() });
 }
 
-/** Turn prompts back on (sidebar toggle, or resetting after a slip). */
-ipcMain.handle('approval:setMode', async (_e, { allowEverything: all, reset } = {}) => {
-  if (reset) {
-    allowedTools.clear();
-    allowEverything = false;
-  } else if (typeof all === 'boolean') {
-    allowEverything = all;
-    if (!all) allowedTools.clear();
-  }
+/** The switch itself: 'ask' | 'allow' | 'deny', remembered across restarts. */
+ipcMain.handle('approval:setMode', async (_e, { policy } = {}) => {
+  setApprovalPolicy(policy);
   broadcastApprovalMode();
-  return { ok: true, allowEverything, allowedTools: [...allowedTools] };
+  return { ok: true, policy: getApprovalPolicy() };
 });
 
-ipcMain.handle('approval:getMode', async () => ({
-  allowEverything,
-  allowedTools: [...allowedTools],
-}));
+ipcMain.handle('approval:getMode', async () => ({ policy: getApprovalPolicy() }));
 
 function persistTabs() {
   writePrefs({

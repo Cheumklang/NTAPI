@@ -765,6 +765,7 @@ async function createFreePiSession(options) {
       if (typeof requestApproval === 'function') {
         pi.on('tool_call', async (event) => {
           if (!isGuardedTool(event.toolName, guardedTools)) return undefined;
+          console.log(`[approval] guarded tool call: ${event.toolName}`);
           const isMcp = String(event.toolName).startsWith('mcp__');
           let allowed = false;
           try {
@@ -776,11 +777,23 @@ async function createFreePiSession(options) {
               // pi's `tool_call` event carries the arguments as `input`.
               args: event.input ?? event.toolCall?.arguments ?? event.args ?? {},
             });
-          } catch {
-            allowed = false;
-          }
+			} catch (err) {
+				console.log(`[approval] ${event.toolName} request failed:`, err && err.stack ? err.stack : err);
+				return {
+					block: true,
+					reason:
+						`${event.toolName} could not ask for approval because the app hit an internal error ` +
+						`(${err && err.message ? err.message : String(err)}). This is a bug, NOT a refusal — ` +
+						`tell the user the approval system is broken and stop trying this tool.`,
+				};
+			}
           if (!allowed) {
-            return { block: true, reason: `${event.toolName} was declined by the user` };
+            return {
+              block: true,
+              reason:
+                `${event.toolName} was not approved. The user saw no dialog, or refused it. ` +
+                `Do not claim they refused — tell them the request did not go through and let them retry.`,
+            };
           }
           return undefined;
         });
