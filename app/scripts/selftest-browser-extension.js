@@ -37,6 +37,7 @@ function makeChrome() {
     contextFrames: {},
   };
 
+  const eventListeners = [];
   const record = (name, payload) => calls.push({ name, payload });
 
   const chrome = {
@@ -77,8 +78,10 @@ function makeChrome() {
         record('debugger.attach', tabId);
       },
       detach: async ({ tabId }) => record('debugger.detach', tabId),
+      onEvent: { addListener: (fn) => eventListeners.push(fn) },
       sendCommand: async ({ tabId }, method, params) => {
         record('cdp', { tabId, method, params });
+        if (method === 'Page.handleJavaScriptDialog') return {};
         if (method === 'Page.getFrameTree') return { frameTree: state.frameTree };
         if (method === 'Page.createIsolatedWorld') {
           state.contextSeq += 1;
@@ -105,11 +108,11 @@ function makeChrome() {
       },
     },
   };
-  return { chrome, calls, state };
+  return { chrome, calls, state, emitEvent: (source, method, params) => eventListeners.forEach((fn) => fn(source, method, params)) };
 }
 
 function loadWorker() {
-  const { chrome, calls, state } = makeChrome();
+  const { chrome, calls, state, emitEvent } = makeChrome();
   const source = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'background.js'), 'utf8');
   const sandboxModule = { exports: {} };
   const context = vm.createContext({
@@ -125,7 +128,7 @@ function loadWorker() {
     JSON,
   });
   vm.runInContext(source, context, { filename: 'background.js' });
-  return { handle: sandboxModule.exports.handle, calls, state };
+  return { handle: sandboxModule.exports.handle, calls, state, emitEvent };
 }
 
 async function expectError(fn) {
@@ -138,7 +141,7 @@ async function expectError(fn) {
 }
 
 async function main() {
-  const { handle, calls, state } = loadWorker();
+  const { handle, calls, state, emitEvent } = loadWorker();
   const cdpCalls = (method) => calls.filter((c) => c.name === 'cdp' && c.payload.method === method);
 
   // --- unknown command ---
@@ -229,6 +232,30 @@ async function main() {
   state.attachFails = 'Another debugger is already attached to the tab with id: 8';
   check('a busy debugger is DEBUGGER_BUSY', (await expectError(() => handle('snapshot', { tab: 8 }))) === 'DEBUGGER_BUSY');
   state.attachFails = false;
+
+  // --- a page dialog must be reported, never hung on ---
+  emitEvent({ tabId: 7 }, 'Page.javascriptDialogOpening', { type: 'confirm', message: 'Delete campaign?', defaultPrompt: '' });
+  const clicked = await handle('click', { selector: '#x' });
+  check('an open dialog is reported on the result', Boolean(clicked.dialog) && clicked.dialog.message === 'Delete campaign?');
+
+  const answered = await handle('dialog', { accept: true });
+  check('dialog answers via CDP', answered.handled === true, JSON.stringify(answered));
+  check('Page.handleJavaScriptDialog was asked to accept', cdpCalls('Page.handleJavaScriptDialog')[0].payload.params.accept === true);
+  check('answering clears the report', (await handle('snapshot', { tab: 7 })).dialog === undefined);
+
+  emitEvent({ tabId: 7 }, 'Page.javascriptDialogOpening', { type: 'beforeunload', message: '' });
+  check('beforeunload is dismissed, not accepted', cdpCalls('Page.handleJavaScriptDialog').some((c) => c.payload.params.accept === false));
+  check('beforeunload is never buffered for the agent', (await handle('snapshot', { tab: 7 })).dialog === undefined);
+
+  // --- networkIdle tracks real inflight requests ---
+  emitEvent({ tabId: 7 }, 'Network.requestWillBeSent', { requestId: 'r1' });
+  const busy = await handle('wait', { networkIdle: true, timeoutMs: 250 });
+  check('networkIdle gives up while a request is in flight', busy.waited >= 200, `waited=${busy.waited}`);
+  check('networkIdle says it never went idle', busy.idle === false);
+
+  emitEvent({ tabId: 7 }, 'Network.loadingFinished', { requestId: 'r1' });
+  const settled = await handle('wait', { networkIdle: true, timeoutMs: 500 });
+  check('networkIdle returns once nothing is inflight', settled.waited <= 200 && settled.idle === true, `waited=${settled.waited}`);
 }
 
 main()

@@ -150,7 +150,7 @@ async function runCommand(msg) {
 }
 
 /** Set by the read/write command modules below; unknown cmds are rejected. */
-async function handle(cmd, args) {
+async function dispatch(cmd, args) {
   switch (cmd) {
     case 'tabs':
       return listTabs(args);
@@ -164,6 +164,8 @@ async function handle(cmd, args) {
       return screenshot(args);
     case 'snapshot':
       return snapshotPage(args);
+    case 'dialog':
+      return answerDialog(args);
     case 'click':
       return click(args);
     case 'type':
@@ -183,6 +185,14 @@ async function handle(cmd, args) {
     default:
       throw Object.assign(new Error('This command is not implemented yet.'), { code: 'UNSUPPORTED' });
   }
+}
+
+/**
+ * The service worker's entry point. A page dialog freezes the tab, so every
+ * result carries whatever dialog is still waiting on it.
+ */
+async function handle(cmd, args) {
+  return withDialog(await dispatch(cmd, args));
 }
 
 /* -------------------------------------------------------------- cdp layer */
@@ -215,11 +225,19 @@ async function resolveTab(tabId) {
   return active.id;
 }
 
+/** Page events (dialogs) only arrive once the domain is enabled. */
+async function primeTab(tabId) {
+  try {
+    await chrome.debugger.sendCommand({ tabId }, 'Page.enable');
+  } catch {}
+}
+
 async function attach(tabId) {
   if (attached.has(tabId)) return;
   try {
     await chrome.debugger.attach({ tabId }, '1.3');
     attached.add(tabId);
+    await primeTab(tabId);
     return;
   } catch (err) {
     const message = (err && err.message) || String(err);
@@ -232,6 +250,7 @@ async function attach(tabId) {
     try {
       await chrome.debugger.attach({ tabId }, '1.3');
       attached.add(tabId);
+      await primeTab(tabId);
       return;
     } catch {
       throw Object.assign(
@@ -269,6 +288,101 @@ function waitForLoad(tabId, timeoutMs = 20000) {
 async function tabSummary(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   return { tabId, url: tab ? tab.url : null, title: tab ? tab.title : null };
+}
+
+/* ------------------------------------------------- dialogs + network --- */
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * A page dialog freezes the renderer until someone answers it. Chrome tells us
+ * about it as an event, so we buffer it per tab and hand it to the agent on the
+ * next result instead of leaving it to guess why nothing happens.
+ */
+const openDialogs = new Map();
+/** Requests still in flight per tab, for `wait { networkIdle: true }`. */
+const inflight = new Map();
+/** Tabs whose Network domain is already enabled. */
+const networkOn = new Set();
+
+chrome.debugger.onEvent.addListener((source, method, params) => {
+  const tabId = source && source.tabId;
+  if (!Number.isInteger(tabId)) return;
+
+  if (method === 'Page.javascriptDialogOpening') {
+    const info = {
+      type: (params && params.type) || 'alert',
+      message: (params && params.message) || '',
+      defaultPrompt: (params && params.defaultPrompt) || '',
+    };
+    // A beforeunload prompt would hang the tab until answered, and leaving the
+    // page is what the agent asked for. Decline it without bothering anyone.
+    if (info.type === 'beforeunload') {
+      chrome.debugger.sendCommand({ tabId }, 'Page.handleJavaScriptDialog', { accept: false }).catch(() => {});
+      return;
+    }
+    openDialogs.set(tabId, info);
+    return;
+  }
+
+  if (method === 'Page.javascriptDialogClosed') {
+    openDialogs.delete(tabId);
+    return;
+  }
+
+  if (method === 'Network.requestWillBeSent') {
+    inflight.set(tabId, (inflight.get(tabId) || 0) + 1);
+    return;
+  }
+
+  if (method === 'Network.loadingFinished' || method === 'Network.loadingFailed') {
+    inflight.set(tabId, Math.max(0, (inflight.get(tabId) || 0) - 1));
+  }
+});
+
+/** Every command result carries any dialog still waiting on that tab. */
+function withDialog(result) {
+  if (!result || typeof result !== 'object') return result;
+  const tabId = result.tabId;
+  if (!Number.isInteger(tabId)) return result;
+  const dialog = openDialogs.get(tabId);
+  if (!dialog) return result;
+  return Object.assign({}, result, { dialog });
+}
+
+async function answerDialog(args = {}) {
+  const tabId = await resolveTab(args.tab);
+  const dialog = openDialogs.get(tabId) || null;
+  const accept = Boolean(args.accept);
+  await cdp(
+    tabId,
+    'Page.handleJavaScriptDialog',
+    Object.assign({ accept }, typeof args.promptText === 'string' ? { promptText: args.promptText } : {})
+  );
+  openDialogs.delete(tabId);
+  return Object.assign(
+    { handled: Boolean(dialog), type: dialog ? dialog.type : null, message: dialog ? dialog.message : '' },
+    await tabSummary(tabId)
+  );
+}
+
+async function ensureNetwork(tabId) {
+  if (networkOn.has(tabId)) return;
+  await cdp(tabId, 'Network.enable');
+  networkOn.add(tabId);
+}
+
+/**
+ * A click may or may not navigate. Give a load a moment to start, then let it
+ * finish — without charging a full timeout to clicks that change nothing.
+ */
+async function settleAfterAction(tabId) {
+  await sleep(200);
+  let tab = null;
+  try {
+    tab = await chrome.tabs.get(tabId);
+  } catch {}
+  if (tab && tab.status === 'loading') await waitForLoad(tabId, 10000);
 }
 
 /* ------------------------------------------------------------ read commands */
@@ -566,6 +680,7 @@ async function click(args) {
   await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
   await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
   await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+  await settleAfterAction(tabId);
   return Object.assign({ clicked: label }, await tabSummary(tabId));
 }
 
@@ -642,6 +757,23 @@ async function scrollPage(args) {
 async function waitFor(args) {
   const timeoutMs = Number.isInteger(args.timeoutMs) ? Math.max(200, args.timeoutMs) : 10000;
   const tabId = await resolveTab(args.tab);
+  if (args.networkIdle) {
+    await ensureNetwork(tabId);
+    const startedAt = Date.now();
+    let lastPing = startedAt;
+    while (Date.now() - startedAt < timeoutMs && (inflight.get(tabId) || 0) > 0) {
+      await sleep(100);
+      // An MV3 worker is suspended when idle; a long wait keeps it awake.
+      if (Date.now() - lastPing > 20000) {
+        lastPing = Date.now();
+        send({ type: 'ping' });
+      }
+    }
+    return Object.assign(
+      { waited: Date.now() - startedAt, idle: (inflight.get(tabId) || 0) === 0 },
+      await tabSummary(tabId)
+    );
+  }
   const expression = `(() => {
     const sel = ${JSON.stringify(args.selector || null)};
     const text = ${JSON.stringify(args.text || null)};
