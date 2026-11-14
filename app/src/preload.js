@@ -33,6 +33,14 @@ contextBridge.exposeInMainWorld('freepi', {
   mcpSet: (payload) => ipcRenderer.invoke('mcp:set', payload),
   // Version/runtime/OS, for the "copy system info" button and crash reports.
   systemInfo: () => ipcRenderer.invoke('app:systemInfo'),
+  // Browser control: the chip in the toolbar owns enable/disable.
+  browserStatus: () => ipcRenderer.invoke('browser:status'),
+  browserToggle: (enabled) => ipcRenderer.invoke('browser:toggle', { enabled: Boolean(enabled) }),
+  browserInstallInfo: () => ipcRenderer.invoke('browser:installInfo'),
+  browserOpenFolder: () => ipcRenderer.invoke('browser:openFolder'),
+  browserWatch: () => ipcRenderer.invoke('browser:watch'),
+  onBrowserStatus: on('browser:status'),
+
   // Coarena key: the renderer sees status only, never the key itself.
   coarenaStatus: () => ipcRenderer.invoke('coarena:status'),
   coarenaSetKey: (key) => ipcRenderer.invoke('coarena:setKey', { key }),

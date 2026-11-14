@@ -23,6 +23,12 @@ app.setName('FreePi');
 app.setAppUserModelId('ai.ntapi.desktop');
 
 const bridge = require('./freepi-bridge');
+const {
+  createBrowserBridge,
+  EXTENSION_ID,
+  DEFAULT_PORT,
+  CHROME_EXTENSIONS_URL,
+} = require('./browser-bridge');
 const { formatSystemInfo, safeErrorMessage } = require('./system-info');
 const { sdkCandidatePaths } = require('./sdk-path');
 
@@ -252,6 +258,30 @@ function resolveDataRoot() {
 }
 
 const DATA_ROOT = resolveDataRoot();
+
+/* --------------------------- browser control ---------------------------
+ * Drives the user's own Chrome through the companion extension. Nothing
+ * listens until the chip in the toolbar is switched on, and the pairing code
+ * is the only thing that lets the extension in.
+ */
+
+/** Six digits, created once and kept in prefs so pairing survives a restart. */
+function ensureBrowserToken() {
+  const existing = readPrefs().browserBridge && readPrefs().browserBridge.token;
+  if (typeof existing === 'string' && /^\d{6}$/.test(existing)) return existing;
+  const token = String(Math.floor(100000 + Math.random() * 900000));
+  writePrefs({ browserBridge: { ...(readPrefs().browserBridge || {}), token } });
+  return token;
+}
+
+const browserBridge = createBrowserBridge({
+  extensionId: EXTENSION_ID,
+  token: ensureBrowserToken(),
+  auditPath: path.join(DATA_ROOT, 'browser-audit.log'),
+  log: (line) => console.log('[browser]', line),
+});
+
+browserBridge.onStatus((status) => send('browser:status', status));
 /**
  * The Coarena key is per-machine state, never part of prefs.json: it is
  * encrypted by the OS through safeStorage and stays in the main process. The
@@ -1069,6 +1099,7 @@ async function attachTab(tabId, manager, cwd) {
     sdk,
     log: (line) => sendTab(tabId, 'app:log', { text: line }),
     requestApproval: (req) => askApproval(tabId, req),
+    browserBridge,
     imagesDir: resolveFolder('images', cwd),
     downloadsDir: resolveFolder('downloads', cwd),
     // One ad per turn is what unlocks free completions. Keep the last one so
@@ -1385,6 +1416,13 @@ ipcMain.handle('prefs:set', async (_e, patch = {}) => {
     // Remember which workspace these overrides belong to.
     const w = patch.workspace || readPrefs().lastCwd;
     if (w) allowed.foldersOwner = path.resolve(w);
+  }
+  // Browser control: the renderer may flip the switch, never set the code.
+  if (patch.browserBridge && typeof patch.browserBridge === 'object') {
+    const current = readPrefs().browserBridge || {};
+    if (typeof patch.browserBridge.enabled === 'boolean') {
+      allowed.browserBridge = { ...current, enabled: patch.browserBridge.enabled };
+    }
   }
   if (Object.keys(allowed).length) writePrefs(allowed);
   return readPrefs();
@@ -3158,6 +3196,64 @@ ipcMain.handle('notify:done', (_event, payload = {}) => {
 
 /* ------------------------------ boot ------------------------------ */
 
+/* ----------------------------- browser IPC ----------------------------- */
+
+/** Where the unpacked extension lives, packaged or not. */
+function browserExtensionDir() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'browser-extension')
+    : path.join(__dirname, '..', 'browser-extension');
+}
+
+function browserStatus() {
+  const { enabled, connected, port, paired } = browserBridge.status();
+  return {
+    enabled,
+    connected,
+    port,
+    paired,
+    installed: fs.existsSync(path.join(browserExtensionDir(), 'manifest.json')),
+  };
+}
+
+ipcMain.handle('browser:status', async () => browserStatus());
+
+ipcMain.handle('browser:toggle', async (_e, { enabled } = {}) => {
+  const on = Boolean(enabled);
+  writePrefs({ browserBridge: { ...(readPrefs().browserBridge || {}), enabled: on } });
+  if (on) {
+    try {
+      await browserBridge.start();
+    } catch (err) {
+      return { ...browserStatus(), error: `Could not start the bridge: ${err.message}` };
+    }
+  } else {
+    await browserBridge.stop();
+  }
+  return browserStatus();
+});
+
+ipcMain.handle('browser:installInfo', async () => ({
+  folder: browserExtensionDir(),
+  chromeUrl: CHROME_EXTENSIONS_URL,
+  code: ensureBrowserToken(),
+}));
+
+ipcMain.handle('browser:openFolder', async () => {
+  const dir = browserExtensionDir();
+  const error = await shell.openPath(dir);
+  return { ok: !error, error: error || null };
+});
+
+ipcMain.handle('browser:watch', async () => {
+  try {
+    await browserBridge.call('tabs', { focus: true });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message, code: err.code };
+  }
+});
+
 app.whenReady().then(async () => {
   // The second copy quits above; make sure it never builds a window or opens
   // the presence port on its way out.
@@ -3179,6 +3275,11 @@ app.whenReady().then(async () => {
   createWindow();
   setUpdates();
   startPresence();
+
+  // Browser control is opt-in; only listen when the user left the chip on.
+  if (readPrefs().browserBridge && readPrefs().browserBridge.enabled) {
+    browserBridge.start().catch((err) => console.log('[browser] start failed:', err.message));
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
