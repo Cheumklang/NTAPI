@@ -834,29 +834,58 @@ function createView(tabId) {
 }
 
 /**
- * Distance from the bottom, in pixels, that still counts as "reading the newest
- * message". It was 180, which is about three lines: scrolling up to re-read the
- * previous answer still looked like being at the bottom, so the next streamed
- * token pulled the view back down. 48 is under a line of slack for the fade and
- * for a message that grows while it is on screen.
+ * Whether the view is following the newest message.
+ *
+ * This is a sticky state, not a measurement. It used to be recomputed on every
+ * call as "am I within 48px of the bottom", and that is subtly wrong: content
+ * added while the reader sits at the bottom makes the gap larger, so the next
+ * check decided they had scrolled away and stopped following. Someone who never
+ * touched the scrollbar drifted up the transcript as the answer streamed.
+ *
+ * Now the answer is decided once, when the reader actually scrolls: landed at the
+ * bottom means follow, moved up means stop. Nothing else changes it, so content
+ * growing underneath cannot make the app think the reader left.
+ *
+ * 48px of slack stays, because "the bottom" is not always exactly scrollHeight:
+ * a fade, a sub-pixel layout round, or a message that grows while on screen all
+ * leave a few pixels over.
  */
 const NEAR_BOTTOM_PX = 48;
 
+/** True while new output should keep the view at the bottom. */
+let pinnedToBottom = true;
+
+/** True during an explicit jump, so the in-between scroll events are ignored. */
+let jumpingToBottom = false;
+
+/** The gap still left below the viewport. */
+function distanceFromBottom() {
+  return transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight;
+}
+
 /**
- * True when the user has deliberately scrolled up to read something further back.
+ * Re-decide whether to follow, from where the reader just scrolled to.
  *
- * While this is true, new output must not move the view. The way back down is the
- * "jump to newest" button, which is the point: a reader keeps their place instead
- * of being yanked away mid-sentence.
+ * Called from the scroll event only. Programmatic scrolls also fire it, which is
+ * harmless: they land at the bottom and keep the state true.
  */
-function isReadingUp() {
-  return transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight > NEAR_BOTTOM_PX;
+function syncFollow() {
+  // A scroll event during our own smooth scroll can report an intermediate
+  // position. Treating that as "the reader left" would unpin them mid-jump.
+  if (jumpingToBottom) return;
+  pinnedToBottom = distanceFromBottom() <= NEAR_BOTTOM_PX;
+  syncJumpToBottom();
 }
 
 /** Show the button only when there is somewhere below to go. */
 function syncJumpToBottom() {
   if (!jumpToBottom) return;
   jumpToBottom.hidden = !isReadingUp();
+}
+
+/** True when the reader has moved up away from the newest message. */
+function isReadingUp() {
+  return !pinnedToBottom;
 }
 
 /**
@@ -868,10 +897,11 @@ function syncJumpToBottom() {
  * they read.
  */
 function scrollToBottom(force = false) {
-  if (!force && isReadingUp()) {
+  if (!force && !pinnedToBottom) {
     syncJumpToBottom();
     return;
   }
+  if (force) pinnedToBottom = true;
   transcript.scrollTop = transcript.scrollHeight;
   syncJumpToBottom();
 }
@@ -4005,10 +4035,26 @@ async function addAttachmentsFromFiles(files) {
  * the scroll event does that, so no timer is needed and nothing can race.
  */
 jumpToBottom?.addEventListener('click', () => {
+  // The smooth scroll fires many scroll events on the way down. None of them means
+  // the reader moved, so the follow state is held until it lands.
+  jumpingToBottom = true;
   scrollToBottom(true);
+  const settle = () => {
+    jumpingToBottom = false;
+    syncFollow();
+    transcript.removeEventListener('scrollend', settle);
+  };
+  transcript.addEventListener('scrollend', settle, { once: true });
+  // Fallback for engines without scrollend, and for a click when the transcript
+  // is already at the bottom (no scroll event is going to arrive at all).
+  setTimeout(() => {
+    if (!jumpingToBottom) return;
+    jumpingToBottom = false;
+    syncFollow();
+  }, 420);
 });
 
-transcript.addEventListener('scroll', syncJumpToBottom, { passive: true });
+transcript.addEventListener('scroll', syncFollow, { passive: true });
 
 // A resize can make the transcript short enough that there is nothing below to
 // jump to, so the button has to be re-checked rather than left showing.

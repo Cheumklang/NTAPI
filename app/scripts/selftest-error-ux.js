@@ -87,15 +87,15 @@ check(
   Boolean(appendErrorBanner) && /scrollToBottom\(/.test(appendErrorBanner)
 );
 
-// 5. scrollToBottom keeps its "only when near the bottom" rule.
-//
-// The rule moved into isReadingUp(), which the jump-to-newest button shares, so
-// the check is on that helper instead of the old inline nearBottom expression.
+// The rule moved into the sticky `pinnedToBottom` state, which the jump-to-newest
+// button shares through isReadingUp(). It is no longer recomputed from a distance
+// on every call, because content growing under a reader who never scrolled made
+// the measured gap look like they had left.
 const scroll = bodyOf('scrollToBottom');
 check(
-  'scrollToBottom only moves when the reader is near the bottom',
-  Boolean(scroll) && /if\s*\(\s*!force\s*&&\s*isReadingUp\(\)\s*\)/.test(scroll),
-  'scrollToBottom must defer to isReadingUp() when not forced'
+  'scrollToBottom only moves when the reader is following',
+  Boolean(scroll) && /if\s*\(\s*!force\s*&&\s*!pinnedToBottom\s*\)/.test(scroll),
+  'scrollToBottom must defer to the follow state when not forced'
 );
 
 // 6. The banner carries its own gutter.

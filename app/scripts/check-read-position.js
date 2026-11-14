@@ -165,15 +165,22 @@ app.whenReady().then(async () => {
     t.scrollTop = 0;
     // A synchronous scroll event reads the offset from before the change.
     t.dispatchEvent(new Event('scroll'));
+    // A hidden element has no box to measure, and the button is hidden whenever
+    // the reader is at the bottom — so it has to be revealed for this measurement.
+    const wasHidden = b.hidden;
+    b.hidden = false;
     const br = b.getBoundingClientRect();
     const wr = w.getBoundingClientRect();
     const tr = t.getBoundingClientRect();
     const mid = br.left + br.width / 2;
-    return {
+    const result = {
       insideWrap: br.top >= wr.top - 1 && br.bottom <= wr.bottom + 1,
       horizontallyCentred: Math.abs(mid - (tr.left + tr.width / 2)) <= 3,
       aboveTheBottom: br.bottom <= tr.bottom,
+      measuredWidth: Math.round(br.width),
     };
+    b.hidden = wasHidden;
+    return result;
   })()`);
   check('the button stays inside the messages area', geom.insideWrap, geom);
   check('the button is centred', geom.horizontallyCentred, geom);
@@ -222,14 +229,112 @@ app.whenReady().then(async () => {
   // the two rules from collapsing into one.
   const arriving = await win.webContents.executeJavaScript(`(async () => {
     const dist = () => transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight;
+    // Scrolling has to be *announced*, not just assigned. The follow state is
+    // decided by the scroll event now, so a silent scrollTop write leaves the app
+    // still believing the reader is at the bottom — which is what the previous
+    // version of this test was doing.
     transcript.scrollTop = 0;
-    await new Promise((r) => setTimeout(r, 60));
+    transcript.dispatchEvent(new Event('scroll'));
+    // The browser fires its own scroll event for the assignment, and it can land
+    // after ours — reading the state too early sometimes caught the stale value.
+    // Waiting two frames lets every queued scroll handler run before we sample.
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 80));
     const before = dist();
+    const pinnedBefore = pinnedToBottom;
     addMessage('assistant');
     await new Promise((r) => setTimeout(r, 60));
-    return { before, after: dist() };
+    return { before, after: dist(), pinnedBefore };
   })()`);
+  check('a silent scrollTop write is not a scroll', arriving.pinnedBefore === false, arriving);
   check('an arriving answer still leaves the reader alone', arriving.after > 100, arriving);
+
+  // --- staying at the bottom, the thing the user asked for ----------------
+  //
+  // "If I am at the bottom already, keep me at the bottom; only if I move up to
+  // read does it stop." The old code re-measured the gap every time, so content
+  // arriving under a reader who never touched the scrollbar made the gap look
+  // like they had left — and they drifted up while the answer streamed.
+  const follow = await win.webContents.executeJavaScript(`(async () => {
+    const gap = () => Math.round(
+      transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight);
+    activeTabId = 'follow';
+    const view = views.get('follow') || createView('follow');
+    views.set('follow', view);
+    transcript.innerHTML = '';
+    for (let i = 0; i < 30; i += 1) {
+      const d = document.createElement('div');
+      d.className = 'msg';
+      d.style.height = '70px';
+      d.textContent = 'm' + i;
+      transcript.appendChild(d);
+    }
+    // Sit at the bottom, as a reader who has read everything would be.
+    transcript.scrollTop = transcript.scrollHeight;
+    transcript.dispatchEvent(new Event('scroll'));
+    const start = gap();
+    const gaps = [];
+    for (let i = 0; i < 6; i += 1) {
+      const d = document.createElement('div');
+      d.className = 'msg';
+      d.style.height = '70px';
+      d.textContent = 'new ' + i;
+      transcript.appendChild(d);
+      scrollToBottom();
+      gaps.push(gap());
+    }
+    const stayed = { start, gaps, pinned: pinnedToBottom,
+      buttonHidden: document.getElementById('jumpToBottom').hidden };
+
+    // Now move up to read: following must stop, and adding output must not move us.
+    transcript.scrollTop = 200;
+    transcript.dispatchEvent(new Event('scroll'));
+    const upStart = gap();
+    const upGaps = [];
+    for (let i = 0; i < 3; i += 1) {
+      const d = document.createElement('div');
+      d.className = 'msg';
+      d.style.height = '70px';
+      d.textContent = 'while reading ' + i;
+      transcript.appendChild(d);
+      scrollToBottom();
+      upGaps.push(gap());
+    }
+    return { stayed, up: { upStart, upGaps, pinned: pinnedToBottom,
+      readingUp: isReadingUp(),
+      buttonShown: !document.getElementById('jumpToBottom').hidden } };
+  })()`);
+
+  check('a reader at the bottom starts at the bottom', follow.stayed.start === 0, follow.stayed);
+  check('a reader at the bottom is never left behind',
+    follow.stayed.gaps.every((g) => g === 0), follow.stayed.gaps);
+  check('the follow state stays on while at the bottom',
+    follow.stayed.pinned === true, follow.stayed);
+  check('the Newest button stays hidden while following',
+    follow.stayed.buttonHidden === true, follow.stayed);
+
+  check('scrolling up stops the following', follow.up.pinned === false, follow.up);
+  check('scrolling up reports reading', follow.up.readingUp === true, follow.up);
+  check('moving up shifts the view away from the bottom', follow.up.upStart > 100, follow.up);
+  check('output does not pull a reading user down',
+    follow.up.upGaps.every((g, i) => i === 0 || g > follow.up.upGaps[i - 1] || g === follow.up.upGaps[i - 1]),
+    follow.up.upGaps);
+  check('the Newest button appears when scrolled up',
+    follow.up.buttonShown === true, follow.up);
+
+  // Clicking Newest must return to the bottom and resume following.
+  const jumpedBack = await win.webContents.executeJavaScript(`(async () => {
+    document.getElementById('jumpToBottom').click();
+    await new Promise((r) => setTimeout(r, 600));
+    return {
+      gap: Math.round(transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight),
+      pinned: pinnedToBottom,
+      buttonHidden: document.getElementById('jumpToBottom').hidden,
+    };
+  })()`);
+  check('the Newest button lands at the bottom', jumpedBack.gap === 0, jumpedBack);
+  check('the Newest button resumes following', jumpedBack.pinned === true, jumpedBack);
+  check('the Newest button hides itself', jumpedBack.buttonHidden === true, jumpedBack);
 
   win.destroy();
 

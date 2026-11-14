@@ -68,11 +68,21 @@ check('the old 180px allowance is gone', !/< 180\b/.test(app));
 
 // --- 2. there is a single place that decides -----------------------------
 
-check('reading-up is detected in one helper', /function isReadingUp\(/.test(app));
+// The decision is sticky, made when the reader scrolls — not a distance measured
+// again on every call. Measuring was the bug: content added under a reader who
+// never moved made the gap grow until the app decided they had scrolled away.
+check('the follow state is remembered', /let pinnedToBottom = true;/.test(app));
+check('the state is re-decided on scroll', /function syncFollow\(/.test(app));
+check('reading-up reads the state, it does not re-measure', /return !pinnedToBottom;/.test(app));
 check('the button state has one helper', /function syncJumpToBottom\(/.test(app));
 
+// A smooth jump fires scroll events on the way down; they must not unpin.
+check('a jump in progress is held', /let jumpingToBottom/.test(app));
+check('the jump ignores its own scroll events', /if \(jumpingToBottom\) return;/.test(app));
+
 const scrollBody = body(app, 'scrollToBottom');
-check('scrollToBottom refuses to move a reader', /if \(!force && isReadingUp\(\)\)/.test(scrollBody));
+check('scrollToBottom refuses to move a reader', /if \(!force && !pinnedToBottom\)/.test(scrollBody));
+check('a forced scroll rebuilds the follow state', /if \(force\) pinnedToBottom = true;/.test(scrollBody));
 check('scrollToBottom hides the button at the bottom', /syncJumpToBottom\(\)/.test(scrollBody));
 
 // --- 3. output arriving no longer forces the view -----------------------
@@ -118,8 +128,8 @@ check('the button is in the markup', /id="jumpToBottom"/.test(html));
 check('the button starts hidden', /id="jumpToBottom"[\s\S]{0,200}hidden/.test(html));
 check('the button has a label', /data-i18n="jumpToBottom"/.test(html));
 check('the button is looked up', /const jumpToBottom = el\('jumpToBottom'\)/.test(app));
-check('clicking it goes to the bottom', /jumpToBottom\?\.addEventListener\('click', \(\) => \{\s*scrollToBottom\(true\);/.test(app));
-check('scrolling updates the button', /transcript\.addEventListener\('scroll', syncJumpToBottom/.test(app));
+check('clicking it goes to the bottom', /jumpToBottom\?\.addEventListener\('click', \(\) => \{[\s\S]{0,200}scrollToBottom\(true\)/.test(app));
+check('scrolling updates the follow state', /transcript\.addEventListener\('scroll', syncFollow/.test(app));
 check('resizing re-checks the button', /window\.addEventListener\('resize', syncJumpToBottom\)/.test(app));
 
 // --- 6. it is styled and positioned over the messages --------------------
