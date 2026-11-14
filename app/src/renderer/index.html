@@ -58,6 +58,16 @@
         </div>
 
         <div class="section">
+          <label for="approvalPolicy">การอนุมัติเครื่องมือ</label>
+          <select id="approvalPolicy" class="path-btn" title="ถามเสมอ / อนุมัติเสมอ / ไม่อนุมัติเสมอ">
+            <option value="ask">ถามเสมอ</option>
+            <option value="allow">อนุมัติเสมอ</option>
+            <option value="deny">ไม่อนุมัติเสมอ</option>
+          </select>
+          <p class="settings-hint" id="approvalPolicyHint">ถามทุกครั้งก่อนให้ AI รันคำสั่ง</p>
+        </div>
+
+        <div class="section">
           <label data-i18n="workspace">Workspace</label>
           <button id="pickFolder" class="path-btn" title="Choose a folder">
             <span id="cwdLabel">…</span>
@@ -275,13 +285,11 @@
           <span data-i18n="approvalSub2">in this folder.</span>
         </p>
         <pre id="approvalCommand" class="dialog-code"></pre>
-        <label class="dialog-check">
-          <input type="checkbox" id="approvalRemember">
-          <span id="approvalRememberLabel" data-i18n="rememberTool">Don't ask again for bash in this session</span>
-        </label>
+        <div class="dialog-check muted-row">
+          <span>ถามทุกครั้ง · ไม่จำคำตอบ</span>
+        </div>
         <div class="dialog-actions">
           <button id="approvalDeny" class="ghost" data-i18n="deny">Deny</button>
-          <button id="approvalAllowAll" class="ghost danger" data-i18n="allowAll">Allow everything</button>
           <button id="approvalAllow" class="send" data-i18n="allowOnce">Allow</button>
         </div>
         <div class="dialog-hint" data-i18n="approvalKeys">Enter = allow · Esc = deny</div>

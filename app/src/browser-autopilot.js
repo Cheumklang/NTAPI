@@ -47,35 +47,6 @@ function isAlwaysAsk(label) {
   return ALWAYS_ASK.test(String(label === undefined || label === null ? '' : label));
 }
 
-/**
- * Who answers an approval request.
- *
- * Order matters. The money/delete guard is a promise made to the user, so it
- * outranks every "stop asking" control they may have switched on earlier —
- * including the blanket one. Hand-over mode comes after that, and only ever
- * answers for the tab the user handed over.
- *
- * Pure: the caller supplies the state it holds.
- */
-function approvalVerdict(options = {}) {
-  const toolName = String(options.toolName || '');
-  const label = options.label;
-  if (toolName.startsWith('browser_') && isAlwaysAsk(label)) {
-    return { skip: false, reason: 'alwaysAsk' };
-  }
-  if (options.allowEverything || options.remembered) return { skip: true, reason: 'preapproved' };
-
-  const { autopilot } = options;
-  if (autopilot) {
-    const tabId =
-      options.targetTabId === null || options.targetTabId === undefined ? options.claimTabId : options.targetTabId;
-    if (autopilot.allows({ tool: toolName, tabId, label }).allowed) {
-      return { skip: true, reason: 'autopilot' };
-    }
-  }
-  return { skip: false, reason: 'ask' };
-}
-
 /** eTLD+1 of a URL, or '' when it cannot be read. Same rule as a claim's domain. */
 function domainOf(url) {
   try {
@@ -176,4 +147,4 @@ function createAutopilot(options = {}) {
   return { grant, stop, state, noteAction, noteFailure, shouldExpire, allows };
 }
 
-module.exports = { ALWAYS_ASK, IDLE_MS, MAX_FAILURES, COVERED_TOOLS, isAlwaysAsk, approvalVerdict, createAutopilot };
+module.exports = { ALWAYS_ASK, IDLE_MS, MAX_FAILURES, COVERED_TOOLS, isAlwaysAsk, createAutopilot };
