@@ -27,6 +27,8 @@ const {
   browserGuardedTools,
   createBrowserBridge,
 } = require('./browser-bridge');
+const { formatSnapshot, findInTable } = require('./browser-snapshot');
+const { createRefTables, resolveRefArgs } = require('./browser-target');
 const { ZRO_MODELS, zroProviderConfig, zroModelEntries } = require('./zro');
 const { resolveNvidiaModels, nvidiaProviderConfig, nvidiaModelEntries } = require('./nvidia');
 const {
@@ -849,6 +851,81 @@ async function createFreePiSession(options) {
    * download goes into the configured downloads folder, not wherever a command
    * happens to run. Only injected when a downloads folder is configured.
    */
+  /** The tab the last snapshot came from, for calls that name no tab. */
+  let lastSnapshotTab = null;
+
+  /** The ref table a call should be resolved against. */
+  function tableForCall(args) {
+    const tabId = Number.isInteger(args && args.tab) ? args.tab : lastSnapshotTab;
+    return { tabId, table: browserRefTables.tableFor(tabId) };
+  }
+
+  function browserErrorResult(code, message) {
+    return {
+      content: [{ type: 'text', text: `Browser error (${code}): ${message}` }],
+      details: { ok: false, code },
+    };
+  }
+
+  /**
+   * Take a snapshot and remember its refs. Every snapshot replaces the table:
+   * a ref from an older page must never resolve to a newer element.
+   */
+  async function rememberSnapshot(callArgs, timeoutMs, options) {
+    const result = await browserBridge.call('snapshot', callArgs, { timeoutMs });
+    const formatted = formatSnapshot(result, options || {});
+    browserRefTables.remember(result.tabId, formatted.table);
+    if (Number.isInteger(result.tabId)) lastSnapshotTab = result.tabId;
+    return { result, formatted };
+  }
+
+  /**
+   * After anything that changes the page, hand the model the page it produced,
+   * so it does not have to spend a round trip asking. A failure here must never
+   * turn a successful action into an error.
+   */
+  async function snapshotAfterAction(tabId) {
+    try {
+      const { formatted } = await rememberSnapshot(Number.isInteger(tabId) ? { tab: tabId } : {}, 15000);
+      return `\n\n${formatted.text}`;
+    } catch (err) {
+      return `\n\n(took the action, but could not re-read the page: ${(err && err.code) || 'ERROR'})`;
+    }
+  }
+
+  /** A dialog freezes the tab; say so on whatever result the model is reading. */
+  function dialogNotice(result) {
+    const dialog = result && result.dialog;
+    if (!dialog) return '';
+    return `\n\nA page dialog is blocking the tab: ${dialog.type} — "${dialog.message}". Answer it with browser_dialog.`;
+  }
+
+  async function runLocalBrowserTool(spec, params) {
+    if (spec.name === 'browser_claim') {
+      return browserErrorResult(
+        'NO_CLAIM',
+        'No browser tab has been handed to the agent yet. Ask the user to hand one over from the Browser control chip.'
+      );
+    }
+    const query = params && typeof params === 'object' ? params : {};
+    const { tabId, table } = tableForCall(query);
+    if (!table) {
+      return browserErrorResult('NO_SNAPSHOT', 'There is no snapshot to search yet. Call browser_snapshot first.');
+    }
+    const found = findInTable(table, { text: query.text, ref: query.ref, max: query.max });
+    if (!found.count) {
+      return {
+        content: [{ type: 'text', text: `Nothing in the current snapshot matched (tab ${tabId}).` }],
+        details: { ok: true, count: 0 },
+      };
+    }
+    const lines = found.matches.map((m) => `${m.ref} [${m.role}] "${m.name}"`).join('\n');
+    return {
+      content: [{ type: 'text', text: `${found.count} match(es):\n${lines}` }],
+      details: { ok: true, count: found.count },
+    };
+  }
+
   /**
    * Browser control. Registers one tool per entry in BROWSER_TOOLS and forwards
    * the call to the bridge, which talks to the companion Chrome extension. Write
@@ -858,7 +935,7 @@ async function createFreePiSession(options) {
     name: 'freepi-desktop-browser',
     factory(pi) {
       if (!browserBridge) return;
-      for (const spec of browserToolSpecs()) {
+      for (const spec of [...browserToolSpecs(), ...browserLocalToolSpecs()]) {
         pi.registerTool({
           name: spec.name,
           label: spec.name.replace('browser_', 'Browser ').replace(/_/g, ' '),
@@ -866,19 +943,33 @@ async function createFreePiSession(options) {
           promptSnippet: spec.promptSnippet,
           parameters: spec.parameters,
           async execute(_id, params, _signal, _onUpdate, ctx) {
-            const args = { ...(params || {}) };
-            const timeoutMs = spec.cmd === 'screenshot' ? 30000 : 15000;
+            if (spec.local) return runLocalBrowserTool(spec, params);
+
+            const resolved = resolveRefArgs(params, tableForCall(params || {}).table);
+            if (!resolved.ok) return browserErrorResult(resolved.code, resolved.message);
+            const args = resolved.args;
+            const timeoutMs = spec.cmd === 'screenshot' || spec.cmd === 'snapshot' ? 30000 : 15000;
+
             let result;
             try {
               result = await browserBridge.call(spec.cmd, args, { timeoutMs });
             } catch (err) {
               const code = (err && err.code) || 'ERROR';
+              return browserErrorResult(code, (err && err.message) || String(err));
+            }
+
+            const canSeeImages = Boolean(ctx && ctx.getModel && ctx.getModel() && ctx.getModel().input && ctx.getModel().input.includes('image'));
+
+            if (spec.cmd === 'snapshot') {
+              const formatted = formatSnapshot(result, { maxNodes: params && params.maxNodes });
+              browserRefTables.remember(result.tabId, formatted.table);
+              if (Number.isInteger(result.tabId)) lastSnapshotTab = result.tabId;
               return {
-                content: [{ type: 'text', text: `Browser error (${code}): ${(err && err.message) || String(err)}` }],
-                details: { ok: false, code },
+                content: [{ type: 'text', text: formatted.text + dialogNotice(result) }],
+                details: { ok: true, tabId: result.tabId, shown: formatted.shown, total: formatted.total, truncated: formatted.truncated },
               };
             }
-            const canSeeImages = Boolean(ctx && ctx.getModel && ctx.getModel() && ctx.getModel().input && ctx.getModel().input.includes('image'));
+
             if (spec.cmd === 'screenshot') {
               const asImage = browserResultContent(spec, result, imagesDir, canSeeImages);
               if (asImage) return { content: asImage, details: { ok: true, url: result.url } };
@@ -899,7 +990,13 @@ async function createFreePiSession(options) {
                 details: { ok: true, path: rel },
               };
             }
-            return { content: [{ type: 'text', text: browserResultContent(spec, result, imagesDir, canSeeImages) }], details: { ok: true } };
+
+            let text = browserResultContent(spec, result, imagesDir, canSeeImages);
+            text += dialogNotice(result);
+            // The model should not have to ask what changed. `close` is the one
+            // command whose tab is gone, so there is nothing left to look at.
+            if (spec.write && spec.cmd !== 'close') text += await snapshotAfterAction(result.tabId);
+            return { content: [{ type: 'text', text }], details: { ok: true } };
           },
         });
       }
@@ -1735,11 +1832,73 @@ async function createFreePiSession(options) {
   };
 }
 
+/* ---------------------- browser tools the app answers itself ----------------------
+ * These have no browser-bridge command, so they must never be added to
+ * BROWSER_TOOLS: that catalogue is what the registration loop forwards to
+ * Chrome, and a spec without a real command would fail there.
+ */
+
+/** One ref table per tab, from that tab's most recent snapshot. */
+const browserRefTables = createRefTables();
+
+const BROWSER_LOCAL_TOOLS = {
+  browser_find: { write: false },
+  browser_claim: { write: true },
+};
+
+const BROWSER_LOCAL_TOOL_DOCS = {
+  browser_find: {
+    description:
+      'Search the last snapshot for an element, by the text it shows or by an exact ref. Read-only and cheap: use it when the snapshot was truncated, or when you know what a control says but not where it is.',
+    snippet: 'Search the last page snapshot',
+    props: {
+      tab: { type: 'integer' },
+      text: { type: 'string', description: 'Text the element shows' },
+      ref: { type: 'string', description: 'An exact ref from the last snapshot' },
+      max: { type: 'integer', description: 'Largest number of matches (default 20)' },
+    },
+  },
+  browser_claim: {
+    description:
+      'Ask the user to let you work in a browser tab they already have open. The app asks for approval and shows which tab. Every other browser tool then targets that tab until it is released.',
+    snippet: 'Ask to work in one of the open browser tabs',
+    props: {},
+  },
+};
+
+function browserLocalToolNames() {
+  return Object.keys(BROWSER_LOCAL_TOOLS);
+}
+
+function browserLocalGuardedTools() {
+  return browserLocalToolNames().filter((name) => BROWSER_LOCAL_TOOLS[name].write);
+}
+
+/** The app-side specs, shaped like `browserToolSpecs()` but carrying no `cmd`. */
+function browserLocalToolSpecs() {
+  return browserLocalToolNames().map((name) => {
+    const doc = BROWSER_LOCAL_TOOL_DOCS[name] || {};
+    return {
+      name,
+      local: true,
+      write: BROWSER_LOCAL_TOOLS[name].write,
+      description: doc.description || name,
+      promptSnippet: doc.snippet || name,
+      parameters: { type: 'object', properties: doc.props || {} },
+    };
+  });
+}
+
+/** A tab's refs stop being valid the moment the page changes again. */
+function clearSnapshotTable(tabId) {
+  browserRefTables.clear(tabId);
+}
+
 /**
  * Built-in tools that always ask first: shell/file writes plus the browser
  * commands that change a page. Read-only browser commands never prompt.
  */
-const DEFAULT_GUARDED_TOOLS = ['bash', 'edit', 'write', ...browserGuardedTools()];
+const DEFAULT_GUARDED_TOOLS = ['bash', 'edit', 'write', ...browserGuardedTools(), ...browserLocalGuardedTools()];
 
 /* --------------------------- browser control tools ---------------------------
  * The agent drives the user's own Chrome through a companion extension. Read
@@ -1765,6 +1924,26 @@ const BROWSER_TOOL_DOCS = {
       maxChars: { type: 'integer', description: 'Truncate the text (default 8000)' },
     },
   },
+  browser_snapshot: {
+    description:
+      'Take a structural snapshot of the page: every element you can act on, each with a ref. Read-only, and the thing to do before acting — click, type and fill by `ref` instead of guessing a CSS selector. Returns at most a few hundred elements; use browser_find when it is cut short.',
+    snippet: 'Read the page structure and its element refs',
+    props: {
+      tab: { type: 'integer' },
+      maxNodes: { type: 'integer', description: 'Largest number of elements to show (default 300)' },
+    },
+  },
+  browser_find: {
+    description:
+      'Search the last snapshot for an element, by the text it shows or by an exact ref. Read-only and cheap: use it when the snapshot was truncated, or when you know what a control says but not where it is.',
+    snippet: 'Search the last page snapshot',
+    props: {
+      tab: { type: 'integer' },
+      text: { type: 'string', description: 'Text the element shows' },
+      ref: { type: 'string', description: 'An exact ref from the last snapshot' },
+      max: { type: 'integer', description: 'Largest number of matches (default 20)' },
+    },
+  },
   browser_screenshot: {
     description:
       'Take a PNG screenshot of the current tab. Works on background tabs. Use when layout matters or the text alone is not enough.',
@@ -1776,6 +1955,7 @@ const BROWSER_TOOL_DOCS = {
     snippet: 'Wait for the page to show something',
     props: {
       tab: { type: 'integer' },
+      ref: { type: 'string', description: 'A ref from the last snapshot' },
       selector: { type: 'string' },
       text: { type: 'string' },
       timeoutMs: { type: 'integer', description: 'Default 10000' },
@@ -1784,7 +1964,11 @@ const BROWSER_TOOL_DOCS = {
   browser_scroll: {
     description: 'Scroll the page by a number of pixels.',
     snippet: 'Scroll the current page',
-    props: { tab: { type: 'integer' }, dy: { type: 'integer', description: 'Pixels to scroll, default 600' } },
+    props: {
+      tab: { type: 'integer' },
+      ref: { type: 'string', description: 'Scroll this element into view first' },
+      dy: { type: 'integer', description: 'Pixels to scroll, default 600' },
+    },
   },
   browser_open: {
     description: 'Open a URL in a new tab in the NTAPI browser window (the user is already signed in there).',
@@ -1800,10 +1984,11 @@ const BROWSER_TOOL_DOCS = {
   },
   browser_click: {
     description:
-      'Click an element on the page. Give a CSS selector, visible text, or x/y coordinates. Asks the user for approval.',
+      'Click an element on the page. Give a `ref` from browser_snapshot, a CSS selector, visible text, or x/y coordinates. Asks the user for approval.',
     snippet: 'Click something on the page',
     props: {
       tab: { type: 'integer' },
+      ref: { type: 'string', description: 'A ref from the last snapshot (preferred)' },
       selector: { type: 'string' },
       text: { type: 'string', description: 'Visible text of the element to click' },
       x: { type: 'number' },
@@ -1813,9 +1998,10 @@ const BROWSER_TOOL_DOCS = {
   browser_type: {
     description: 'Type text into an input, as if the user typed it. Asks for approval.',
     snippet: 'Type into a field',
-    required: ['selector', 'text'],
+    required: ['text'],
     props: {
       tab: { type: 'integer' },
+      ref: { type: 'string', description: 'A ref from the last snapshot (preferred)' },
       selector: { type: 'string' },
       text: { type: 'string' },
       clear: { type: 'boolean', description: 'Clear the field first' },
@@ -1833,8 +2019,11 @@ const BROWSER_TOOL_DOCS = {
         description: 'Fields to fill',
         items: {
           type: 'object',
-          properties: { selector: { type: 'string' }, value: { type: 'string' } },
-          required: ['selector'],
+          properties: {
+            ref: { type: 'string', description: 'A ref from the last snapshot (preferred)' },
+            selector: { type: 'string' },
+            value: { type: 'string' },
+          },
         },
       },
     },
@@ -1842,8 +2031,11 @@ const BROWSER_TOOL_DOCS = {
   browser_key: {
     description: 'Press a key in the page: Enter, Tab, Escape, Backspace, ArrowUp, ArrowDown. Asks for approval.',
     snippet: 'Press a key',
-    required: ['key'],
-    props: { tab: { type: 'integer' }, key: { type: 'string' } },
+    props: {
+      tab: { type: 'integer' },
+      ref: { type: 'string', description: 'Focus this element first (a ref from the last snapshot)' },
+      key: { type: 'string' },
+    },
   },
   browser_eval: {
     description:
@@ -1903,6 +2095,9 @@ ${result.text || ''}`.trim();
     return `${result.title || ''}\n${result.url || ''}
 
 ${JSON.stringify(result.value)}`.trim();
+  }
+  if (spec.cmd === 'dialog') {
+    return result.handled ? `Answered the ${result.type} dialog.` : 'No dialog was open on that tab.';
   }
   const head = [result.title, result.url].filter(Boolean).join(' - ');
   const detail = result.clicked
@@ -1976,6 +2171,8 @@ module.exports = {
   PROVIDER_NAME,
   isGuardedTool,
   browserToolSpecs,
+  browserLocalToolSpecs,
+  clearSnapshotTable,
   browserResultContent,
   DEFAULT_GUARDED_TOOLS,
   mcpToolLabel,

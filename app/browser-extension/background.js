@@ -630,6 +630,29 @@ if (typeof module !== 'undefined') {
  * then explicit `x`/`y`. Whatever matched is scrolled into view so the caller
  * can dispatch a click at its centre.
  */
+/**
+ * Resolve a frame's isolated world. The main frame needs none — the tab's own
+ * context is it. A named frame sends the command to where the element is.
+ */
+async function frameContextId(tabId, frameId) {
+  if (!frameId) return null;
+  try {
+    const contexts = await ensureFrameContexts(tabId);
+    const found = contexts.find((c) => c.cdpFrameId === frameId || c.frameId === frameId);
+    return found ? found.contextId : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Evaluate in a named frame when one is given, else in the tab's main frame. */
+async function evalInFrame(tabId, frameId, expression, extra) {
+  const params = Object.assign({ expression, returnByValue: true }, extra || {});
+  const contextId = await frameContextId(tabId, frameId);
+  if (contextId !== null && contextId !== undefined) params.contextId = contextId;
+  return cdp(tabId, 'Runtime.evaluate', params);
+}
+
 async function locate(tabId, args) {
   const expression = `(() => {
     const sel = ${JSON.stringify(args.selector || null)};
@@ -656,7 +679,7 @@ async function locate(tabId, args) {
       label: (el.innerText || el.value || el.getAttribute('aria-label') || '').slice(0, 80),
     };
   })()`;
-  const res = await cdp(tabId, 'Runtime.evaluate', { expression, returnByValue: true });
+  const res = await evalInFrame(tabId, args.frameId, expression);
   return (res.result && res.result.value) || { found: false };
 }
 
@@ -685,7 +708,7 @@ async function click(args) {
 }
 
 /** Focus an element, then insert text at the caret (keeps the page's handlers). */
-async function focusAndInsert(tabId, selector, text, clearFirst) {
+async function focusAndInsert(tabId, selector, text, clearFirst, frameId) {
   const focusExpr = `(() => {
     const el = document.querySelector(${JSON.stringify(selector)});
     if (!el) return false;
@@ -693,15 +716,17 @@ async function focusAndInsert(tabId, selector, text, clearFirst) {
     ${clearFirst ? "if ('value' in el) { const setter = Object.getOwnPropertyDescriptor(el.constructor.prototype, 'value')?.set; if (setter) setter.call(el, ''); else el.value = ''; } else if (el.isContentEditable) { el.textContent = ''; }" : ''}
     return true;
   })()`;
-  const res = await cdp(tabId, 'Runtime.evaluate', { expression: focusExpr, returnByValue: true });
+  const res = await evalInFrame(tabId, frameId, focusExpr);
   if (!(res.result && res.result.value)) {
     throw Object.assign(new Error(`No element matched ${selector}.`), { code: 'NO_ELEMENT' });
   }
   await cdp(tabId, 'Input.insertText', { text: String(text ?? '') });
-  await cdp(tabId, 'Runtime.evaluate', {
-    expression: `(() => { const el = document.querySelector(${JSON.stringify(selector)});
-      if (el) { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); } })()`,
-  });
+  await evalInFrame(
+    tabId,
+    frameId,
+    `(() => { const el = document.querySelector(${JSON.stringify(selector)});
+      if (el) { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); } })()`
+  );
 }
 
 async function typeText(args) {
@@ -709,7 +734,7 @@ async function typeText(args) {
     throw Object.assign(new Error('`selector` is required.'), { code: 'BAD_ARGS' });
   }
   const tabId = await resolveTab(args.tab);
-  await focusAndInsert(tabId, args.selector, args.text, Boolean(args.clear));
+  await focusAndInsert(tabId, args.selector, args.text, Boolean(args.clear), args.frameId);
   if (args.submit) await pressKey({ tab: tabId, key: 'Enter' });
   return tabSummary(tabId);
 }
@@ -720,7 +745,7 @@ async function fillFields(args) {
   const tabId = await resolveTab(args.tab);
   for (const field of fields) {
     if (!field || typeof field.selector !== 'string') continue;
-    await focusAndInsert(tabId, field.selector, field.value, true);
+    await focusAndInsert(tabId, field.selector, field.value, true, field.frameId);
   }
   return Object.assign({ filled: fields.length }, await tabSummary(tabId));
 }
@@ -739,6 +764,9 @@ async function pressKey(args) {
   const spec = KEY_CODES[name];
   if (!spec) throw Object.assign(new Error(`Unsupported key: ${name}`), { code: 'BAD_ARGS' });
   const tabId = await resolveTab(args.tab);
+  if (typeof args.selector === 'string' && args.selector) {
+    await focusAndInsert(tabId, args.selector, '', false, args.frameId);
+  }
   await cdp(tabId, 'Input.dispatchKeyEvent', { type: 'keyDown', ...spec });
   if (spec.text) await cdp(tabId, 'Input.dispatchKeyEvent', { type: 'char', text: spec.text, ...spec });
   await cdp(tabId, 'Input.dispatchKeyEvent', { type: 'keyUp', ...spec });
@@ -747,10 +775,16 @@ async function pressKey(args) {
 
 async function scrollPage(args) {
   const tabId = await resolveTab(args.tab);
+  if (typeof args.selector === 'string' && args.selector) {
+    await evalInFrame(
+      tabId,
+      args.frameId,
+      `(() => { const el = document.querySelector(${JSON.stringify(args.selector)}); if (el) el.scrollIntoView({ block: 'center', inline: 'center' }); })()`
+    );
+    return tabSummary(tabId);
+  }
   const dy = Number.isFinite(args.dy) ? args.dy : 600;
-  await cdp(tabId, 'Runtime.evaluate', {
-    expression: `window.scrollBy({ top: ${dy}, behavior: 'instant' })`,
-  });
+  await evalInFrame(tabId, args.frameId, `window.scrollBy({ top: ${dy}, behavior: 'instant' })`);
   return tabSummary(tabId);
 }
 
@@ -783,7 +817,7 @@ async function waitFor(args) {
   })()`;
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
-    const res = await cdp(tabId, 'Runtime.evaluate', { expression, returnByValue: true });
+    const res = await evalInFrame(tabId, args.frameId, expression);
     if (res.result && res.result.value) return Object.assign({ waited: Date.now() - started }, await tabSummary(tabId));
     await new Promise((r) => setTimeout(r, 100));
   }

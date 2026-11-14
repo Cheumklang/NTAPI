@@ -26,6 +26,7 @@ const EXTENSION_ID = 'fnbhakfiojndenlkelamkfljofdojlba';
 const BROWSER_TOOLS = {
   browser_tabs: { write: false, cmd: 'tabs' },
   browser_read: { write: false, cmd: 'read' },
+  browser_snapshot: { write: false, cmd: 'snapshot' },
   browser_screenshot: { write: false, cmd: 'screenshot' },
   browser_wait: { write: false, cmd: 'wait' },
   browser_scroll: { write: false, cmd: 'scroll' },
@@ -36,6 +37,7 @@ const BROWSER_TOOLS = {
   browser_fill: { write: true, cmd: 'fill' },
   browser_key: { write: true, cmd: 'key' },
   browser_eval: { write: true, cmd: 'eval' },
+  browser_dialog: { write: true, cmd: 'dialog' },
   browser_close: { write: true, cmd: 'close' },
 };
 
@@ -81,7 +83,6 @@ function makeRequest(id, cmd, args) {
 }
 
 const AUDIT_MAX_BYTES = 5 * 1024 * 1024;
-const WRITE_CMDS = new Set(Object.values(BROWSER_TOOLS).filter((t) => t.write).map((t) => t.cmd));
 
 function bridgeError(code, message) {
   const err = new Error(message);
@@ -276,20 +277,31 @@ function createBrowserBridge(options = {}) {
     seq += 1;
     const id = seq;
     const ws = socket;
+    const auditArgs = args && typeof args === 'object' ? args : {};
+    // Every command is recorded, not just the ones that change a page: the log
+    // is the only witness to what the agent read as well as what it did.
+    const auditLine = (ok) =>
+      appendAudit({
+        cmd,
+        tabId: Number.isInteger(auditArgs.tab) ? auditArgs.tab : null,
+        url: auditArgs.url ?? null,
+        ref: auditArgs.ref ?? null,
+        selector: auditArgs.selector ?? null,
+        ok,
+      });
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.delete(id);
+        auditLine(false);
         reject(bridgeError('TIMEOUT', `The browser did not answer ${cmd} in ${timeoutMs}ms.`));
       }, timeoutMs);
-      const write = WRITE_CMDS.has(cmd);
-      const auditArgs = args && typeof args === 'object' ? args : {};
       pending.set(id, {
         resolve: (result) => {
-          if (write) appendAudit({ cmd, url: auditArgs.url ?? null, selector: auditArgs.selector ?? null, ok: true });
+          auditLine(true);
           resolve(result);
         },
         reject: (err) => {
-          if (write) appendAudit({ cmd, url: auditArgs.url ?? null, selector: auditArgs.selector ?? null, ok: false });
+          auditLine(false);
           reject(err);
         },
         timer,

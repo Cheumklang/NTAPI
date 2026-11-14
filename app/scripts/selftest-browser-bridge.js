@@ -23,9 +23,11 @@ function delay(ms) {
 }
 
 // --- catalogue ---
-check('catalogue has 13 tools', b.browserToolNames().length === 13);
+check('catalogue has 15 tools', b.browserToolNames().length === 15, b.browserToolNames().join(','));
 check('write tools are guarded', b.browserGuardedTools().includes('browser_click'));
 check('read tools are not guarded', !b.browserGuardedTools().includes('browser_read'));
+check('snapshot is a read command', b.BROWSER_TOOLS.browser_snapshot.write === false && b.BROWSER_TOOLS.browser_snapshot.cmd === 'snapshot');
+check('dialog is a guarded write command', b.BROWSER_TOOLS.browser_dialog.write === true && b.BROWSER_TOOLS.browser_dialog.cmd === 'dialog');
 check('unknown name rejected', b.isBrowserTool('browser_nope') === false);
 
 // --- origin ---
@@ -64,6 +66,19 @@ async function main() {
   check('server listening on a real port', Number.isInteger(port) && port > 0, `port=${port}`);
   check('audit file created', fs.existsSync(auditPath));
 
+  const readAudit = () => {
+    try {
+      return fs
+        .readFileSync(auditPath, 'utf8')
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+    } catch {
+      return [];
+    }
+  };
+
   // Wrong origin: the connection is closed before any handshake.
   const wrong = require('ws');
   const bad = new wrong(`ws://127.0.0.1:${port}`, { headers: { Origin: 'chrome-extension://evil' } });
@@ -96,10 +111,12 @@ async function main() {
   const result = await bridge.call('read', { maxChars: 5 });
   check('call resolves result', result.done === true && result.cmd === 'read');
 
-  await bridge.call('click', { selector: '#go' });
-  const auditLines = fs.readFileSync(auditPath, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  await bridge.call('click', { selector: '#go', ref: 'e9' });
+  const auditLines = readAudit();
   check('audit written for a write command', auditLines.some((l) => l.cmd === 'click' && l.selector === '#go'));
-  check('audit skips read commands', !auditLines.some((l) => l.cmd === 'read'));
+  check('audit covers read commands too', auditLines.some((l) => l.cmd === 'read' && l.ok === true));
+  check('audit records the ref that was used', auditLines.some((l) => l.cmd === 'click' && l.ref === 'e9'));
+  check('audit always carries a tabId field', auditLines.every((l) => Object.prototype.hasOwnProperty.call(l, 'tabId')));
   w3.close();
 
   // A connected extension that never answers must time out.
@@ -112,6 +129,7 @@ async function main() {
     timeoutCode = err.code;
   }
   check('silent extension times out', timeoutCode === 'TIMEOUT', `code=${timeoutCode}`);
+  check('a timed-out command is audited as a failure', readAudit().some((l) => l.cmd === 'read' && l.ok === false));
   w4.close();
 
   await bridge.stop();

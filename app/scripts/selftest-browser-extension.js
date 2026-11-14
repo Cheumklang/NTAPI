@@ -91,6 +91,7 @@ function makeChrome() {
         if (method === 'Runtime.evaluate') {
           if (params.contextId) {
             const frameId = state.contextFrames[params.contextId];
+            if (String(params.expression || '').includes('scrollIntoView')) return { result: { value: state.evaluateAnswer } };
             return { result: { value: state.snapshotNodes[frameId] || [] } };
           }
           if (state.evaluateOverride) return state.evaluateOverride;
@@ -256,6 +257,15 @@ async function main() {
   emitEvent({ tabId: 7 }, 'Network.loadingFinished', { requestId: 'r1' });
   const settled = await handle('wait', { networkIdle: true, timeoutMs: 500 });
   check('networkIdle returns once nothing is inflight', settled.waited <= 200 && settled.idle === true, `waited=${settled.waited}`);
+
+  // --- acting on a ref that lives in a subframe ---
+  state.evaluateAnswer = { found: true, x: 12, y: 34, tag: 'button', label: 'Save' };
+  await handle('click', { tab: 7, selector: '[data-ntapi-ref="e1"]', frameId: 'F2' });
+  const framed = cdpCalls('Runtime.evaluate').filter((c) => String(c.payload.params.expression).includes('scrollIntoView'));
+  const lastFramed = framed[framed.length - 1];
+  check('a framed click evaluates inside the named frame', Boolean(lastFramed) && state.contextFrames[lastFramed.payload.params.contextId] === 'F2');
+  const framedPress = cdpCalls('Input.dispatchMouseEvent').filter((c) => c.payload.params.type === 'mousePressed');
+  check('a framed click presses at the located point', framedPress[framedPress.length - 1].payload.params.x === 12);
 }
 
 main()

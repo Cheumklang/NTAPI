@@ -22,6 +22,7 @@ const TESTS = [
   'selftest-browser-bridge.js',
   'selftest-browser-extension.js',
   'selftest-browser-snapshot.js',
+  'selftest-browser-target.js',
   'selftest-browser-tools.js',
   'selftest-error-ux.js',
   'selftest-model-fallback.js',
