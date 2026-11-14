@@ -31,6 +31,10 @@ function makeChrome() {
     evaluateAnswer: { found: true, x: 100, y: 50, tag: 'button', label: 'Send' },
     innerText: 'Hello page',
     attachFails: false,
+    frameTree: null,
+    snapshotNodes: {},
+    contextSeq: 0,
+    contextFrames: {},
   };
 
   const record = (name, payload) => calls.push({ name, payload });
@@ -69,13 +73,23 @@ function makeChrome() {
     },
     debugger: {
       attach: async ({ tabId }) => {
-        if (state.attachFails) throw new Error('attach failed');
+        if (state.attachFails) throw new Error(state.attachFails === true ? 'attach failed' : String(state.attachFails));
         record('debugger.attach', tabId);
       },
       detach: async ({ tabId }) => record('debugger.detach', tabId),
       sendCommand: async ({ tabId }, method, params) => {
         record('cdp', { tabId, method, params });
+        if (method === 'Page.getFrameTree') return { frameTree: state.frameTree };
+        if (method === 'Page.createIsolatedWorld') {
+          state.contextSeq += 1;
+          state.contextFrames[state.contextSeq] = params.frameId;
+          return { executionContextId: state.contextSeq };
+        }
         if (method === 'Runtime.evaluate') {
+          if (params.contextId) {
+            const frameId = state.contextFrames[params.contextId];
+            return { result: { value: state.snapshotNodes[frameId] || [] } };
+          }
           if (state.evaluateOverride) return state.evaluateOverride;
           const expr = params.expression || '';
           if (expr.includes('Boolean(document.querySelector')) return { result: { value: false } };
@@ -193,6 +207,28 @@ async function main() {
   await handle('close', { tab: 7 });
   check('close detaches before removing', calls.some((c) => c.name === 'debugger.detach' && c.payload === 7));
   check('close removes the tab', calls.some((c) => c.name === 'tabs.remove' && c.payload === 7));
+
+  // --- snapshot: frames, refs, one collector run per frame ---
+  state.frameTree = {
+    frame: { id: 'MAIN', url: 'https://a.example' },
+    childFrames: [{ frame: { id: 'F2', url: 'https://b.example' } }],
+  };
+  state.snapshotNodes = {
+    MAIN: [{ ref: 'e1', tag: 'button', text: 'Go' }],
+    F2: [{ ref: 'e1', tag: 'button', text: 'Save' }],
+  };
+  const snap = await handle('snapshot', { tab: 7 });
+  check('snapshot returns every frame', snap.frames.length === 2, JSON.stringify(snap.frames));
+  check('the main frame is reported without a prefix', snap.frames[0].frameId === '' && snap.frames[1].frameId === 'F2');
+  check('snapshot tags nodes with their frame', snap.nodes.filter((n) => n.frameId === 'F2').length === 1);
+  check('the collector runs once per frame with its own context', cdpCalls('Runtime.evaluate').filter((c) => c.payload.params.contextId).length === 2);
+  check('the collector clears old refs as it runs', String(cdpCalls('Runtime.evaluate').find((c) => c.payload.params.contextId).payload.params.expression).includes('removeAttribute'));
+  check('out-of-process iframes are auto-attached', cdpCalls('Target.setAutoAttach').length === 1);
+
+  // --- a debugger Chrome is already holding ---
+  state.attachFails = 'Another debugger is already attached to the tab with id: 8';
+  check('a busy debugger is DEBUGGER_BUSY', (await expectError(() => handle('snapshot', { tab: 8 }))) === 'DEBUGGER_BUSY');
+  state.attachFails = false;
 }
 
 main()

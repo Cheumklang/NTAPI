@@ -162,6 +162,8 @@ async function handle(cmd, args) {
       return readPage(args);
     case 'screenshot':
       return screenshot(args);
+    case 'snapshot':
+      return snapshotPage(args);
     case 'click':
       return click(args);
     case 'type':
@@ -215,8 +217,29 @@ async function resolveTab(tabId) {
 
 async function attach(tabId) {
   if (attached.has(tabId)) return;
-  await chrome.debugger.attach({ tabId }, '1.3');
-  attached.add(tabId);
+  try {
+    await chrome.debugger.attach({ tabId }, '1.3');
+    attached.add(tabId);
+    return;
+  } catch (err) {
+    const message = (err && err.message) || String(err);
+    // A stale session from an earlier run looks exactly like DevTools being
+    // open on the tab. Drop ours and try once more before giving up.
+    if (!/another debugger|already attached/i.test(message)) throw err;
+    try {
+      await chrome.debugger.detach({ tabId });
+    } catch {}
+    try {
+      await chrome.debugger.attach({ tabId }, '1.3');
+      attached.add(tabId);
+      return;
+    } catch {
+      throw Object.assign(
+        new Error('Chrome is already debugging this tab. Close DevTools on it and try again.'),
+        { code: 'DEBUGGER_BUSY' }
+      );
+    }
+  }
 }
 
 /** Send one CDP command to a tab, attaching the debugger first if needed. */
@@ -303,6 +326,138 @@ async function screenshot(args) {
   });
   if (!res.data) throw Object.assign(new Error('The page produced no image.'), { code: 'NO_IMAGE' });
   return Object.assign({ data: res.data, mimeType: 'image/png' }, await tabSummary(tabId));
+}
+
+/* --------------------------------------------------------- snapshot --- */
+
+/** In-page ceiling; the app's own table cap is the same number. */
+const MAX_SNAPSHOT_NODES = 1500;
+
+/**
+ * The one expression injected into a frame's isolated world.
+ *
+ * It reports facts only — tag, attributes, text, value — never a judgement
+ * about what an element is. `src/browser-snapshot.js` makes those calls, so
+ * they stay testable without a browser.
+ *
+ * Refs are frame-local (`e1`, `e2`, …); the app namespaces them per frame.
+ */
+function collectorSource() {
+  return `(() => {
+    const MAX = ${MAX_SNAPSHOT_NODES};
+    document.querySelectorAll('[data-ntapi-ref]').forEach((el) => el.removeAttribute('data-ntapi-ref'));
+    const SELECTOR = 'a,button,input,select,textarea,summary,label,option,h1,h2,h3,h4,h5,h6,' +
+      '[role=button],[role=link],[role=tab],[role=checkbox],[role=radio],[role=menuitem],' +
+      '[role=combobox],[role=textbox],[role=heading],[role=option],[contenteditable="true"],[onclick]';
+    const kept = new Set();
+    const out = [];
+    let n = 0;
+    for (const el of document.querySelectorAll(SELECTOR)) {
+      if (out.length >= MAX) break;
+      if (el.hasAttribute('data-ntapi-ref')) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) continue;
+      const style = getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
+      if (el.hidden) continue;
+      let depth = 0;
+      for (let p = el.parentElement; p; p = p.parentElement) if (kept.has(p)) depth += 1;
+      const ref = 'e' + (++n);
+      el.setAttribute('data-ntapi-ref', ref);
+      kept.add(el);
+      let labelText = '';
+      try {
+        if (el.labels && el.labels.length) labelText = el.labels[0].innerText || '';
+      } catch {}
+      if (!labelText) {
+        const by = el.getAttribute('aria-labelledby');
+        if (by) {
+          const target = document.getElementById(by);
+          if (target) labelText = target.innerText || '';
+        }
+      }
+      let text = '';
+      try {
+        text = (el.innerText || el.textContent || '').slice(0, 300);
+      } catch {}
+      out.push({
+        ref,
+        tag: (el.tagName || '').toLowerCase(),
+        type: el.getAttribute('type') || '',
+        roleAttr: el.getAttribute('role') || '',
+        ariaLabel: el.getAttribute('aria-label') || '',
+        labelText,
+        placeholder: el.getAttribute('placeholder') || '',
+        text,
+        value: 'value' in el ? String(el.value == null ? '' : el.value) : '',
+        disabled: el.disabled === true,
+        href: el.getAttribute('href') || '',
+        contentEditable: el.isContentEditable === true,
+        depth,
+      });
+    }
+    return out;
+  })()`;
+}
+
+/** Flatten `Page.getFrameTree` into document order. The first entry is the root. */
+function flattenFrames(tree, out = []) {
+  if (!tree || !tree.frame) return out;
+  out.push({ cdpFrameId: tree.frame.id || '', url: tree.frame.url || '' });
+  for (const child of tree.childFrames || []) flattenFrames(child, out);
+  return out;
+}
+
+/**
+ * One isolated world per frame, so the collector can run where the elements
+ * actually are. The root frame is reported to the app as the main frame (''),
+ * which is what keeps its refs bare (`e1` rather than `MAIN:e1`).
+ */
+async function ensureFrameContexts(tabId) {
+  await cdp(tabId, 'Page.enable');
+  await cdp(tabId, 'Target.setAutoAttach', { autoAttach: true, flatten: true, waitForDebuggerOnStart: false });
+  const tree = await cdp(tabId, 'Page.getFrameTree');
+  const all = flattenFrames(tree && tree.frameTree ? tree.frameTree : tree);
+  const rootId = all.length ? all[0].cdpFrameId : '';
+  const contexts = [];
+  for (const frame of all) {
+    let contextId = null;
+    try {
+      const world = await cdp(tabId, 'Page.createIsolatedWorld', { frameId: frame.cdpFrameId, worldName: 'ntapi-snapshot' });
+      contextId = world.executionContextId;
+    } catch {}
+    contexts.push({
+      cdpFrameId: frame.cdpFrameId,
+      frameId: frame.cdpFrameId === rootId ? '' : frame.cdpFrameId,
+      url: frame.url,
+      contextId,
+    });
+  }
+  return contexts;
+}
+
+async function snapshotPage(args = {}) {
+  const tabId = await resolveTab(args.tab);
+  const contexts = await ensureFrameContexts(tabId);
+  const nodes = [];
+  for (const ctx of contexts) {
+    if (ctx.contextId === null || ctx.contextId === undefined) continue;
+    const res = await cdp(tabId, 'Runtime.evaluate', {
+      expression: collectorSource(),
+      contextId: ctx.contextId,
+      returnByValue: true,
+    });
+    const list = (res.result && res.result.value) || [];
+    for (const node of list) nodes.push(Object.assign({}, node, { frameId: ctx.frameId }));
+  }
+  return Object.assign(
+    {
+      frames: contexts.map((c) => ({ frameId: c.frameId, url: c.url })),
+      nodes,
+      truncated: nodes.length >= MAX_SNAPSHOT_NODES,
+    },
+    await tabSummary(tabId)
+  );
 }
 
 /* --------------------------------------------------------------- lifecycle */
