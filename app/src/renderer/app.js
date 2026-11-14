@@ -3927,6 +3927,17 @@ function runSlashCommand(cmd) {
   input.focus();
 }
 
+/**
+ * The command a typed line names, if any. Matches on the first word only, so
+ * "/compact" and "/compact " both resolve, but "/compact all" does not run the
+ * bare command by accident.
+ */
+function findSlashCommand(text) {
+  const first = String(text || '').trim().split(/\s+/)[0];
+  if (!first || !first.startsWith('/')) return null;
+  return SLASH_COMMANDS.find((cmd) => cmd.name === first) || null;
+}
+
 input.addEventListener('input', () => {
   autoGrow();
   updateSlashMenu();
@@ -4003,6 +4014,16 @@ input.addEventListener('keydown', (e) => {
     }
     const text = input.value.trim();
     if (!text && pendingImages.length === 0) return;
+    // A queued slash command must stay a command. Queuing "/compact" as text
+    // would send those eight characters to the model instead of compacting.
+    const queuedCmd = text.startsWith('/') ? findSlashCommand(text) : null;
+    if (queuedCmd && queuedCmd.name === '/compact') {
+      input.value = '';
+      autoGrow();
+      compactConversation();
+      updateSendState();
+      return;
+    }
     queueMessage(text, pendingImages.slice());
     pendingImages = [];
     renderAttachments();
@@ -4107,10 +4128,26 @@ async function queueMessage(text, attachments) {
   const view = activeView();
   if (!view) return;
   view.queue = view.queue || [];
-  view.queue.push({ text: await resolveForSend(text), images: attachments });
+  view.queue.push({ kind: 'prompt', text: await resolveForSend(text), images: attachments });
 
   input.value = '';
   autoGrow();
+  renderQueue();
+  updateSendState();
+}
+
+/**
+ * Queue a slash command that acts on the conversation rather than sending text.
+ *
+ * `/compact` used to refuse outright while a turn was running, which read as
+ * "wait for this to finish and try again" — but every other input could already
+ * wait in the queue, so there was no reason for this one to be different.
+ */
+function queueAction(label, run) {
+  const view = activeView();
+  if (!view) return;
+  view.queue = view.queue || [];
+  view.queue.push({ kind: 'action', label, run });
   renderQueue();
   updateSendState();
 }
@@ -4131,6 +4168,18 @@ async function drainQueue(view) {
   if (!view.queue || !view.queue.length) return;
   const next = view.queue.shift();
   renderQueue();
+  if (next.kind === 'action') {
+    // An action does not produce a turn, so nothing will call `onSettled` to
+    // restart the queue. Run it and keep draining by hand.
+    try {
+      await next.run();
+    } catch (err) {
+      if (payloadTabIsActive(view)) showNotice(errorText(err));
+    }
+    renderQueue();
+    await drainQueue(view);
+    return;
+  }
   await sendQueued(view, next);
 }
 
@@ -4184,8 +4233,10 @@ function renderQueue() {
     row.className = 'queue-item';
     const label = document.createElement('span');
     label.className = 'queue-text';
-    label.textContent = item.text || '(attachment)';
-    label.title = item.text;
+    // A queued slash command has no message text; show what it will do.
+    const text = item.kind === 'action' ? item.label : item.text;
+    label.textContent = text || '(attachment)';
+    label.title = text || '';
     row.appendChild(label);
 
     const rm = document.createElement('button');
@@ -5313,6 +5364,7 @@ Object.assign(STRINGS.en, {
   undoDone: 'Back to before your last message — the text is in the composer',
   redoEmpty: 'Nothing to redo',
   compactDone: 'Conversation compacted',
+  compactFailed: 'Could not compact this conversation',
   exportDone: 'Conversation exported',
   contextHint: 'Context window used by this conversation',
   mentionHint: '↑↓ choose · Tab/Enter insert · Esc close',
@@ -5371,6 +5423,7 @@ Object.assign(STRINGS.th, {
   undoDone: 'ย้อนกลับไปก่อนข้อความล่าสุด — ข้อความอยู่ในช่องพิมพ์แล้ว',
   redoEmpty: 'ไม่มีอะไรให้ทำซ้ำ',
   compactDone: 'ย่อประวัติแล้ว',
+  compactFailed: 'ย่อประวัติไม่สำเร็จ',
   exportDone: 'ส่งออกบทสนทนาแล้ว',
   contextHint: 'พื้นที่บริบทที่บทสนทนานี้ใช้อยู่',
   mentionHint: '↑↓ เลือก · Tab/Enter แทรก · Esc ปิด',
@@ -5884,11 +5937,24 @@ async function redoLastMessage() {
 async function compactConversation() {
   const view = activeView();
   if (!view) return;
-  if (view.busy) return showNotice(t('undoBusy'));
+  // While a turn is running, run it when that turn finishes instead of telling
+  // the user to come back later: everything else already waits in the queue.
+  if (view.busy) {
+    queueAction(`/${t('compact')}`, () => runCompact(view));
+    return;
+  }
+  await runCompact(view);
+}
+
+async function runCompact(view) {
+  if (!view) return;
   showNotice(`${t('compact')}…`, 0);
   const res = await api.compact(view.tabId);
-  showNotice(res?.ok ? t('compactDone') : t('undoBusy'), 3200);
+  showNotice(res?.ok ? t('compactDone') : t('compactFailed'), 3200);
   refreshContextMeter();
+  // Running the command does not produce a turn, so nothing else would notice
+  // that the queue can move again.
+  drainQueue(view);
 }
 
 async function exportConversation() {

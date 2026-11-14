@@ -399,3 +399,31 @@ claim ที่ล้มเหลวไม่เงียบอีก, error ใ
 - `selftest-approval-ui.js` +8 checks (มี strip, ไม่มี activityFocus, อยู่ใน status-row, ไม่มี border/background)
   ทดสอบย้อนกลับแล้วว่าใส่กลับ → FAIL 3 จริง
 - `npm test` **35/35** · build 00:07
+
+### /compact เข้าคิวได้แล้ว + Ctrl+Enter รู้จักคำสั่ง (2026-11-14)
+
+**อาการ:** พิมพ์ `/compact` (หรือกด Ctrl+Enter) ระหว่าง AI กำลังทำงาน → ขึ้น "รอให้รอบนี้เสร็จก่อน"
+ทั้งที่ข้อความอื่นเข้าคิวได้
+
+**รากปัญหา:** `compactConversation()` มี `if (view.busy) return showNotice(t('undoBusy'))`
+ปฏิเสธทันที ไม่มีคิว · และคิวรองรับแค่ `{text, images}` (ข้อความ) ไม่รับ "งาน"
+· ซ้ำร้าย ถ้าปล่อยให้ Ctrl+Enter จัดการ `/compact` เป็นข้อความ มันจะส่งคำว่า `/compact`
+8 ตัวอักษรไปให้โมเดลแทนที่จะย่อประวัติ
+
+**แก้:**
+- `queueAction(label, run)` — คิวรองรับ `{kind:'action', label, run}`
+- `compactConversation()` — busy → `queueAction('…', () => runCompact(view))` · idle → รันทันที
+- `runCompact(view)` — แยกงานจริงออกมา, ท้ายฟังก์ชันเรียก `drainQueue()` เพราะ action
+  ไม่สร้างเทิร์น จึงไม่มี `onSettled` มาปลุกคิวต่อ
+- `drainQueue()` — เจอ action → รัน แล้ว drain ต่อเอง (ไม่รอ settle ที่ไม่มีวันมา)
+- `findSlashCommand(text)` — ใหม่: จับคำสั่งจากคำแรกของข้อความ
+- Ctrl+Enter — ถ้าเป็น `/compact` → เรียกคำสั่ง ไม่ส่งเป็นข้อความ · ข้อความอื่นยังเข้าคิวตามเดิม
+- `renderQueue()` — แถวคิวของ action แสดง `label` แทน `text`
+- i18n ใหม่ `compactFailed` (EN/TH) — เดิมแจ้ง fail ด้วยข้อความ "busy" ที่ผิดความหมาย
+
+**เทสต์:** `selftest-compact-queue.js` ใหม่ (26 checks) — ตรวจว่าไม่มีการปฏิเสธเดิม,
+คิวรับ action, drain ต่อได้เอง, Ctrl+Enter แยกคำสั่งออกจากข้อความ
+ทดสอบย้อนกลับ: ใส่ `if (view.busy) return showNotice(...)` กลับ → FAIL 2 จริง
+→ `npm test` **36/36** (จาก 35)
+
+**ยังไม่ build** — ผู้ใช้สั่งให้รออนุมัติก่อน
