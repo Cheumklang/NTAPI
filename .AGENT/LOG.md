@@ -1128,3 +1128,52 @@ CI ดูไม่ได้ (gh ไม่มี, repo private) — ผู้ใ�
 
 **เพิ่ม (ผู้ใช้):** คำว่า "น้อยที่สุด" ยาวกว่าคนอื่นคนเดียว 555 → เปลี่ยนเป็น **"น้อย"**
 · หลังเปลี่ยน: ทุกช่องกว้างเท่ากัน 37px · switch กว้าง 194px (เดิม 243) · ไม่มีคำล้นช่อง
+
+---
+
+## 2026-11-15 (v0.4.5 dev) — ลากคิว, chip บอกส่วนที่กำลังทำงาน, notice เป็นฟองในกรอบแชท
+
+**(1) แถบ `detachAll ✓` ซ้อนหลายชั้น → แถวเดียว**
+- `pushActivity()` เดิม `appendChild` + เก็บ 6 แถว → footer สูงขึ้น ดัน composer ขึ้น
+- เปลี่ยนเป็น `lines.replaceChildren()` = เหลือล่าสุดแถวเดียว · ลบ `ACTIVITY_MAX`
+- `scripts/check-status-strip.js` (7 checks)
+
+**(2) ลากคิว: ป้ายลอยไปซ้ายสุดของโปรแกรม**
+- **ต้นเหตุ:** `.queue-ghost { position: fixed; left: 8px }` + `moveDragGhost()` ขับแค่ `translateY`
+  → ป้ายตรึงที่ขอบซ้าย ไม่สนใจเมาส์
+- แก้: ส่ง `clientX, clientY` เข้า `moveDragGhost()` · `left: 0; top: 0` + `translate(x, y)` ·
+  clamp ไม่ให้ออกนอกจอ · จำ `queueGhostGrab` ไม่ให้ป้ายกระตุกตอนเริ่มลาก · ลบ `queueGhostOffset`
+- `scripts/check-queue-ghost.js` (9 checks)
+- **เทสต์เดิมเขียนล็อกบั๊กไว้:** `selftest-queue-controls.js` ตรวจ `/moveDragGhost\(e\.clientY\)/`
+  → แก้เป็น `e.clientX, e.clientY` (แก้เทสต์ให้ตรงพฤติกรรมที่ต้องการ)
+
+**(3) chip บอกว่ากำลังทำงานส่วนไหน (ผู้ใช้สั่งใหม่)**
+- ปัญหา: 3 ส่วน (ดูความคิด/ใช้เครื่องมือ/บันทึกการทำงาน) พับหมด → ต้องกางดูทีละอันถึงจะรู้
+- เพิ่ม `.msg-activity` ในทุก assistant message: chip ต่อช่องที่ **กำลังผลิตผลลัพธ์อยู่**
+  `think` / `tools` / `notes` · ไม่ทำก็หายไป · ทำพร้อมกันก็ขึ้นพร้อมกัน
+- `setActivity(wrap, channel, on)` / `clearMsgActivity(wrap)` (**ต้องเปลี่ยนชื่อ** เพราะ `clearActivity`
+  เดิมเป็นของ activity strip ของเบราว์เซอร์ — ชนกัน)
+- wiring: thinking_delta → think · text delta → think off + notes on · toolStart → notes off + tools on
+  (นับ `__runningTools` เพราะหลาย tool พร้อมกันได้) · toolEnd → tools off เมื่อเหลือ 0 ·
+  textEnd/settled/turnStart → เคลียร์
+- i18n `actThinking/actTools/actNotes` (EN+TH) · `.act-chip` มี `act-pulse` (ปิดเมื่อ reduced-motion)
+- `scripts/check-activity-chips.js` (10 checks)
+
+**(4) ข้อความ "ส่งเข้าเทิร์นที่กำลังทำงานแล้ว" ล้นออกนอกกรอบ**
+- `#notice` เดิมเป็นบรรทัดเปล่า ๆ ที่ระดับ footer → เริ่มที่ขอบซ้าย จนดูหลุดกรอบ
+- เปลี่ยนเป็นฟอง: `width: fit-content` + `max-width: min(--read-width, 100%)` + `margin: 0 auto`
+  → อยู่คอลัมน์เดียวกับ `.composer-box` (ความกว้างเท่ากัน 572px)
+- `showNotice()` มี fade-in (รีสตาร์ท animation เมื่อแทนที่ข้อความเดิม) · `hideNotice()` เฟดออก
+  200ms **ก่อน** ซ่อน (เดิมหายในเฟรมเดียว = กระพริบ)
+- `scripts/check-notice-bubble.js` (9 checks)
+
+**เทสต์รวม:** `npm test` 51/51 · check:notice 9/9 · check:chips 10/10 · check:ghost 9/9 ·
+check:strip 7/7 · check:thinking 18/18 · narration 12/12 · author 6/6 · marks 18/18
+**ย้อนกลับ (พิสูจน์แล้ว FAIL จริง):** ghost ขับแค่ Y → FAIL 5 · notice เป็น CSS เดิม → FAIL 2 ·
+strip คืน appendChild → FAIL 3
+
+**Learned:**
+1. **เทสต์เดิมอาจล็อกบั๊กไว้** — `selftest-queue-controls` ยืนยัน `moveDragGhost(e.clientY)` ตรง ๆ
+   ซึ่งก็คือตัวบั๊ก · ต้องแก้เทสต์ ไม่ใช่รักษาพฤติกรรมเดิม
+2. ตั้งชื่อฟังก์ชันใหม่ชนของเดิม (`clearActivity`) — `node --check` ไม่จับให้ ต้อง grep ชื่อก่อน
+3. วัด geometry ตอน element **hidden** ได้ 0 ทุกค่า → ต้องวัดตอนมองเห็น ไม่งั้น assertion หลอกตัวเอง

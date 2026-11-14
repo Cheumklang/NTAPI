@@ -95,7 +95,9 @@ const pointerUp = app.slice(app.indexOf("window.addEventListener('pointerup'"), 
 check('the ghost is hidden even if the drag is cancelled', /pointercancel/.test(pointerUp));
 
 const moveListener = app.slice(app.indexOf("window.addEventListener('pointermove'"), app.indexOf("window.addEventListener('pointermove'") + 260);
-check('a pointer move updates the ghost', /moveDragGhost\(e\.clientY\)/.test(moveListener));
+// Both axes: driving only Y left the label pinned to the window's left edge,
+// so it never appeared under the mouse.
+check('a pointer move updates the ghost on both axes', /moveDragGhost\(e\.clientX, e\.clientY\)/.test(moveListener));
 check('it only runs during a drag', /if \(dragState\)/.test(moveListener));
 
 // The ghost carries the text so the reader can see what is being moved.

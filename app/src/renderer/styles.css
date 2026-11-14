@@ -1042,6 +1042,48 @@ button { font-family: inherit; }
   letter-spacing: .7px;
   color: var(--muted);
 }
+
+/*
+ * Live "which part is working right now" chips.
+ *
+ * They sit directly under the role line and above the collapsed sections, so the
+ * answer to "what is it doing?" is in the same place for every message. Only the
+ * channels currently producing output appear, so nothing has to be dismissed —
+ * an idle channel simply is not there.
+ */
+.msg-activity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 1px 0 6px;
+}
+.msg-activity[hidden] { display: none; }
+
+.act-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 92, 255, .34);
+  background: rgba(124, 92, 255, .12);
+  color: #cdc7ff;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+/* The icon pulses so a chip reads as "happening now" rather than a label. */
+.act-chip .act-icon {
+  font-size: 10px;
+  animation: act-pulse 1.4s ease-in-out infinite;
+}
+@keyframes act-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .act-chip .act-icon { animation: none; }
+}
 .msg.user .bubble {
   background: var(--bg-3);
   border: 1px solid var(--line);
@@ -1234,7 +1276,47 @@ button { font-family: inherit; }
 .tool.collapsed .tool-body,
 .tool.collapsed .msg-images { display: none; }
 
-.notice { font-size: 13px; color: var(--warn); margin-bottom: 6px; }
+.notice {
+  /*
+   * A small bubble that belongs to the composer.
+   *
+   * It used to be a bare left-aligned line at footer level, so it started at the
+   * window edge and ran wider than the input box above it — the text looked like
+   * it had escaped the chat frame. Matching the composer's width and centring it
+   * puts the notice inside the same column as everything else.
+   *
+   * `fit-content` keeps it a pill rather than a full-width band: a one-line note
+   * should not look like a section heading.
+   */
+  width: fit-content;
+  max-width: min(var(--read-width), 100%);
+  margin: 0 auto 6px;
+  padding: 4px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 176, 32, .3);
+  background: rgba(255, 176, 32, .09);
+  color: var(--warn);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+  overflow-wrap: anywhere;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
+  animation: notice-in .22s cubic-bezier(.32, .72, 0, 1);
+}
+.notice[hidden] { display: none; }
+/* It appears, says its piece, and fades out — nothing to dismiss. */
+.notice.out { animation: notice-out .2s ease forwards; }
+@keyframes notice-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes notice-out {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notice, .notice.out { animation: none; }
+}
 .error-banner {
   color: var(--danger);
   border: 1px solid rgba(255,95,109,.35);
@@ -1996,7 +2078,14 @@ button { font-family: inherit; }
    * width the ghost covered the list it was being dragged into, hiding the rows
    * and the position numbers you were aiming at. */
   position: fixed;
-  left: 8px;
+  /*
+   * Anchored at the origin and moved by `transform` from JS.
+   *
+   * `left: 8px` used to pin the pill to the window's left edge while only Y was
+   * driven, so the label ignored the mouse and sat at the far left of the app.
+   * Both axes now come from the pointer.
+   */
+  left: 0;
   top: 0;
   z-index: 60;
   pointer-events: none;
@@ -2013,7 +2102,7 @@ button { font-family: inherit; }
   text-overflow: ellipsis;
   opacity: .9;
   box-shadow: 0 3px 10px rgba(0, 0, 0, .4);
-  transform: translateY(0);
+  transform: translate(0, 0);
 }
 
 /*

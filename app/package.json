@@ -1,7 +1,7 @@
 {
   "name": "ntapi-desktop",
   "productName": "NTAPI",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "รวม AI ที่มีโควตาฟรีไว้ในที่เดียว ลองก่อนจ่ายรายเดือน",
   "main": "src/main.js",
   "scripts": {
@@ -26,7 +26,10 @@
     "check:author": "electron scripts/check-author-label.js",
     "check:narration": "electron scripts/check-narration-fold.js",
     "check:thinking": "electron scripts/check-thinking-switch.js",
-    "check:strip": "electron scripts/check-status-strip.js"
+    "check:strip": "electron scripts/check-status-strip.js",
+    "check:ghost": "electron scripts/check-queue-ghost.js",
+    "check:chips": "electron scripts/check-activity-chips.js",
+    "check:notice": "electron scripts/check-notice-bubble.js"
   },
   "author": "Chanathip Cheumklang",
   "license": "MIT",

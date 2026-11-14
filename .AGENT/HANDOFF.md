@@ -51,6 +51,20 @@
 
 ## 1) กําลังทํา / ค้างอยู่ตอนนี้ (สําคัญสุด — อ่านก่อน)
 
+### 1w) ลากคิว · chip สถานะ · notice เป็นฟอง (2026-11-15) ✅ เสร็จ ยังไม่ commit
+
+1. **`detachAll ✓` ซ้อนหลายชั้น** → `pushActivity()` = `replaceChildren()` เหลือแถวเดียว
+   · ลบ `ACTIVITY_MAX` · **composer ไม่ถูกดันขึ้น** · check:strip (7)
+2. **ลากคิว ป้ายไปซ้ายสุด** → เดิม `left:8px` + ขับแค่ Y · แก้เป็น `translate(x,y)` + clamp
+   · จำ grab offset · check:ghost (9) · **แก้เทสต์เดิมที่ล็อกบั๊กไว้**
+3. **chip บอกส่วนที่กำลังทำงาน** → `.msg-activity` ในทุกข้อความ AI: `think`/`tools`/`notes`
+   ขึ้นเฉพาะส่วนที่กำลังทำ · ทำพร้อมกันขึ้นพร้อมกัน · `__runningTools` นับ tool ที่ยังรัน
+   · **ชื่อฟังก์ชัน `clearMsgActivity`** (ชนกับ `clearActivity` ของเบราว์เซอร์) · check:chips (10)
+4. **notice ล้นออกนอกกรอบ** → ฟอง `fit-content` + `margin:0 auto` ตรงคอลัมน์ `.composer-box`
+   · fade-in/out 200ms · check:notice (9)
+
+**ยังไม่ bump เวอร์ชัน / ยังไม่ commit / ยังไม่ปล่อย** (v0.4.5 ปล่อยไปแล้วรอบก่อน)
+
 ### 1v) status strip แถวเดียว · ป้าย "การคิด:" · highlight ตรงช่อง (2026-11-15) ✅ v0.4.5
 
 1. **`detachAll ✓` ซ้อนหลายชั้น** → `pushActivity()` เปลี่ยนเป็น `replaceChildren()`

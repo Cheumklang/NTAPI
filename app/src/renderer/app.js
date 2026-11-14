@@ -346,6 +346,9 @@ const STRINGS = {
     toolsUsedOne: '1 tool used',
     narrationMany: '{n} working notes',
     narrationOne: '1 working note',
+  actThinking: 'Thinking',
+  actTools: 'Using tools',
+  actNotes: 'Writing',
     toolsFailed: '{n} failed',
     cancel: 'Cancel',
     delete: 'Delete',
@@ -690,6 +693,9 @@ const STRINGS = {
     toolsUsedOne: 'ใช้เครื่องมือ 1 ครั้ง',
     narrationMany: 'บันทึกการทำงาน {n} ช่วง',
     narrationOne: 'บันทึกการทำงาน 1 ช่วง',
+  actThinking: 'กำลังคิด',
+  actTools: 'กำลังใช้เครื่องมือ',
+  actNotes: 'กำลังเขียน',
     toolsFailed: 'ล้มเหลว {n}',
     cancel: 'ยกเลิก',
     delete: 'ลบ',
@@ -960,21 +966,38 @@ function setBusy(value) {
 
 let noticeTimer = null;
 
+/**
+ * A short note above the composer.
+ *
+ * It fades in, then fades out before it is hidden. It used to vanish in one frame,
+ * which read as a glitch. Nothing needs dismissing either way: this is a passing
+ * remark ("sent into the running turn"), not a dialog.
+ */
 function showNotice(text, ms) {
   clearTimeout(noticeTimer);
   if (!text) {
-    noticeEl.hidden = true;
-    noticeEl.textContent = '';
+    hideNotice();
     return;
   }
+  noticeEl.classList.remove('out');
   noticeEl.hidden = false;
   noticeEl.textContent = text;
-  if (ms > 0) {
-    noticeTimer = setTimeout(() => {
-      noticeEl.hidden = true;
-      noticeEl.textContent = '';
-    }, ms);
-  }
+  // Restart the entrance animation even when a notice replaces another one.
+  noticeEl.classList.remove('in');
+  void noticeEl.offsetWidth;
+  noticeEl.classList.add('in');
+  if (ms > 0) noticeTimer = setTimeout(hideNotice, ms);
+}
+
+/** Fade the notice out, then take it out of the layout. */
+function hideNotice() {
+  if (!noticeEl || noticeEl.hidden) return;
+  noticeEl.classList.add('out');
+  noticeTimer = setTimeout(() => {
+    noticeEl.hidden = true;
+    noticeEl.textContent = '';
+    noticeEl.classList.remove('in', 'out');
+  }, 200);
 }
 
 /* --------------------------- sounds & toasts --------------------------- */
@@ -1059,6 +1082,55 @@ function toolText(result) {
   return JSON.stringify(content, null, 2);
 }
 
+/* ------------------------- live activity chips ------------------------- */
+
+/**
+ * The three channels a turn can produce output on, and the chip each one shows.
+ * The names match the three collapsible sections, so a chip and the section it
+ * refers to are recognisably the same thing.
+ */
+const ACTIVITY_CHANNELS = {
+  think: { label: 'actThinking', icon: '\u{1F4AD}' },
+  tools: { label: 'actTools', icon: '\u{1F527}' },
+  notes: { label: 'actNotes', icon: '\u{1F4DD}' },
+};
+
+/**
+ * Show or hide one channel's chip on a message.
+ *
+ * Only the chip for a channel that is producing output is present at all, which
+ * is what "if it is not working on that part, it disappears" asks for. Several
+ * channels can be on at once when the model reasons and calls a tool together.
+ */
+function setActivity(wrap, channel, on) {
+  const box = wrap?.querySelector?.('.msg-activity');
+  if (!box) return;
+  const existing = box.querySelector(`.act-chip[data-act="${channel}"]`);
+  if (!on) {
+    if (existing) existing.remove();
+    box.hidden = !box.querySelector('.act-chip');
+    return;
+  }
+  if (existing) return;
+  const spec = ACTIVITY_CHANNELS[channel];
+  if (!spec) return;
+  const chip = document.createElement('span');
+  chip.className = 'act-chip';
+  chip.dataset.act = channel;
+  chip.innerHTML = `<span class="act-icon" aria-hidden="true">${spec.icon}</span><span class="act-text">${escapeHtml(t(spec.label))}</span>`;
+  box.appendChild(chip);
+  box.hidden = false;
+}
+
+/** Hide every chip: the turn produced nothing more on any channel. */
+function clearMsgActivity(wrap) {
+  const box = wrap?.querySelector?.('.msg-activity');
+  if (!box) return;
+  box.replaceChildren();
+  box.hidden = true;
+  wrap.__runningTools = 0;
+}
+
 /* ------------------------------ messages ------------------------------ */
 
 /**
@@ -1098,6 +1170,24 @@ function addMessage(kind) {
     bubble.className = 'bubble';
     wrap.appendChild(bubble);
   } else {
+    //
+    // A live readout of which parts of the turn are producing output right now.
+    //
+    // The three detail sections (thinking, tools, notes) are all collapsed, so
+    // without this the only sign of activity was a collapsible row appearing —
+    // and you had to open each one to find out whether the agent was reasoning,
+    // calling a tool, or writing. A chip per active channel answers that at a
+    // glance: whatever is running shows, whatever is idle disappears, and two
+    // channels can show at once.
+    //
+    // `aria-live="polite"` so a screen reader hears the change without the
+    // interruptions of a full announcement.
+    const activity = document.createElement('div');
+    activity.className = 'msg-activity';
+    activity.setAttribute('aria-live', 'polite');
+    activity.hidden = true;
+    wrap.appendChild(activity);
+
     // Thinking is collapsed by default: a small toggle the user can open on demand.
     const thinkWrap = document.createElement('div');
     thinkWrap.className = 'thinking-wrap';
@@ -5165,7 +5255,10 @@ function enableQueueDrag(row, handle) {
     if (!item || row.classList.contains('editing')) return;
     dragState = { id: item, row };
     row.classList.add('dragging');
-    showDragGhost(row, e.clientY + queueGhostOffset(row, e.clientY));
+    // Only the pointer's own position is passed: the ghost is placed from that
+    // pair, and any pre-adjusted value here would be overwritten on the first
+    // pointermove, making the pill jump as the drag starts.
+    showDragGhost(row, e.clientX, e.clientY);
     e.dataTransfer?.setData('text/plain', item);
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
   };
@@ -5199,7 +5292,7 @@ function enableQueueDrag(row, handle) {
  * cloned row would bring its buttons, and a click on a ghost must never do
  * anything.
  */
-function showDragGhost(row, clientY) {
+function showDragGhost(row, clientX, clientY) {
   hideDragGhost();
   if (!row) return;
   const ghost = document.createElement('div');
@@ -5213,7 +5306,10 @@ function showDragGhost(row, clientY) {
   ghost.textContent = shortenGhost(raw);
   document.body.appendChild(ghost);
   queueGhost = ghost;
-  moveDragGhost(clientY);
+  // Where inside the row it was grabbed, so the pill starts under the pointer
+  // instead of jumping to the row's top edge.
+  queueGhostGrab = clientY - row.getBoundingClientRect().top;
+  moveDragGhost(clientX, clientY);
 }
 
 /** Cut the ghost's label to a length that fits a small pill. */
@@ -5227,24 +5323,37 @@ function shortenGhost(text, limit = 32) {
   return `${chars.slice(0, limit).join('').trimEnd()}…`;
 }
 
-/** Put the ghost under the pointer. */
-function moveDragGhost(clientY) {
+/**
+ * Put the ghost under the pointer.
+ *
+ * Both axes are driven from the event. Only Y was driven before, and the CSS
+ * pinned the pill to `left: 8px` — so while dragging a queued message the label
+ * sat at the far left edge of the window and ignored where the mouse was.
+ *
+ * The pill is kept inside the viewport on both edges: dragging toward the right
+ * or bottom of the window used to push the label off-screen, where it could not
+ * be read at the moment it mattered.
+ */
+function moveDragGhost(clientX, clientY) {
   if (!queueGhost) return;
-  // Centred vertically on the cursor. The ghost is a small pill that sizes itself
-  // to its label, so only the vertical position needs driving.
-  queueGhost.style.transform = `translateY(${Math.round(clientY - 14)}px)`;
+  const w = queueGhost.offsetWidth || 0;
+  const h = queueGhost.offsetHeight || 0;
+  const margin = 8;
+  // Sit just right of the cursor, vertically centred on where it was grabbed.
+  const wantedX = clientX + 12;
+  const wantedY = clientY - (queueGhostGrab != null ? queueGhostGrab : h / 2) - h / 2;
+  const maxX = Math.max(margin, window.innerWidth - w - margin);
+  const maxY = Math.max(margin, window.innerHeight - h - margin);
+  const x = Math.min(Math.max(wantedX, margin), maxX);
+  const y = Math.min(Math.max(wantedY, margin), maxY);
+  queueGhost.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
 }
 
 function hideDragGhost() {
   if (!queueGhost) return;
   queueGhost.remove();
   queueGhost = null;
-}
-
-/** Where inside the row the pointer grabbed it, so the ghost does not jump. */
-function queueGhostOffset(row, clientY) {
-  const r = row.getBoundingClientRect();
-  return -(clientY - r.top) + 8;
+  queueGhostGrab = null;
 }
 
 /** Move one queue item by `delta` positions and repaint. */
@@ -5310,13 +5419,16 @@ let dragState = null;
 /** The translucent copy following the pointer, or null. */
 let queueGhost = null;
 
+/** How far down the row the pointer grabbed it, in px. */
+let queueGhostGrab = null;
+
 // The drag ends wherever the pointer is released, which may be outside the queue,
 // so the listener is on the window rather than on the row.
 window.addEventListener('pointerup', (e) => endQueueDrag(e.clientY));
 window.addEventListener('pointercancel', () => endQueueDrag(-1));
 // The ghost tracks the pointer everywhere, including outside the queue bar.
 window.addEventListener('pointermove', (e) => {
-  if (dragState) moveDragGhost(e.clientY);
+  if (dragState) moveDragGhost(e.clientX, e.clientY);
 });
 
 async function submit() {
@@ -6054,8 +6166,12 @@ api.onDelta((p) => {
         toggle.hidden = false;
         if (th.hidden) toggle.textContent = `\u25b8 ${t('thinkingShow')}`;
       }
+      setActivity(wrap, 'think', true);
     }
   } else {
+    // Prose arrived, so reasoning has handed over to writing.
+    setActivity(wrap, 'think', false);
+    setActivity(wrap, 'notes', true);
     wrap.classList.add('streaming');
     // The last body, not the first: a turn that already spoke once continues in a
     // new bubble, and appending to the old one would put the new words above the
@@ -6103,6 +6219,13 @@ api.onToolStart((p) => {
   // to this bubble, and then text_end sees changed text and creates a second one,
   // leaving the words attached to two bubbles at once.
   sealBody(wrap);
+  // Writing is over while the tool runs; the tool chip takes over.
+  setActivity(wrap, 'notes', false);
+  setActivity(wrap, 'think', false);
+  // Several tools can be in flight at once, so the chip tracks a count rather
+  // than a flag: it must survive until the last one finishes.
+  wrap.__runningTools = (wrap.__runningTools || 0) + 1;
+  setActivity(wrap, 'tools', true);
   view.liveTools = wrap.querySelector('.tools');
   if (view.liveTools) toolCard(view.liveTools, p);
 });
@@ -6131,6 +6254,12 @@ api.onToolEnd((p) => {
   const card = document.querySelector(`[data-tool-id="${p.id}"]`);
   if (!card) return;
   applyToolResult(card, view.toolResults.get(p.id), view.cwd);
+  // The chip goes only when nothing else is still running.
+  const wrap = card.closest('.msg');
+  if (wrap) {
+    wrap.__runningTools = Math.max(0, (wrap.__runningTools || 1) - 1);
+    if (!wrap.__runningTools) setActivity(wrap, 'tools', false);
+  }
   scrollToBottom();
 });
 
@@ -6239,6 +6368,7 @@ api.onTurnStart((p) => {
     // would otherwise keep an empty bubble on screen.
     const text = live.querySelector(':scope > .body')?.textContent || '';
     const hasTools = Boolean(live.querySelector('.tool'));
+    clearMsgActivity(live);
     if (!text.trim() && !hasTools) live.remove();
     else live.classList.remove('streaming');
   }
@@ -6249,6 +6379,8 @@ api.onTurnStart((p) => {
 api.onSettled((p) => {
   const view = viewFor(p);
   if (!view) return;
+  // Nothing is producing output any more.
+  if (view.liveAssistant) clearMsgActivity(view.liveAssistant);
   // A queued prompt restarts work immediately, so only the last turn of a run
   // deserves the "finished" ping.
   const hadQueue = Boolean(view.queue?.length);
