@@ -37,7 +37,8 @@ installSseErrorGuard();
 const { checkZroKey } = require('./zro');
 const { checkNvidiaKey } = require('./nvidia');
 const { checkTokenHarborKey } = require('./tokenharbor');
-const { checkLlm7Key } = require('./llm7');
+const { checkLlm7Key, preferredLlm7Model } = require('./llm7');
+const { nextRecoveryMove } = require('./empty-answer');
 const { promptOptionsFor } = require('./prompt-mode');
 
 /**
@@ -612,6 +613,103 @@ function reportTabError(tabId, raw) {
   sendTab(tabId, 'agent:error', { text, code });
 }
 
+/**
+ * LLM7's free lane intermittently serves a trimmed route: it reports an absurdly
+ * small prompt (`usage.prompt_tokens: 32`) and hard-caps the reply at 128 tokens.
+ * A reasoning model then spends the whole cap thinking and finishes with
+ * `finish_reason: "length"` and no answer at all.
+ *
+ * Measured on the live gateway: the route comes and goes within seconds (the
+ * same message answered normally four seconds after an empty turn), so the first
+ * recovery is to wait a moment and ask again. Only if that also comes back empty
+ * is the tab moved to a free model that does not reason before it writes.
+ *
+ * The turn cannot be retried from message_end (it fires mid-turn), so the plan is
+ * recorded here and `runEmptyAnswerRetry` acts on `agent_settled`.
+ */
+function planEmptyAnswerRetry(tabId, tab, message) {
+  const provider = message.provider || tab.handle.session?.model?.provider;
+  const model = message.model || tab.handle.session?.model?.id;
+  const rows = (tab.handle.modelList || []).filter((e) => e.provider === 'llm7');
+  const current = rows.find((e) => e.id === model);
+  const fallback = preferredLlm7Model(rows);
+  const nextMove = nextRecoveryMove({
+    provider,
+    model,
+    plan: current?.plan,
+    reasoning: Boolean(current?.reasoning),
+    attempts: tab.emptyRetryCount || 0,
+    hasPrompt: Boolean(tab.lastPromptText),
+    fallbackId: fallback?.id || null,
+  });
+
+  if (nextMove) {
+    tab.emptyAnswer = {
+      move: nextMove,
+      prompt: tab.lastPromptText,
+      from: model,
+      to: fallback,
+      seq: tab.promptSeq || 0,
+    };
+    return;
+  }
+
+  sendTab(tabId, 'agent:notice', {
+    text:
+      'The model used its whole output limit on reasoning and never answered. ' +
+      'Retry, or pick another model — a non-reasoning one is more reliable here.',
+  });
+}
+
+/** Send a prompt for a tab, making sure a rejection never leaves it spinning. */
+function sendPromptToTab(tabId, tab, text) {
+  const run = tab.handle.session.prompt(text);
+  run.catch((err) => {
+    reportTabError(tabId, err instanceof Error ? err.message : String(err));
+    tab.busy = false;
+    sendTab(tabId, 'agent:busy', { busy: false });
+  });
+}
+
+/** Run the recovery `planEmptyAnswerRetry` recorded, once the agent is idle. */
+async function runEmptyAnswerRetry(tabId, tab) {
+  const pending = tab.emptyAnswer;
+  tab.emptyAnswer = null;
+  if (!pending) return;
+  // A new message from the user cancels the recovery: never answer twice.
+  if ((tab.promptSeq || 0) !== pending.seq) return;
+
+  if (pending.move === 'repeat') {
+    tab.emptyRetryCount = 1;
+    sendTab(tabId, 'agent:notice', {
+      text: 'LLM7 cut that reply before it started — retrying once in a moment…',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    if ((tab.promptSeq || 0) !== pending.seq || tab.busy) return;
+    sendPromptToTab(tabId, tab, pending.prompt);
+    return;
+  }
+
+  try {
+    await tab.handle.setModel('llm7', pending.to.id);
+  } catch (err) {
+    sendTab(tabId, 'agent:notice', {
+      text: `Could not switch to ${pending.to.id}: ${err instanceof Error ? err.message : String(err)}. Pick another model.`,
+    });
+    return;
+  }
+
+  tab.emptyRetryCount = 2;
+  sendTab(tabId, 'model:changed', { model: tab.handle.session?.model || null });
+  sendTab(tabId, 'agent:notice', {
+    text:
+      `${pending.from} spent LLM7's free output on reasoning and never answered. ` +
+      `Switched to ${pending.to.name || pending.to.id} and sent your message again.`,
+  });
+  if ((tab.promptSeq || 0) !== pending.seq || tab.busy) return;
+  sendPromptToTab(tabId, tab, pending.prompt);
+}
+
 function messagesForUi(messages) {
   const out = [];
   for (const m of messages || []) {
@@ -736,6 +834,7 @@ function subscribeTab(tabId) {
         tab.busy = false;
         sendTab(tabId, 'agent:busy', { busy: false });
         sendTab(tabId, 'agent:settled', { aborted: Boolean(event.aborted) });
+        if (!event.aborted) runEmptyAnswerRetry(tabId, tab);
         break;
 
       case 'message_update': {
@@ -838,6 +937,12 @@ function subscribeTab(tabId) {
         const m = event.message;
         if (m?.role === 'assistant' && m.stopReason === 'error') {
           reportTabError(tabId, m.errorMessage);
+        } else if (m?.role === 'assistant' && m.stopReason === 'length') {
+          // A reasoning model can spend the whole output cap thinking and return
+          // no answer at all. Without a notice the window just goes quiet, which
+          // reads as a hang rather than a truncated turn.
+          const answered = (m.content || []).some((c) => c.type === 'text' && c.text.trim());
+          if (!answered) planEmptyAnswerRetry(tabId, tab, m);
         }
         break;
       }
@@ -1943,6 +2048,12 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
     );
   }
   const promptText = parts.join('\n\n');
+
+  // Remembered so an empty LLM7 answer can be retried on a model that answers.
+  tab.lastPromptText = promptText;
+  tab.promptSeq = (tab.promptSeq || 0) + 1;
+  tab.emptyAnswer = null;
+  tab.emptyRetryCount = 0;
 
   // A second prompt while the agent is running must say how to queue itself:
   // 'steer' joins this turn, 'followUp' waits for the run to finish. Idle

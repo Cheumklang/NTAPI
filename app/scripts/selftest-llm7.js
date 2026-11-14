@@ -18,6 +18,7 @@ const {
   fetchLlm7Models,
   llm7ProviderConfig,
   llm7ModelEntries,
+  preferredLlm7Model,
   checkLlm7Key,
   resetLlm7ModelCache,
 } = require('../src/llm7');
@@ -121,6 +122,26 @@ const CATALOG = {
   check('vision model accepts images', config.models.find((m) => m.id === 'anthropic/claude-opus-4-6')?.input.includes('image'));
   check('text model rejects images', !config.models.find((m) => m.id === 'DeepSeek-V4-Flash-0731')?.input.includes('image'));
   check('config always lists a model', llm7ProviderConfig({ apiKey: KEY, models: [] }).models.length >= 1);
+
+  // pi defaults to `max_completion_tokens` and to sending `reasoning_effort` on
+  // an OpenAI-shaped gateway. LLM7 answers the first with a small implied cap
+  // and turns "minimal" effort into a thinking budget that swallows the whole
+  // answer, so both are pinned off here: the user sees a reply, not a spinner.
+  const compat = config.models[0].compat || {};
+  check('sends max_tokens, not max_completion_tokens', compat.maxTokensField === 'max_tokens', JSON.stringify(compat));
+  check('never sends reasoning_effort', compat.supportsReasoningEffort === false, JSON.stringify(compat));
+  check('system role stays system', compat.supportsDeveloperRole === false, JSON.stringify(compat));
+
+  // The free lane trims a reasoning model hard enough that it can answer with
+  // nothing, so the default model must come from the proven free list.
+  const picked = preferredLlm7Model([
+    { id: 'DeepSeek-V4-Flash-0731', plan: 'free', reasoning: true },
+    { id: 'codestral-latest', plan: 'free', reasoning: false },
+    { id: 'gpt-oss:20b', plan: 'free', reasoning: false },
+  ]);
+  check('default model is a proven free one', picked?.id === 'gpt-oss:20b', JSON.stringify(picked));
+  check('default falls back to a free row', preferredLlm7Model([{ id: 'x', plan: 'paid' }, { id: 'y', plan: 'free' }])?.id === 'y');
+  check('default never invents a model', preferredLlm7Model([]) === null);
 
   // The key check: 200 is good, 401 is a rejection, anything else is unsure.
   const ok = await checkLlm7Key(KEY, { fetchImpl: jsonResponse(200, { choices: [] }) });

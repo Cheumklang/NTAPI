@@ -173,7 +173,8 @@ check('nvidia outranks tokenharbor', nvBeatsTh.defaultProvider === 'nvidia' && n
 // open on a paid model — the default has to find a free turbo model.
 const l7 = [
   { id: 'claude-fable-5-2', name: 'Claude Fable 5.2', plan: 'paid' },
-  { id: 'deepseek-v4.1-flash:free', name: 'DeepSeek V4.1 Flash (Free)', plan: 'free' },
+  { id: 'DeepSeek-V4-Flash-0731', name: 'DeepSeek V4 Flash', plan: 'free', reasoning: true },
+  { id: 'gpt-oss:20b', name: 'GPT OSS 20B', plan: 'free', reasoning: false },
 ];
 const rwOnly = planProviders({
   hasFreePiAuth: false,
@@ -192,8 +193,34 @@ const rwOnly = planProviders({
 check('llm7-only registers', rwOnly.llm7 && rwOnly.available && !rwOnly.freePi);
 check(
   'a new LLM7 session opens on a free turbo model, not the first paid one',
-  rwOnly.defaultProvider === 'llm7' && rwOnly.defaultModel === 'deepseek-v4.1-flash:free',
+  rwOnly.defaultProvider === 'llm7' && rwOnly.defaultModel === 'gpt-oss:20b',
   JSON.stringify(rwOnly)
+);
+
+// The free lane trims a reasoning model's output: DeepSeek V4 Flash spent the
+// whole cap thinking and answered nothing. The known-good free list must win
+// even when a different free model is listed first.
+const l7Reordered = [
+  { id: 'DeepSeek-V4-Flash-0731', name: 'DeepSeek V4 Flash', plan: 'free', reasoning: true },
+  { id: 'codestral-latest', name: 'Codestral', plan: 'free', reasoning: false },
+  { id: 'gpt-oss:20b', name: 'GPT OSS 20B', plan: 'free', reasoning: false },
+];
+const rwReordered = planProviders({ llm7Key: 'k', llm7Models: l7Reordered });
+check(
+  'LLM7 default prefers the known-good free model over a reasoning one',
+  rwReordered.defaultModel === 'gpt-oss:20b',
+  JSON.stringify(rwReordered)
+);
+
+const l7Unknown = [
+  { id: 'some-free-model', name: 'Some Free', plan: 'free', reasoning: false },
+  { id: 'some-paid-model', name: 'Some Paid', plan: 'paid' },
+];
+const rwUnknown = planProviders({ llm7Key: 'k', llm7Models: l7Unknown });
+check(
+  'an unfamiliar LLM7 catalog still opens on a free model',
+  rwUnknown.defaultModel === 'some-free-model',
+  JSON.stringify(rwUnknown)
 );
 
 const rwNoKey = planProviders({

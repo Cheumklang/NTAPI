@@ -193,6 +193,33 @@ function fallbackCatalog() {
   }));
 }
 
+/**
+ * Free models proven to answer on the turbo lane, best first. The lane trims a
+ * reasoning model's output so hard that the model can spend the whole cap
+ * thinking and return no answer at all (finish_reason "length", empty content),
+ * so the default must be a model that does not reason before it writes.
+ */
+const PREFERRED_FREE_MODELS = ['gpt-oss:20b', 'codestral-latest', 'minimax-m2.7'];
+
+/**
+ * Which model a new LLM7 session should open on. A gateway's catalog opens on
+ * whatever it happens to list first, which can be a paid row, a model that is
+ * busy, or a reasoning model that never gets to the answer on the free lane.
+ *
+ * @param {Array<{id: string, plan?: string, reasoning?: boolean}>} models
+ * @returns {{id: string} | null}
+ */
+function preferredLlm7Model(models) {
+  const list = Array.isArray(models) ? models : [];
+  const free = list.filter((m) => m.plan === 'free');
+  for (const id of PREFERRED_FREE_MODELS) {
+    const hit = free.find((m) => m.id === id);
+    if (hit) return hit;
+  }
+  // Then a free model that does not reason, then any free row, then anything.
+  return free.find((m) => m.reasoning === false) || free[0] || list[0] || null;
+}
+
 /** What pi's registerProvider expects for LLM7. */
 function llm7ProviderConfig({ apiKey, models }) {
   const list = Array.isArray(models) && models.length ? models : fallbackCatalog();
@@ -205,7 +232,20 @@ function llm7ProviderConfig({ apiKey, models }) {
       id: m.id,
       name: m.name || m.id,
       reasoning: m.reasoning !== false,
-      compat: { supportsDeveloperRole: false },
+      compat: {
+        supportsDeveloperRole: false,
+        // LLM7's gateway reads a small default output cap from
+        // `max_completion_tokens` and gets it wrong often enough that a
+        // reasoning model can spend the whole cap thinking and answer with
+        // nothing (finish_reason "length", empty content). `max_tokens` is the
+        // field it honours, which is what every other gateway here uses.
+        maxTokensField: 'max_tokens',
+        // Never send `reasoning_effort`: LLM7 maps "minimal" to a tiny thinking
+        // budget and then the answer never starts. The models narrate their
+        // reasoning in `reasoning_content` on their own anyway, so the thinking
+        // panel still fills in without the parameter.
+        supportsReasoningEffort: false,
+      },
       // Only a model the catalog marks as seeing images may receive one.
       input: m.vision ? ['text', 'image'] : ['text'],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -215,7 +255,12 @@ function llm7ProviderConfig({ apiKey, models }) {
   };
 }
 
-/** Model-dropdown entries, tagged with the provider and its plan. */
+/**
+ * Model-dropdown entries, tagged with the provider, its plan and whether the
+ * model reasons before it answers. The reason flag is not cosmetic: on the free
+ * lane a reasoning model can spend the whole (tiny) output cap thinking and
+ * come back with no answer, so the caller needs to know which rows can do that.
+ */
 function llm7ModelEntries(models) {
   const list = Array.isArray(models) ? models : [];
   return list.map((m) => ({
@@ -224,6 +269,7 @@ function llm7ModelEntries(models) {
     name: m.name,
     plan: m.plan === 'paid' ? 'paid' : 'free',
     planNote: m.planNote || '',
+    reasoning: Boolean(m.reasoning),
   }));
 }
 
@@ -297,6 +343,8 @@ module.exports = {
   LLM7_BASE_URL,
   PING_MODEL,
   FALLBACK_MODELS,
+  PREFERRED_FREE_MODELS,
+  preferredLlm7Model,
   fetchLlm7Models,
   llm7ProviderConfig,
   llm7ModelEntries,

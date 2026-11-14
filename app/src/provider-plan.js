@@ -12,6 +12,8 @@
  * UI can be in (any combination of FreePi, Coarena, Zro, NVIDIA, Token Harbor and LLM7.io).
  */
 
+const { preferredLlm7Model } = require('./llm7');
+
 const FREE_PI_PROVIDER = 'free-pi';
 const COARENA_PROVIDER = 'coarena';
 const ZRO_PROVIDER = 'zro';
@@ -96,10 +98,11 @@ function planProviders({
   } else if (llm7) {
     defaultProvider = LLM7_PROVIDER;
     // A gateway's catalog opens with whichever model it happens to list first,
-    // which can be a paid one. Opening a new session on a free route is the
-    // honest default; the paid rows are one click away in the picker.
-    const free = llm7List.find((m) => m.plan === 'free');
-    defaultModel = (free || llm7List[0]).id;
+    // which can be a paid one, a busy one, or a reasoning model that spends the
+    // whole free output cap thinking and answers with nothing. Open a new
+    // session on a free model known to answer; everything else stays one click
+    // away in the picker.
+    defaultModel = (preferredLlm7Model(llm7List) || llm7List[0]).id;
   }
 
   return {
