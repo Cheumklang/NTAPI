@@ -166,6 +166,10 @@ async function dispatch(cmd, args) {
       return snapshotPage(args);
     case 'dialog':
       return answerDialog(args);
+    case 'tabs-real':
+      return listRealTabs();
+    case 'detachAll':
+      return detachEverything();
     case 'click':
       return click(args);
     case 'type':
@@ -593,6 +597,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     respond({ ok: true });
     return;
   }
+  if (msg.type === 'claim-here') {
+    const tabId = Number.isInteger(msg.tabId) ? msg.tabId : null;
+    chrome.tabs
+      .get(tabId)
+      .then((tab) => {
+        if (!tab) throw new Error('no such tab');
+        send({ event: 'claim', tabId: tab.id, url: tab.url || '', title: tab.title || '' });
+        respond({ ok: true });
+      })
+      .catch(() => respond({ ok: false }));
+    return true;
+  }
   if (msg.type === 'status') {
     respond({ connected: Boolean(socket), token: Boolean(msg.needToken) });
   }
@@ -619,6 +635,49 @@ connect();
 /* Exported for the bundled smoke test; harmless in the service worker. */
 if (typeof module !== 'undefined') {
   module.exports = { PORT, handle };
+}
+
+/**
+ * Every tab in the browser, metadata only. The app shows these so the user can
+ * pick one to hand over; nothing here reads a page.
+ */
+async function listRealTabs() {
+  const tabs = await chrome.tabs.query({});
+  return {
+    windowId: agentWindowId,
+    tabs: tabs.map((tab) => ({
+      id: tab.id,
+      windowId: tab.windowId,
+      title: tab.title || '',
+      url: tab.url || '',
+      active: Boolean(tab.active),
+      pinned: Boolean(tab.pinned),
+      audible: Boolean(tab.audible),
+      agent: agentWindowId !== null && tab.windowId === agentWindowId,
+    })),
+  };
+}
+
+/** Remove the refs we stamped, so a stale attribute can never be clicked later. */
+async function clearRefs(tabId) {
+  try {
+    const contexts = await ensureFrameContexts(tabId);
+    for (const ctx of contexts) {
+      if (ctx.contextId === null || ctx.contextId === undefined) continue;
+      await cdp(tabId, 'Runtime.evaluate', {
+        expression: "document.querySelectorAll('[data-ntapi-ref]').forEach((el) => el.removeAttribute('data-ntapi-ref'))",
+        contextId: ctx.contextId,
+        returnByValue: true,
+      });
+    }
+  } catch {}
+}
+
+/** Drop every debugger session and every ref we left behind. */
+async function detachEverything() {
+  for (const tabId of [...attached]) await clearRefs(tabId);
+  await detachAll();
+  return { ok: true };
 }
 
 /* ----------------------------------------------------------- write commands */

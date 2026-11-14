@@ -35,9 +35,35 @@ function makeChrome() {
     snapshotNodes: {},
     contextSeq: 0,
     contextFrames: {},
+    allTabs: null,
   };
 
   const eventListeners = [];
+  const messageListeners = [];
+  const sockets = [];
+
+  /** A WebSocket stand-in the test can drive by hand. */
+  class FakeWebSocket {
+    constructor(url) {
+      this.url = url;
+      this.readyState = 0;
+      this.sent = [];
+      this.onopen = null;
+      this.onmessage = null;
+      this.onclose = null;
+      this.onerror = null;
+      sockets.push(this);
+    }
+    send(frame) {
+      this.sent.push(String(frame));
+    }
+    close() {
+      this.readyState = 3;
+      if (this.onclose) this.onclose();
+    }
+  }
+  FakeWebSocket.OPEN = 1;
+
   const record = (name, payload) => calls.push({ name, payload });
 
   const chrome = {
@@ -49,7 +75,7 @@ function makeChrome() {
     storage: { local: { get: async () => ({ token: '123456' }), set: async () => {} } },
     alarms: { create: () => {}, onAlarm: { addListener: () => {} } },
     runtime: {
-      onMessage: { addListener: () => {} },
+      onMessage: { addListener: (fn) => messageListeners.push(fn) },
       onStartup: { addListener: () => {} },
       onInstalled: { addListener: () => {} },
     },
@@ -59,8 +85,8 @@ function makeChrome() {
       update: async () => {},
     },
     tabs: {
-      query: async () => state.tabs,
-      get: async (id) => state.tabs.find((t) => t.id === id) || null,
+      query: async (info) => (info && Number.isInteger(info.windowId) ? state.tabs : state.allTabs || state.tabs),
+      get: async (id) => (state.allTabs || state.tabs).find((t) => t.id === id) || null,
       create: async (opts) => {
         record('tabs.create', opts);
         return { id: 7 };
@@ -109,27 +135,37 @@ function makeChrome() {
       },
     },
   };
-  return { chrome, calls, state, emitEvent: (source, method, params) => eventListeners.forEach((fn) => fn(source, method, params)) };
+  return {
+    chrome,
+    calls,
+    state,
+    sockets,
+    FakeWebSocket,
+    emitEvent: (source, method, params) => eventListeners.forEach((fn) => fn(source, method, params)),
+    dispatchMessage: (msg) => {
+      let reply = null;
+      for (const fn of messageListeners) fn(msg, {}, (r) => { reply = r; });
+      return reply;
+    },
+  };
 }
 
 function loadWorker() {
-  const { chrome, calls, state, emitEvent } = makeChrome();
+  const { chrome, calls, state, emitEvent, sockets, FakeWebSocket, dispatchMessage } = makeChrome();
   const source = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'background.js'), 'utf8');
   const sandboxModule = { exports: {} };
   const context = vm.createContext({
     chrome,
-    WebSocket: function FakeWS() {
-      this.readyState = 3;
-      this.close = () => {};
-    },
+    WebSocket: FakeWebSocket,
     console,
     setTimeout,
     clearTimeout,
     module: sandboxModule,
     JSON,
+    URL,
   });
   vm.runInContext(source, context, { filename: 'background.js' });
-  return { handle: sandboxModule.exports.handle, calls, state, emitEvent };
+  return { handle: sandboxModule.exports.handle, calls, state, emitEvent, sockets, dispatchMessage };
 }
 
 async function expectError(fn) {
@@ -142,7 +178,7 @@ async function expectError(fn) {
 }
 
 async function main() {
-  const { handle, calls, state, emitEvent } = loadWorker();
+  const { handle, calls, state, emitEvent, sockets, dispatchMessage } = loadWorker();
   const cdpCalls = (method) => calls.filter((c) => c.name === 'cdp' && c.payload.method === method);
 
   // --- unknown command ---
@@ -266,6 +302,44 @@ async function main() {
   check('a framed click evaluates inside the named frame', Boolean(lastFramed) && state.contextFrames[lastFramed.payload.params.contextId] === 'F2');
   const framedPress = cdpCalls('Input.dispatchMouseEvent').filter((c) => c.payload.params.type === 'mousePressed');
   check('a framed click presses at the located point', framedPress[framedPress.length - 1].payload.params.x === 12);
+
+  // --- the app is shown every real tab, and may claim one ---
+  state.allTabs = [
+    { id: 3, windowId: 1, active: true, pinned: false, audible: false, url: 'https://ads.google.com/aw', title: 'Google Ads' },
+    { id: 7, windowId: 3, active: true, pinned: false, audible: false, url: 'https://example.com', title: 'Example' },
+  ];
+  const real = await handle('tabs-real', {});
+  check('real tabs include the user window', real.tabs.some((t) => t.id === 3 && t.title === 'Google Ads'));
+  check('real tabs carry no page content', !('text' in real.tabs[0]) && !('html' in real.tabs[0]) && !('nodes' in real.tabs[0]));
+  check('the agent window tabs are flagged', real.tabs.find((t) => t.id === 7).agent === true);
+  check('the user window tabs are not flagged', real.tabs.find((t) => t.id === 3).agent === false);
+
+  const ws = sockets[sockets.length - 1];
+  ws.readyState = 1;
+  if (ws.onopen) ws.onopen();
+  ws.onmessage({ data: JSON.stringify({ type: 'hello', ok: true }) });
+  ws.sent.length = 0;
+  dispatchMessage({ type: 'claim-here', tabId: 3 });
+  await new Promise((r) => setTimeout(r, 0));
+  const claimFrame = ws.sent.map((s) => JSON.parse(s)).find((f) => f.event === 'claim');
+  check('the popup hands a tab over to the app', Boolean(claimFrame) && claimFrame.tabId === 3, JSON.stringify(ws.sent));
+  check('the hand-over carries the tab url and title', claimFrame.url === 'https://ads.google.com/aw' && claimFrame.title === 'Google Ads');
+
+  ws.sent.length = 0;
+  dispatchMessage({ type: 'claim-here', tabId: 999 });
+  await new Promise((r) => setTimeout(r, 0));
+  check('handing over an unknown tab sends nothing', !ws.sent.some((s) => JSON.parse(s).event === 'claim'));
+
+  const status = dispatchMessage({ type: 'status' });
+  check('the popup can ask whether it is connected', status && status.connected === true);
+
+  const refStrips = () =>
+    cdpCalls('Runtime.evaluate').filter((c) => c.payload.params.contextId && String(c.payload.params.expression).includes('removeAttribute')).length;
+  const stripsBefore = refStrips();
+  const detached = await handle('detachAll', {});
+  check('detachAll reports ok', detached.ok === true);
+  check('detachAll strips the refs it stamped', refStrips() > stripsBefore, `${stripsBefore} -> ${refStrips()}`);
+  check('detachAll detaches every attached tab', calls.some((c) => c.name === 'debugger.detach'));
 }
 
 main()
