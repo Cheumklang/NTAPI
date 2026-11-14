@@ -1,6 +1,9 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.3** (หน่วยเวลา 2 ภาษา + fallback สลับโมเดลจริง + UI/หน้าติดตั้ง) (`origin/master`, tag `v0.3.3`, release ที่ `NTAPI-releases`)
+**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.3** (สาขา `feat/browser-agent-mode` — ยังไม่ merge ยังไม่ bump)
+
+> งานล่าสุดอยู่บนสาขา `feat/browser-agent-mode` (ยังไม่ merge เข้า `master`, ยังไม่ bump เวอร์ชัน)
+> ดูหัวข้อ 1m
 
 > นี่คือไฟล์ **"อ่านอันเดียวจบ"** ของ session ใหม่ — อ่านบนลงล่าง
 > ถ้าคุณเป็น AI แล้วเพิ่งเปิดโปรเจกต์: อ่านหัวข้อ 0–3 ให้ครบก่อนแตะโค้ด
@@ -26,7 +29,37 @@
 - **ห้ามอ่าน/ลิสต์ `C:\Program Files\NTAPI\`** — แม้แต่อ่านก็ไม่ต้อง
   ถ้าอยากรู้เวอร์ชันที่ติดตั้งจริง ให้ถามผู้ใช้ หรือดู `prefs.lastVersion` ใน `prefs.json`
 
-## 1) กำลังทำ / ค้างอยู่ตอนนี้ (สำคัญสุด — อ่านก่อน)
+## 1) กําลังทํา / ค้างอยู่ตอนนี้ (สําคัญสุด — อ่านก่อน)
+
+### 1m) Browser agent mode — งาน 1–12 เขียนเสร็จแล้ว (2026-11-14) สาขา `feat/browser-agent-mode`
+
+**เป้าหมาย:** ให้ AI "มองหน้าเว็บแบบกด F12" (อ่านโครงสร้าง + ชี้เป้าด้วย `ref`) ทำงานในแท็บจริงที่ผู้ใช้อมอบให้
+และทำจนจบงานโดยไม่ถามทีละขั้น — ตามที่ผู้ใช้ขอว่า *"อยากให้ทำได้แบบ opencode"*
+
+**สเปก/แผน:** `docs/superpowers/specs/2026-11-14-browser-agent-mode-design.md` +
+`docs/superpowers/plans/2026-11-14-browser-agent-mode.md` · ledger: `.superpowers/sdd/2026-11-14-browser-agent-mode/progress.md`
+
+**ทำอะไรไปแล้ว (commit บนสาขา):**
+1. `src/browser-snapshot.js` — ข้อเท็จจริง DOM → role/ชื่อ/ref + งบโทเคน + ตารางให้ค้น
+2. `background.js` — เก็บ DOM ดิบ + เจาะ iframe ข้ามโดเมน (isolated world ต่อ frame)
+3. `background.js` — จัดการ `confirm()`/`alert` + รอ navigate + `wait { networkIdle }`
+4. `src/browser-target.js` + tool `browser_snapshot`/`browser_find` + ทุก tool รับ `ref` + audit ทุกคำสั่ง
+5. `src/browser-claims.js` — โดเมนหลัก (eTLD+1) + ที่เก็บแท็บที่มอบ
+6. `src/browser-autopilot.js` — โหมดมอบงาน + กฎหมดอายุ + รายการที่ต้องถามเสมอ
+7. `browser-bridge.js` — `NOT_CLAIMED` กันไม่ให้แตะแท็บที่ยังไม่ได้มอบ + activity
+8. `background.js` — `tabs-real` + handshake รับการมอบแท็บจากป๊อปอัป + `detachAll`
+9. `main.js`/`preload.js` — สถานะ claim/autopilot + IPC + ตัดสินใจอนุมัติ
+10. UI — รายการแท็บ · สวิตช์มอบงาน · **แถบกิจกรรมสด + ปุ่มหยุด** · จุดสถานะบนชิป
+11. `popup.*` — ปุ่ม "ใช้แท็บที่เปิดอยู่"
+12. แจ้ง `tabClosed` / `navigate` → จบโหมดมอบงานเอง + กฎใน system prompt
+
+**สถานะเทสต์:** `cd app && npm test` → **PASS 32/32** (เพิ่ม 3 ตัวใหม่: snapshot, target, claims, autopilot — รวมเป็น 32)
+
+**ยังไม่ได้ทำ (ค้างจริง):**
+- ⚠️ **ทดสอบกับ Chrome จริง** (ข้อ 3 ของงาน 12) — ยังไม่ได้รันเลย ต้องรัน `cd app && npm start` แล้วทำตามลิสต์ในสเปก
+- ยังไม่ merge เข้า `master`, ยังไม่ bump เวอร์ชัน, ยังไม่ tag/release
+- **เลื่อนไป phase 2:** console/network inspection, อัปโหลดไฟล์, มอบหลายแท็บพร้อมกัน, แผง mirror
+- **ข้อจำกัดที่ต้องยืนยันตอนเทสต์มือ:** iframe ที่เป็น out-of-process จริง (site isolation) อาจไม่ถึงด้วย `chrome.debugger` API แบบ flat; iframe ข้ามโดเมนแบบ same-process ใช้ได้
 
 ### 1z) แบทช์ v0.3.3 (2026-11-14) — 5 เรื่อง + บั๊กใหญ่ 2 ตัว ✅ commit + tag แล้ว
 

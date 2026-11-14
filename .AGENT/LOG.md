@@ -254,3 +254,27 @@
   - แก้ต่อ: ทั้งสองไฟล์ประกาศ `const api` ระดับบนสุด → "Identifier 'api' has already been declared" สคริปต์ที่สองไม่รัน; ครอบ IIFE แบบเดียวกับ markdown.js/provider-ui.js
   - เทสต์กันซ้ำ: `selftest-duration.js` ตรวจว่า script/link ทุกตัวใน index.html มีไฟล์จริง + ต้องเป็น IIFE; เพิ่ม `scripts/check-duration-wiring.js` (Electron) พิสูจน์ผลจริง
   - หน่วยมิลลิวินาที: th = "มิลลิวินาที", en = "ms"
+
+## 2026-11-14 · Branch feat/browser-agent-mode — Browser agent mode (งาน 1–12)
+
+ทำตามดีไซน์/แผนที่ผู้ใช้อนุมัติ (brainstorming → writing-plans → executing-plans แบบ inline)
+สาขา `feat/browser-agent-mode` ยังไม่ merge, ยังไม่ bump เวอร์ชัน
+
+**ได้อะไร:** AI อ่านหน้าเว็บเป็นโครงสร้าง (role/ชื่อ/ref) แทนอ่าน innerText แล้วเดา selector;
+ยึดแท็บจริงที่ผู้ใช้อมอบให้; เจาะ iframe ข้ามโดเมน; จัดการ dialog `confirm/alert`;
+โหมดมอบงาน (ไม่ถามทีละขั้น) เฉพาะแท็บนั้น พร้อมแถบกิจกรรมสด + ปุ่มหยุด + กฎหมดอายุเอง
+
+**ไฟล์ใหม่:** `src/browser-snapshot.js`, `src/browser-target.js`, `src/browser-claims.js`,
+`src/browser-autopilot.js` + selftest ทั้งสี่
+**แก้:** `browser-extension/background.js`, `browser-extension/popup.{html,js}`,
+`src/browser-bridge.js`, `src/freepi-bridge.js`, `src/main.js`, `src/preload.js`,
+`renderer/{index.html,app.js,styles.css}`, `scripts/selftest-browser-{bridge,extension,tools}.js`,
+`scripts/run-unit-tests.js`
+
+**เทสต์:** `cd app && npm test` → PASS 32/32 ตลอดงาน (เริ่มจาก 29)
+**บทเรียน:** เทสต์เดิม `selftest-error-ux.js` จับได้เองว่าของใหม่ไปแย่ง selector
+`<div class="dialog-actions wrap">` ของแถวปุ่มช่วยเหลือ — แก้เป็นคลาส `.handover` แยก
+และ `browser-autopilot` ที่ตัดโดเมนเองแบบ 2 ชั้นอ่าน `www.shop.co.th` ผิด จึงเปลี่ยนไปใช้
+`registrableDomain()` ตัวเดียวกับ claims
+
+**ยังค้าง:** ทดสอบกับ Chrome จริง (ยังไม่ได้รัน), merge, bump เวอร์ชัน
