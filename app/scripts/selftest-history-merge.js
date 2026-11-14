@@ -57,10 +57,15 @@ function body(name) {
 
 /** Run the merge helper as real code against fake views. */
 function loadMerge() {
+  const start = src.indexOf('function mergeIncomingMessages(');
+  if (start === -1) return null;
+  // Signature without the `function` keyword: "(view, incoming)".
+  const sigEnd = src.indexOf(')', src.indexOf('(', start));
+  const params = src.slice(src.indexOf('(', start), sigEnd + 1);
   const fnBody = body('mergeIncomingMessages');
   if (!fnBody) return null;
   // eslint-disable-next-line no-new-func
-  return new Function(`return (function mergeIncomingMessages${fnBody})`)();
+  return new Function(`return (function ${params} ${fnBody})`)();
 }
 
 const merge = loadMerge();
@@ -132,9 +137,9 @@ check('submit marks the message it sends', /pending:\s*true/.test(submitBody));
 // The steer path pushes a message too, and it has the same gap.
 check('the steer path marks its message', (submitBody.match(/pending:\s*true/g) || []).length >= 2);
 
-// Queue drain pushes messages as well.
-const drainBody = body('drainQueue');
-check('the queue drain marks its message', /pending:\s*true/.test(drainBody));
+// A queued message is sent from its own function, which pushes too.
+const queuedBody = body('sendQueued');
+check('sending a queued message marks it', /pending:\s*true/.test(queuedBody));
 
 // applyTabState runs on history: it must not drop the live stream either.
 check('applyTabState still resets the live stream', /liveAssistant:\s*null/.test(applyBody));

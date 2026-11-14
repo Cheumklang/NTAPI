@@ -116,6 +116,11 @@ push tag `v0.3.5` → GitHub Actions (`release.yml`) build และอัปโ
 · เทสต์ `selftest-reload-reattach.js` (ย้อนกลับ FAIL 9) + `check-reload-safety.js` +
 `check-reload-reattach-live.js` · `npm run check:reload` · `npm test` **38/38**
 
+**ข้อความที่ส่งแล้วไม่หายจากประวัติ:** `applyTabState` ใช้ `mergeIncomingMessages` —
+ข้อความ `pending` ถูกเก็บไว้จน session มี ทำให้ compact/undo/สลับ key แทรกช่วงส่ง ไม่ลบข้อความ
+· จุดส่ง 3 แห่ง mark `pending` · เทสต์ `selftest-history-merge.js` (ย้อนกลับ FAIL 2/3/2)
++ `check-history-merge.js` (renderer จริง 8 checks) · `npm run check:history` · `npm test` **39/39**
+
 **ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตารอบสอง (`npm start`) และยังไม่ได้ทดสอบ
 browser agent mode กับ Chrome จริงรอบยืนยัน
 

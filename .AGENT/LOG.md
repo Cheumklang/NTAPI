@@ -586,3 +586,36 @@ client-version, "ไม่อนุมัติเลย", status-row, compactFa
 
 **สถานะปัจจุบัน:** `app/package.json` = 0.3.5 · tag ล่าสุด `v0.3.5` · master นำหน้า tag 4 commit
 → **ยังไม่ถึงรอบ 0.4.0 ไม่ต้อง build**
+
+### ข้อความที่ส่งแล้วหายจากประวัติ — merge pending เข้า session (2026-11-14)
+
+**อาการ (ผู้ใช้ส่งภาพ):** บางครั้งข้อความที่ส่งไปหายจากประวัติ ไม่มีให้ดูย้อนหลัง
+
+**รากปัญหา:** `submit()` แสดงข้อความทันที แล้วเรียก `session.prompt()` ซึ่ง SDK
+เขียนลง `session.messages` **ทีหลัง** (async — ผ่าน input handlers, template expansion,
+auth check ก่อนค่อย `_startRun` จึงเกิดช่องว่าง) ถ้า `agent:history` มาถึงในช่วงนั้น
+(`applyTabState` เรียกจาก compact/undo/เปลี่ยน key/สลับ model) มันจะแทน `view.messages`
+ทั้งหมดด้วย session ที่ยังไม่มีข้อความนั้น → ข้อความหายและไม่มีที่ไหนจำ
+
+**แก้ (`renderer/app.js`):**
+- ฟังก์ชันใหม่ `mergeIncomingMessages(view, incoming)` (pure):
+  - session มีข้อความอะไร → ใช้ของ session
+  - ข้อความที่ `pending` แล้ว session ยังไม่มี → ต่อท้าย
+  - ถ้า session มีข้อความนั้นแล้ว → เอา pending copy ทิ้ง (ไม่ซ้ำ)
+  - เทียบด้วย (kind + text + จำนวนรูป) แบบ windowed → ส่งคำถามซ้ำกัน 2 ครั้งก็จับคู่ไม่ผิด
+  - ข้อความที่เคยบันทึกแล้ว (ไม่ pending) จะไม่ถูกคืนมา → undo/compact ยังทำงานถูก
+- จุดส่ง 3 แห่ง mark `pending: true`:
+  - `submit()` (เส้น idle + เส้น steer) · `sendQueued()` (คิว)
+- `applyTabState` เปลี่ยน `messages: state.messages || []` → `mergeIncomingMessages(view, state.messages)`
+
+**เทสต์:**
+- `selftest-history-merge.js` (18 checks) — รัน merge helper จริงใน Node + ตรวจ wiring:
+  เก็บ pending เมื่อ session ยังไม่มี, ไม่ซ้ำเมื่อ session มีแล้ว, undo ยังลบได้,
+  คิว/steer/idle ทั้ง 3 เส้น mark pending · ย้อนกลับ: คืน `messages: state.messages` → **FAIL 2**,
+  ลบ `pending: true` ทั้ง 3 → **FAIL 3**, ทำ merge คืน pending เสมอ → **FAIL 2** (ซ้ำ)
+- `scripts/check-history-merge.js` (**Electron โหลด renderer จริง รัน merge จริง 8 checks**):
+  อยู่รอด, ไม่ซ้ำ, undo ยังใช้ได้, คำถามซ้ำ 2 ครั้ง, รูปเท่านั้น, ไม่คืนข้อความเก่า
+- npm script ใหม่: `npm run check:history`
+- `npm test` **39/39** (จาก 38)
+
+**หมายเหตุ:** `pending` เป็นแค่เครื่องหมาย ไม่กระทบการวาด (`renderActiveTab` อ่านแค่ kind/text/images)

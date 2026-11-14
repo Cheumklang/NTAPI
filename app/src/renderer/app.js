@@ -2036,6 +2036,53 @@ async function refreshLlm7Status() {
   return llm7Status;
 }
 
+/**
+ * Keep messages that were sent locally but are not in the session yet.
+ *
+ * submit() shows a message immediately and marks it `pending`. The agent only
+ * writes it into `session.messages` a moment later (it runs input handlers and
+ * templates first). `applyTabState` replaces the whole list with what main
+ * reports, so an `agent:history` landing inside that gap — from compact, undo,
+ * a key change or a model switch — used to erase the message you just sent, and
+ * nothing in the UI remembered it.
+ *
+ * So: whatever the session already has wins, and any pending local message the
+ * session does not have yet is appended after it. Once the session does have the
+ * message, the pending copy is dropped instead of being shown twice.
+ *
+ * `pending` is only ever set on messages this renderer just sent, so a real
+ * history change (undo, compact) still removes everything it should: those
+ * messages were never pending.
+ */
+function mergeIncomingMessages(view, incoming) {
+  const next = Array.isArray(incoming) ? incoming.slice() : [];
+  const local = (view && Array.isArray(view.messages) ? view.messages : []).filter((m) => m && m.pending);
+  if (!local.length) return next;
+
+  // A message counts as "already in the session" when the same text and the same
+  // number of images is there, in the same kind. Windowed, not a set, so two
+  // identical questions sent in a row each match one entry.
+  const key = (m) => `${m.kind}\u0000${m.text || ''}\u0000${(m.images || []).length}`;
+  const remaining = new Map();
+  for (const m of next) {
+    const k = key(m);
+    remaining.set(k, (remaining.get(k) || 0) + 1);
+  }
+
+  const kept = [];
+  for (const m of local) {
+    const k = key(m);
+    const count = remaining.get(k) || 0;
+    if (count > 0) {
+      // The session has it now: drop the pending copy, it is already shown.
+      remaining.set(k, count - 1);
+      continue;
+    }
+    kept.push(m);
+  }
+  return next.concat(kept);
+}
+
 function applyTabState(state) {
   if (!state) return;
   let view = views.get(state.tabId);
@@ -2050,7 +2097,7 @@ function applyTabState(state) {
     models: state.models || view.models || [],
     guest: state.guest,
     busy: Boolean(state.busy),
-    messages: state.messages || [],
+    messages: mergeIncomingMessages(view, state.messages),
     modelFallback: state.modelFallback || null,
     liveAssistant: null,
     liveTools: null,
@@ -4202,7 +4249,7 @@ async function sendQueued(view, item) {
     renderUserMessage(item.text, item.images);
     scrollToBottom(true);
   }
-  view.messages.push({ kind: 'user', text: item.text, images: item.images });
+  view.messages.push({ kind: 'user', text: item.text, images: item.images, pending: true });
   view.liveAssistant = null;
   view.liveTools = null;
   view.busy = true;
@@ -4283,7 +4330,7 @@ async function submit() {
   // the queue path instead.
   if (view.busy) {
     renderUserMessage(outgoing, pendingImages);
-    view.messages.push({ kind: 'user', text: outgoing, images: pendingImages.slice() });
+    view.messages.push({ kind: 'user', text: outgoing, images: pendingImages.slice(), pending: true });
     // The reply to this steer will arrive on the next turn. Remember that a
     // boundary is owed so `agent:turnStart` starts that reply below this message
     // instead of appending it to the block that was already streaming.
@@ -4311,7 +4358,7 @@ async function submit() {
   }
 
   renderUserMessage(outgoing, pendingImages);
-  view.messages.push({ kind: 'user', text: outgoing, images: pendingImages.slice() });
+  view.messages.push({ kind: 'user', text: outgoing, images: pendingImages.slice(), pending: true });
 
   const images = pendingImages.slice();
   pendingImages = [];
