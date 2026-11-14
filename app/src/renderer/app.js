@@ -687,6 +687,20 @@ function t(key, vars) {
   return s;
 }
 
+/**
+ * A span of time in the reader's language (`8.8 วินาที` / `8.8 sec`).
+ * duration.js is shared with the tests, and falls back to English if it ever
+ * fails to load, so a missing script costs wording, not the whole card.
+ *
+ * @param {number} ms
+ * @param {{decimals?: number}} [opts]
+ */
+function formatSpan(ms, opts) {
+  const fmt = globalThis.FPDuration?.formatDuration;
+  if (typeof fmt === 'function') return fmt(ms, lang, opts);
+  return `${ms} ms`;
+}
+
 /** Apply translations to every element carrying data-i18n. */
 function applyLanguage() {
   document.documentElement.lang = lang;
@@ -4258,15 +4272,9 @@ function tickResets() {
     return;
   }
 
-  const mins = Math.floor(diffMs / 60000);
-  let countdown;
-  if (mins < 60) countdown = lang === 'th' ? `${mins} นาที` : `${mins} min`;
-  else {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    if (lang === 'th') countdown = m ? `${h} ชม. ${m} นาที` : `${h} ชม.`;
-    else countdown = m ? `${h} h ${m} min` : `${h} h`;
-  }
+  // Same formatter as the tool cards, in countdown mode: under a minute used to
+  // read "0 นาที", which looks like the reset already happened.
+  const countdown = formatSpan(diffMs, { decimals: 0 });
 
   // Show the wall-clock moment too, so "8 h" is actionable: "| 13/11 10:00".
   const when = formatShortDateTime(usageRefillAt);
@@ -4610,7 +4618,7 @@ function applyToolResult(card, res, cwd) {
   card.querySelector('.tool-status').textContent = res.isError
     ? t('toolFailed')
     : res.durationMs != null
-    ? `${res.durationMs} ms`
+    ? formatSpan(res.durationMs)
     : t('toolDone');
 
   const hasDiff = res.diff && (res.diff.added || res.diff.removed);
