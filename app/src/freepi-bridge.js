@@ -939,10 +939,22 @@ async function createFreePiSession(options) {
       pi.on('before_agent_start', (event) => {
         if (!event || typeof event.systemPrompt !== 'string') return;
         if (event.systemPrompt.includes('## Browser workflow')) return;
+        // Read the claim now, not at registration: the user can hand a tab over,
+        // or release it, between turns. Without this line the model cannot tell a
+        // ready tab from no tab, so it re-asks for one the user already gave.
+        const tab = typeof browserBridge.claimedTab === 'function' ? browserBridge.claimedTab() : null;
+        const tabLine = tab
+          ? `- A tab is ALREADY handed over and ready: tab ${tab.tabId} — ${tab.url || 'unknown URL'}` +
+            `${tab.title ? ` ("${tab.title}")` : ''}. ` +
+            `Do NOT call browser_claim for it — start with browser_snapshot. Only ask again if the tab was released or the extension reports it gone.\n`
+          : `- No tab is handed over yet. Call browser_claim once; if it is refused, tell the user, in their language, to open the browser card in the app's left sidebar and press the button that hands over their current tab. Do not guess URLs or open your own tabs to work around it.\n`;
         return {
           systemPrompt:
             event.systemPrompt +
             `\n\n## Browser workflow\n\n` +
+            `- You drive the user's own Google Chrome through a companion extension they installed. This app has no browser window of its own, so never talk about an "NTAPI browser" — it is always the user's Chrome.\n` +
+            `- The user saying "the page I have open", "this news item", "ผมเปิดให้แล้ว" and the like refers to their Chrome tab. Never ask them to paste a URL or copy the text when a tab can be read.\n` +
+            tabLine +
             `- Take a browser_snapshot before acting on a page, and act by the \`ref\` it returns — do not guess a CSS selector when you have a ref.\n` +
             `- Every action returns a fresh snapshot: read it rather than assuming what changed.\n` +
             `- If a ref is rejected as stale, take a snapshot again — the page moved under you.\n` +
@@ -1470,7 +1482,11 @@ async function createFreePiSession(options) {
 
   // The plan already picked the default (free-pi's tuned model when present,
   // else the first Coarena model). A session must never start on a dead id.
-  const defaultTools = plan.freePiTools ? [...SAFE_TOOLS, ...FREE_PI_TOOL_NAMES] : [...SAFE_TOOLS];
+  const browserToolAllowList = browserBridge ? allBrowserToolNames() : [];
+  const defaultTools = [
+    ...(plan.freePiTools ? [...SAFE_TOOLS, ...FREE_PI_TOOL_NAMES] : [...SAFE_TOOLS]),
+    ...browserToolAllowList,
+  ];
 
   const settingsManager = sdk.SettingsManager.inMemory(
     {
@@ -1917,14 +1933,26 @@ const BROWSER_LOCAL_TOOL_DOCS = {
   },
   browser_claim: {
     description:
-      'Ask the user to let you work in a browser tab they already have open. The app asks for approval and shows which tab. Every other browser tool then targets that tab until it is released.',
-    snippet: 'Ask to work in one of the open browser tabs',
+      "Ask the user to let you work in one of the Google Chrome tabs they already have open. The app asks them for approval and shows which tab. Every other browser tool then targets that tab until it is released. Fails if the companion extension is not connected.",
+    snippet: 'Ask to work in one of the open Chrome tabs',
     props: {},
   },
 };
 
 function browserLocalToolNames() {
   return Object.keys(BROWSER_LOCAL_TOOLS);
+}
+
+/**
+ * Every browser tool name, bridge-backed and app-side.
+ *
+ * The session's `tools` option is an allow-list, not an addition: a registered
+ * tool that is not named here is never declared to the model. The browser tools
+ * were registered but omitted from that list for a while, which is why the agent
+ * could not see a browser at all and answered "you didn't include a link".
+ */
+function allBrowserToolNames() {
+  return [...Object.keys(BROWSER_TOOLS), ...browserLocalToolNames()];
 }
 
 function browserLocalGuardedTools() {
@@ -1967,8 +1995,9 @@ const DEFAULT_GUARDED_TOOLS = ['bash', 'edit', 'write', ...browserGuardedTools()
 /** One-line docs per browser tool, kept next to the command they map to. */
 const BROWSER_TOOL_DOCS = {
   browser_tabs: {
-    description: 'List the tabs open in the NTAPI browser window, or focus one. Read-only.',
-    snippet: 'List or focus agent browser tabs',
+    description:
+      "List the tabs in the user's own Google Chrome that they can hand over, or focus one. This app does not have its own browser window — it drives Chrome through a companion extension the user installed. An empty list usually means the extension is not connected or the user has not paired it yet. Read-only.",
+    snippet: 'List or focus the tabs the user handed over',
     props: { tab: { type: 'integer', description: 'Tab id to focus' }, focus: { type: 'boolean' } },
   },
   browser_read: {
@@ -2028,8 +2057,9 @@ const BROWSER_TOOL_DOCS = {
     },
   },
   browser_open: {
-    description: 'Open a URL in a new tab in the NTAPI browser window (the user is already signed in there).',
-    snippet: 'Open a URL in the agent browser',
+    description:
+      "Open a URL in a new tab of the user's own Google Chrome, which they are already signed in to. Requires a tab handed over first (see browser_claim); without one this fails with NOT_CLAIMED.",
+    snippet: 'Open a URL in the user\'s Chrome',
     required: ['url'],
     props: { url: { type: 'string' }, foreground: { type: 'boolean', description: 'Bring the tab to the front' } },
   },
@@ -2229,6 +2259,7 @@ module.exports = {
   PROVIDER_NAME,
   isGuardedTool,
   browserToolSpecs,
+  allBrowserToolNames,
   browserLocalToolSpecs,
   clearSnapshotTable,
   browserResultContent,

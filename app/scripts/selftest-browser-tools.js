@@ -66,4 +66,34 @@ check('snapshot is documented as the thing to do first', /before acting/i.test(s
 check('snapshot is documented as read-only', /read-only/i.test(specOf('browser_snapshot').description));
 check('find is documented as app-side search', /search/i.test(specOf('browser_find').description));
 
+// The model only knows what the tool text tells it. Before this was pinned, no
+// description mentioned Chrome or the companion extension, so the model kept
+// looking for a browser window this app does not have and could not explain to
+// the user why nothing worked.
+const descriptionOf = (name) => {
+  const spec = [...specs, ...local].find((s) => s.name === name);
+  return spec ? `${spec.description} ${spec.promptSnippet || ''}` : '';
+};
+check('browser_tabs says whose browser it is', /chrome/i.test(descriptionOf('browser_tabs')));
+check('browser_tabs says it is not this app\'s window', /does not have its own browser window/i.test(descriptionOf('browser_tabs')));
+check('browser_open names Chrome', /chrome/i.test(descriptionOf('browser_open')));
+check('browser_claim names Chrome', /chrome/i.test(descriptionOf('browser_claim')));
+check('browser_claim mentions the extension', /extension/i.test(descriptionOf('browser_claim')));
+check(
+  'no tool still promises an NTAPI browser window',
+  ![...specs, ...local].some((s) => /NTAPI browser window/i.test(`${s.description} ${s.promptSnippet || ''}`))
+);
+
+// Every registered browser tool must also be on the session's allow-list. The
+// `tools` option replaces the selection rather than adding to it, so a tool that
+// is registered but not named there is invisible to the model — which is exactly
+// how the agent ended up with a browser it could not see.
+const { allBrowserToolNames } = require('../src/freepi-bridge');
+const allowListed = allBrowserToolNames();
+const registered = [...specs, ...local].map((s) => s.name);
+check('every registered browser tool is allow-listed', registered.every((n) => allowListed.includes(n)), registered.filter((n) => !allowListed.includes(n)).join(', '));
+check('the allow-list names no phantom tool', allowListed.every((n) => registered.includes(n)), allowListed.filter((n) => !registered.includes(n)).join(', '));
+check('claim is allow-listed, so the agent can ask for a tab', allowListed.includes('browser_claim'));
+check('snapshot is allow-listed, so the agent can read a page', allowListed.includes('browser_snapshot'));
+
 process.exit(failed ? 1 : 0);

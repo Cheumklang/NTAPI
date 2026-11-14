@@ -198,7 +198,7 @@ function createBrowserBridge(options = {}) {
           code: 'NOT_CLAIMED',
           message: claimed
             ? 'That tab was not handed to the agent. Only the tab the user handed over can be used.'
-            : 'No browser tab has been handed to the agent. Ask the user to hand one over before naming a tab.',
+            : 'No tab is handed over yet, so there is nothing to read. Ask the user to hand one over — do not call browser_claim again if it was just refused.',
         };
       }
       return { ok: true, tabId: argsTab };
@@ -413,7 +413,12 @@ function createBrowserBridge(options = {}) {
     });
   }
 
-  return { start, stop, status, call, setToken, setClaims, targetFor, onActivity, onExtensionEvent, onStatus };
+  /** The tab the user handed over, or null. Read live: a claim can change mid-turn. */
+  function claimedTab() {
+    return claims && typeof claims.get === 'function' ? claims.get() : null;
+  }
+
+  return { start, stop, status, call, setToken, setClaims, claimedTab, targetFor, onActivity, onExtensionEvent, onStatus };
 }
 
 module.exports = {

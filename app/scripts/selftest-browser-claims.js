@@ -11,6 +11,7 @@
 'use strict';
 
 const { registrableDomain, sameSite, createClaims, pickClaimTarget } = require('../src/browser-claims');
+const { createBrowserBridge } = require('../src/browser-bridge');
 
 let failed = 0;
 function check(name, ok, detail) {
@@ -111,5 +112,21 @@ check('picks nothing from an empty list', pickClaimTarget([]) === null);
 check('picks nothing from a missing list', pickClaimTarget(undefined) === null);
 check('picks nothing when only the agent window is open', pickClaimTarget([tabList[2]]) === null);
 check('skips rows without an id', pickClaimTarget([{ active: true, agent: false }, tabList[0]]).id === 1);
+
+// The bridge must expose the live claim so the system prompt can name the tab.
+// Without it the model cannot tell a ready tab from no tab, and re-asks for one
+// the user already handed over — which reads as the app not understanding.
+check('bridge exposes the claimed tab', typeof createBrowserBridge({}).claimedTab === 'function');
+check('an unclaimed bridge reports no tab', createBrowserBridge({}).claimedTab() === null);
+{
+  const claims = createClaims({});
+  claims.claim({ tabId: 42, url: 'https://news.example/a', title: 'A headline' });
+  const bridge = createBrowserBridge({});
+  bridge.setClaims(claims);
+  check('a claimed bridge reports that tab', bridge.claimedTab()?.tabId === 42);
+  check('the reported tab carries its url', /news\.example/.test(bridge.claimedTab()?.url || ''));
+  claims.release();
+  check('releasing clears what the prompt sees', bridge.claimedTab() === null);
+}
 
 process.exit(failed ? 1 : 0);
