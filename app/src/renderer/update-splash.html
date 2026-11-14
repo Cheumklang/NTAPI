@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+    />
+    <title>NTAPI update</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #12131a;
+        --card: #191b24;
+        --line: rgba(124, 92, 255, .35);
+        --text: #e8e9f2;
+        --muted: #8b93a7;
+        --accent: #7c5cff;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+      body {
+        -webkit-app-region: drag;
+        display: grid;
+        place-items: center;
+      }
+      .card {
+        width: 460px;
+        height: 190px;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 22px 24px;
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        box-shadow: 0 18px 44px rgba(0, 0, 0, .45);
+      }
+      .spinner {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        border: 3px solid rgba(124, 92, 255, .25);
+        border-top-color: var(--accent);
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .body { min-width: 0; }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        font-weight: 650;
+        color: var(--text);
+        letter-spacing: .1px;
+      }
+      p {
+        margin: 0;
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+      .hint {
+        margin-top: 10px;
+        font-size: 11.5px;
+        color: #6f778c;
+      }
+      .close {
+        -webkit-app-region: no-drag;
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        background: none;
+        border: 0;
+        color: #6f778c;
+        font-size: 15px;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 6px;
+      }
+      .close:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="body">
+        <h1 id="title">Updating NTAPI…</h1>
+        <p id="line">The program closed itself to install the update and will open again on its own.</p>
+        <p class="hint" id="hint">You do not need to start it again. This window closes by itself.</p>
+      </div>
+      <button class="close" id="close" title="Close">✕</button>
+    </div>
+    <script>
+      const LANG = new URLSearchParams(location.search).get('lang') === 'th' ? 'th' : 'en';
+      const TEXT = {
+        en: {
+          title: 'Updating NTAPI…',
+          line: 'The program closed itself to install the update and will open again on its own.',
+          hint: 'You do not need to start it again. This window closes by itself.',
+        },
+        th: {
+          title: 'กำลังอัปเดต NTAPI…',
+          line: 'โปรแกรมปิดตัวเองเพื่อติดตั้งอัปเดต แล้วจะเปิดกลับมาเอง',
+          hint: 'ไม่ต้องกดเปิดใหม่ หน้าต่างนี้จะปิดให้เองเมื่อโปรแกรมกลับมา',
+        },
+      };
+      const t = TEXT[LANG];
+      document.documentElement.lang = LANG;
+      document.getElementById('title').textContent = t.title;
+      document.getElementById('line').textContent = t.line;
+      document.getElementById('hint').textContent = t.hint;
+      document.getElementById('close').addEventListener('click', () => window.close());
+      // Esc is expected on a window with no chrome.
+      addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') window.close();
+      });
+    </script>
+  </body>
+</html>

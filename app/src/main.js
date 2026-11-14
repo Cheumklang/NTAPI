@@ -7,6 +7,21 @@ const os = require('node:os');
 const { randomUUID } = require('node:crypto');
 
 /**
+ * Update splash: the update replaces this .exe, so the app has to quit, and the
+ * user was left staring at an empty desktop wondering whether to reopen it. The
+ * installer spawns this same executable with `--ntapi-splash`; that copy owns a
+ * small "updating" window and outlives the app.
+ *
+ * This has to happen before the single-instance lock below, otherwise the splash
+ * would hand its argv to the running app and quit. A top-level `return` is legal
+ * in a CommonJS module and stops the rest of this file from loading.
+ */
+if (process.argv.includes('--ntapi-splash')) {
+  require('./update-splash').run();
+  return;
+}
+
+/**
  * Keep the internal app name as "FreePi" even though the product is branded
  * NTAPI.
  *
@@ -3192,6 +3207,51 @@ function persistTabs() {
  * A dev run (`npm start`) is not packaged, so electron-updater is skipped and
  * the UI says so instead of throwing.
  */
+/** Where the splash leaves its pid, so the updated app can close it. */
+function splashPidFile() {
+  return path.join(DATA_ROOT, 'update-splash.pid');
+}
+
+/**
+ * Start the separate "updating" process. It must not inherit the app's single
+ * instance lock, slashes or sandbox: it is its own Electron app, pointed at the
+ * same data folder so it can read the chosen language.
+ */
+function openUpdateSplash() {
+  try {
+    const { spawn } = require('node:child_process');
+    const child = spawn(process.execPath, ['--ntapi-splash'], {
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env },
+    });
+    child.unref();
+  } catch (err) {
+    console.log('[update] splash failed to start:', err?.message || err);
+  }
+}
+
+/**
+ * The updated app closes the splash the moment it is running. Also covers the
+ * case where the install was cancelled: the pid file is stale, the kill fails,
+ * and the splash's own six-minute timeout takes care of the window.
+ */
+function closeLeftoverSplash() {
+  try {
+    const pid = Number(fs.readFileSync(splashPidFile(), 'utf8').trim());
+    if (Number.isFinite(pid) && pid > 0 && pid !== process.pid) {
+      try {
+        process.kill(pid);
+      } catch {}
+    }
+  } catch {
+    return;
+  }
+  try {
+    fs.unlinkSync(splashPidFile());
+  } catch {}
+}
+
 let updater = null;
 let updateState = {
   status: 'idle',
@@ -3274,7 +3334,9 @@ ipcMain.handle('update:install', () => {
   // close.
   updateState = { ...updateState, status: 'installing', progress: 100, error: null };
   sendUpdateState();
-  setTimeout(() => updater.quitAndInstall(true, true), 2200);
+  openUpdateSplash();
+  // 4.5 s is long enough to read the overlay; the splash covers the rest.
+  setTimeout(() => updater.quitAndInstall(true, true), 4500);
   return { ok: true };
 });
 
@@ -3441,9 +3503,21 @@ app.whenReady().then(async () => {
     await migrateSessionDirs();
   } catch {}
 
+  // The update splash outlives the old build; close it now that this one runs.
+  closeLeftoverSplash();
+
   createWindow();
   setUpdates();
   startPresence();
+
+  // Say once, after an update, that the version moved — the app relaunches
+  // itself and otherwise looks exactly like it did before.
+  const previousVersion = readPrefs().lastVersion;
+  const currentVersion = app.getVersion();
+  if (previousVersion && previousVersion !== currentVersion) {
+    send('app:updated', { from: previousVersion, to: currentVersion });
+  }
+  writePrefs({ lastVersion: currentVersion });
 
   // Browser control is opt-in; only listen when the user left the chip on.
   if (readPrefs().browserBridge && readPrefs().browserBridge.enabled) {

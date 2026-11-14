@@ -154,6 +154,7 @@ contextBridge.exposeInMainWorld('freepi', {
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
   onUpdateStatus: on('update:status'),
+  onAppUpdated: on('app:updated'),
 
   // How many people are online right now (45 s heartbeat).
   getPresence: () => ipcRenderer.invoke('presence:get'),

@@ -49,6 +49,10 @@ const STRINGS = {
   en: {
     // Browser control (chip next to the language button).
     errorPrefix: 'Error',
+    updateOverlayTitle: 'Updating NTAPI…',
+    updateOverlayLine: 'The program closes itself to install the update, then opens again on its own.',
+    updateOverlayHint: 'You do not need to start it again. Leave this window; it goes away by itself.',
+    updatedToast: 'Updated to v{v} — everything is where you left it.',
     browserTitle: 'Browser control',
     browserOff: 'Browser control is off. The agent cannot use your browser.',
     browserWaiting: 'Waiting for the Chrome extension to connect…',
@@ -356,6 +360,10 @@ const STRINGS = {
   th: {
     // Browser control (chip next to the language button).
     errorPrefix: 'ข้อผิดพลาด',
+    updateOverlayTitle: 'กำลังอัปเดต NTAPI…',
+    updateOverlayLine: 'โปรแกรมจะปิดตัวเองเพื่อติดตั้งอัปเดต แล้วเปิดกลับมาเอง',
+    updateOverlayHint: 'ไม่ต้องกดเปิดใหม่ ปล่อยไว้ได้เลย หน้าต่างนี้จะหายไปเอง',
+    updatedToast: 'อัปเดตเป็น v{v} แล้ว — ทุกอย่างอยู่ที่เดิม',
     browserTitle: 'ควบคุมเบราว์เซอร์',
     browserOff: 'ยังปิดอยู่ — AI จะใช้เบราว์เซอร์ของคุณไม่ได้',
     browserWaiting: 'รอส่วนขยาย Chrome เชื่อมต่อ…',
@@ -3119,6 +3127,9 @@ function paintUpdate(state) {
       break;
     case 'installing':
       statusEl.textContent = t('updateInstalling');
+      // The window is about to disappear for 20-60 s while the installer swaps
+      // the .exe. Say so across the whole window, not just in a settings line.
+      el('updateOverlay').hidden = false;
       actionBtn.hidden = true;
       if (checkBtn) checkBtn.disabled = true;
       // Start near zero, then let the bar fill just as the app closes so the
@@ -3127,6 +3138,7 @@ function paintUpdate(state) {
       setTimeout(() => setBar(100, true), 80);
       break;
     case 'error':
+      el('updateOverlay').hidden = true;
       statusEl.textContent = t('updateError', { e: st.error || '' });
       break;
     default:
@@ -3160,7 +3172,14 @@ async function initUpdates() {
     }
   });
 
-  api.onUpdateStatus?.((s) => {
+  // The app relaunches itself after an update and otherwise looks unchanged.
+if (typeof api.onAppUpdated === 'function') {
+  api.onAppUpdated((p) => {
+    showToast({ title: `NTAPI v${p.to}`, body: t('updatedToast', { v: p.to }) });
+  });
+}
+
+api.onUpdateStatus?.((s) => {
     updateStateCache = s;
     paintUpdate(s);
   });
