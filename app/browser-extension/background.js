@@ -334,6 +334,15 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
     return;
   }
 
+  // The two things that end a hand-over run: the page leaving where it was
+  // trusted, and the tab going away. Only the top frame counts — a subframe
+  // navigating is normal on any page with an ad or an editor in it.
+  if (method === 'Page.frameNavigated') {
+    const frame = params && params.frame;
+    if (frame && !frame.parentId) send({ event: 'navigate', tabId, url: frame.url || '' });
+    return;
+  }
+
   if (method === 'Network.requestWillBeSent') {
     inflight.set(tabId, (inflight.get(tabId) || 0) + 1);
     return;
@@ -626,6 +635,15 @@ async function detachAll() {
 chrome.alarms.create('ntapi-reconnect', { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'ntapi-reconnect') connect();
+});
+
+/** A tab the agent was working in can vanish without the app ever asking. */
+chrome.tabs.onRemoved.addListener((tabId) => {
+  attached.delete(tabId);
+  inflight.delete(tabId);
+  networkOn.delete(tabId);
+  openDialogs.delete(tabId);
+  send({ event: 'tabClosed', tabId });
 });
 
 chrome.runtime.onStartup.addListener(() => connect());

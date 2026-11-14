@@ -4754,6 +4754,12 @@ if (typeof api.onBrowserActivity === 'function') {
   });
 }
 
+if (typeof api.onBrowserResume === 'function') {
+  // The agent is about to look at the page again; the user may have moved or
+  // closed the tab while answering, so re-read where things stand.
+  api.onBrowserResume(() => refreshBrowserStatus());
+}
+
 el('browserRelease').addEventListener('click', releaseBrowserTab);
 
 el('browserAutopilot').addEventListener('click', async () => {

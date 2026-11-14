@@ -40,6 +40,7 @@ function makeChrome() {
 
   const eventListeners = [];
   const messageListeners = [];
+  const tabRemovedListeners = [];
   const sockets = [];
 
   /** A WebSocket stand-in the test can drive by hand. */
@@ -97,6 +98,7 @@ function makeChrome() {
       },
       remove: async (id) => record('tabs.remove', id),
       onUpdated: { addListener: () => {}, removeListener: () => {} },
+      onRemoved: { addListener: (fn) => tabRemovedListeners.push(fn) },
     },
     debugger: {
       attach: async ({ tabId }) => {
@@ -147,11 +149,12 @@ function makeChrome() {
       for (const fn of messageListeners) fn(msg, {}, (r) => { reply = r; });
       return reply;
     },
+    dispatchTabRemoved: (tabId) => tabRemovedListeners.forEach((fn) => fn(tabId, {})),
   };
 }
 
 function loadWorker() {
-  const { chrome, calls, state, emitEvent, sockets, FakeWebSocket, dispatchMessage } = makeChrome();
+  const { chrome, calls, state, emitEvent, sockets, FakeWebSocket, dispatchMessage, dispatchTabRemoved } = makeChrome();
   const source = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'background.js'), 'utf8');
   const sandboxModule = { exports: {} };
   const context = vm.createContext({
@@ -165,7 +168,7 @@ function loadWorker() {
     URL,
   });
   vm.runInContext(source, context, { filename: 'background.js' });
-  return { handle: sandboxModule.exports.handle, calls, state, emitEvent, sockets, dispatchMessage };
+  return { handle: sandboxModule.exports.handle, calls, state, emitEvent, sockets, dispatchMessage, dispatchTabRemoved };
 }
 
 async function expectError(fn) {
@@ -178,7 +181,7 @@ async function expectError(fn) {
 }
 
 async function main() {
-  const { handle, calls, state, emitEvent, sockets, dispatchMessage } = loadWorker();
+  const { handle, calls, state, emitEvent, sockets, dispatchMessage, dispatchTabRemoved } = loadWorker();
   const cdpCalls = (method) => calls.filter((c) => c.name === 'cdp' && c.payload.method === method);
 
   // --- unknown command ---
@@ -344,6 +347,18 @@ async function main() {
   check('detachAll reports ok', detached.ok === true);
   check('detachAll strips the refs it stamped', refStrips() > stripsBefore, `${stripsBefore} -> ${refStrips()}`);
   check('detachAll detaches every attached tab', calls.some((c) => c.name === 'debugger.detach'));
+
+  // --- the app must hear about the two things that end a hand-over run ---
+  const frames = () => ws.sent.map((s) => JSON.parse(s));
+  ws.sent.length = 0;
+  dispatchTabRemoved(3);
+  check('closing a tab is reported to the app', frames().some((f) => f.event === 'tabClosed' && f.tabId === 3), JSON.stringify(ws.sent));
+
+  ws.sent.length = 0;
+  emitEvent({ tabId: 7 }, 'Page.frameNavigated', { frame: { id: 'MAIN', url: 'https://ads.google.com/aw/campaigns' } });
+  check('the tab navigating is reported with its url', frames().some((f) => f.event === 'navigate' && f.url === 'https://ads.google.com/aw/campaigns'));
+  emitEvent({ tabId: 7 }, 'Page.frameNavigated', { frame: { id: 'F2', parentId: 'MAIN', url: 'https://b.example/x' } });
+  check('a subframe navigating is not the tab navigating', frames().filter((f) => f.event === 'navigate').length === 1);
 }
 
 main()

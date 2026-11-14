@@ -478,8 +478,21 @@ browserBridge.onActivity((entry) => {
 
 /** The user pressed "use this tab" in the extension popup. */
 browserBridge.onExtensionEvent((event) => {
-  if (!event || event.event !== 'claim') return;
-  claimBrowserTab({ tabId: event.tabId, url: event.url, title: event.title });
+  if (!event) return;
+  if (event.event === 'claim') {
+    claimBrowserTab({ tabId: event.tabId, url: event.url, title: event.title });
+    return;
+  }
+  // Trust ends the moment the page goes somewhere else, or the tab goes away.
+  if (event.event === 'navigate') {
+    if (browserAutopilot.shouldExpire({ type: 'navigate', tabId: event.tabId, url: event.url })) pushAutopilotState();
+    return;
+  }
+  if (event.event === 'tabClosed') {
+    if (browserAutopilot.shouldExpire({ type: 'tabClosed', tabId: event.tabId })) pushAutopilotState();
+    const claim = browserClaims.get();
+    if (claim && claim.tabId === event.tabId) releaseBrowserTab('tabClosed');
+  }
 });
 
 /** Hand one tab to the agent. Nothing restores a claim on its own. */
@@ -2838,6 +2851,13 @@ ipcMain.handle('question:respond', async (_e, { id, answer } = {}) => {
   if (!pending) return { ok: false };
   questions.delete(id);
   pending.resolve(answer === undefined || answer === null ? null : String(answer));
+  // The user may have done the step by hand, moved the page, or closed it. Any
+  // ref the agent holds is now a guess, so it must look again before acting.
+  const claim = browserClaims.get();
+  if (claim) {
+    bridge.clearSnapshotTable(claim.tabId);
+    send('browser:resume', { tabId: claim.tabId });
+  }
   return { ok: true };
 });
 

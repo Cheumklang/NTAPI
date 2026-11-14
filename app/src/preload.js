@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('freepi', {
   onBrowserActivity: on('browser:activity'),
   onBrowserClaimState: on('browser:claimState'),
   onBrowserAutopilotState: on('browser:autopilotState'),
+  onBrowserResume: on('browser:resume'),
 
   // Coarena key: the renderer sees status only, never the key itself.
   coarenaStatus: () => ipcRenderer.invoke('coarena:status'),

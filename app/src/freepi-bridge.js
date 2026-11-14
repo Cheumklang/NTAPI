@@ -935,6 +935,25 @@ async function createFreePiSession(options) {
     name: 'freepi-desktop-browser',
     factory(pi) {
       if (!browserBridge) return;
+
+      // The workflow that makes refs worth having. Without it the model reads a
+      // snapshot once and then guesses selectors for the rest of the task.
+      pi.on('before_agent_start', (event) => {
+        if (!event || typeof event.systemPrompt !== 'string') return;
+        if (event.systemPrompt.includes('## Browser workflow')) return;
+        return {
+          systemPrompt:
+            event.systemPrompt +
+            `\n\n## Browser workflow\n\n` +
+            `- Take a browser_snapshot before acting on a page, and act by the \`ref\` it returns — do not guess a CSS selector when you have a ref.\n` +
+            `- Every action returns a fresh snapshot: read it rather than assuming what changed.\n` +
+            `- If a ref is rejected as stale, take a snapshot again — the page moved under you.\n` +
+            `- When a page will not cooperate, call ask_user saying what you expected and what you see, then snapshot again before continuing.\n` +
+            `- Work only in the tab the user handed over. With none, ask for one with browser_claim.\n` +
+            `- Doing the work without a dialog per step never covers browser_eval, and never an action that pays, purchases or deletes — those still ask.`,
+        };
+      });
+
       for (const spec of [...browserToolSpecs(), ...browserLocalToolSpecs()]) {
         pi.registerTool({
           name: spec.name,
