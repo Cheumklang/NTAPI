@@ -61,17 +61,18 @@
         </div>
 
         <!--
-          The approval switch. One row, no heading and no hint line: the sidebar
-          already has enough stacked labels, and the chosen option says what it
-          does. It sits below Workspace so the folder picker stays where people
-          expect it.
+          The approval switch. It has a heading now that says what the control is
+          for, because "ถามเสมอ / อนุมัติเสมอ" alone does not tell a first-time
+          reader what is being approved. One dropdown, no hint line under it.
         -->
-        <div class="section">
-          <select id="approvalPolicy" class="approval-policy-select" aria-label="การอนุมัติเครื่องมือ" title="การอนุมัติเครื่องมือ">
+        <div class="section approval-section">
+          <label for="approvalPolicy">การอนุมัติเครื่องมือ</label>
+          <select id="approvalPolicy" class="approval-policy-select" title="การอนุมัติเครื่องมือ">
             <option value="ask">ถามเสมอ</option>
             <option value="allow">อนุมัติเสมอ</option>
-            <option value="deny">ไม่อนุมัติเสมอ</option>
+            <option value="deny">ไม่อนุมัติเลย</option>
           </select>
+          <p class="approval-note">เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์</p>
         </div>
 
         <div class="section grow">

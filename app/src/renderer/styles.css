@@ -2568,12 +2568,22 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 }
 
 /*
- * The approval switch in the sidebar: one row, no heading, no hint under it.
- *
+ * The approval switch in the sidebar: a heading that names the control, the
+ * switch itself, and one line saying what "approve" applies to. The heading is
+ * the sidebar's standard small caps label; the note stays quieter than it.
+ */
+.approval-section { gap: 6px; }
+.approval-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/*
  * It is a native <select>, so the open list is drawn by Windows and cannot be
  * themed — but the closed control takes the app's colours. `appearance: none`
- * stops Windows painting its own border and arrow over the theme, so both have
- * to be drawn here: the border below, and the chevron as a background image.
+ * stops Windows painting its own border and arrow over the theme.
  */
 .approval-policy-select {
   width: 100%;

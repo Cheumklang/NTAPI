@@ -5267,7 +5267,7 @@ el('approvalDeny').addEventListener('click', () => answerApproval(false));
 const APPROVAL_TITLES = {
   ask: 'ถามเสมอ — ถามทุกครั้งก่อนให้ AI รันคำสั่ง',
   allow: 'อนุมัติเสมอ — ไม่ถามเลย AI รันคำสั่งได้ทันที',
-  deny: 'ไม่อนุมัติเสมอ — ไม่ถามเลย AI รันคำสั่งไม่ได้',
+  deny: 'ไม่อนุมัติเลย — ไม่ถามเลย AI รันคำสั่งไม่ได้',
 };
 
 function applyApprovalMode({ policy } = {}) {

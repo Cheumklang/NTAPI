@@ -47,12 +47,15 @@ check('every choice is present', (html.match(/<option value="(ask|allow|deny)"/g
 check('"ask" is the first choice a user sees', /<option value="ask"/.test(html));
 
 // The switch used to take three stacked rows (heading + select + hint line),
-// which overflowed the sidebar. It now takes one: the option names its own
-// effect, and the tooltip carries the longer wording.
-const selectSection = (html.split('<section').find((s) => s.includes('id="approvalPolicy"')) || '').split('</select>')[0] || '';
-check('the switch has no heading of its own', !/approvalPolicyHint/.test(html));
-check('the switch needs no hint line', !/id="approvalPolicyHint"/.test(html));
-check('the switch is still reachable by screen readers', /aria-label=/.test(selectTag));
+// which overflowed the sidebar, so the heading was removed. It is back because
+// "ถามเสมอ / อนุมัติเสมอ" on its own never says *what* is being approved — but
+// it is one small label plus one quiet line, not a second panel.
+check('the switch has a heading naming it', /<label for="approvalPolicy">การอนุมัติเครื่องมือ<\/label>/.test(html));
+check('the heading is a real label, not just text', /<label for="approvalPolicy"/.test(html));
+check('one quiet line says what gets approved', /class="approval-note"/.test(html));
+// The old unlabelled-hint element must not come back: it was unstyled clutter.
+check('the old bare hint element stays gone', !/id="approvalPolicyHint"/.test(html));
+check('the note has its own quiet style', rule('.approval-note') !== '');
 
 // --- the styling ---------------------------------------------------------
 const body = rule('.approval-policy-select');
@@ -96,6 +99,14 @@ check('the renderer does not set the removed strings', !/approvalsOff|turnPrompt
 // the current value without a hint line underneath.
 check('the switch is a real form control', /<select[^>]*id="approvalPolicy"/.test(html));
 check('the switch carries its explanation in a tooltip', /title="การอนุมัติเครื่องมือ"/.test(html));
+
+// Wording: the third choice says "ไม่อนุมัติเลย" (never), not "ไม่อนุมัติเสมอ"
+// (always deny), which read like a permanent setting rather than a choice.
+check('the third choice reads ไม่อนุมัติเลย', /<option value="deny">ไม่อนุมัติเลย<\/option>/.test(html));
+check('the old ไม่อนุมัติเสมอ wording is gone', !/ไม่อนุมัติเสมอ/.test(html));
+const appSrc = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+check('the tooltip agrees with the new wording', /deny: 'ไม่อนุมัติเลย/.test(appSrc));
+check('no stale wording is left in the renderer', !/ไม่อนุมัติเสมอ/.test(appSrc));
 
 if (failures) {
   console.log(`\n${failures} check(s) failed`);
