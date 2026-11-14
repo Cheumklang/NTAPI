@@ -66,13 +66,35 @@
           reader what is being approved. One dropdown, no hint line under it.
         -->
         <div class="section approval-section">
-          <label for="approvalPolicy">การอนุมัติเครื่องมือ</label>
-          <select id="approvalPolicy" class="approval-policy-select" title="การอนุมัติเครื่องมือ">
-            <option value="ask">ถามเสมอ</option>
-            <option value="allow">อนุมัติเสมอ</option>
-            <option value="deny">ไม่อนุมัติเลย</option>
-          </select>
-          <p class="approval-note">เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์</p>
+          <label id="approvalLabel">การอนุมัติเครื่องมือ</label>
+          <!--
+            Three positions instead of a dropdown: the setting is a choice between
+            three fixed states, and a slider-shaped control shows the current one at
+            a glance instead of hiding it behind a click. Radios rather than buttons
+            because this is a single choice out of three — arrow keys move between
+            them and a screen reader announces "2 of 3" on its own.
+          -->
+          <div
+            class="approval-switch"
+            id="approvalPolicy"
+            role="radiogroup"
+            aria-labelledby="approvalLabel"
+          >
+            <label class="approval-opt">
+              <input type="radio" name="approvalPolicy" value="ask" />
+              <span>ถามเสมอ</span>
+            </label>
+            <label class="approval-opt">
+              <input type="radio" name="approvalPolicy" value="allow" />
+              <span>อนุมัติเสมอ</span>
+            </label>
+            <label class="approval-opt">
+              <input type="radio" name="approvalPolicy" value="deny" />
+              <span>ไม่อนุมัติเลย</span>
+            </label>
+            <span class="approval-thumb" aria-hidden="true"></span>
+          </div>
+          <p class="approval-note" id="approvalNote">เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์</p>
         </div>
 
         <div class="section grow">

@@ -38,34 +38,44 @@ function rule(selector) {
 }
 
 // --- the control ---------------------------------------------------------
-const selectTag = (html.match(/<select[^>]*id="approvalPolicy"[^>]*>/) || [''])[0];
-check('the approval switch is a <select>', selectTag !== '');
-check('it has its own class', /class="approval-policy-select"/.test(selectTag));
-// Borrowing .path-btn is the bug this file exists to stop.
-check('it does not borrow .path-btn', !/class="[^"]*path-btn/.test(selectTag));
-check('every choice is present', (html.match(/<option value="(ask|allow|deny)"/g) || []).length === 3);
-check('"ask" is the first choice a user sees', /<option value="ask"/.test(html));
-
-// The switch used to take three stacked rows (heading + select + hint line),
-// which overflowed the sidebar, so the heading was removed. It is back because
-// "ถามเสมอ / อนุมัติเสมอ" on its own never says *what* is being approved — but
-// it is one small label plus one quiet line, not a second panel.
-check('the switch has a heading naming it', /<label for="approvalPolicy">การอนุมัติเครื่องมือ<\/label>/.test(html));
-check('the heading is a real label, not just text', /<label for="approvalPolicy"/.test(html));
+//
+// It is a three-position switch, not a dropdown. A dropdown hid the current
+// setting behind a click, and the most consequential choice in the app looked
+// like an ordinary form field.
+check('the switch is not a <select>', !/<select[^>]*id="approvalPolicy"/.test(html));
+check('the switch is a radio group', /id="approvalPolicy"[\s\S]{0,200}role="radiogroup"/.test(html));
+check('every choice is present', (html.match(/name="approvalPolicy" value="(ask|allow|deny)"/g) || []).length === 3);
+check('"ask" comes first', /name="approvalPolicy" value="ask"/.test(html));
+check('the radio group is labelled', /aria-labelledby="approvalLabel"/.test(html));
+check('the label element exists', /id="approvalLabel"/.test(html));
+check('the label names the control', /id="approvalLabel">การอนุมัติเครื่องมือ</.test(html));
 check('one quiet line says what gets approved', /class="approval-note"/.test(html));
-// The old unlabelled-hint element must not come back: it was unstyled clutter.
 check('the old bare hint element stays gone', !/id="approvalPolicyHint"/.test(html));
-check('the note has its own quiet style', rule('.approval-note') !== '');
+// Scoped to the switch itself: the folder button elsewhere legitimately uses
+// .path-btn, and a whole-document search would fail on it forever.
+const approvalBlock = (html.match(/<div class="section approval-section">[\s\S]*?<\/div>\s*<\/div>/) || [''])[0];
+check('the approval section was found', approvalBlock !== '');
+check('it does not borrow .path-btn', approvalBlock !== '' && !/path-btn/.test(approvalBlock));
 
-// --- the styling ---------------------------------------------------------
-const body = rule('.approval-policy-select');
-check('the switch has a rule', body !== '');
-// Without this Windows paints a white box and its own arrow over the theme.
-check('native appearance is off', /appearance:\s*none/.test(body));
-check('it takes the app background', /background-color:\s*var\(--bg-3\)/.test(body));
-check('it takes the app text colour', /color:\s*var\(--text\)/.test(body));
-check('it has the app focus ring', /outline:\s*2px solid var\(--accent\)/.test(rule('.approval-policy-select:focus-visible')));
-check('the option list is themed', /background:\s*var\(--bg-2\)/.test(rule('.approval-policy-select option')));
+// --- the sliding thumb ---------------------------------------------------
+const group = rule('.approval-switch');
+check('the switch has a rule', group !== '');
+check('the switch is a three-column grid', /grid-template-columns:\s*repeat\(3,\s*1fr\)/.test(group));
+check('the switch defines a position variable', /--at:\s*0/.test(group));
+const thumb = rule('.approval-thumb');
+check('there is a sliding thumb', thumb !== '');
+check('the thumb is one third wide', /width:\s*calc\(\(100% - 6px\) \/ 3\)/.test(thumb));
+check('the thumb moves by its position', /translateX\(calc\(var\(--at\) \* 100%\)\)/.test(thumb));
+check('the thumb animates', /transition:\s*transform/.test(thumb));
+check('the thumb does not eat clicks', /pointer-events:\s*none/.test(thumb));
+check('the motion can be turned off', /prefers-reduced-motion[\s\S]{0,80}approval-thumb/.test(css));
+
+const opt = rule('.approval-opt');
+check('an option is a styled label', opt !== '');
+check('an option is selectable by click', /cursor:\s*pointer/.test(opt));
+check('the hidden radio is still reachable', /\.approval-opt input \{[^}]*clip-path:\s*inset\(50%\)/.test(css));
+check('the checked option is emphasised', /\.approval-opt:has\(input:checked\)/.test(css));
+check('the option shows a focus ring', /\.approval-opt:has\(input:focus-visible\)/.test(css));
 
 // --- the tokens must exist ----------------------------------------------
 function token(name) {
@@ -95,14 +105,12 @@ const appJs = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 check('the renderer does not query the removed banner', !/approvalModeBanner|approvalModeReset/.test(appJs));
 check('the renderer does not set the removed strings', !/approvalsOff|turnPromptsBackOn/.test(appJs));
 
-// The switch is now the only control, so it has to be reachable and must show
-// the current value without a hint line underneath.
-check('the switch is a real form control', /<select[^>]*id="approvalPolicy"/.test(html));
-check('the switch carries its explanation in a tooltip', /title="การอนุมัติเครื่องมือ"/.test(html));
+// The switch is the only control, so it must show the current value by itself.
+check('the renderer drives the thumb position', /style\.setProperty\('--at'/.test(fs.readFileSync(path.join(root, 'app.js'), 'utf8')));
 
 // Wording: the third choice says "ไม่อนุมัติเลย" (never), not "ไม่อนุมัติเสมอ"
 // (always deny), which read like a permanent setting rather than a choice.
-check('the third choice reads ไม่อนุมัติเลย', /<option value="deny">ไม่อนุมัติเลย<\/option>/.test(html));
+check('the third choice reads ไม่อนุมัติเลย', /name="approvalPolicy" value="deny"[\s\S]{0,80}ไม่อนุมัติเลย/.test(html));
 check('the old ไม่อนุมัติเสมอ wording is gone', !/ไม่อนุมัติเสมอ/.test(html));
 const appSrc = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 check('the tooltip agrees with the new wording', /deny: 'ไม่อนุมัติเลย/.test(appSrc));

@@ -5959,9 +5959,12 @@ el('approvalDeny').addEventListener('click', () => answerApproval(false));
  * next. Whenever prompts are off, the sidebar says so permanently.
  */
 /*
- * One switch, one row. There is no heading or hint line under it: the sidebar
- * already stacks enough labels, and the selected option names its own effect.
- * The tooltip carries the same wording for anyone hovering.
+ * One switch, one row, three positions: ask / always allow / always deny.
+ *
+ * It used to be a dropdown, which hid the current answer behind a click and left
+ * the most consequential setting in the app looking like a form field. The order
+ * is deliberately ask -> allow -> deny, so the thumb moves left to right as the
+ * setting gets more permissive and then to the far right for "never".
  */
 const APPROVAL_TITLES = {
   ask: 'ถามเสมอ — ถามทุกครั้งก่อนให้ AI รันคำสั่ง',
@@ -5969,12 +5972,33 @@ const APPROVAL_TITLES = {
   deny: 'ไม่อนุมัติเลย — ไม่ถามเลย AI รันคำสั่งไม่ได้',
 };
 
+/** The three positions, in the order they appear on the switch. */
+const APPROVAL_ORDER = ['ask', 'allow', 'deny'];
+
+/** The radios of the switch, or an empty list before the markup is parsed. */
+function approvalRadios() {
+  return [...document.querySelectorAll('input[name="approvalPolicy"]')];
+}
+
+/** Read the switch. Falls back to `ask`, which is the safe answer. */
+function currentApprovalPolicy() {
+  const checked = approvalRadios().find((r) => r.checked);
+  return checked ? checked.value : 'ask';
+}
+
 function applyApprovalMode({ policy } = {}) {
   const mode = policy === 'allow' || policy === 'deny' ? policy : 'ask';
-  const select = el('approvalPolicy');
-  if (select) {
-    if (select.value !== mode) select.value = mode;
-    select.title = APPROVAL_TITLES[mode];
+  for (const radio of approvalRadios()) {
+    radio.checked = radio.value === mode;
+    radio.title = APPROVAL_TITLES[radio.value];
+  }
+  // Drive the thumb. The index, not a class per position, so adding a position
+  // later only means adding one more radio and one more entry in the order.
+  const group = el('approvalPolicy');
+  if (group) {
+    const at = APPROVAL_ORDER.indexOf(mode);
+    group.style.setProperty('--at', String(at === -1 ? 0 : at));
+    group.title = APPROVAL_TITLES[mode];
   }
   // No banner and no body class: the switch shows its own state, and a second
   // warning that says the same thing is just something else to read.
@@ -5982,10 +6006,17 @@ function applyApprovalMode({ policy } = {}) {
 
 api.onApprovalMode(applyApprovalMode);
 
-el('approvalPolicy').addEventListener('change', async (e) => {
-  const res = await api.setApprovalMode({ policy: e.target.value });
-  applyApprovalMode(res);
-});
+for (const radio of approvalRadios()) {
+  radio.addEventListener('change', async (e) => {
+    if (!e.target.checked) return;
+    // Show the move immediately; the answer from main is what makes it real. If
+    // the save fails, applyApprovalMode() puts the thumb back where it belongs.
+    const group = el('approvalPolicy');
+    group?.style.setProperty('--at', String(APPROVAL_ORDER.indexOf(e.target.value)));
+    const res = await api.setApprovalMode({ policy: e.target.value }).catch(() => null);
+    if (res && res.policy) applyApprovalMode(res);
+  });
+}
 
 window.addEventListener('keydown', (e) => {
   if (!el('loginOverlay').hidden) {
