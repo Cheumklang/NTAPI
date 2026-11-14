@@ -69,7 +69,10 @@ function parseFrame(raw) {
   }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   if (!Number.isInteger(value.id) || value.id < 1) return null;
-  if (typeof value.cmd !== 'string' || !value.cmd) return null;
+  // A request carries `cmd`; a response carries `ok`. Both share the id.
+  const isRequest = typeof value.cmd === 'string' && value.cmd.length > 0;
+  const isResponse = typeof value.ok === 'boolean';
+  if (!isRequest && !isResponse) return null;
   return value;
 }
 
@@ -78,6 +81,7 @@ function makeRequest(id, cmd, args) {
 }
 
 const AUDIT_MAX_BYTES = 5 * 1024 * 1024;
+const WRITE_CMDS = new Set(Object.values(BROWSER_TOOLS).filter((t) => t.write).map((t) => t.cmd));
 
 function bridgeError(code, message) {
   const err = new Error(message);
@@ -201,7 +205,7 @@ function createBrowserBridge(options = {}) {
       }
 
       const frame = parseFrame(raw);
-      if (!frame) return;
+      if (!frame || frame.cmd) return; // the app only accepts responses here
       const entry = pending.get(frame.id);
       if (!entry) return;
       pending.delete(frame.id);
@@ -277,7 +281,20 @@ function createBrowserBridge(options = {}) {
         pending.delete(id);
         reject(bridgeError('TIMEOUT', `The browser did not answer ${cmd} in ${timeoutMs}ms.`));
       }, timeoutMs);
-      pending.set(id, { resolve, reject, timer, cmd });
+      const write = WRITE_CMDS.has(cmd);
+      const auditArgs = args && typeof args === 'object' ? args : {};
+      pending.set(id, {
+        resolve: (result) => {
+          if (write) appendAudit({ cmd, url: auditArgs.url ?? null, selector: auditArgs.selector ?? null, ok: true });
+          resolve(result);
+        },
+        reject: (err) => {
+          if (write) appendAudit({ cmd, url: auditArgs.url ?? null, selector: auditArgs.selector ?? null, ok: false });
+          reject(err);
+        },
+        timer,
+        cmd,
+      });
       try {
         ws.send(JSON.stringify(makeRequest(id, cmd, args)));
       } catch (err) {

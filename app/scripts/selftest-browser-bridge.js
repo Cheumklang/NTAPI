@@ -86,8 +86,43 @@ async function main() {
   await delay(60);
   check('disconnect clears status', bridge.status().connected === false);
 
+  // Request/response round trip with a fake extension.
+  const w3 = await open(`ws://127.0.0.1:${port}`, 'chrome-extension://testext');
+  await hello(w3, '123456');
+  w3.on('message', (raw) => {
+    const frame = JSON.parse(raw.toString());
+    if (frame.id) w3.send(JSON.stringify({ id: frame.id, ok: true, result: { done: true, cmd: frame.cmd } }));
+  });
+  const result = await bridge.call('read', { maxChars: 5 });
+  check('call resolves result', result.done === true && result.cmd === 'read');
+
+  await bridge.call('click', { selector: '#go' });
+  const auditLines = fs.readFileSync(auditPath, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  check('audit written for a write command', auditLines.some((l) => l.cmd === 'click' && l.selector === '#go'));
+  check('audit skips read commands', !auditLines.some((l) => l.cmd === 'read'));
+  w3.close();
+
+  // A connected extension that never answers must time out.
+  const w4 = await open(`ws://127.0.0.1:${port}`, 'chrome-extension://testext');
+  await hello(w4, '123456');
+  let timeoutCode = '';
+  try {
+    await bridge.call('read', {}, { timeoutMs: 60 });
+  } catch (err) {
+    timeoutCode = err.code;
+  }
+  check('silent extension times out', timeoutCode === 'TIMEOUT', `code=${timeoutCode}`);
+  w4.close();
+
   await bridge.stop();
   check('stop disables', bridge.status().enabled === false);
+  let disabledCode = '';
+  try {
+    await bridge.call('read', {});
+  } catch (err) {
+    disabledCode = err.code;
+  }
+  check('call after stop is DISABLED', disabledCode === 'DISABLED', `code=${disabledCode}`);
 }
 
 main()
