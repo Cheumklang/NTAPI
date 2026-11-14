@@ -302,6 +302,10 @@
               <span class="settings-nav-icon" aria-hidden="true">🔑</span>
               <span class="settings-nav-label" data-i18n="providersSection">Providers</span>
             </button>
+            <button type="button" class="settings-nav-item" data-section="mcp" role="tab" id="settingsTabMcp" aria-controls="settingsPanelMcp">
+              <span class="settings-nav-icon" aria-hidden="true">🔌</span>
+              <span class="settings-nav-label" data-i18n="mcpSection">MCP</span>
+            </button>
             <button type="button" class="settings-nav-item" data-section="advanced" role="tab" id="settingsTabAdvanced" aria-controls="settingsPanelAdvanced">
               <span class="settings-nav-icon" aria-hidden="true">⚙️</span>
               <span class="settings-nav-label" data-i18n="advancedSection">Advanced</span>
@@ -446,6 +450,32 @@
             </section>
 
             <!-- Advanced / System -->
+            <!-- MCP servers -->
+            <section class="settings-panel" data-section="mcp" id="settingsPanelMcp" role="tabpanel" aria-labelledby="settingsTabMcp">
+              <div class="settings-group">
+                <div class="settings-head" data-i18n="mcpHead">MCP servers</div>
+                <p class="settings-hint" data-i18n="mcpIntro">
+                  MCP servers add tools to the agent. A server runs with your privileges and its
+                  tool descriptions are untrusted input, so every MCP tool asks for approval first.
+                </p>
+                <label class="settings-toggle">
+                  <input type="checkbox" id="mcpEnabled" />
+                  <span data-i18n="mcpEnable">Enable MCP servers</span>
+                </label>
+                <div class="settings-subhead">mcp.json</div>
+                <textarea id="mcpConfig" class="mcp-config" spellcheck="false" rows="10" aria-label="mcp.json"></textarea>
+                <div class="mcp-actions">
+                  <button id="mcpSave" class="primary-btn small" data-i18n="mcpSave">Save</button>
+                  <span id="mcpStatus" class="settings-hint" role="status"></span>
+                </div>
+                <p class="settings-hint mono" id="mcpPath"></p>
+                <p class="settings-hint warn" data-i18n="mcpLlm7Warn">
+                  On LLM7.io's free tier, function calling may be unavailable and each tool drains
+                  the daily token budget — prefer another provider for MCP work.
+                </p>
+              </div>
+            </section>
+
             <section class="settings-panel" data-section="advanced" id="settingsPanelAdvanced" role="tabpanel" aria-labelledby="settingsTabAdvanced">
               <div class="settings-group">
                 <div class="settings-head" data-i18n="dataLocations">Data Locations</div>

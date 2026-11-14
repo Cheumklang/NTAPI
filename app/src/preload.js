@@ -28,6 +28,9 @@ contextBridge.exposeInMainWorld('freepi', {
   boot: () => ipcRenderer.invoke('app:boot'),
   setPrefs: (patch) => ipcRenderer.invoke('prefs:set', patch),
   getSettings: (cwd) => ipcRenderer.invoke('settings:get', { cwd }),
+  // MCP config: the app's own <data>/mcp.json, edited from Settings.
+  mcpGet: () => ipcRenderer.invoke('mcp:get'),
+  mcpSet: (payload) => ipcRenderer.invoke('mcp:set', payload),
   // Coarena key: the renderer sees status only, never the key itself.
   coarenaStatus: () => ipcRenderer.invoke('coarena:status'),
   coarenaSetKey: (key) => ipcRenderer.invoke('coarena:setKey', { key }),

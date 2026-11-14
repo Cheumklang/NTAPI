@@ -164,6 +164,17 @@ const STRINGS = {
     llm7Removed: 'LLM7.io token removed.',
     llm7FreeTier: 'Free turbo models',
     llm7Limits: '100K tokens/day · 60/min',
+    mcpSection: 'MCP',
+    mcpHead: 'MCP servers',
+    mcpIntro:
+      'MCP servers add tools to the agent. A server runs with your privileges and its tool descriptions are untrusted input, so every MCP tool asks for approval first.',
+    mcpEnable: 'Enable MCP servers',
+    mcpSave: 'Save',
+    mcpSaving: 'Saving…',
+    mcpSaved: 'Saved — applies to new sessions',
+    mcpSaveFailed: 'Could not save',
+    mcpLlm7Warn:
+      "On LLM7.io's free tier, function calling may be unavailable and each tool drains the daily token budget — prefer another provider for MCP work.",
     dataRootLabel: 'App data folder',
     outputFolders: 'Output folders',
     systemPaths: 'System locations',
@@ -428,6 +439,17 @@ const STRINGS = {
     llm7Removed: 'ลบโทเคน LLM7.io แล้ว',
     llm7FreeTier: 'โมเดลฟรี (turbo)',
     llm7Limits: '100K โทเคน/วัน · 60/นาที',
+    mcpSection: 'MCP',
+    mcpHead: 'เซิร์ฟเวอร์ MCP',
+    mcpIntro:
+      'MCP เพิ่มเครื่องมือให้ AI เซิร์ฟเวอร์ทํางานด้วยสิทธิ์ของคุณ และคําอธิบายเครื่องมือเป็นข้อมูลที่ไม่น่าไว้ใจ จึงต้องอนุมัติทุกครั้งก่อนเรียก MCP tool',
+    mcpEnable: 'เปิดใช้เซิร์ฟเวอร์ MCP',
+    mcpSave: 'บันทึก',
+    mcpSaving: 'กำลังบันทึก…',
+    mcpSaved: 'บันทึกแล้ว — มีผลกับ session ใหม่',
+    mcpSaveFailed: 'บันทึกไม่สําเร็จ',
+    mcpLlm7Warn:
+      'บน LLM7.io โควตาฟรีอาจเรียก tool ไม่ได้ และทุก tool จะกินโทเคนรายวัน — ควรใช้ค่ายอื่นสำหรับงาน MCP',
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
     outputFolders: 'โฟลเดอร์ปลายทาง',
     systemPaths: 'ตำแหน่งของระบบ',
@@ -2326,6 +2348,7 @@ async function openSettings() {
   paintNvidiaSettings();
   paintTokenharborSettings();
   paintLlm7Settings();
+  paintMcpSettings();
   paintProviderMeter(activeView());
   renderSettings();
   renderAccount();
@@ -2348,6 +2371,55 @@ async function loadProfile() {
 function closeSettings() {
   el('settingsOverlay').hidden = true;
 }
+
+/* ------------------------------- MCP -------------------------------- */
+
+// Opt-in MCP servers, configured from <data>/mcp.json right in Settings. The
+// bridge reads the same file when a new session starts.
+let mcpData = null;
+
+function mcpStatus(text, isError) {
+  const node = el('mcpStatus');
+  if (!node) return;
+  node.textContent = text || '';
+  node.classList.toggle('warn', Boolean(isError));
+}
+
+async function paintMcpSettings() {
+  const enabled = el('mcpEnabled');
+  const config = el('mcpConfig');
+  if (!enabled || !config) return;
+  try {
+    mcpData = await api.mcpGet();
+  } catch {
+    mcpData = null;
+  }
+  enabled.checked = Boolean(mcpData?.enabled);
+  config.value = mcpData?.content || '';
+  const pathEl = el('mcpPath');
+  if (pathEl) pathEl.textContent = mcpData?.path || '';
+  mcpStatus('');
+}
+
+async function saveMcpSettings() {
+  const enabled = Boolean(el('mcpEnabled')?.checked);
+  const content = el('mcpConfig')?.value || '';
+  mcpStatus(t('mcpSaving'));
+  let res;
+  try {
+    res = await api.mcpSet({ enabled, content });
+  } catch (err) {
+    res = { ok: false, error: err?.message || String(err) };
+  }
+  if (res?.ok) {
+    mcpData = { enabled, content, path: mcpData?.path };
+    mcpStatus(t('mcpSaved'));
+  } else {
+    mcpStatus(res?.error || t('mcpSaveFailed'), true);
+  }
+}
+
+el('mcpSave')?.addEventListener('click', saveMcpSettings);
 
 // Settings section navigation (left list, right panel)
 function initSettingsSections() {
@@ -4548,13 +4620,14 @@ function describeReason(toolName, args) {
   return Object.keys(args || {}).length ? JSON.stringify(args, null, 2) : '';
 }
 
-function showApproval({ id, toolName, args }) {
+function showApproval({ id, toolName, label, args }) {
   pendingApprovalId = id;
-  el('approvalTool').textContent = toolName;
+  const shown = label || toolName;
+  el('approvalTool').textContent = shown;
   el('approvalCommand').textContent = describeReason(toolName, args) || '(no arguments)';
   // Keep the persist checkbox off by default: the safe answer is the default.
   el('approvalRemember').checked = false;
-  el('approvalRememberLabel').textContent = t('rememberTool').replace('{tool}', toolName);
+  el('approvalRememberLabel').textContent = t('rememberTool').replace('{tool}', shown);
   approvalOverlay().hidden = false;
   el('approvalAllow').focus();
 }

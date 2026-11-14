@@ -373,6 +373,43 @@ function writePrefs(patch) {
   } catch {}
 }
 
+/** Path of the app's own MCP config, next to the rest of the data. */
+function mcpConfigPath() {
+  return path.join(DATA_ROOT, 'mcp.json');
+}
+
+/** The raw mcp.json text, or '' when the file does not exist yet. */
+function readMcpConfigText() {
+  try {
+    return fs.readFileSync(mcpConfigPath(), 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+/** Parse and shape-check an mcp.json string before it is written to disk. */
+function parseMcpConfig(text) {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return { ok: true, value: {} };
+  let parsed;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (err) {
+    return { ok: false, error: `Invalid JSON: ${err.message}` };
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'The top level must be a JSON object.' };
+  }
+  const servers = parsed.mcpServers;
+  if (
+    servers !== undefined &&
+    (servers === null || typeof servers !== 'object' || Array.isArray(servers))
+  ) {
+    return { ok: false, error: '"mcpServers" must be an object.' };
+  }
+  return { ok: true, value: parsed };
+}
+
 /**
  * Live sessions, keyed by a tab id. Each entry owns its own pi AgentSession, so
  * turns in different tabs run concurrently and independently.
@@ -466,7 +503,7 @@ function askUserDialog(tabId, { question, options }) {
   });
 }
 
-function askApproval(tabId, { toolName, args }) {
+function askApproval(tabId, { toolName, args, label, kind }) {
   if (allowEverything || allowedTools.has(toolName)) {
     return Promise.resolve(true);
   }
@@ -474,7 +511,16 @@ function askApproval(tabId, { toolName, args }) {
   const id = `approval-${approvalSeq}`;
   return new Promise((resolve) => {
     approvals.set(id, { resolve, tabId, toolName });
-    sendTab(tabId, 'approval:request', { id, toolName, args, allowEverything });
+    sendTab(tabId, 'approval:request', {
+      id,
+      toolName,
+      // A readable name for the dialog (e.g. an MCP server tool); `toolName`
+      // stays the raw id used for "remember this tool".
+      label: label || toolName,
+      kind: kind || 'tool',
+      args,
+      allowEverything,
+    });
   });
 }
 
@@ -1025,6 +1071,9 @@ async function attachTab(tabId, manager, cwd) {
     // Skills come from the app data root, so a portable copy carries its own
     // skills and never touches ~/.agents on someone else's machine.
     skillsAgentDir: DATA_ROOT,
+    // MCP is opt-in and its config lives at <DATA_ROOT>/mcp.json, easy to find.
+    mcpEnabled: Boolean(readPrefs().mcpEnabled),
+    mcpConfigDir: DATA_ROOT,
     extraSkillPaths: skillRoots().filter((dir) => {
       try {
         return fs.statSync(dir).isDirectory();
@@ -1678,6 +1727,25 @@ ipcMain.handle('llm7:clearKey', async () => {
   }
   const applied = await applyLlm7KeyToTabs(null);
   return { ok: true, status: llm7Keys.status(), applied };
+});
+
+ipcMain.handle('mcp:get', () => ({
+  enabled: Boolean(readPrefs().mcpEnabled),
+  path: mcpConfigPath(),
+  content: readMcpConfigText(),
+}));
+
+ipcMain.handle('mcp:set', (_e, { enabled, content } = {}) => {
+  const check = parseMcpConfig(content);
+  if (!check.ok) return { ok: false, error: check.error };
+  try {
+    fs.mkdirSync(DATA_ROOT, { recursive: true });
+    fs.writeFileSync(mcpConfigPath(), `${JSON.stringify(check.value, null, 2)}\n`, 'utf8');
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  writePrefs({ mcpEnabled: Boolean(enabled) });
+  return { ok: true };
 });
 
 ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {

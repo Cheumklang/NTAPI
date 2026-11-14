@@ -545,6 +545,15 @@ async function createFreePiSession(options) {
      */
     skillsAgentDir = null,
     /**
+     * When true, connect MCP servers from `<mcpConfigDir>/mcp.json`. Off by
+     * default: an MCP server runs with the user's privileges and its tool
+     * descriptions are untrusted input, so nothing connects until the user turns
+     * it on in Settings.
+     */
+    mcpEnabled = false,
+    /** Folder that holds the app's `mcp.json`. Defaults to the agent dir. */
+    mcpConfigDir = null,
+    /**
      * Extra directories to discover SKILL.md files from, on top of
      * `<skillsAgentDir>/skills`. Lets the app share the skills the CLI and the
      * user's ~/.agents folder already have instead of starting empty.
@@ -757,11 +766,15 @@ async function createFreePiSession(options) {
 
       if (typeof requestApproval === 'function') {
         pi.on('tool_call', async (event) => {
-          if (!guardedTools.includes(event.toolName)) return undefined;
+          if (!isGuardedTool(event.toolName, guardedTools)) return undefined;
+          const isMcp = String(event.toolName).startsWith('mcp__');
           let allowed = false;
           try {
             allowed = await requestApproval({
               toolName: event.toolName,
+              // MCP tools arrive as `mcp__server__tool`; show a readable label.
+              label: isMcp ? mcpToolLabel(event.toolName) : event.toolName,
+              kind: isMcp ? 'mcp' : 'tool',
               // pi's `tool_call` event carries the arguments as `input`.
               args: event.input ?? event.toolCall?.arguments ?? event.args ?? {},
             });
@@ -1305,9 +1318,11 @@ async function createFreePiSession(options) {
         todoExtension,
         ...(askUserExtension ? [askUserExtension] : []),
         // The CLI loads these as built-in extensions; an SDK session must add
-        // them explicitly. MCP reads mcp.json from the agent directory, so any
-        // server added with `free-pi-cli mcp add` shows up here too.
-        ...(sdk.createMcpExtension ? [sdk.createMcpExtension()] : []),
+        // them explicitly. MCP is opt-in and reads the app's own `mcp.json`
+        // (not the SDK's hidden agent dir), so the config is easy to find.
+        ...(mcpEnabled && sdk.createMcpExtension
+          ? [sdk.createMcpExtension({ loadConfig: loadAppMcpConfig(mcpConfigDir || agentDir) })]
+          : []),
         ...(sdk.createCodemodeExtension ? [sdk.createCodemodeExtension({ mode: 'on' })] : []),
         ...(sdk.createToolSearchExtension ? [sdk.createToolSearchExtension()] : []),
       ],
@@ -1648,6 +1663,53 @@ async function createFreePiSession(options) {
   };
 }
 
+/**
+ * Tools that always take an approval prompt: shell/file writes, plus every MCP
+ * tool (`mcp__<server>__<tool>`). An MCP server runs with its own privileges and
+ * its tool descriptions can carry instructions, so a call it triggers must be as
+ * visible as `bash` — never auto-run.
+ */
+function isGuardedTool(toolName, guarded = ['bash', 'edit', 'write']) {
+  const name = String(toolName || '');
+  return guarded.includes(name) || name.startsWith('mcp__');
+}
+
+/** `mcp__server__tool` -> `MCP · server / tool` for the approval dialog. */
+function mcpToolLabel(toolName) {
+  const name = String(toolName || '');
+  const parts = name.split('__');
+  if (parts[0] !== 'mcp' || parts.length < 3) return name;
+  return `MCP \u00b7 ${parts[1]} / ${parts.slice(2).join('__')}`;
+}
+
+/**
+ * Build the `loadConfig` callback `createMcpExtension` expects, reading the
+ * app's own `<dir>/mcp.json` in the standard `mcpServers` shape. A missing file
+ * just means no servers; a malformed file becomes a reported error, not a crash.
+ */
+function loadAppMcpConfig(dir) {
+  return () => {
+    const file = path.join(dir, 'mcp.json');
+    const servers = [];
+    const errors = [];
+    let raw;
+    try {
+      raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (err) {
+      if (err && err.code !== 'ENOENT') errors.push(`${file}: ${err.message}`);
+      return { servers, errors };
+    }
+    const map = raw && typeof raw === 'object' ? raw.mcpServers : null;
+    if (map && typeof map === 'object' && !Array.isArray(map)) {
+      for (const [name, config] of Object.entries(map)) {
+        if (!config || typeof config !== 'object' || Array.isArray(config)) continue;
+        servers.push({ name, config, source: file, scope: 'global' });
+      }
+    }
+    return { servers, errors };
+  };
+}
+
 module.exports = {
   createFreePiSession,
   adsClientFactory: createAdsClient,
@@ -1659,4 +1721,7 @@ module.exports = {
   CLIENT_VERSION,
   SAFE_TOOLS,
   PROVIDER_NAME,
+  isGuardedTool,
+  mcpToolLabel,
+  loadAppMcpConfig,
 };
