@@ -144,7 +144,10 @@ function createClaims(options = {}) {
  */
 function pickClaimTarget(tabs) {
   if (!Array.isArray(tabs)) return null;
-  const usable = tabs.filter((tab) => tab && !tab.agent && Number.isInteger(tab.id));
+  // Two things are never a choice: the agent's own window, and a blank tab it
+  // opened for itself. Offering either asks the user to hand over nothing, and
+  // when only those exist the answer used to be a silent refusal with no dialog.
+  const usable = tabs.filter((tab) => tab && !tab.agent && !tab.blank && Number.isInteger(tab.id));
   if (!usable.length) return null;
   return usable.find((tab) => tab.active) || usable[0];
 }

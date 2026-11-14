@@ -113,6 +113,25 @@ check('picks nothing from a missing list', pickClaimTarget(undefined) === null);
 check('picks nothing when only the agent window is open', pickClaimTarget([tabList[2]]) === null);
 check('skips rows without an id', pickClaimTarget([{ active: true, agent: false }, tabList[0]]).id === 1);
 
+// A blank tab is what the agent opens for itself. Offering it as the thing to
+// hand over asks the user for nothing, and when it was the only tab left the
+// claim failed silently — no dialog, yet the agent reported a refusal.
+check(
+  'never picks a blank tab',
+  pickClaimTarget([
+    { id: 1, active: true, agent: false, blank: true, url: 'about:blank' },
+    { id: 2, active: false, agent: false, blank: false, url: 'https://a.example' },
+  ]).id === 2
+);
+check(
+  'picks nothing when only agent and blank tabs exist',
+  pickClaimTarget([
+    { id: 1, active: true, agent: true, blank: false },
+    { id: 2, active: true, agent: false, blank: true },
+  ]) === null
+);
+check('a tab without a blank flag is still usable', pickClaimTarget([{ id: 5, active: true, agent: false }]).id === 5);
+
 // The bridge must expose the live claim so the system prompt can name the tab.
 // Without it the model cannot tell a ready tab from no tab, and re-asks for one
 // the user already handed over — which reads as the app not understanding.

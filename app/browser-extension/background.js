@@ -681,6 +681,9 @@ async function listRealTabs(args = {}) {
       pinned: Boolean(tab.pinned),
       audible: Boolean(tab.audible),
       agent: agentWindowId !== null && tab.windowId === agentWindowId,
+      // A blank tab is a convenience the agent opens for itself, never a page the
+      // user chose. Offering one to hand over would be handing over nothing.
+      blank: !tab.url || tab.url === 'about:blank',
     })),
   };
 }
