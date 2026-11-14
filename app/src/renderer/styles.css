@@ -1263,6 +1263,9 @@ button { font-family: inherit; }
 .slash-empty { padding: 8px 10px; font-size: 12.5px; color: var(--muted); }
 #input {
   flex: 1;
+  /* The queue in .composer-side can take up to 46% on the right; the textarea
+   * must still keep a usable width instead of collapsing. */
+  min-width: 0;
   background: transparent;
   border: none;
   color: var(--text);
@@ -1615,51 +1618,56 @@ button { font-family: inherit; }
 /* ---------------- message queue ---------------- */
 
 /*
- * The queue used to be a box inside a box: an outer frame, then a bordered
- * purple pill per item, each with a full-size × in it. Four queued messages
- * turned the area above the composer into a stack of bars taller than the
- * composer itself, which is what "too big" meant.
+ * The queued messages live INSIDE the composer, stacked above the buttons on
+ * the right-hand side. They used to sit above the composer as their own row,
+ * which pushed the whole chat up and read as a separate panel floating outside
+ * the chat box — the complaint was "it goes past the chat box".
  *
- * Now it reads as a footnote to the composer: one quiet line saying how many
- * are waiting, then one bare line per item, indented under it. No outer frame,
- * no pill, no colour. The × appears on hover so the resting state is pure text.
+ * So: no frame, no fill, right-aligned, capped at a share of the box width so a
+ * long queued message truncates instead of pushing the layout. The × appears on
+ * hover/focus so the resting state is text only.
  */
-.queue-bar {
-  max-width: var(--read-width);
-  margin: 0 auto 4px;
+.composer-side {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  align-items: flex-end;
+  gap: 4px;
+  flex: 0 0 auto;
+  /* Never let the queue stretch the composer past the button row. */
+  max-width: 46%;
+  min-width: 0;
+}
+.queue-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
 }
 .queue-bar[hidden] { display: none; }
 .queue-head {
-  font-size: 11.5px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.45;
   color: var(--muted);
+  white-space: nowrap;
 }
 .queue-item {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  /* Indented under the count so the list groups with its own heading. */
-  padding-left: 10px;
+  gap: 4px;
+  max-width: 100%;
   min-width: 0;
 }
 .queue-text {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11.5px;
+  line-height: 1.45;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* A leading dash instead of a bullet: no extra element, and it survives
-   * truncation as a visible "these are the queued ones" marker. */
-}
-.queue-text::before {
-  content: '– ';
-  color: var(--line);
 }
 .queue-item button {
   flex: 0 0 auto;
@@ -1668,18 +1676,17 @@ button { font-family: inherit; }
   /* Hidden at rest: the queue is something to read, not a toolbar. */
   opacity: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   cursor: pointer;
-  padding: 0 2px;
-  margin-top: -1px;
+  padding: 0;
   border-radius: 3px;
   transition: opacity .12s ease;
 }
 .queue-item:hover button,
 .queue-item button:focus-visible { opacity: 1; }
 .queue-item button:hover { color: var(--danger); }
-/* A row with nothing to remove (an action already running) still lines up. */
+/* A row with nothing to remove still lines up. */
 .queue-item button:disabled { opacity: 0; }
 
 /* ---------------- live status ---------------- */

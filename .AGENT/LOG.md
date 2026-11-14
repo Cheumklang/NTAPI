@@ -493,3 +493,37 @@ client-version, "ไม่อนุมัติเลย", status-row, compactFa
 ฟอนต์เล็กกว่า muted, ตัดบรรทัดด้วย ellipsis, × ซ่อนตอนพักแต่โชว์ตอน focus,
 ข้อความหัวข้อสั้น, และยัง align กับ `--read-width`
 ทดสอบย้อนกลับ: ใส่ดีไซน์เดิมกลับ → **FAIL 9** จริง → `npm test` **37/37** (จาก 36)
+
+### คิวหลุดออกนอกกล่องแชท — ย้ายเข้ามุมขวาล่างในกล่อง (2026-11-14)
+
+**อาการ (ผู้ใช้ส่งภาพ 2):** ข้อความคิวไปอยู่เหนือกล่องแชท ล้นออกนอกกล่อง ดูไม่สวย
+ผู้ใช้ขอให้ย้ายไป **ขวาล่าง ใต้ปุ่มส่ง แต่ต้องไม่ล้นกรอบช่องแชท**
+
+**รากปัญหา:** `#queueBar` เป็น **พี่น้อง** ของ `.composer-box` ไม่ใช่ลูก → มีแถวของตัวเอง
+เหนือกล่อง จึงดันเลย์เอาต์ขึ้น และอ่านเป็นแผงลอยนอกกล่อง
+
+**แก้:**
+- `index.html` — ย้าย `#queueBar` เข้าไปในกล่อง อยู่ในคอลัมน์ใหม่ `.composer-side`
+  ที่มี `.composer-actions` แล้วต่อด้วย `#queueBar` (ปุ่มอยู่บน คิวอยู่ใต้ = ขวาล่าง)
+- `styles.css` — `.composer-side { flex-direction: column; align-items: flex-end;
+  flex: 0 0 auto; max-width: 46% }` (ไม่ยอมให้คิวดันกล้วง), `.queue-bar { width: 100%; align-items: flex-end }`
+  `.queue-item { max-width: 100% }`, ฟอนต์ 11–11.5px, ไม่มีกรอบ/พื้น, ตัดด้วย ellipsis
+  · `#input { min-width: 0 }` กันช่องพิมพ์ยุบ
+- เอา `::before` ขีดนำหน้าออก — ชิดขวาแล้วไม่ต้องมีตัวคั่น
+
+**เทสต์ 2 ชั้น:**
+1. `selftest-queue-chrome.js` (static) — เพิ่ม 10 checks: คิวอยู่ใน `.composer-box`,
+   มาหลัง `.composer-actions`, ไม่ใช่พี่น้องของกล่อง, column ชิดขวา, `max-width` ของคอลัมน์,
+   `#input` มี `min-width: 0`, ไม่มี `::before`
+2. `scripts/check-queue-placement.js` (**Electron วัดพิกเซลจริง**) — 13 checks:
+   descendant จริง, rect อยู่ในกล่องทุกด้าน, `belowSend`, ชิดขวา, 6 ข้อความไม่ดันกล้องกว้างขึ้น,
+   ช่องพิมพ์ยังกว้าง ≥120px, หน้าต่างแคบ 680px ยังไม่พัง
+   · npm script ใหม่: `npm run check:queue`
+
+**ทดสอบย้อนกลับ:**
+- ย้ายคิวออกนอกกล่อง + เอา `align-items: flex-end` ออก → static **FAIL 4**
+- เอา `max-width: 46%` ออก + บีบกล่อง → Electron **FAIL 5**
+- คืนค่า → ผ่านหมด · `npm test` **37/37**
+
+**Learned:** รอบแรกผมวาง `#queueBar` ไว้ *ก่อน* `.composer-actions` ในคอลัมน์ → ตอนวัดจริง
+`belowSend` เป็น false (คิวอยู่บนปุ่ม) ต้องสลับลำดับเป็นปุ่มก่อนแล้วคิวใต้ปุ่ม

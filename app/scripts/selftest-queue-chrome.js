@@ -21,6 +21,7 @@ const path = require('node:path');
 
 const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'styles.css'), 'utf8');
 const app = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'app.js'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'index.html'), 'utf8');
 
 let failures = 0;
 function check(name, ok) {
@@ -48,6 +49,7 @@ const bar = rules('.queue-bar');
 const item = rules('.queue-item');
 const text = rules('.queue-text');
 const btn = rules('.queue-item button');
+const side = rules('.composer-side');
 
 check('the bar is styled at all', bar.trim() !== '');
 check('the item is styled at all', item.trim() !== '');
@@ -83,8 +85,39 @@ check('the count line is brief in English', /queuedMany: 'Queued: \{n\}'/.test(a
 check('the count line is brief in Thai', /queuedMany: 'ในคิว: \{n\}'/.test(app));
 check('the long explanatory wording is gone', !/sends when the current turn finishes/.test(app));
 
-// The bar must still be reachable and still group with the composer.
-check('the bar is aligned to the reading width', /max-width:\s*var\(--read-width\)/.test(bar));
+// --- placement: inside the composer, bottom-right, under the buttons -------
+//
+// It used to be a sibling of .composer-box, so it sat on its own row above the
+// chat box and pushed the layout. It has to be *inside* the box to stay put.
+const boxStart = html.indexOf('<div class="composer-box">');
+const boxEnd = html.indexOf('</footer>');
+check('the composer box exists', boxStart !== -1);
+const boxSlice = boxStart === -1 ? '' : html.slice(boxStart, boxEnd === -1 ? undefined : boxEnd);
+check('the queue lives inside the composer box', /id="queueBar"/.test(boxSlice));
+
+// And it must come *after* the button row in source order, so it renders beneath
+// Send (bottom-right of the box), which is where it was asked to go.
+const queueAt = boxSlice.indexOf('id="queueBar"');
+const actionsAt = boxSlice.indexOf('class="composer-actions"');
+check('the queue is in the composer box', queueAt !== -1);
+check('the queue renders below the buttons', queueAt !== -1 && actionsAt !== -1 && queueAt > actionsAt);
+
+// The queue must not be the composer's sibling anymore.
+check('the queue is no longer a sibling above the composer', !/<div id="queueBar"[^>]*><\/div>\s*<div id="attachments"/.test(html));
+
+// Right-aligned column, so it stacks under Send.
+check('the column right-aligns its children', /align-items:\s*flex-end/.test(side));
+check('the column stacks vertically', /flex-direction:\s*column/.test(side));
+check('the column cannot grow past the composer', /max-width:\s*46%|max-width:\s*\d+px/.test(side));
+check('the column does not stretch the box', /flex:\s*0 0 auto/.test(side));
+
+// The queue is capped, and the textarea is protected from collapsing.
+check('the queue never exceeds its column', /width:\s*100%/.test(bar));
+check('the item truncates inside the column', /max-width:\s*100%/.test(item));
+check('the textarea keeps a usable width', /#input\s*\{[^}]*min-width:\s*0/.test(css));
+
+// A right-aligned list needs no leading dash.
+check('no leading dash on right-aligned text', !/\.queue-text::before/.test(css));
 
 if (failures) {
   console.log(`\n${failures} check(s) failed`);

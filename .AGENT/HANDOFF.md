@@ -98,9 +98,12 @@ CSS `.approval-banner` แล้ว · เทสต์เปลี่ยนเ�
 push tag `v0.3.5` → GitHub Actions (`release.yml`) build และอัปโหลดไป `Cheumklang/NTAPI-releases`
 · `npm run release` ในเครื่องใช้ไม่ได้ (ไม่มี `GH_TOKEN`) — ใช้ Actions เท่านั้น
 
-**คิวการส่งเป็นเชิงอรรถแล้ว:** ไม่มีกรอบ/พื้น 2 ชั้น, ไม่มีพิลม่วง, ข้อความ 12px muted,
-ปุ่ม `×` โผล่เฉพาะตอน hover/focus, หัวข้อสั้น `ในคิว: n` · เทสต์ `selftest-queue-chrome.js`
-(ย้อนกลับ FAIL 9 จริง) → `npm test` **37/37**
+**คิวการส่งอยู่ในกล่องแชทแล้ว:** ย้าย `#queueBar` เข้าไปใน `.composer-box` เป็นคอลัมน์
+`.composer-side` ชิดขวา **ใต้ปุ่มส่ง** (ไม่ใช่แถวลอยเหนือกล่องเหมือนเดิม) · `max-width: 46%`
+กันไม่ให้ล้น · ไม่มีกรอบ/พื้น/พิล · `×` โผล่ตอน hover/focus · หัวข้อ `ในคิว: n`
+· เทสต์ 2 ชั้น: `selftest-queue-chrome.js` (static, ย้อนกลับ FAIL 4) และ
+`scripts/check-queue-placement.js` (Electron วัดพิกเซลจริง 13 checks, ย้อนกลับ FAIL 5)
+· `npm run check:queue` · `npm test` **37/37**
 
 **ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตารอบสอง (`npm start`) และยังไม่ได้ทดสอบ
 browser agent mode กับ Chrome จริงรอบยืนยัน
