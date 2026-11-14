@@ -11,7 +11,7 @@
   ตัวเดียวกับที่ `npx free-pi-cli` ใช้
 - repo: `https://github.com/Cheumklang/NTAPI.git` (private)
 - repo สำหรับแจกจ่าย (installer/อัปเดต): `Cheumklang/NTAPI-releases` (public)
-- เวอร์ชันปัจจุบัน: **0.2.2** (`app/package.json`)
+- เวอร์ชันปัจจุบัน: **0.2.3** (`app/package.json`)
   (เลขเวอร์ชันเปลี่ยนเมื่อผู้ใช้สั่งเท่านั้น — ห้ามขยับเอง)
 - ผู้พัฒนา: Chanathip Cheumklang
 
