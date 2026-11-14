@@ -28,6 +28,11 @@
 
 <!-- ต่อท้ายด้านล่างนี้ -->
 
+## 2026-11-14 — ปล่อยเวอร์ชัน 0.2.2 (ผู้ใช้อนุญาต)
+- bump `app/package.json` 0.2.1 → 0.2.2, commit + push tag `v0.2.2`
+- GitHub Actions บิลด์ installer → ปล่อยขึ้น `Cheumklang/NTAPI-releases`
+- ผู้ใช้จะอัปเดตโปรแกรมที่ติดตั้งเอง (AI ห้ามแตะ Program Files)
+
 ## 2026-11-14 — ลบ root README.md เหลือความจำที่ .AGENT
 - ผู้ใช้เลือกเก็บ README ไว้ที่ `.AGENT/` ที่เดียว
 - ย้ายเนื้อหา README เดิม (214 บรรทัด) เข้า `.AGENT/PROJECT.md` ภาคผนวก พร้อมแก้จุดล้าสมัย
