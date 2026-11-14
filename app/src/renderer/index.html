@@ -301,7 +301,7 @@
 
 
     <div id="browserOverlay" class="overlay" hidden>
-      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="browserTitle">
+      <div class="dialog browser-dialog" role="dialog" aria-modal="true" aria-labelledby="browserTitle">
         <h2 id="browserTitle" data-i18n="browserTitle">Browser control</h2>
         <p id="browserStatusLine" class="dialog-sub">—</p>
 
@@ -315,12 +315,12 @@
           <span id="browserCode" class="tool-chip">------</span>
         </p>
 
-        <div class="dialog-actions">
+        <div class="dialog-actions wrap">
           <button id="browserOpenFolder" class="ghost" data-i18n="browserOpenFolder">Open folder</button>
           <button id="browserCopyUrl" class="ghost" data-i18n="browserCopyExtensions">Copy chrome://extensions</button>
           <button id="browserWatch" class="ghost" data-i18n="browserWatch">Watch what the agent does</button>
         </div>
-        <div class="dialog-actions">
+        <div class="dialog-actions footer">
           <button id="browserToggle" class="ghost danger" data-i18n="browserDisconnect">Turn off</button>
           <button id="browserClose" class="send" data-i18n="close">Close</button>
         </div>
@@ -658,8 +658,8 @@
 
     <script src="markdown.js"></script>
     <script src="provider-ui.js"></script>
-    <script src="error-messages.js"></script>
-    <script src="duration.js"></script>
+    <script src="../error-messages.js"></script>
+    <script src="../duration.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
