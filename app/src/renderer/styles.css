@@ -2647,27 +2647,9 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 .hl-diff-hunk { color: #8ab4ff; }
 .hl-diff-meta { color: var(--muted); }
 
-/* per-reply action row */
-.msg-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 2px;
-  opacity: .55;
-  transition: opacity .15s ease;
-}
-.msg:hover .msg-actions,
-.msg:focus-within .msg-actions { opacity: 1; }
-.msg-copy {
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--muted);
-  border-radius: 6px;
-  padding: 3px 9px;
-  font-size: 12px;
-  cursor: pointer;
-}
-.msg-copy:hover { color: var(--text); background: var(--bg-2); }
-.msg-copy.copied { color: var(--accent-2); border-color: var(--accent-2); }
+/* Per-reply action row is gone: a copy button on every answer is clutter, and
+ * selecting the part you want with the mouse beats copying the whole reply and
+ * trimming it. Code blocks keep their own copy button, at `.md-code-copy`. */
 
 /* ==================== session toolbox (context, todo, shell) ==================== */
 

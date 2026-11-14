@@ -319,7 +319,6 @@ const STRINGS = {
     newSession: 'New session',
     noOutput: '(no output)',
     copied: 'Copied',
-    copyReply: 'Copy reply',
     copyOutput: 'Copy output',
     toolRunning: 'running…',
     toolFailed: 'failed',
@@ -643,7 +642,6 @@ const STRINGS = {
     newSession: 'เซสชันใหม่',
     noOutput: '(ไม่มีผลลัพธ์)',
     copied: 'คัดลอกแล้ว',
-    copyReply: 'คัดลอกคำตอบ',
     copyOutput: 'คัดลอกผลลัพธ์',
     toolRunning: 'กำลังรัน…',
     toolFailed: 'ล้มเหลว',
@@ -1058,28 +1056,10 @@ function addMessage(kind) {
     const body = document.createElement('div');
     body.className = 'body';
     wrap.appendChild(body);
-
-    // Copy the reply exactly as the model wrote it (markdown source), not the
-    // rendered text, so pasting it elsewhere keeps its formatting.
-    const actions = document.createElement('div');
-    actions.className = 'msg-actions';
-    const copyBtn = document.createElement('button');
-    copyBtn.type = 'button';
-    copyBtn.className = 'msg-copy';
-    copyBtn.textContent = t('copyReply');
-    copyBtn.addEventListener('click', () => {
-      const text = body.__fpText || body.textContent || '';
-      if (!text.trim()) return;
-      MD.copyText(text);
-      copyBtn.textContent = t('copied');
-      copyBtn.classList.add('copied');
-      setTimeout(() => {
-        copyBtn.textContent = t('copyReply');
-        copyBtn.classList.remove('copied');
-      }, 1200);
-    });
-    actions.appendChild(copyBtn);
-    wrap.appendChild(actions);
+    // No copy button: selecting the part you want with the mouse is easier than
+    // copying the whole reply and deleting the rest, and it leaves the answer
+    // itself uncluttered. Code blocks keep their own copy, because a block is
+    // exactly what you want to copy whole.
   }
 
   transcript.appendChild(wrap);

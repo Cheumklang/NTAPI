@@ -14,7 +14,8 @@
     "check:history": "electron scripts/check-history-merge.js",
     "check:hold": "electron scripts/check-hold-before-send.js",
     "check:attach": "electron scripts/check-attachment-video.js",
-    "check:read": "electron scripts/check-read-position.js"
+    "check:read": "electron scripts/check-read-position.js",
+    "check:cancel": "electron scripts/check-cancel-button.js"
   },
   "author": "Chanathip Cheumklang",
   "license": "MIT",

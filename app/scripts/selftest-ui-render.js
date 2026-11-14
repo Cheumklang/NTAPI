@@ -85,7 +85,6 @@ function fixtureHtml() {
         <div class="role">Assistant</div>
         <div class="tools-wrap"><div class="tools"></div></div>
         <div class="body" id="mdBody"></div>
-        <div class="msg-actions"><button class="msg-copy">Copy reply</button></div>
       </div>
       <div class="msg shell">
         <div class="role">Shell</div>
