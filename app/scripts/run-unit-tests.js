@@ -74,6 +74,50 @@ if (missing.length) {
   process.exit(1);
 }
 
+/**
+ * Catch a syntax error before running anything.
+ *
+ * An apostrophe inside a single-quoted label ("the composer's left edge") is
+ * enough to break a file, and the only symptom was Electron throwing a dialog
+ * during a manual check — the offline run happily reported everything passing
+ * because it never parses the optional Electron scripts. Checking every file
+ * under src/ and scripts/ makes that a test failure instead.
+ */
+const allJs = [];
+for (const dir of ['src', 'scripts']) {
+  const walk = (at) => {
+    for (const entry of fs.readdirSync(at, { withFileTypes: true })) {
+      const full = path.join(at, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules') continue;
+        walk(full);
+      } else if (entry.name.endsWith('.js')) {
+        allJs.push(full);
+      }
+    }
+  };
+  walk(path.join(scriptsDir, '..', dir));
+}
+
+const badSyntax = [];
+for (const file of allJs) {
+  const res = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
+  if (res.status !== 0) badSyntax.push({ file, out: `${res.stdout || ''}${res.stderr || ''}` });
+}
+if (badSyntax.length) {
+  console.error('');
+  console.error(`${badSyntax.length} file(s) with a syntax error:`);
+  for (const item of badSyntax) {
+    const where = path.relative(path.join(scriptsDir, '..'), item.file);
+    const head = item.out.trim().split(String.fromCharCode(10)).slice(0, 6).join(String.fromCharCode(10));
+    console.error('');
+    console.error(`--- ${where} ---`);
+    console.error(head);
+  }
+  process.exit(1);
+}
+console.log(`Syntax OK: ${allJs.length} file(s)`);
+
 const failed = [];
 for (const name of TESTS) {
   process.stdout.write(`\n=== ${name} ===\n`);

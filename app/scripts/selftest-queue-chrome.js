@@ -105,19 +105,18 @@ check('the queue renders below the buttons', queueAt !== -1 && actionsAt !== -1 
 // The queue must not be the composer's sibling anymore.
 check('the queue is no longer a sibling above the composer', !/<div id="queueBar"[^>]*><\/div>\s*<div id="attachments"/.test(html));
 
-// Right-aligned column, so it stacks under Send.
-check('the column right-aligns its children', /align-items:\s*flex-end/.test(side));
-check('the column stacks vertically', /flex-direction:\s*column/.test(side));
-check('the column cannot grow past the composer', /max-width:\s*46%|max-width:\s*\d+px/.test(side));
-check('the column does not stretch the box', /flex:\s*0 0 auto/.test(side));
+// The composer wraps, so the queue can take a full-width row of its own.
+check('the composer wraps its rows', /\.composer-box\s*\{[^}]*flex-wrap:\s*wrap/.test(css));
 
-// The queue is capped, and the textarea is protected from collapsing.
-check('the queue never exceeds its column', /width:\s*100%/.test(bar));
-check('the item truncates inside the column', /max-width:\s*100%/.test(item));
+// The queue is as wide as the box you type in, not a short strip on the right.
+check('the queue spans the whole row', /flex:\s*1 0 100%/.test(bar));
+check('the queue never exceeds the composer', /max-width:\s*100%/.test(bar));
+check('the queue text takes the row so it truncates at the edge', /flex:\s*1 1 auto/.test(text));
+check('the buttons keep their own row above it', /flex:\s*0 0 auto/.test(side));
 check('the textarea keeps a usable width', /#input\s*\{[^}]*min-width:\s*0/.test(css));
 
-// A right-aligned list needs no leading dash.
-check('no leading dash on right-aligned text', !/\.queue-text::before/.test(css));
+// A full-width list does not need a leading dash.
+check('no leading dash on the queued lines', !/\.queue-text::before/.test(css));
 
 if (failures) {
   console.log(`\n${failures} check(s) failed`);

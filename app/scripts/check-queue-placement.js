@@ -63,6 +63,8 @@ app.whenReady().then(async () => {
     return {
       inside: box.contains(bar),
       insideSide: side.contains(bar),
+      // The queue should be as wide as the box the user types into.
+      sameWidthAsBox: Math.abs(q.width - (c.width - 2 * 9)) <= 4,
       // Allow 1px of subpixel slack.
       withinLeft: q.left >= c.left - 1,
       withinRight: q.right <= c.right + 1,
@@ -86,12 +88,13 @@ app.whenReady().then(async () => {
   const one = await run(1);
   console.log('  geometry:', JSON.stringify(one));
   check('the queue is a descendant of the composer box', one.inside);
-  check('the queue is inside the right-hand column', one.insideSide);
+  check('the queue is no longer squeezed into the side column', !one.insideSide);
+  check('the queue is as wide as the composer box', one.sameWidthAsBox, [one.queueWidth, one.composerWidth]);
   check('the queue does not pass the left edge', one.withinLeft);
   check('the queue does not pass the right edge', one.withinRight);
   check('the queue does not pass the bottom edge', one.withinBottom);
   check('the queue sits below the Send button', one.belowSend);
-  check('the queue is right-aligned in its column', one.rightAligned);
+  check('the queue starts at the left edge of the composer', one.withinLeft);
 
   const many = await run(6);
   console.log('  geometry (6 items):', JSON.stringify(many));
