@@ -470,3 +470,26 @@ client-version, "ไม่อนุมัติเลย", status-row, compactFa
 
 **สถานะ:** tag ขึ้น remote แล้ว · Actions เริ่ม build+release (ตรวจผ่าน API ไม่ได้เพราะ repo private)
 **ถ้า Actions ล้มเหลว:** ดู log ที่ Actions ของ repo หรือตั้ง `GH_TOKEN` แล้วรัน `npm run release` ในเครื่อง
+
+### คิวการส่งใหญ่เกินไป — ยุบเป็นเชิงอรรถ (2026-11-14)
+
+**อาการ (ผู้ใช้ส่งภาพ):** แถบคิวเหนือช่องพิมพ์กินพื้นที่มาก ดูไม่สวย
+
+**รากปัญหา:** ซ้อนกรอบ 2 ชั้น — `.queue-bar` มีกรอบ+พื้น `--bg-3`+padding 7px เอง
+แล้วแต่ละ `.queue-item` ยังมีกรอบ+พื้นม่วง `rgba(124,92,255,.09)`+`border-radius:7px`
++padding 4px 8px + ปุ่ม `×` ขนาด 14px โผล่ตลอด → 4 ข้อความ = กล่องสูงกว่าช่องพิมพ์
+
+**แก้ (`styles.css`):**
+- `.queue-bar` — ไม่มีกรอบ ไม่มีพื้น ไม่มี padding · `max-width: var(--read-width)` ให้ตรงช่องพิมพ์
+  · `margin: 0 auto 4px` · `gap: 1px`
+- `.queue-item` — ไม่มีกรอบ ไม่มีพื้น ไม่มี radius · `padding-left: 10px` (ย่อหน้าภายใต้หัวข้อ)
+  · `align-items: baseline`
+- `.queue-text` — 12px, `var(--muted)`, `::before { content: '– ' }` เป็นตัวคั่นแบบไม่ต้องเพิ่ม element
+- ปุ่ม `×` — `opacity: 0` ตอนพัก · โผล่เมื่อ `:hover` หรือ `:focus-visible` (คีย์บอร์ดใช้ได้)
+  · 12px · ตัดพื้นแดงตอน hover ออก
+- หัวข้อคิวสั้นลง: `Queued: {n}` / `ในคิว: {n}` (เดิม "ต่อคิวไว้ n ข้อความ — จะส่งเมื่อรอบนี้เสร็จ" ตกบรรทัด)
+
+**เทสต์:** `selftest-queue-chrome.js` ใหม่ (23 checks) — ตรวจว่าไม่มีกรอบ/พื้น/พิลม่วง,
+ฟอนต์เล็กกว่า muted, ตัดบรรทัดด้วย ellipsis, × ซ่อนตอนพักแต่โชว์ตอน focus,
+ข้อความหัวข้อสั้น, และยัง align กับ `--read-width`
+ทดสอบย้อนกลับ: ใส่ดีไซน์เดิมกลับ → **FAIL 9** จริง → `npm test` **37/37** (จาก 36)

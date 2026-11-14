@@ -22,6 +22,7 @@ const TESTS = [
   'selftest-approval-policy.js',
   'selftest-approval-ui.js',
   'selftest-compact-queue.js',
+  'selftest-queue-chrome.js',
   'selftest-browser-autopilot.js',
   'selftest-browser-bridge.js',
   'selftest-browser-claims.js',

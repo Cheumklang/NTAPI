@@ -1614,53 +1614,73 @@ button { font-family: inherit; }
 
 /* ---------------- message queue ---------------- */
 
+/*
+ * The queue used to be a box inside a box: an outer frame, then a bordered
+ * purple pill per item, each with a full-size × in it. Four queued messages
+ * turned the area above the composer into a stack of bars taller than the
+ * composer itself, which is what "too big" meant.
+ *
+ * Now it reads as a footnote to the composer: one quiet line saying how many
+ * are waiting, then one bare line per item, indented under it. No outer frame,
+ * no pill, no colour. The × appears on hover so the resting state is pure text.
+ */
 .queue-bar {
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--bg-3);
-  padding: 7px 9px;
-  margin-bottom: 7px;
+  max-width: var(--read-width);
+  margin: 0 auto 4px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 1px;
 }
 .queue-bar[hidden] { display: none; }
 .queue-head {
-  font-size: 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
   color: var(--muted);
-  letter-spacing: .2px;
-  margin-bottom: 1px;
 }
 .queue-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(124, 92, 255, .09);
-  border: 1px solid rgba(124, 92, 255, .2);
-  border-radius: 7px;
-  padding: 4px 8px;
+  align-items: baseline;
+  gap: 6px;
+  /* Indented under the count so the list groups with its own heading. */
+  padding-left: 10px;
+  min-width: 0;
 }
 .queue-text {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 13px;
-  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* A leading dash instead of a bullet: no extra element, and it survives
+   * truncation as a visible "these are the queued ones" marker. */
+}
+.queue-text::before {
+  content: '– ';
+  color: var(--line);
 }
 .queue-item button {
   flex: 0 0 auto;
   background: transparent;
   border: none;
+  /* Hidden at rest: the queue is something to read, not a toolbar. */
+  opacity: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
   cursor: pointer;
   padding: 0 2px;
-  border-radius: 4px;
+  margin-top: -1px;
+  border-radius: 3px;
+  transition: opacity .12s ease;
 }
-.queue-item button:hover { color: var(--danger); background: rgba(255, 95, 109, .14); }
+.queue-item:hover button,
+.queue-item button:focus-visible { opacity: 1; }
+.queue-item button:hover { color: var(--danger); }
+/* A row with nothing to remove (an action already running) still lines up. */
+.queue-item button:disabled { opacity: 0; }
 
 /* ---------------- live status ---------------- */
 
