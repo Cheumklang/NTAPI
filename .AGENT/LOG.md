@@ -28,6 +28,21 @@
 
 <!-- ต่อท้ายด้านล่างนี้ -->
 
+## 2026-11-14 — Batch C: typography + first-run
+- C2 (accent) มีอยู่แล้วใน HEAD; C1 ยกพื้นฟอนต์ต่ำสุด 12px (35 จุด); C3 empty state 3 ปุ่ม; C4 ป้ายคิดภาษาไทย
+- ไฟล์: renderer/{app.js,index.html,styles.css}; เทส 18 PASS + smoke PASS; ยังไม่ commit
+
+## 2026-11-14 — Batch B: bundle pi SDK
+- เพิ่ม SDK เป็น dependency + `resolveSdk` หา bundled ก่อน (require โฟลเดอร์ เพราะ ESM-only)
+- แยก `src/sdk-path.js` + `selftest-resolve-sdk.js`; asarUnpack SDK + quickjs-wasi
+- เทส 18 scripts PASS; dist บิลด์ผ่าน; installer 118.7 MB (+16); ยังไม่ commit
+
+## 2026-11-14 — เก็บไฟล์หลุด + ทํา Polish Batch A
+- ผู้ใช้เลือกเก็บงาน MCP ของผม — ลบ spec MCP ที่ซ้ำ (`2026-11-14-mcp-ui-design.md`)
+- รับช่วงไฟล์จาก session "polish": system-info.js / selftest-system-info.js / run-unit-tests.js / แผน
+- ทํา Batch A จบ: CI, error boundary + copy system info, focus ring, settings inert+trap, microcopy
+- เทส: `npm test` 17 scripts PASS, smoke test PASS; ยังไม่ commit
+
 ## 2026-11-14 — ผลปล่อย v0.2.5: สําเร็จ
 - commit: `0577f5e` (MCP Phase 1+2), `737b8a6` (เวอร์ชัน 0.2.5)
 - release `v0.2.5` ออนไลน์; assets: NTAPI-Setup-0.2.5.exe, latest.yml, blockmap

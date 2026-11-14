@@ -128,6 +128,38 @@
   smoke test เปิด Electron จริง (model picker) PASS
 - **Phase 3 (ยังไม่ทำ):** per-model gating — SDK ตั้ง exposure เป็น `codemode` อยู่แล้ว จึงยังไม่จำเป็น
 
+### 1j) Polish Batch A + เก็บไฟล์หลุดจาก session อื่น (uncommitted)
+- session อื่นทิ้งไฟล์ไว้ (untracked): `src/system-info.js`, `scripts/selftest-system-info.js`,
+  `scripts/run-unit-tests.js`, `docs/superpowers/plans/2026-11-14-polish-batch.md` (ทำครึ่งทาง),
+  + spec MCP ที่ซ้ำ
+- **ผู้ใช้ตัดสินใจ:** ยึดแนวที่ผมทำ — ลบ spec MCP ที่ซ้ำ, รับช่วงแผน polish แล้วทำ Batch A ให้จบ
+- **เสร็จ:** A1 (CI + `npm test`), A2 (error boundary + คัดลอกข้อมูลระบบ), A3 (มีอยู่แล้ว),
+  A4 (focus ring), A5 (settings inert + focus trap), A6 (tabular-nums), A7 (ปรับคำผสมภาษา)
+- ไฟล์: `src/system-info.js`, `src/main.js`, `src/preload.js`, `renderer/{app.js,index.html,styles.css}`,
+  `scripts/run-unit-tests.js`, `scripts/selftest-system-info.js`, `.github/workflows/ci.yml`,
+  `package.json` (script `test`), `docs/superpowers/plans/2026-11-14-polish-batch.md`
+- **ยืนยัน:** `npm test` (17 scripts) PASS, `node --check` ผ่าน, smoke test Electron PASS
+- **เหลือ:** Batch B (bundle pi SDK), C (typography/first-run), Ops (code signing)
+
+### 1k) Batch B — bundle pi SDK (uncommitted)
+- เพิ่ม `@earendil-works/pi-coding-agent@1.2.0` เป็น dependency → เครื่องใหม่เปิดแอปได้เลย ไม่ต้อง npx
+- `resolveSdk()` ใหม่: **bundled** (`app/node_modules`) → env override → npx cache
+  - SDK เป็น ESM-only, `exports` ไม่มี `require` → ต้อง `require` ที่ **โฟลเดอร์** (ใช้ `main`)
+  - แยก logic เป็น `src/sdk-path.js` (เทสได้) + `selftest-resolve-sdk.js`
+- `package.json` build: `asarUnpack` สำหรับ `@earendil-works/**` + `quickjs-wasi/**`
+- **ยืนยัน:** `npm test` 18 scripts PASS, dist บิลด์สําเร็จ, installer 102→**118.7 MB**,
+  `app.asar.unpacked` มี SDK; version ที่ bundle = pi-ai/agent-core 1.5.2, pi-tui 1.5.2
+  (baseline npx = pi-tui 1.2.0, แอปไม่ใช้ TUI) 
+
+### 1l) Batch C — typography + first-run (uncommitted)
+- **C2 (accent contrast):** เสร็จก่อนหน้าแล้วใน HEAD (`--accent: #8b74ff`, `--accent-soft`)
+- **C1 (font):** ยกพื้นฟอนต์ต่ำสุดเป็น **12px** (35 จุด เลิกใช้ 9.5–11.5px) → 15 เหลือ 10 ระดับ
+  — **ยังไม่ย่อเหลือ 4 ระดับ** เพราะต้องตรวจด้วยตา
+- **C3 first-run empty state:** 3 ปุ่ม (เลือกโฟลเดอร์ / แชทใหม่ / ตั้งค่า) + บรรทัดบอกที่เก็บไฟล์
+- **C4:** ป้ายระดับความคิดภาษาไทย (ปิด/น้อยที่สุด/ต่ำ/กลาง/สูง)
+- ไฟล์: `renderer/{app.js,index.html,styles.css}`
+- **ยืนยัน:** `npm test` 18 PASS, smoke test Electron PASS
+
 ## 2) ขั้นถัดไปที่ตกลงไว้ (ทำต่อได้เลยเมื่อผู้ใช้สั่ง)
 จากลำดับใน `docs/review-2026-11-13.md` ที่ยังเหลือ:
 - **P1:** MCP อ่าน `mcp.json` ได้แล้ว (`freepi-bridge.js` ~บรรทัด 1308 ผ่าน `sdk.createMcpExtension()`)
@@ -141,7 +173,7 @@
   "ดูความคิด" อยู่แล้ว — กล่องว่างแปลว่าโมเดล/เทิร์นนั้นไม่ส่ง reasoning มา ไม่ใช่แอปพลาด
 
 ## 3) รู้ไว้ก่อนลงมือ (บริบทกันหลง)
-- โปรเจกต์ = Electron shell ห่อ pi agent ของ free-pi (ไม่ใช่ fork) — v **0.2.5**
+- โปรเจกต์ = Electron shell ห่อ pi agent ของ free-pi (ไม่ใช่ fork) — v **0.2.6**
 - **มี session อื่นทำงานกับ repo นี้ได้พร้อมกัน** → เช็ก `git status`/`git diff` ก่อนลงมือทุกครั้ง
   อย่า revert งานคนอื่น และระวังเขียนทับไฟล์ที่กำลังแก้
 - โครงสร้าง/คำสั่งรันบิลด์เทส/รายชื่อ provider → ดู `PROJECT.md` (ไฟล์เดียว มีครบ)

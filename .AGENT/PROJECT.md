@@ -11,7 +11,7 @@
   ตัวเดียวกับที่ `npx free-pi-cli` ใช้
 - repo: `https://github.com/Cheumklang/NTAPI.git` (private)
 - repo สำหรับแจกจ่าย (installer/อัปเดต): `Cheumklang/NTAPI-releases` (public)
-- เวอร์ชันปัจจุบัน: **0.2.5** (`app/package.json`)
+- เวอร์ชันปัจจุบัน: **0.2.6** (`app/package.json`)
   (เลขเวอร์ชันเปลี่ยนเมื่อผู้ใช้สั่งเท่านั้น — ห้ามขยับเอง)
 - ผู้พัฒนา: Chanathip Cheumklang
 
@@ -163,10 +163,13 @@ free-pi ฟรีเพราะมีโฆษณา ถ้าไม่ขอ a
 - ติดตั้งเดิมที่มี `C:\Freepiai` จะใช้โฟลเดอร์เดิมต่อ (ไม่หาย)
 - ตั้ง `NTAPI_DATA_DIR` เพื่อชี้ที่อื่นได้ (ยังรับ `FREEPI_DATA_DIR`)
 
-## หา pi SDK ไม่เจอ
-`main.js` หา `@earendil-works/pi-coding-agent` ใน npx cache ให้เอง
-(`AppData/Local/npm-cache/_npx/*/node_modules/@earendil-works/pi-coding-agent`)
-ถ้าติดตั้ง global ใช้ `set NTAPI_SDK_PATH=...`
+## หา pi SDK
+`main.js` (`resolveSdk` + `src/sdk-path.js`) หา `@earendil-works/pi-coding-agent` เรียงลําดับ:
+1. **bundle มากับแอป** (`app/node_modules/@earendil-works/pi-coding-agent`) — เครื่องใหม่เปิดได้เลย
+2. `NTAPI_SDK_PATH` / `FREEPI_SDK_PATH`
+3. npx cache (`AppData/Local/npm-cache/_npx/*/node_modules/@earendil-works/pi-coding-agent`)
+
+SDK เป็น ESM-only และ `exports` ไม่มี `require` → ต้อง `require` ที่ **โฟลเดอร์** (ใช้ `main`) ไม่ใช่ชื่อ package
 
 ## Security notes
 - token อ่านจากไฟล์เดียวกับ CLI และไม่หลุดเข้า renderer
