@@ -203,3 +203,20 @@ node scripts/selftest-<ชื่อ>.js     # เทส (ดูรายกา�
 2. **`LOG.md`** — ต่อท้าย 1 หัวข้อ: วันที่ + ทำอะไร + ไฟล์ที่แตะ + ผลเทส + สถานะ commit
 3. ถ้ามีการ commit — จด hash ลง LOG.md
 4. **อย่า**อ่าน/เขียนทับ `LOG.md` ของเก่า (append-only)
+
+## Browser control (ทำงานใน v ถัดไป — ยังไม่ปล่อย)
+
+AI ขับ Chrome ของผู้ใช้เองได้ผ่านส่วนขยาย MV3 ของเรา (ไม่ต้องล็อกอินใหม่)
+
+- โฟลเดอร์ส่วนขยาย: `app/browser-extension/` (แพ็กไปที่ `resources/browser-extension`)
+- Extension id (pin ผ่าน `key` ใน manifest): `fnbhakfiojndenlkelamkfljofdojlba`
+- พอร์ต: `127.0.0.1:51789` (loopback เท่านั้น) + รหัสจับคู่ 6 หลักใน `prefs.json` → `browserBridge.token`
+- ปุ่มในแถบซ้ายข้างปุ่มภาษา: เปิด/ปิด + dialog ติดตั้ง (เปิดโฟลเดอร์ / คัดลอก `chrome://extensions` / รหัส)
+- tool อ่าน (ไม่ถาม): `browser_tabs/read/screenshot/wait/scroll`
+- tool เขียน (ถามอนุมัติผ่าน overlay เดิม): `browser_open/goto/click/type/fill/key/eval/close`
+- audit: `<data root>/browser-audit.log` (JSONL, ตัดที่ 5 MB)
+- ต้นทุน UX ที่ต้องรู้: Chrome ขึ้นแถบเหลือง "started debugging this browser" และส่วนขยายขอสิทธิ์กว้าง
+- ปิดไว้เป็นค่าเริ่มต้น — จะไม่ listen จนกว่าผู้ใช้กดปุ่ม
+
+### ยังต้องทํา (ตามคิว)
+1. ทดสอบจริงกับ Chrome: โหลด unpacked → จับคู่ → สั่งเปิดเว็บ/อ่าน/คลิก
