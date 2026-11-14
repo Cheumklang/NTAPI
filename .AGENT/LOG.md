@@ -238,6 +238,10 @@
 - ปล่อย v0.3.0 แล้ว: tag v0.3.0, release ที่ NTAPI-releases (published 2026-11-14T04:21:18Z), assets NTAPI-Setup-0.3.0.exe 112MB + latest.yml
 - v0.3.1: update splash (แยกโปรเซส) + overlay เต็มจอ + toast หลังอัปเดต; เจอบั๊ก disableHardwareAcceleration เรียกหลัง ready ทำให้ splash ตายเงียบ แก้แล้ว
 
+## 2026-11-14 · v0.3.3
+
+- ปล่อย v0.3.3: bump `app/package.json`, commit `chore(release): v0.3.3`, tag `v0.3.3` push แล้ว (CI build + ปล่อย NTAPI-Setup-0.3.3.exe เอง)
+- สรุปงานในชุดนี้: Q5 หน่วยเวลา 2 ภาษา, Q6 fallback ไล่โมเดลจริง, UI (banner/dialog/sidebar/tool card), หน้าติดตั้ง NSIS มีแบรนด์, และบั๊กสคริปต์ 404 ของ renderer
 - **Q5 (2026-11-14)**: `src/duration.js` + `selftest-duration.js` — หน่วยเวลาไทย (วินาที/นาที/ชม.) อังกฤษ (sec/min/h); tool card ใช้ `formatSpan()` แทน `${ms} ms`; countdown ใช้โหมด decimals:0 (ไม่ขึ้น "0 นาที" อีก); npm test 27/27
 - **rule**: AGENTS.md เพิ่มข้อ "ไม่ต้อง build/ปล่อย installer ให้ล่าสุดเอง — ผู้ใช้สั่งเท่านั้น"
 
