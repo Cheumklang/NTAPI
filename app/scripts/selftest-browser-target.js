@@ -11,7 +11,7 @@
  */
 'use strict';
 
-const { createRefTables, refSelector, resolveRefArgs, REF_PATTERN } = require('../src/browser-target');
+const { createRefTables, refSelector, resolveRefArgs, resolveFieldRefs, REF_PATTERN } = require('../src/browser-target');
 
 let failed = 0;
 function check(name, ok, detail) {
@@ -88,6 +88,31 @@ check('the input object is not mutated', (() => {
   const input = { ref: 'e1' };
   resolveRefArgs(input, table);
   return input.ref === 'e1';
+})());
+
+/* ---------------------------------------------------------- fill's fields */
+
+const fields = [
+  { ref: 'e1', value: 'Campaign A' },
+  { selector: '#plain', value: 'x' },
+];
+const filled = resolveFieldRefs(fields, table);
+check('a field ref becomes its selector', filled.ok === true && filled.fields[0].selector === '[data-ntapi-ref="e1"]');
+check('a field ref is dropped from the field', filled.fields[0].ref === undefined);
+check('a plain field selector is untouched', filled.fields[1].selector === '#plain' && filled.fields[1].value === 'x');
+const staleField = resolveFieldRefs([{ ref: 'e99', value: 'stale' }], table);
+check('a stale field ref fails the whole call', staleField.ok === false && staleField.code === 'STALE_REF');
+check('a failed field resolution carries no fields', staleField.fields === undefined);
+check('an empty field list is fine', resolveFieldRefs([], table).ok === true);
+check('a missing field list is fine', resolveFieldRefs(undefined, table).ok === true);
+check('fields keep their frame', (() => {
+  const withFrame = resolveFieldRefs([{ ref: 'F2:e7', value: 'v' }], table);
+  return withFrame.ok === true && withFrame.fields[0].frameId === 'F2';
+})());
+check('fields are not mutated', (() => {
+  const input = [{ ref: 'e1', value: 'v' }];
+  resolveFieldRefs(input, table);
+  return input[0].ref === 'e1';
 })());
 
 process.exit(failed ? 1 : 0);

@@ -659,21 +659,53 @@ function askUserDialog(tabId, { question, options }) {
   });
 }
 
-function askApproval(tabId, { toolName, args, label, kind }) {
-  if (allowEverything || allowedTools.has(toolName)) {
-    return Promise.resolve(true);
+/** The tab the agent's own `browser_claim` request is about, once it is named. */
+let pendingClaimTarget = null;
+
+function hostOfUrl(url) {
+  try {
+    return new URL(String(url)).hostname;
+  } catch {
+    return '';
+  }
+}
+
+/** The tab the agent would get if it asked for one right now. */
+async function resolveClaimTarget() {
+  try {
+    const listed = await browserBridge.call('tabs-real', {}, { timeoutMs: 8000 });
+    return pickClaimTarget(listed.tabs);
+  } catch {
+    return null;
+  }
+}
+
+async function askApproval(tabId, { toolName, args, label, kind }) {
+  // When the agent asks for a tab, name the tab it would get. Being asked to
+  // hand over "something" is not a question anyone can answer.
+  if (toolName === 'browser_claim') {
+    const target = await resolveClaimTarget();
+    if (!target) return false;
+    pendingClaimTarget = target;
+    label = `${target.title || target.url} — ${hostOfUrl(target.url)}`;
   }
 
-  // Hand-over mode answers for the tab the user gave the agent. It never covers
-  // browser_eval, and never anything whose label reads like paying or deleting.
   const claim = browserClaims.get();
-  const targetTab = args && Number.isInteger(args.tab) ? args.tab : claim ? claim.tabId : null;
-  if (browserAutopilot.allows({ tool: toolName, tabId: targetTab, label }).allowed) {
-    return Promise.resolve(true);
-  }
+  const explicitTab = args && Number.isInteger(args.tab) ? args.tab : null;
+  const verdict = approvalVerdict({
+    toolName,
+    label,
+    allowEverything,
+    remembered: allowedTools.has(toolName),
+    autopilot: browserAutopilot,
+    targetTabId: explicitTab,
+    claimTabId: claim ? claim.tabId : null,
+  });
+  if (verdict.skip) return true;
+
   approvalSeq += 1;
   const id = `approval-${approvalSeq}`;
-  return new Promise((resolve) => {
+  const answer = new Promise((resolve) => {
     approvals.set(id, { resolve, tabId, toolName });
     sendTab(tabId, 'approval:request', {
       id,
@@ -685,6 +717,10 @@ function askApproval(tabId, { toolName, args, label, kind }) {
       args,
       allowEverything,
     });
+  });
+  return answer.then((allowed) => {
+    if (!allowed) pendingClaimTarget = null;
+    return allowed;
   });
 }
 
@@ -1397,6 +1433,12 @@ async function attachTab(tabId, manager, cwd) {
     sdk,
     log: (line) => sendTab(tabId, 'app:log', { text: line }),
     requestApproval: (req) => askApproval(tabId, req),
+    claimTab: async () => {
+      const target = pendingClaimTarget || (await resolveClaimTarget());
+      pendingClaimTarget = null;
+      if (!target) return { ok: false, error: 'No browser tab was open to hand over.' };
+      return claimBrowserTab({ tabId: target.id, url: target.url, title: target.title });
+    },
     browserBridge,
     imagesDir: resolveFolder('images', cwd),
     downloadsDir: resolveFolder('downloads', cwd),

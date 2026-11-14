@@ -138,4 +138,15 @@ function createClaims(options = {}) {
   return { claim, release, get, isClaimed, leavesSite };
 }
 
-module.exports = { SUFFIXES, registrableDomain, sameSite, createClaims };
+/**
+ * Which tab to offer the agent when it asks for one: the tab the user is
+ * actually looking at, never the agent's own window, never a row without an id.
+ */
+function pickClaimTarget(tabs) {
+  if (!Array.isArray(tabs)) return null;
+  const usable = tabs.filter((tab) => tab && !tab.agent && Number.isInteger(tab.id));
+  if (!usable.length) return null;
+  return usable.find((tab) => tab.active) || usable[0];
+}
+
+module.exports = { SUFFIXES, registrableDomain, sameSite, createClaims, pickClaimTarget };

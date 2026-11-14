@@ -70,4 +70,26 @@ function resolveRefArgs(args, table) {
   return { ok: true, args: input, ref, role: entry.role, name: entry.name };
 }
 
-module.exports = { REF_PATTERN, createRefTables, refSelector, resolveRefArgs };
+/**
+ * Resolve the refs inside `browser_fill`'s `fields` list.
+ *
+ * A field may carry a `ref` instead of a selector; each is resolved the same
+ * way a top-level one is, and one bad ref fails the whole call rather than
+ * filling some fields and silently skipping others.
+ */
+function resolveFieldRefs(fields, table) {
+  if (!Array.isArray(fields)) return { ok: true, fields };
+  const out = [];
+  for (const field of fields) {
+    if (!field || typeof field !== 'object' || typeof field.ref !== 'string' || !field.ref.trim()) {
+      out.push(field && typeof field === 'object' ? { ...field } : field);
+      continue;
+    }
+    const resolved = resolveRefArgs(field, table);
+    if (!resolved.ok) return { ok: false, code: resolved.code, message: resolved.message };
+    out.push(resolved.args);
+  }
+  return { ok: true, fields: out };
+}
+
+module.exports = { REF_PATTERN, createRefTables, refSelector, resolveRefArgs, resolveFieldRefs };

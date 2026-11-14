@@ -28,7 +28,7 @@ const {
   createBrowserBridge,
 } = require('./browser-bridge');
 const { formatSnapshot, findInTable } = require('./browser-snapshot');
-const { createRefTables, resolveRefArgs } = require('./browser-target');
+const { createRefTables, resolveRefArgs, resolveFieldRefs } = require('./browser-target');
 const { ZRO_MODELS, zroProviderConfig, zroModelEntries } = require('./zro');
 const { resolveNvidiaModels, nvidiaProviderConfig, nvidiaModelEntries } = require('./nvidia');
 const {
@@ -550,6 +550,12 @@ async function createFreePiSession(options) {
     /** Tools that always need approval. Read-only ones never do. */
     guardedTools = DEFAULT_GUARDED_TOOLS,
     /**
+     * Hand a browser tab over to the agent on its own request. Resolves to the
+     * claim `{ ok, claim }` or `{ ok: false, error }`; omitted means the agent
+     * has no way to ask, so `browser_claim` reports that honestly.
+     */
+    claimTab = null,
+    /**
      * Directory the pi SDK treats as its agent root for resource discovery, i.e.
      * skills are read from `<skillsAgentDir>/skills`. Defaults to the CLI dir.
      */
@@ -902,10 +908,26 @@ async function createFreePiSession(options) {
 
   async function runLocalBrowserTool(spec, params) {
     if (spec.name === 'browser_claim') {
-      return browserErrorResult(
-        'NO_CLAIM',
-        'No browser tab has been handed to the agent yet. Ask the user to hand one over from the Browser control chip.'
-      );
+      if (typeof claimTab !== 'function') {
+        return browserErrorResult(
+          'NO_CLAIM',
+          'No browser tab has been handed to the agent yet. Ask the user to hand one over from the Browser control chip.'
+        );
+      }
+      const claimed = await claimTab();
+      if (!claimed || !claimed.ok) {
+        return browserErrorResult('NO_CLAIM', (claimed && claimed.error) || 'The user did not hand a tab over.');
+      }
+      const claim = claimed.claim || {};
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `The user handed over "${claim.title || claim.url || 'a tab'}" (${claim.domain || 'unknown site'}), tab ${claim.tabId}. Work only in that tab.`,
+          },
+        ],
+        details: { ok: true, claim },
+      };
     }
     const query = params && typeof params === 'object' ? params : {};
     const { tabId, table } = tableForCall(query);
@@ -967,6 +989,11 @@ async function createFreePiSession(options) {
             const resolved = resolveRefArgs(params, tableForCall(params || {}).table);
             if (!resolved.ok) return browserErrorResult(resolved.code, resolved.message);
             const args = resolved.args;
+            if (spec.cmd === 'fill') {
+              const fielded = resolveFieldRefs(args.fields, tableForCall(params || {}).table);
+              if (!fielded.ok) return browserErrorResult(fielded.code, fielded.message);
+              args.fields = fielded.fields;
+            }
             const timeoutMs = spec.cmd === 'screenshot' || spec.cmd === 'snapshot' ? 30000 : 15000;
 
             let result;

@@ -11,7 +11,7 @@
  */
 'use strict';
 
-const { createAutopilot, isAlwaysAsk, IDLE_MS, MAX_FAILURES } = require('../src/browser-autopilot');
+const { createAutopilot, isAlwaysAsk, approvalVerdict, IDLE_MS, MAX_FAILURES } = require('../src/browser-autopilot');
 
 let failed = 0;
 function check(name, ok, detail) {
@@ -155,5 +155,42 @@ check('noteAction and noteFailure are harmless when off', (() => {
   idle.noteFailure();
   return idle.state().on === false;
 })());
+
+/* ------------------------------------------- who answers the approval prompt */
+
+check('an ordinary tool is asked about', approvalVerdict({ toolName: 'bash', label: 'bash' }).skip === false);
+check('a preapproved tool is skipped', approvalVerdict({ toolName: 'bash', label: 'bash', allowEverything: true }).skip === true);
+check('a remembered tool is skipped', approvalVerdict({ toolName: 'bash', label: 'bash', remembered: true }).skip === true);
+check('the reason for a preapproval is recorded', approvalVerdict({ toolName: 'bash', label: 'bash', allowEverything: true }).reason === 'preapproved');
+
+// The money/delete guard is a promise made to the user, and it outranks every
+// "stop asking" control they may have switched on earlier.
+check('a pay label is asked about even when everything is allowed', approvalVerdict({ toolName: 'browser_click', label: 'button "Pay now"', allowEverything: true }).skip === false);
+check('and the reason says why', approvalVerdict({ toolName: 'browser_click', label: 'button "Pay now"', allowEverything: true }).reason === 'alwaysAsk');
+check('a delete label beats a remembered tool', approvalVerdict({ toolName: 'browser_click', label: 'Delete campaign', remembered: true }).skip === false);
+check('a pay label beats hand-over mode', (() => {
+  const on = createAutopilot({ now: () => 0 });
+  on.grant({ tabId: 7, domain: 'google.com' });
+  return approvalVerdict({ toolName: 'browser_click', label: 'Pay now', autopilot: on, targetTabId: 7 }).skip === false;
+})());
+check('a non-browser tool keeps its name and does not trip the guard', approvalVerdict({ toolName: 'write', label: 'write', allowEverything: true }).skip === true);
+
+check('hand-over mode answers for its own tab', (() => {
+  const on = createAutopilot({ now: () => 0 });
+  on.grant({ tabId: 7, domain: 'google.com' });
+  const verdict = approvalVerdict({ toolName: 'browser_click', label: 'button "Continue"', autopilot: on, targetTabId: 7 });
+  return verdict.skip === true && verdict.reason === 'autopilot';
+})());
+check('hand-over mode does not answer for another tab', (() => {
+  const on = createAutopilot({ now: () => 0 });
+  on.grant({ tabId: 7, domain: 'google.com' });
+  return approvalVerdict({ toolName: 'browser_click', label: 'Continue', autopilot: on, targetTabId: 8 }).skip === false;
+})());
+check('eval is never covered by hand-over mode', (() => {
+  const on = createAutopilot({ now: () => 0 });
+  on.grant({ tabId: 7, domain: 'google.com' });
+  return approvalVerdict({ toolName: 'browser_eval', label: 'browser_eval', autopilot: on, targetTabId: 7 }).skip === false;
+})());
+check('a missing autopilot is fine', approvalVerdict({ toolName: 'browser_click', label: 'Continue' }).skip === false);
 
 process.exit(failed ? 1 : 0);

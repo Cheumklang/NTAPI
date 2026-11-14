@@ -10,7 +10,7 @@
  */
 'use strict';
 
-const { registrableDomain, sameSite, createClaims } = require('../src/browser-claims');
+const { registrableDomain, sameSite, createClaims, pickClaimTarget } = require('../src/browser-claims');
 
 let failed = 0;
 function check(name, ok, detail) {
@@ -96,5 +96,20 @@ check('now is injectable', (() => {
   const fixed = createClaims({ now: () => 1234 });
   return fixed.claim({ tabId: 1, url: 'https://example.com' }).claimedAt === 1234;
 })());
+
+/* --------------------------------------------------- which tab to offer up */
+
+const tabList = [
+  { id: 1, windowId: 1, active: false, agent: false, url: 'https://a.example', title: 'A' },
+  { id: 2, windowId: 1, active: true, agent: false, url: 'https://b.example', title: 'B' },
+  { id: 7, windowId: 3, active: true, agent: true, url: 'https://c.example', title: 'C' },
+];
+check('picking prefers the tab the user is looking at', pickClaimTarget(tabList).id === 2);
+check('never picks the agent window', pickClaimTarget(tabList).agent === false);
+check('falls back to the first usable tab', pickClaimTarget(tabList.map((t) => ({ ...t, active: false }))).id === 1);
+check('picks nothing from an empty list', pickClaimTarget([]) === null);
+check('picks nothing from a missing list', pickClaimTarget(undefined) === null);
+check('picks nothing when only the agent window is open', pickClaimTarget([tabList[2]]) === null);
+check('skips rows without an id', pickClaimTarget([{ active: true, agent: false }, tabList[0]]).id === 1);
 
 process.exit(failed ? 1 : 0);
