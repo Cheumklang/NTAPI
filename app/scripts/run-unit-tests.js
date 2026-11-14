@@ -30,6 +30,7 @@ const TESTS = [
   'selftest-attachments.js',
   'selftest-read-position.js',
   'selftest-copy-button.js',
+  'selftest-queue-edit.js',
   'selftest-browser-autopilot.js',
   'selftest-browser-bridge.js',
   'selftest-browser-claims.js',

@@ -1761,6 +1761,72 @@ button { font-family: inherit; }
   gap: 4px;
   min-width: 0;
 }
+/* A row being dragged lifts out of the list so the drop is visible. */
+.queue-item.dragging {
+  opacity: .45;
+}
+/*
+ * The grip is the thing you grab to reorder. It is faint at rest and only shows
+ * on hover, like the ×, so a quiet list stays quiet. The row itself also starts a
+ * drag, for people who grab the text instead.
+ */
+.queue-grip {
+  flex: 0 0 auto;
+  cursor: grab;
+  color: var(--muted);
+  opacity: 0;
+  letter-spacing: -2px;
+  user-select: none;
+}
+.queue-item:hover .queue-grip,
+.queue-item:focus-within .queue-grip { opacity: .55; }
+.queue-grip:hover { opacity: 1; }
+.queue-item.dragging .queue-grip { cursor: grabbing; }
+
+/*
+ * Editing happens in place. The field takes the row so the position of the item
+ * does not move while you type — that is the point of editing a queued message
+ * instead of deleting it and queuing it again.
+ */
+.queue-item.editing { align-items: center; }
+.queue-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--accent, #4d7cff);
+  border-radius: 6px;
+  padding: 2px 6px;
+  outline: none;
+}
+.queue-edit:focus { box-shadow: 0 0 0 2px rgba(77, 124, 255, .22); }
+.queue-save,
+.queue-cancel {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.queue-save { color: var(--accent-2, var(--accent)); }
+.queue-save:disabled { color: var(--muted); opacity: .5; cursor: default; text-decoration: none; }
+.queue-cancel { color: var(--muted); }
+.queue-cancel:hover { color: var(--text); }
+.queue-save:focus-visible,
+.queue-cancel:focus-visible,
+.queue-edit-btn:focus-visible,
+.queue-grip:focus-visible {
+  outline: 2px solid var(--accent, #4d7cff);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
 .queue-text {
   /* Takes the row so a long message truncates at the composer's edge instead of
    * pushing the × out of view. */
@@ -1786,12 +1852,16 @@ button { font-family: inherit; }
   padding: 0;
   border-radius: 3px;
   transition: opacity .12s ease;
+  /* The grip and the save/cancel buttons carry their own accent colours above. */
 }
 .queue-item:hover button,
 .queue-item button:focus-visible { opacity: 1; }
 .queue-item button:hover { color: var(--danger); }
 /* A row with nothing to remove still lines up. */
 .queue-item button:disabled { opacity: 0; }
+/* The edit button reads as a quiet action, not destructive like the ×. */
+.queue-edit-btn { font-size: 11.5px; }
+.queue-item .queue-edit-btn:hover { color: var(--accent-2, var(--accent)); }
 
 /* ---------------- live status ---------------- */
 

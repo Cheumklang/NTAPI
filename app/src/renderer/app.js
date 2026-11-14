@@ -316,6 +316,11 @@ const STRINGS = {
     emptyWhere: 'Generated files and downloads go in the folder you pick.',
     dropFiles: 'Drop files to attach',
     removeFromQueue: 'Remove from queue',
+    queueEdit: 'Edit',
+    queueSave: 'Save',
+    queueCancelEdit: 'Cancel',
+    queueReorder: 'Drag to reorder',
+    queueEditingNote: 'Editing — not sent yet',
     newSession: 'New session',
     noOutput: '(no output)',
     copied: 'Copied',
@@ -639,6 +644,11 @@ const STRINGS = {
     emptyWhere: 'ไฟล์ที่สร้างและดาวน์โหลดจะอยู่ในโฟลเดอร์ที่เลือก',
     dropFiles: 'วางไฟล์เพื่อแนบ',
     removeFromQueue: 'เอาออกจากคิว',
+    queueEdit: 'แก้ไข',
+    queueSave: 'บันทึก',
+    queueCancelEdit: 'ยกเลิก',
+    queueReorder: 'ลากเพื่อสลับลำดับ',
+    queueEditingNote: 'กำลังแก้ — ยังไม่ส่ง',
     newSession: 'เซสชันใหม่',
     noOutput: '(ไม่มีผลลัพธ์)',
     copied: 'คัดลอกแล้ว',
@@ -4526,6 +4536,14 @@ async function resolveForSend(text) {
 async function drainQueue(view) {
   if (!view || view.busy) return;
   if (!view.queue || !view.queue.length) return;
+  // An item being edited is not ready to go: sending it would ship the text the
+  // user is in the middle of changing. It keeps its place and the drain simply
+  // waits for it, which is why saving returns it to where it was.
+  const blocked = view.queue[0]?.editing;
+  if (blocked) {
+    renderQueue();
+    return;
+  }
   const next = view.queue.shift();
   renderQueue();
   // The turn that was running when this was queued has ended, so any countdown
@@ -4580,7 +4598,19 @@ async function sendQueued(view, item) {
   }
 }
 
-/** Show the messages waiting behind the running turn, with a cancel button each. */
+/**
+ * Show the messages waiting behind the running turn.
+ *
+ * A queued message can be edited in place, and it keeps its position while it is
+ * being edited: the row is not removed and re-added at the end, because the whole
+ * point is that you should not have to re-order the queue after a typo. While a
+ * row is open for editing it is flagged on the item itself, so the drain skips it
+ * and the flag survives a re-render.
+ *
+ * Rows can also be dragged to a new position. Both a handle and the row itself
+ * start a drag: the handle for people who expect one, the row for people who just
+ * grab the text.
+ */
 function renderQueue() {
   const bar = el('queueBar');
   if (!bar) return;
@@ -4598,11 +4628,76 @@ function renderQueue() {
   head.textContent = items.length === 1 ? t('queuedOne') : t('queuedMany', { n: items.length });
   bar.appendChild(head);
 
-  items.forEach((item, i) => {
+  items.forEach((item) => {
     const row = document.createElement('div');
     row.className = 'queue-item';
-    // Marks the row so a held message can hang its countdown underneath.
-    if (item.queueId) row.dataset.queueId = item.queueId;
+    row.dataset.queueId = item.queueId || '';
+    // The item's own position, resolved at click time by queueId rather than by
+    // the index captured here — a drag can move it before the click lands.
+
+    if (item.kind !== 'action') {
+      const grip = document.createElement('button');
+      grip.type = 'button';
+      grip.className = 'queue-grip';
+      grip.textContent = '\u28ff';
+      grip.title = t('queueReorder');
+      grip.setAttribute('aria-label', t('queueReorder'));
+      grip.tabIndex = 0;
+      // The handle and the row both begin a drag.
+      enableQueueDrag(row, grip);
+      enableQueueDrag(row, row);
+      row.appendChild(grip);
+    }
+
+    if (item.editing) {
+      row.classList.add('editing');
+      const field = document.createElement('input');
+      field.className = 'queue-edit';
+      field.type = 'text';
+      field.value = item.draft ?? item.text ?? '';
+      field.setAttribute('aria-label', t('queueEditingNote'));
+      field.addEventListener('input', () => {
+        item.draft = field.value;
+        updateKeepButton(item, row);
+      });
+      field.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          saveQueueEdit(view, item);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          cancelQueueEdit(view, item);
+        }
+      });
+      row.appendChild(field);
+
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.className = 'queue-save';
+      save.textContent = t('queueSave');
+      save.addEventListener('click', () => saveQueueEdit(view, item));
+      row.appendChild(save);
+
+      const stop = document.createElement('button');
+      stop.type = 'button';
+      stop.className = 'queue-cancel';
+      stop.textContent = t('queueCancelEdit');
+      stop.addEventListener('click', () => cancelQueueEdit(view, item));
+      row.appendChild(stop);
+
+      bar.appendChild(row);
+      updateKeepButton(item, row);
+      // Focus once the field is in the document — focusing a detached node does
+      // nothing — and put the caret at the end so typing appends rather than
+      // overwrites. A re-render keeps the field that already has focus instead of
+      // stealing it back to the start of the list.
+      field.focus();
+      field.setSelectionRange(field.value.length, field.value.length);
+      return;
+    }
+
     const label = document.createElement('span');
     label.className = 'queue-text';
     // A queued slash command has no message text; show what it will do.
@@ -4611,14 +4706,37 @@ function renderQueue() {
     label.title = text || '';
     row.appendChild(label);
 
+    if (item.kind !== 'action') {
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'queue-edit-btn';
+      edit.textContent = t('queueEdit');
+      edit.addEventListener('click', () => {
+        const v = activeView();
+        if (!v?.queue) return;
+        const at = v.queue.findIndex((q) => q.queueId === item.queueId);
+        if (at === -1) return;
+        v.queue[at].editing = true;
+        v.queue[at].draft = v.queue[at].text || '';
+        renderQueue();
+      });
+      row.appendChild(edit);
+    }
+
     const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'queue-remove';
     rm.textContent = '×';
     rm.title = t('removeFromQueue');
     rm.addEventListener('click', () => {
       const v = activeView();
       if (!v?.queue) return;
-      v.queue.splice(i, 1);
+      const at = v.queue.findIndex((q) => q.queueId === item.queueId);
+      if (at === -1) return;
+      v.queue.splice(at, 1);
       renderQueue();
+      // Removing the head may unblock the queue.
+      if (v === activeView()) drainQueue(v);
     });
     row.appendChild(rm);
     bar.appendChild(row);
@@ -4633,6 +4751,168 @@ function renderQueue() {
     if (target) target.appendChild(held.row);
   }
 }
+
+/**
+ * Keep Save disabled while the text is empty.
+ *
+ * Saving an empty message would put a blank prompt into the queue that the AI
+ * would then be asked to answer; the guard is here rather than in saveQueueEdit so
+ * the button tells the user why it will not work.
+ */
+function updateKeepButton(item, row) {
+  const save = row.querySelector('.queue-save');
+  if (!save) return;
+  save.disabled = !String(item.draft ?? '').trim();
+}
+
+/**
+ * Save an edited queue item back where it was.
+ *
+ * The item is never removed from the array, so its index is untouched — that is
+ * what keeps it in place instead of sending it to the back of the queue.
+ */
+function saveQueueEdit(view, item) {
+  const at = (view?.queue || []).findIndex((q) => q.queueId === item.queueId);
+  if (at === -1) return;
+  const draft = String(view.queue[at].draft ?? '').trim();
+  if (!draft) return;
+  view.queue[at].text = draft;
+  view.queue[at].editing = false;
+  delete view.queue[at].draft;
+  // The edited text is what will be sent, so a countdown that is still running
+  // would send the old wording: release it.
+  const held = holds.get(view.tabId);
+  if (held && !held.finished && held.item === view.queue[at]) {
+    held.finished = true;
+    clearInterval(held.timer);
+    holds.delete(view.tabId);
+    held.row.remove();
+  }
+  renderQueue();
+  updateSendState();
+  drainQueue(view);
+}
+
+/** Close an edit without keeping the change. */
+function cancelQueueEdit(view, item) {
+  const at = (view?.queue || []).findIndex((q) => q.queueId === item.queueId);
+  if (at === -1) return;
+  view.queue[at].editing = false;
+  delete view.queue[at].draft;
+  renderQueue();
+  updateSendState();
+  drainQueue(view);
+}
+
+/**
+ * Drag a queue row to a new position.
+ *
+ * Two handles start the same drag: the grip, and the row itself. Rows are moved
+ * in the array as the pointer passes the midpoint of a neighbour, so the list you
+ * see while dragging is the list that gets saved — no separate preview to keep
+ * in sync. The reorder is written on drop rather than on every move, so a drag
+ * that is cancelled changes nothing.
+ *
+ * Any row being edited is left alone: dragging it out from under the input would
+ * lose what is being typed.
+ */
+function enableQueueDrag(row, handle) {
+  // Buttons inside the row keep their own clicks; only the handle itself and the
+  // row background start a drag.
+  if (handle !== row && handle.tagName === 'BUTTON') {
+    handle.draggable = false;
+  }
+
+  const begin = (e) => {
+    const item = row.dataset.queueId;
+    if (!item || row.classList.contains('editing')) return;
+    dragState = { id: item, row };
+    row.classList.add('dragging');
+    e.dataTransfer?.setData('text/plain', item);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+  };
+
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    if (handle === row) {
+      // Clicking a button or the text field must not start a drag.
+      if (e.target.closest('button, input')) return;
+    }
+    begin(e);
+  });
+
+  // Keyboard path: Alt+Up / Alt+Down moves a focused row.
+  handle.addEventListener('keydown', (e) => {
+    if (!e.altKey) return;
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    moveQueueItem(row.dataset.queueId, e.key === 'ArrowUp' ? -1 : 1);
+  });
+}
+
+/** Move one queue item by `delta` positions and repaint. */
+function moveQueueItem(queueId, delta) {
+  const view = activeView();
+  if (!view?.queue || !queueId) return false;
+  const from = view.queue.findIndex((q) => q.queueId === queueId);
+  if (from === -1) return false;
+  const to = from + delta;
+  if (to < 0 || to >= view.queue.length) return false;
+  const [item] = view.queue.splice(from, 1);
+  view.queue.splice(to, 0, item);
+  renderQueue();
+  return true;
+}
+
+/**
+ * Where the dragged row should go, from the pointer's position.
+ *
+ * Compares against each row's vertical midpoint so the swap happens exactly when
+ * the pointer crosses the middle, which is what the eye expects.
+ */
+function queueDropIndex(clientY) {
+  const bar = el('queueBar');
+  if (!bar) return -1;
+  const rows = [...bar.querySelectorAll('.queue-item')].filter((r) => !r.classList.contains('dragging'));
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i].getBoundingClientRect();
+    if (clientY < r.top + r.height / 2) return i;
+  }
+  return rows.length;
+}
+
+/** Finish a drag on release: apply the move, or put the row back. */
+function endQueueDrag(clientY) {
+  if (!dragState) return;
+  const { id, row } = dragState;
+  dragState = null;
+  row.classList.remove('dragging');
+  const view = activeView();
+  if (!view?.queue) {
+    renderQueue();
+    return;
+  }
+  const from = view.queue.findIndex((q) => q.queueId === id);
+  if (from === -1) {
+    renderQueue();
+    return;
+  }
+  const [item] = view.queue.splice(from, 1);
+  const target = queueDropIndex(clientY);
+  // queueDropIndex counted the remaining rows, and the removed row is gone, so
+  // the index is already the destination.
+  const at = target < 0 ? view.queue.length : Math.min(target, view.queue.length);
+  view.queue.splice(at, 0, item);
+  renderQueue();
+}
+
+/** The row being dragged, or null. */
+let dragState = null;
+
+// The drag ends wherever the pointer is released, which may be outside the queue,
+// so the listener is on the window rather than on the row.
+window.addEventListener('pointerup', (e) => endQueueDrag(e.clientY));
+window.addEventListener('pointercancel', () => endQueueDrag(-1));
 
 async function submit() {
   const view = activeView();
