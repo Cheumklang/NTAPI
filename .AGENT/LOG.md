@@ -324,3 +324,30 @@
 
 เทสต์: `selftest-browser-tools.js` +6, `selftest-browser-claims.js` +5 — ยืนยันด้วยการใส่บั๊กกลับ (FAIL จริง)
 `npm test` 33/33 ผ่าน; ผู้ใช้ยืนยันว่าใช้งานได้แล้ว
+
+### สวิตช์อนุมัติ 3 ระดับ + ปิดงานค้างเบราว์เซอร์ (2026-11-14) v0.3.5
+
+**อาการ:** dialog อนุมัติเครื่องมือ "บางทีก็ขึ้น บางทีก็ไม่ขึ้น" ขึ้นกับโมเดล
+
+**รากปัญหา:** 4 สวิตช์ตัดสินพร้อมกัน (remember checkbox, allow-everything, autopilot
+`approvalVerdict()`, `ALWAYS_ASK`) ทั้งหมดอยู่ใน memory → ปิดแอปแล้วหาย, คำตอบเปลี่ยนตามโมเดล/แท็บ
+
+**แก้:** `src/approval-policy.js` ใหม่ — `ask`/`allow`/`deny` เก็บใน `prefs.json`, `decide()`
+รับอาร์กิวเมนต์เดียว (โมเดล/แท็บขยับไม่ได้), ค่าขยะ → `ask`, `policyFromLegacy()` รองรับอัปเกรด
+• `main.js`: `askApproval()` เหลือดู policy เดียว, IPC คืน `{policy}` • UI: dropdown 3 ตัวเลือก +
+คำอธิบาย + แบนเนอร์เมื่อไม่ใช่ `ask`, dialog เหลือ 2 ปุ่ม • ลบ `approvalVerdict()` ออกจาก
+`browser-autopilot.js` (เทสต์ย้ายไปทดสอบ `allows()`) • ลบคีย์ i18n ที่ตายแล้ว 7 คีย์
+
+**เทสต์:** `selftest-approval-policy.js` (33 checks) + `selftest-browser-autopilot.js` ปรับ
+→ `npm test` **PASS 34/34** (จาก 33, เพิ่มไฟล์ใหม่)
+
+**ไฟล์:** `src/approval-policy.js` (ใหม่), `scripts/selftest-approval-policy.js` (ใหม่),
+`src/main.js`, `src/renderer/app.js`, `src/renderer/index.html`, `src/browser-autopilot.js`,
+`scripts/selftest-browser-autopilot.js`, `scripts/run-unit-tests.js`
+
+**ปิดงานค้างเบราว์เซอร์ด้วย (ค้างมาก่อนหน้า):** แท็บว่าง (`about:blank`) ไม่ถูกเสนอให้มอบ,
+claim ที่ล้มเหลวไม่เงียบอีก, error ในระบบอนุมัติไม่ถูกเรียกว่า "ผู้ใช้ปฏิเสธ"
+(`browser-claims.js`, `browser-extension/background.js`, `freepi-bridge.js`, `main.js`,
+`renderer/app.js`, `selftest-browser-claims.js`)
+
+**ยังค้าง:** ทดสอบ UI จริง/Chrome จริงด้วยตา · ยังไม่ merge เข้า master
