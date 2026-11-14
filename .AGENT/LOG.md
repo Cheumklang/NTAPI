@@ -28,6 +28,18 @@
 
 <!-- ต่อท้ายด้านล่างนี้ -->
 
+## 2026-11-14 — MCP Phase 2: ใช้ได้จริง (Settings + config ที่ C:\NTAPI)
+- Phase 2: config ย้ายมาที่ `C:\NTAPI\mcp.json`, opt-in ปิดดีฟอลต์, Settings แท็บ MCP แก้/บันทึกได้
+- ไฟล์: freepi-bridge.js, main.js, preload.js, renderer/*, selftest-mcp-config.js
+- เทส: mcp-guard + mcp-config PASS, ชุดอื่น PASS, smoke test Electron PASS
+- เริ่มปล่อย v0.2.5
+
+## 2026-11-14 — MCP Phase 1: ผ่านด่านอนุมัติ
+- พบว่าโปรแกรมโหลด MCP อยู่แล้ว (`createMcpExtension`); config ที่ `~/.pi/agent/mcp.json`
+- เพิ่ม `isGuardedTool`/`mcpToolLabel` → MCP tools ต้องขออนุมัติ พร้อมโชว์ชื่อ server
+- ไฟล์: `app/src/freepi-bridge.js`, `app/src/main.js`, `app/src/renderer/app.js`, `app/scripts/selftest-mcp-guard.js`
+- เทส selftest-mcp-guard PASS; ยังไม่ commit
+
 ## 2026-11-14 — ผลปล่อย v0.2.4: สําเร็จ
 - commit: `f6483b9` (model picker + Coarena), `efc866b` (single-instance),
   `19497a8` (ไอคอนมุมโค้ง), `9b14db4` (เวอร์ชัน 0.2.4)
@@ -161,3 +173,23 @@
 - `app/src/main.js`: ใช้ `nextRecoveryMove`, เพิ่ม `promptSeq` กันส่งซ้ำ/ยกเลิกเมื่อผู้ใช้ส่งใหม่
 - ตรวจ: `node --check` ผ่าน, `selftest-empty-answer` / `selftest-llm7` / `selftest-provider-plan` ผ่าน
 - สถานะ commit: **ยังไม่ commit** (รออนุญาต)
+
+## 2026-11-14 — P0: single-instance lock (เปิด NTAPI ได้ทีละหน้าต่าง)
+- **ปัญหา:** เปิดแอปซ้ำ (ไอคอน taskbar / ดับเบิลคลิก exe / installer "Run now") เปิดโปรเซสใหม่ทั้งตัว
+  → หน้าต่างซ้อน, state คนละชุด, เขียนทับ session/config และ presence port ชนกัน
+- **แก้:** `app/src/single-instance.js` (`focusExistingWindow` — restore ถ้าย่อ, show ถ้าซ่อน, focus)
+  + `app/src/main.js`: `app.requestSingleInstanceLock()`, `app.on('second-instance')` และการ์ด
+  `if (!hasSingleInstanceLock) return;` ใน `whenReady` (ตัวที่สองไม่สร้างหน้าต่าง/ไม่เปิด presence)
+- เทสต์: `app/scripts/selftest-single-instance.js` (6 เคส, เขียนเทสก่อนแล้วเห็น RED ก่อน)
+  → ผ่าน; `node --check` ผ่าน; ชุดออฟไลน์ 20/22 ผ่าน
+  (`selftest-ui-render` ต้องรันใต้ electron, `selftest-ui` ต้องมีแอปรัน + DevTools — สภาพแวดล้อม ไม่ใช่โค้ด)
+- สถานะ commit: **`efc866b`** → รวมใน v0.2.4 (release ออกที่ `NTAPI-releases` แล้ว)
+- ยังไม่ได้ทดสอบเปิดซ้ำจริงบนหน้าจอ (ผู้ใช้ขอข้าม)
+
+## 2026-11-14 — ตรวจ P1 "กล่อง thinking ถูกซ่อน" → ปิดเคส ไม่ใช่บั๊ก
+- ไล่ซอร์ส SDK `@earendil-works/pi-coding-agent`: `hideThinkingBlock` ถูกใช้แค่ใน
+  `AssistantMessageComponent` ของ TUI (ค่าว่าง = `false`) → ไม่มีผลกับ NTAPI ที่วาด UI เอง
+- NTAPI มีครบอยู่แล้ว: `#thinkingSelect` ("การคิด: <level>", `app.js` `paintThinking`) ส่งผ่าน
+  `session:thinking` → `setThinkingLevel()` และกล่อง "ดูความคิด" รับ `thinking_delta` จาก `main.js`
+- สรุป: กล่องว่าง = โมเดล/เทิร์นนั้นไม่ได้ส่ง reasoning มา (ระดับ off หรือโมเดลไม่รองรับ) ไม่ใช่แอปพลาด
+- ตัดสินใจ: ไม่แก้โค้ด; ปิด P0 ชื่อเจ้าของหน้า About ตามคำสั่งผู้ใช้ (ไม่เก็บเป็นงานค้าง)

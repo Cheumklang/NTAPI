@@ -113,16 +113,35 @@
 - เทส `selftest-single-instance.js` PASS — เปิดซ้ำจะโฟกัสหน้าต่างเดิม ไม่เปิดโปรเซสใหม่
 - เป็น P0 ในรีวิว
 
+### 1i) MCP — Phase 1+2 เสร็จ (uncommitted)
+- **พบ:** โปรแกรม **โหลด MCP อยู่แล้ว** (`sdk.createMcpExtension()`)
+- **Phase 1 (ความปลอดภัย):** `isGuardedTool()` + `mcpToolLabel()` ใน `freepi-bridge.js`
+  → MCP tools ต้องอนุมัติทุกครั้ง + dialog โชว์ชื่อ server (`main.js` → `renderer/app.js`)
+- **Phase 2 (ใช้ได้จริง):**
+  - config ย้ายมาที่ **`C:\NTAPI\mcp.json`** ผ่าน `loadAppMcpConfig()` — หาเจอ ไม่หลบใน dot-folder
+  - **opt-in / ปิดดีฟอลต์** (`mcpEnabled` ใน prefs; เปิดที่ Settings)
+  - Settings แท็บ **MCP**: ติ๊กเปิด + แก้ `mcp.json` (textarea) + บันทึก (`mcp:get`/`mcp:set`)
+  - เตือนเรื่อง LLM7 free (function calling เป็นสิทธิ์ Pro)
+- ไฟล์: `freepi-bridge.js`, `main.js`, `preload.js`, `renderer/{app.js,index.html,styles.css}`,
+  `scripts/selftest-mcp-{guard,config}.js`
+- **ยืนยัน:** `selftest-mcp-guard` + `selftest-mcp-config` PASS, ชุดอื่น PASS,
+  smoke test เปิด Electron จริง (model picker) PASS
+- **Phase 3 (ยังไม่ทำ):** per-model gating — SDK ตั้ง exposure เป็น `codemode` อยู่แล้ว จึงยังไม่จำเป็น
+
 ## 2) ขั้นถัดไปที่ตกลงไว้ (ทำต่อได้เลยเมื่อผู้ใช้สั่ง)
 จากลำดับใน `docs/review-2026-11-13.md` ที่ยังเหลือ:
-- **P0:** เพิ่ม **single-instance lock** (`app.requestSingleInstanceLock()` ไม่มีใน `main.js`)
-- **P0:** ชื่อเจ้าของยังฝังในโค้ด 1 จุด — `app/src/renderer/index.html:466` (หน้า About)
-- **P1:** มีกล่อง thinking ใน UI แต่ `freepi-bridge.js` ตั้ง `hideThinkingBlock: true`
-- **P1:** MCP อ่าน `mcp.json` ได้ (bridge ~บรรทัด 1308) แต่ยังไม่มี UI จัดการ
+- **P1:** MCP อ่าน `mcp.json` ได้แล้ว (`freepi-bridge.js` ~บรรทัด 1308 ผ่าน `sdk.createMcpExtension()`)
+  แต่ยังไม่มี UI จัดการ — ผู้ใช้ยังต้องแก้ไฟล์เองหรือใช้ `free-pi-cli mcp add`
 - **P2:** ตรวจซ้ำข้อหน้าจอ (ฟอนต์เล็ก/แถว usage ล้น/คำว่า "เครดิต") เพราะบางส่วนอาจจบแล้ว
 
+**ปิดเคสแล้ว — อย่าเปิดซ้ำ:**
+- P0 single-instance lock → เสร็จใน v0.2.4 (`efc866b`, §1h)
+- P1 "กล่อง thinking ถูกซ่อน" → **ไม่ใช่บั๊ก** (ตรวจแล้ว 2026-11-14): `hideThinkingBlock` เป็นค่าของ
+  TUI pi เอง ไม่มีผลกับ NTAPI และแอปมีปุ่ม "การคิด: <level>" (`#thinkingSelect`) พร้อมกล่อง
+  "ดูความคิด" อยู่แล้ว — กล่องว่างแปลว่าโมเดล/เทิร์นนั้นไม่ส่ง reasoning มา ไม่ใช่แอปพลาด
+
 ## 3) รู้ไว้ก่อนลงมือ (บริบทกันหลง)
-- โปรเจกต์ = Electron shell ห่อ pi agent ของ free-pi (ไม่ใช่ fork) — v **0.2.4**
+- โปรเจกต์ = Electron shell ห่อ pi agent ของ free-pi (ไม่ใช่ fork) — v **0.2.5**
 - **มี session อื่นทำงานกับ repo นี้ได้พร้อมกัน** → เช็ก `git status`/`git diff` ก่อนลงมือทุกครั้ง
   อย่า revert งานคนอื่น และระวังเขียนทับไฟล์ที่กำลังแก้
 - โครงสร้าง/คำสั่งรันบิลด์เทส/รายชื่อ provider → ดู `PROJECT.md` (ไฟล์เดียว มีครบ)

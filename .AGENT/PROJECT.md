@@ -11,7 +11,7 @@
   ตัวเดียวกับที่ `npx free-pi-cli` ใช้
 - repo: `https://github.com/Cheumklang/NTAPI.git` (private)
 - repo สำหรับแจกจ่าย (installer/อัปเดต): `Cheumklang/NTAPI-releases` (public)
-- เวอร์ชันปัจจุบัน: **0.2.4** (`app/package.json`)
+- เวอร์ชันปัจจุบัน: **0.2.5** (`app/package.json`)
   (เลขเวอร์ชันเปลี่ยนเมื่อผู้ใช้สั่งเท่านั้น — ห้ามขยับเอง)
 - ผู้พัฒนา: Chanathip Cheumklang
 
@@ -149,7 +149,8 @@ free-pi ฟรีเพราะมีโฆษณา ถ้าไม่ขอ a
 ส่งรูปจึงกิน 2 คําขอ (vision + model turn)
 
 ## ยังไม่มี (Not yet)
-- MCP จาก `mcp.json` ยังไม่โหลด (ยังไม่มี UI) — ช่องว่างที่สําคัญ
+- MCP — **มีแล้ว** (Phase 1+2): config ที่ `C:\NTAPI\mcp.json`, เปิด/ปิดใน Settings > MCP
+  (opt-in ปิดดีฟอลต์), tools ผ่าน approval ทุกครั้ง, รองรับ stdio + HTTP (ผ่าน SDK)
 - `codemode`, `tool_search`, `subagent`, `send_message`, `submit_plan`, `fusion_plan`,
   `free_pi_docs`, `free_pi_buy_credits`
   (**หมายเหตุ:** `todo` และ `ask_user` ถูกลงทะเบียนแล้วใน `freepi-bridge.js`)
