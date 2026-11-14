@@ -1664,6 +1664,28 @@ button { font-family: inherit; }
 .chip-btn svg { display: block; }
 #langBtn { margin-left: auto; }
 
+
+/* ---------------- browser control chip ---------------- */
+
+#browserBtn { position: relative; }
+#browserBtn .dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6b7280;
+}
+#browserBtn .dot.waiting { background: #d9a441; }
+#browserBtn .dot.on { background: #3fb26b; }
+#browserBtn[aria-pressed="true"] {
+  background: rgba(90, 169, 255, .2);
+  border-color: rgba(90, 169, 255, .45);
+  color: #cfe4ff;
+}
+#browserOverlay .dialog-code { white-space: pre-wrap; }
+
 /* ---------------- usage progress bar ---------------- */
 
 .usage-bar-wrap { margin: 2px 0 4px; }

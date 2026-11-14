@@ -47,6 +47,24 @@ const MAX_RESTORED_TABS = 4;
 
 const STRINGS = {
   en: {
+    // Browser control (chip next to the language button).
+    browserTitle: 'Browser control',
+    browserOff: 'Browser control is off. The agent cannot use your browser.',
+    browserWaiting: 'Waiting for the Chrome extension to connect…',
+    browserConnected: 'Connected. The agent can drive the NTAPI browser window.',
+    browserInstallTitle: 'One-time setup',
+    browserInstallSteps: '1. Open the extension folder\n2. In Chrome: chrome://extensions -> Developer mode -> Load unpacked -> pick that folder\n3. Open the extension popup and paste the pairing code below',
+    browserOpenFolder: 'Open folder',
+    browserCopyExtensions: 'Copy chrome://extensions',
+    browserWatch: 'Watch what the agent does',
+    browserDisconnect: 'Turn off',
+    browserConnect: 'Turn on',
+    browserChipOff: 'Browser control: off',
+    browserChipWaiting: 'Browser control: waiting for the extension',
+    browserChipOn: 'Browser control: connected',
+    browserCopied: 'Copied',
+    browserInstalled: 'Extension folder is ready.',
+    browserNotInstalled: 'Extension folder is missing from this build.',
     workspace: 'Workspace',
     savedSessions: 'Saved sessions',
     new: '+ New',
@@ -335,6 +353,24 @@ const STRINGS = {
     updateError: 'Update check failed: {e}',
   },
   th: {
+    // Browser control (chip next to the language button).
+    browserTitle: 'ควบคุมเบราว์เซอร์',
+    browserOff: 'ยังปิดอยู่ — AI จะใช้เบราว์เซอร์ของคุณไม่ได้',
+    browserWaiting: 'รอส่วนขยาย Chrome เชื่อมต่อ…',
+    browserConnected: 'เชื่อมต่อแล้ว — AI ขับหน้าต่างเบราว์เซอร์ของ NTAPI ได้',
+    browserInstallTitle: 'ติดตั้งครั้งเดียว',
+    browserInstallSteps: '1. เปิดโฟลเดอร์ส่วนขยาย\n2. ใน Chrome ไปที่ chrome://extensions -> เปิด Developer mode -> Load unpacked -> เลือกโฟลเดอร์นั้น\n3. เปิด popup ของส่วนขยาย แล้ววางรหัสจับคู่ด้านล่าง',
+    browserOpenFolder: 'เปิดโฟลเดอร์',
+    browserCopyExtensions: 'คัดลอก chrome://extensions',
+    browserWatch: 'ดูว่า AI ทำอะไรอยู่',
+    browserDisconnect: 'ปิดการใช้งาน',
+    browserConnect: 'เปิดการใช้งาน',
+    browserChipOff: 'ควบคุมเบราว์เซอร์: ปิด',
+    browserChipWaiting: 'ควบคุมเบราว์เซอร์: รอส่วนขยาย',
+    browserChipOn: 'ควบคุมเบราว์เซอร์: เชื่อมต่อแล้ว',
+    browserCopied: 'คัดลอกแล้ว',
+    browserInstalled: 'โฟลเดอร์ส่วนขยายพร้อมใช้งาน',
+    browserNotInstalled: 'ไม่พบโฟลเดอร์ส่วนขยายในบิลด์นี้',
     workspace: 'โฟลเดอร์งาน',
     savedSessions: 'แชทที่บันทึกไว้',
     new: '+ ใหม่',
@@ -673,6 +709,8 @@ function applyLanguage() {
       input.setSelectionRange(caret, caret);
     } catch {}
   }
+  if (typeof renderBrowserChip === 'function') renderBrowserChip();
+  if (typeof renderBrowserDialog === 'function') renderBrowserDialog();
   // Re-render the status legend so "18% used" follows the language too.
   if (lastUsage) applyUsageLabels(lastUsage);
   if (settingsData && !el('settingsOverlay').hidden) renderSettings();
@@ -3555,6 +3593,7 @@ async function boot() {
   appPrefs = info.prefs || info;
   profile = info.profile || {};
   if (info.lang) lang = info.lang === 'th' ? 'th' : 'en';
+  if (typeof refreshBrowserStatus === 'function') refreshBrowserStatus();
   applyLanguage();
   loadProfile();
   initUpdates();
@@ -4298,6 +4337,106 @@ el('refreshUsage').addEventListener('click', () => refreshUsage());
 
 // Language toggle: saves the choice so it survives a restart.
 el('langBtn').addEventListener('click', () => setLanguage(lang === 'en' ? 'th' : 'en'));
+
+/* ------------------------- browser control chip ------------------------- */
+
+let browserState = { enabled: false, connected: false, port: 0, paired: false, installed: true };
+
+function renderBrowserChip() {
+  const btn = el('browserBtn');
+  if (!btn) return;
+  const dot = btn.querySelector('.dot');
+  const state = !browserState.enabled ? 'off' : browserState.connected ? 'on' : 'waiting';
+  if (dot) dot.className = `dot ${state}`;
+  btn.setAttribute('aria-pressed', browserState.enabled ? 'true' : 'false');
+  btn.title = t(state === 'on' ? 'browserChipOn' : state === 'waiting' ? 'browserChipWaiting' : 'browserChipOff');
+}
+
+function renderBrowserDialog() {
+  const line = el('browserStatusLine');
+  if (line) {
+    line.textContent = t(
+      !browserState.enabled ? 'browserOff' : browserState.connected ? 'browserConnected' : 'browserWaiting'
+    );
+  }
+  const code = el('browserCode');
+  if (code) code.textContent = browserState.code || '------';
+  const toggle = el('browserToggle');
+  if (toggle) toggle.textContent = t(browserState.enabled ? 'browserDisconnect' : 'browserConnect');
+  const watch = el('browserWatch');
+  if (watch) watch.hidden = !browserState.connected;
+}
+
+async function refreshBrowserStatus() {
+  try {
+    const status = await api.browserStatus();
+    browserState = { ...browserState, ...status };
+  } catch {}
+  renderBrowserChip();
+  renderBrowserDialog();
+}
+
+async function openBrowserDialog() {
+  try {
+    const info = await api.browserInstallInfo();
+    browserState.code = info.code;
+  } catch {}
+  el('browserOverlay').hidden = false;
+  renderBrowserDialog();
+  el('browserToggle').focus();
+}
+
+el('browserBtn').addEventListener('click', async () => {
+  // Turning it off is immediate; turning it on opens the setup dialog.
+  if (browserState.enabled) {
+    const next = await api.browserToggle(false).catch(() => null);
+    if (next) browserState = { ...browserState, ...next };
+    renderBrowserChip();
+    renderBrowserDialog();
+    return;
+  }
+  const next = await api.browserToggle(true).catch(() => null);
+  if (next) browserState = { ...browserState, ...next };
+  renderBrowserChip();
+  await openBrowserDialog();
+});
+
+el('browserOpenFolder').addEventListener('click', async () => {
+  const res = await api.browserOpenFolder().catch(() => null);
+  if (res && !res.ok) toast(t('browserNotInstalled'), 'warn');
+});
+
+el('browserCopyUrl').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText('chrome://extensions');
+    toast(t('browserCopied'), 'ok');
+  } catch {}
+});
+
+el('browserWatch').addEventListener('click', async () => {
+  const res = await api.browserWatch().catch(() => null);
+  if (res && !res.ok) toast(`Browser: ${res.error}`, 'warn');
+});
+
+el('browserToggle').addEventListener('click', async () => {
+  const next = await api.browserToggle(!browserState.enabled).catch(() => null);
+  if (next) browserState = { ...browserState, ...next };
+  renderBrowserChip();
+  renderBrowserDialog();
+});
+
+el('browserClose').addEventListener('click', () => {
+  el('browserOverlay').hidden = true;
+});
+
+if (typeof api.onBrowserStatus === 'function') {
+  api.onBrowserStatus((status) => {
+    browserState = { ...browserState, ...status };
+    renderBrowserChip();
+    renderBrowserDialog();
+  });
+}
+
 
 // Refresh the balance as soon as a turn ends — it just spent credits.
 api.onSettled(() => refreshUsage({ silent: true }));

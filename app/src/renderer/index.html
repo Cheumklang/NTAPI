@@ -37,6 +37,13 @@
           <span class="brand-count online" id="brandOnline" hidden></span>
           <span class="badge" id="guestBadge" hidden data-i18n="guestBadge">guest</span>
           <button id="langBtn" class="chip-btn" title="Language / ภาษา">EN</button>
+          <button id="browserBtn" class="chip-btn" title="Browser control" aria-label="Browser control" aria-pressed="false">
+            <span class="dot" aria-hidden="true"></span>
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M3 12h18M12 3c2.6 2.6 4 5.6 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.6-4-9s1.4-6.4 4-9z" fill="none" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </button>
           <button id="settingsBtn" class="chip-btn" title="Settings" aria-label="Settings">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -288,6 +295,34 @@
         <div class="dialog-actions">
           <button id="confirmCancel" class="ghost" data-i18n="cancel">Cancel</button>
           <button id="confirmDelete" class="danger-btn" data-i18n="delete">Delete</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="browserOverlay" class="overlay" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="browserTitle">
+        <h2 id="browserTitle" data-i18n="browserTitle">Browser control</h2>
+        <p id="browserStatusLine" class="dialog-sub">—</p>
+
+        <p class="dialog-sub" data-i18n="browserInstallTitle">One-time setup</p>
+        <pre id="browserSteps" class="dialog-code" data-i18n="browserInstallSteps">1. Open the extension folder
+2. In Chrome: chrome://extensions -> Developer mode -> Load unpacked -> pick that folder
+3. Open the extension's popup and paste the code below</pre>
+
+        <p class="dialog-sub">
+          <span data-i18n="browserPairCode">Pairing code</span>
+          <span id="browserCode" class="tool-chip">------</span>
+        </p>
+
+        <div class="dialog-actions">
+          <button id="browserOpenFolder" class="ghost" data-i18n="browserOpenFolder">Open folder</button>
+          <button id="browserCopyUrl" class="ghost" data-i18n="browserCopyExtensions">Copy chrome://extensions</button>
+          <button id="browserWatch" class="ghost" data-i18n="browserWatch">Watch what the agent does</button>
+        </div>
+        <div class="dialog-actions">
+          <button id="browserToggle" class="ghost danger" data-i18n="browserDisconnect">Turn off</button>
+          <button id="browserClose" class="send" data-i18n="close">Close</button>
         </div>
       </div>
     </div>

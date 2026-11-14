@@ -259,29 +259,7 @@ function resolveDataRoot() {
 
 const DATA_ROOT = resolveDataRoot();
 
-/* --------------------------- browser control ---------------------------
- * Drives the user's own Chrome through the companion extension. Nothing
- * listens until the chip in the toolbar is switched on, and the pairing code
- * is the only thing that lets the extension in.
- */
 
-/** Six digits, created once and kept in prefs so pairing survives a restart. */
-function ensureBrowserToken() {
-  const existing = readPrefs().browserBridge && readPrefs().browserBridge.token;
-  if (typeof existing === 'string' && /^\d{6}$/.test(existing)) return existing;
-  const token = String(Math.floor(100000 + Math.random() * 900000));
-  writePrefs({ browserBridge: { ...(readPrefs().browserBridge || {}), token } });
-  return token;
-}
-
-const browserBridge = createBrowserBridge({
-  extensionId: EXTENSION_ID,
-  token: ensureBrowserToken(),
-  auditPath: path.join(DATA_ROOT, 'browser-audit.log'),
-  log: (line) => console.log('[browser]', line),
-});
-
-browserBridge.onStatus((status) => send('browser:status', status));
 /**
  * The Coarena key is per-machine state, never part of prefs.json: it is
  * encrypted by the OS through safeStorage and stays in the main process. The
@@ -418,6 +396,30 @@ function writePrefs(patch) {
     fs.writeFileSync(prefsPath(), JSON.stringify(next, null, 2));
   } catch {}
 }
+
+/* --------------------------- browser control ---------------------------
+ * Drives the user's own Chrome through the companion extension. Nothing
+ * listens until the chip in the toolbar is switched on, and the pairing code
+ * is the only thing that lets the extension in.
+ */
+
+/** Six digits, created once and kept in prefs so pairing survives a restart. */
+function ensureBrowserToken() {
+  const existing = readPrefs().browserBridge && readPrefs().browserBridge.token;
+  if (typeof existing === 'string' && /^\d{6}$/.test(existing)) return existing;
+  const token = String(Math.floor(100000 + Math.random() * 900000));
+  writePrefs({ browserBridge: { ...(readPrefs().browserBridge || {}), token } });
+  return token;
+}
+
+const browserBridge = createBrowserBridge({
+  extensionId: EXTENSION_ID,
+  token: ensureBrowserToken(),
+  auditPath: path.join(DATA_ROOT, 'browser-audit.log'),
+  log: (line) => console.log('[browser]', line),
+});
+
+browserBridge.onStatus((status) => send('browser:status', status));
 
 /** Path of the app's own MCP config, next to the rest of the data. */
 function mcpConfigPath() {
