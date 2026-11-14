@@ -23,6 +23,25 @@ app.setName('FreePi');
 app.setAppUserModelId('ai.ntapi.desktop');
 
 const bridge = require('./freepi-bridge');
+const { formatSystemInfo, safeErrorMessage } = require('./system-info');
+const { sdkCandidatePaths } = require('./sdk-path');
+
+/**
+ * Keep a crash on disk so a report can reference it, and let the window offer
+ * "copy system info" instead of dying silently. Deliberately does not quit: the
+ * app stays usable and the log can be read.
+ */
+function logCrash(kind, detail) {
+  try {
+    const line = `[${new Date().toISOString()}] ${kind}: ${String(detail).slice(0, 8000)}\n`;
+    fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'), line);
+  } catch {}
+}
+process.on('uncaughtException', (err) => logCrash('uncaughtException', safeErrorMessage(err)));
+process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', safeErrorMessage(reason)));
+app.on('render-process-gone', (_event, _contents, details) =>
+  logCrash('render-process-gone', JSON.stringify(details))
+);
 const { diffLines } = require('./diff');
 const { sessionDirName } = require('./session-paths');
 const { friendlyProviderError } = require('./provider-errors');
@@ -133,28 +152,25 @@ function findFreePiCli() {
 // pi SDK ships inside the free-pi-cli npx cache. Resolve it at runtime so the
 // app works on a machine that already ran `npx free-pi-cli`.
 function resolveSdk() {
-  // Never hardcode a user path: this app is meant to run on other machines too.
-  const candidates = [process.env.NTAPI_SDK_PATH, process.env.FREEPI_SDK_PATH].filter(Boolean);
+  // Bundled first (a fresh machine has no npx cache), then the env overrides,
+  // then the CLI's npx cache. Each candidate is a package directory — the SDK is
+  // ESM-only with no `require` export, so requiring the directory works when
+  // resolving it by name does not. See `src/sdk-path.js`.
+  const candidates = sdkCandidatePaths({
+    appDir: path.join(__dirname, '..'),
+    home: app.getPath('home'),
+    env: process.env,
+  });
 
-  for (const base of candidates) {
+  for (const dir of candidates) {
+    if (!fs.existsSync(dir)) continue;
     try {
-      return require(base);
+      return require(dir);
     } catch {}
   }
 
-  const npxRoot = path.join(app.getPath('home'), 'AppData', 'Local', 'npm-cache', '_npx');
-  try {
-    for (const dir of fs.readdirSync(npxRoot)) {
-      const p = path.join(npxRoot, dir, 'node_modules', '@earendil-works', 'pi-coding-agent');
-      if (fs.existsSync(p)) {
-        try {
-          return require(p);
-        } catch {}
-      }
-    }
-  } catch {}
   throw new Error(
-    'Could not find @earendil-works/pi-coding-agent. Run `npx free-pi-cli@latest` once in a terminal, then reopen this app.'
+    'Could not find @earendil-works/pi-coding-agent. Reinstall NTAPI, or run `npx free-pi-cli@latest` once in a terminal, then reopen this app.'
   );
 }
 
@@ -1727,6 +1743,24 @@ ipcMain.handle('llm7:clearKey', async () => {
   }
   const applied = await applyLlm7KeyToTabs(null);
   return { ok: true, status: llm7Keys.status(), applied };
+});
+
+ipcMain.handle('app:systemInfo', () => {
+  const active = activeTabId ? tabs.get(activeTabId) : null;
+  const info = {
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    platform: process.platform,
+    release: os.release(),
+    arch: process.arch,
+    locale: app.getLocale(),
+    dataDir: DATA_ROOT,
+    packaged: app.isPackaged,
+    provider: active?.handle?.session?.model?.provider || '',
+  };
+  return { ...info, text: formatSystemInfo(info) };
 });
 
 ipcMain.handle('mcp:get', () => ({

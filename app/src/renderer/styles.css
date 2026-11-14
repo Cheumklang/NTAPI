@@ -167,7 +167,7 @@ body.resizing #sidebar { pointer-events: none; }
   box-shadow: 0 0 0 1px rgba(255, 255, 255, .07), 0 2px 6px rgba(0, 0, 0, .45);
 }
 .brand-count {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
   color: #8b93a7;
@@ -221,7 +221,7 @@ body.resizing #sidebar { pointer-events: none; }
 .update-pct {
   min-width: 40px;
   text-align: right;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -280,7 +280,7 @@ body.resizing #sidebar { pointer-events: none; }
   .toast, .toast.out { animation: none; }
 }
 .badge {
-  font-size: 11.5px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: .6px;
   color: var(--warn);
@@ -352,7 +352,7 @@ body.resizing #sidebar { pointer-events: none; }
   background: var(--accent);
   padding: 1px 8px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .02em;
   line-height: 1.7;
@@ -368,15 +368,15 @@ body.resizing #sidebar { pointer-events: none; }
 
 .usage { border-top: 1px solid var(--line); padding-top: 10px; gap: 4px; }
 .usage-title {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: .8px;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 2px;
 }
-.usage-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
-.usage-row .mono { color: var(--text); font-family: var(--mono); font-size: 12.5px; }
+.usage-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.usage-row .mono { color: var(--text); font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 
 /* The meter swaps with the provider: free-pi shows usage, Coarena shows limits.
    `display: contents` keeps the wrapper out of the flex layout. */
@@ -612,7 +612,7 @@ button { font-family: inherit; }
 }
 .model-picker-mark img { width: 19px; height: 19px; object-fit: contain; display: block; }
 .model-picker-mark .model-logo-letter {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 750;
   line-height: 1;
   color: var(--accent-2);
@@ -627,7 +627,7 @@ button { font-family: inherit; }
   line-height: 1.18;
 }
 .model-picker-provider {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .07em;
   text-transform: uppercase;
@@ -646,7 +646,7 @@ button { font-family: inherit; }
 .model-picker-chevron {
   flex: 0 0 auto;
   margin-left: 1px;
-  font-size: 9.5px;
+  font-size: 12px;
   color: var(--muted);
   transition: transform .14s;
 }
@@ -721,9 +721,9 @@ button { font-family: inherit; }
   border: 1px solid rgba(255, 255, 255, .06);
 }
 .model-group-mark img { width: 16px; height: 16px; object-fit: contain; display: block; }
-.model-group-mark .model-logo-letter { font-size: 10px; font-weight: 750; color: var(--accent-2); }
+.model-group-mark .model-logo-letter { font-size: 12px; font-weight: 750; color: var(--accent-2); }
 .model-group-name {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -736,7 +736,7 @@ button { font-family: inherit; }
   background: #202635;
   color: #8b93a7;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -759,7 +759,7 @@ button { font-family: inherit; }
 .model-section[hidden],
 .model-group[hidden] { display: none; }
 .model-option:hover,
-.model-option:focus-visible { background: #242a39; outline: none; }
+.model-option:focus-visible { background: #242a39; outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
 .model-option[aria-selected="true"] {
   background: rgba(124, 92, 255, .13);
   border-color: rgba(124, 92, 255, .32);
@@ -786,7 +786,7 @@ button { font-family: inherit; }
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 12px;
   color: #697287;
   text-align: right;
 }
@@ -817,7 +817,7 @@ button { font-family: inherit; }
 }
 .model-star:hover { background: #2a3143; color: #e3b341; }
 .model-star.on { color: #e3b341; }
-.model-star:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(124, 92, 255, .35); }
+.model-star:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .model-group-mark-star { color: #e3b341; font-size: 13px; text-align: center; }
 .model-group-fav .model-group-name { color: #e3b341; }
 
@@ -850,7 +850,7 @@ button { font-family: inherit; }
   justify-content: center;
   border-radius: 50%;
   background: #2a3143;
-  font-size: 11px;
+  font-size: 12px;
 }
 @keyframes tip-pop { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .model-tip { animation: none; } }
@@ -873,7 +873,7 @@ button { font-family: inherit; }
   padding: 1px 7px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: .02em;
   white-space: nowrap;
@@ -883,7 +883,7 @@ button { font-family: inherit; }
   background: rgba(227, 179, 65, .1);
   border-color: rgba(227, 179, 65, .3);
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: 12px;
 }
 
 /* The same badge, scaled down for the closed picker button. */
@@ -892,7 +892,7 @@ button { font-family: inherit; }
   padding: 1px 6px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 9.5px;
+  font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
 }
@@ -914,7 +914,7 @@ button { font-family: inherit; }
   align-items: center;
   gap: 6px;
   padding: 7px 9px 3px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .09em;
   text-transform: uppercase;
@@ -939,7 +939,7 @@ button { font-family: inherit; }
   gap: 5px;
   padding: 0 2px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
@@ -972,6 +972,8 @@ button { font-family: inherit; }
 .empty { text-align: center; color: var(--muted); margin-top: 12vh; }
 .empty h1 { font-size: 22px; color: var(--text); margin-bottom: 6px; font-weight: 620; }
 .empty p { margin: 0; font-size: 13.5px; }
+.empty-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
+.empty-note { font-size: 12px; color: var(--muted); opacity: .85; }
 
 .msg { display: flex; flex-direction: column; gap: 6px; }
 .msg .role {
@@ -1115,7 +1117,7 @@ button { font-family: inherit; }
 
 .ad-tag {
   flex: 0 0 auto;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .8px;
   color: var(--muted);
@@ -1263,6 +1265,23 @@ button { font-family: inherit; }
   font-size: 12.5px;
   color: var(--muted);
 }
+
+/* Crash / unhandled-error banner above the composer. */
+.crash-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  background: rgba(229, 83, 83, .12);
+  border: 1px solid rgba(229, 83, 83, .35);
+  border-radius: 9px;
+  color: #f3b0b0;
+  font-size: 12.5px;
+}
+.crash-notice[hidden] { display: none; }
+.crash-notice .crash-text { flex: 1 1 auto; min-width: 0; }
+.about-copy { margin: 0 0 4px; }
 /* Working hint: three dots that rise and fade in sequence, so a long turn never
    looks like a frozen window. */
 .hint-dots {
@@ -1516,7 +1535,7 @@ button { font-family: inherit; }
 }
 .file-icon {
   flex: 0 0 auto;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .3px;
   color: #a9b2c7;
@@ -1666,7 +1685,7 @@ button { font-family: inherit; }
 .usage-bar-legend {
   display: flex;
   justify-content: space-between;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 3px;
 }
@@ -1692,7 +1711,7 @@ button { font-family: inherit; }
   font-size: 13px;
   padding: 5px 7px;
 }
-.s-rename:focus { outline: none; box-shadow: 0 0 0 2px rgba(124, 92, 255, .25); }
+.s-rename:focus { outline: none; box-shadow: 0 0 0 2px rgba(124, 92, 255, .45); }
 .s-spin {
   display: inline-block;
   width: 7px;
@@ -1843,7 +1862,7 @@ button { font-family: inherit; }
 }
 .settings-group { margin-bottom: 14px; }
 .settings-head {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: .8px;
   text-transform: uppercase;
@@ -1861,7 +1880,7 @@ button { font-family: inherit; }
 .settings-row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .settings-label { font-size: 13px; color: var(--text); font-weight: 500; }
 .settings-badge {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1869,7 +1888,7 @@ button { font-family: inherit; }
 }
 .settings-value { font-size: 12.5px; color: #c9c2ff; }
 .settings-resolved {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 2px;
   overflow: hidden;
@@ -2051,7 +2070,7 @@ button { font-family: inherit; }
 /* MCP settings: a JSON editor plus a save row. */
 .settings-subhead {
   margin: 12px 0 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -2079,7 +2098,7 @@ button { font-family: inherit; }
 .mcp-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .mcp-actions .settings-hint { margin: 0; }
 .settings-hint.warn { color: #e3b341; }
-.settings-hint.mono { font-family: var(--mono); font-size: 11px; color: #697287; word-break: break-all; }
+.settings-hint.mono { font-family: var(--mono); font-size: 12px; color: #697287; word-break: break-all; }
 
 .settings-locked {
   margin: 10px 0 0;
@@ -2293,7 +2312,7 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 }
 .md-lang {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 12px;
   letter-spacing: .04em;
   color: var(--muted);
 }
@@ -2443,7 +2462,7 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.shell-status { font-family: var(--mono); font-size: 11.5px; color: var(--muted); flex: 0 0 auto; }
+.shell-status { font-family: var(--mono); font-size: 12px; color: var(--muted); flex: 0 0 auto; }
 .msg.shell.error .shell-status { color: var(--danger); }
 .shell-output {
   margin: 0;
@@ -2655,7 +2674,7 @@ button.ghost.danger:hover { background: rgba(255, 95, 109, .12); }
 }
 
 .about-label {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: .6px;
   text-transform: uppercase;
@@ -2686,7 +2705,7 @@ button.ghost.danger:hover { background: rgba(255, 95, 109, .12); }
 }
 
 .about-label-mini {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: .5px;
   text-transform: uppercase;

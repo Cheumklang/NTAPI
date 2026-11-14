@@ -173,6 +173,10 @@ const STRINGS = {
     mcpSaving: 'Saving…',
     mcpSaved: 'Saved — applies to new sessions',
     mcpSaveFailed: 'Could not save',
+    copySystemInfo: 'Copy system info',
+    systemInfoCopied: 'Copied',
+    systemInfoFailed: 'Could not copy',
+    crashNotice: 'Something went wrong. Copy the system info and include it in a bug report.',
     mcpLlm7Warn:
       "On LLM7.io's free tier, function calling may be unavailable and each tool drains the daily token budget — prefer another provider for MCP work.",
     dataRootLabel: 'App data folder',
@@ -253,6 +257,10 @@ const STRINGS = {
     chooseToBegin: 'Choose a workspace folder to begin',
     emptyTitle: 'What are we building?',
     emptySub: 'Pick a folder on the left, then describe a task. NTAPI runs the agent here — no terminal.',
+    emptyPickFolder: 'Choose a folder',
+    emptyNewChat: 'New chat',
+    emptySettings: 'Settings',
+    emptyWhere: 'Generated files and downloads go in the folder you pick.',
     dropFiles: 'Drop files to attach',
     removeFromQueue: 'Remove from queue',
     newSession: 'New session',
@@ -448,6 +456,10 @@ const STRINGS = {
     mcpSaving: 'กำลังบันทึก…',
     mcpSaved: 'บันทึกแล้ว — มีผลกับ session ใหม่',
     mcpSaveFailed: 'บันทึกไม่สําเร็จ',
+    copySystemInfo: 'คัดลอกข้อมูลระบบ',
+    systemInfoCopied: 'คัดลอกแล้ว',
+    systemInfoFailed: 'คัดลอกไม่สําเร็จ',
+    crashNotice: 'เกิดข้อผิดพลาดบางอย่าง คัดลอกข้อมูลระบบแล้วแนบไปในรายงานบั๊กได้เลย',
     mcpLlm7Warn:
       'บน LLM7.io โควตาฟรีอาจเรียก tool ไม่ได้ และทุก tool จะกินโทเคนรายวัน — ควรใช้ค่ายอื่นสำหรับงาน MCP',
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
@@ -470,7 +482,7 @@ const STRINGS = {
     resetAll: 'รีเซ็ตทั้งหมด',
     accountSection: 'บัญชีของคุณ',
     accountKind: 'ล็อกอินเป็น',
-    accountCredits: 'Credits วันนี้',
+    accountCredits: 'โควตาวันนี้',
     accountLane: 'เลน',
     accountFile: 'ไฟล์ล็อกอิน',
     accountTokenMissing: 'ยังไม่มีไฟล์ — จะสร้างขึ้นเมื่อล็อกอิน',
@@ -527,7 +539,11 @@ const STRINGS = {
     readyHint: 'พร้อมแล้ว — กด + เพื่อเริ่มเซสชัน',
     chooseToBegin: 'เลือกโฟลเดอร์ทำงานเพื่อเริ่มต้น',
     emptyTitle: 'จะสร้างอะไรกันดี?',
-    emptySub: 'เลือกโฟลเดอร์ทางซ้าย แล้วบอกงานที่ต้องการ — NTAPI ทำงานให้ที่นี่ ไม่ต้องใช้ terminal',
+    emptySub: 'เลือกโฟลเดอร์ทางซ้าย แล้วบอกงานที่ต้องการ — NTAPI ทํางานให้ที่นี่ ไม่ต้องใช้ terminal',
+    emptyPickFolder: 'เลือกโฟลเดอร์',
+    emptyNewChat: 'แชทใหม่',
+    emptySettings: 'ตั้งค่า',
+    emptyWhere: 'ไฟล์ที่สร้างและดาวน์โหลดจะอยู่ในโฟลเดอร์ที่เลือก',
     dropFiles: 'วางไฟล์เพื่อแนบ',
     removeFromQueue: 'เอาออกจากคิว',
     newSession: 'เซสชันใหม่',
@@ -2335,6 +2351,10 @@ async function openSettings() {
     initSettingsSections();
     settingsSectionsInited = true;
   }
+  // The overlay is modal: remember what had focus and hide the rest of the app
+  // from focus and the accessibility tree while it is open.
+  settingsReturnFocus = document.activeElement;
+  setBackgroundInert(true);
   showSettingsSection(settingsSection);
   const view = activeView();
   settingsData = await api.getSettings(view?.cwd);
@@ -2370,6 +2390,23 @@ async function loadProfile() {
 
 function closeSettings() {
   el('settingsOverlay').hidden = true;
+  setBackgroundInert(false);
+  if (settingsReturnFocus && typeof settingsReturnFocus.focus === 'function') {
+    settingsReturnFocus.focus();
+  }
+  settingsReturnFocus = null;
+}
+
+let settingsReturnFocus = null;
+
+/** Keep the app behind the settings overlay out of the focus order. */
+function setBackgroundInert(on) {
+  for (const id of ['titlebar', 'sidebar', 'main']) {
+    const node = el(id);
+    if (!node) continue;
+    if (on) node.setAttribute('inert', '');
+    else node.removeAttribute('inert');
+  }
 }
 
 /* ------------------------------- MCP -------------------------------- */
@@ -2420,6 +2457,44 @@ async function saveMcpSettings() {
 }
 
 el('mcpSave')?.addEventListener('click', saveMcpSettings);
+
+/* -------------------- system info & crash notice -------------------- */
+
+async function copySystemInfo(btn) {
+  let text = '';
+  try {
+    const info = await api.systemInfo();
+    text = info?.text || '';
+    await navigator.clipboard.writeText(text);
+    if (btn) {
+      const original = btn.textContent;
+      btn.textContent = t('systemInfoCopied');
+      setTimeout(() => {
+        btn.textContent = original;
+      }, 2000);
+    }
+  } catch {
+    showNotice(t('systemInfoFailed'));
+  }
+}
+
+/** One visible banner at a time; the user can copy the info or dismiss it. */
+function showCrashNotice(reason) {
+  const box = el('crashNotice');
+  const text = el('crashText');
+  if (!box || !text || !box.hidden) return;
+  const msg = reason && reason.message ? reason.message : typeof reason === 'string' ? reason : '';
+  text.textContent = `${t('crashNotice')}${msg ? ` — ${msg}` : ''}`;
+  box.hidden = false;
+}
+
+window.addEventListener('error', (e) => showCrashNotice(e.error || e.message));
+window.addEventListener('unhandledrejection', (e) => showCrashNotice(e.reason));
+el('copySystemInfoBtn')?.addEventListener('click', (e) => copySystemInfo(e.currentTarget));
+el('crashCopy')?.addEventListener('click', (e) => copySystemInfo(e.currentTarget));
+el('crashClose')?.addEventListener('click', () => {
+  el('crashNotice').hidden = true;
+});
 
 // Settings section navigation (left list, right panel)
 function initSettingsSections() {
@@ -2617,6 +2692,31 @@ async function saveFolders(current, kind, value) {
 }
 
 el('settingsBtn').addEventListener('click', openSettings);
+
+// First-run empty state: three ways to start without hunting for the sidebar.
+el('emptyPickFolder')?.addEventListener('click', () => el('pickFolder')?.click());
+el('emptyNewChat')?.addEventListener('click', () => el('newSession')?.click());
+el('emptySettings')?.addEventListener('click', openSettings);
+
+// Keep Tab inside the modal while it is open (the background is inert, so this
+// only needs to wrap from the last control back to the first).
+el('settingsOverlay').addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab') return;
+  const overlay = el('settingsOverlay');
+  const focusable = [
+    ...overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+  ].filter((n) => !n.disabled && n.getClientRects().length > 0);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+});
 
 // ---- custom title bar ----
 el('winMin').addEventListener('click', () => api.minimize());
@@ -4736,6 +4836,11 @@ Object.assign(STRINGS.en, {
   compact: 'Compact',
   export: 'Export',
   thinking: 'Reasoning',
+  thinkingOff: 'Off',
+  thinkingMinimal: 'Minimal',
+  thinkingLow: 'Low',
+  thinkingMedium: 'Medium',
+  thinkingHigh: 'High',
   shell: 'Shell',
   shellRunning: 'running…',
   shellExit: 'exit {code}',
@@ -4789,6 +4894,11 @@ Object.assign(STRINGS.th, {
   compact: 'ย่อประวัติ',
   export: 'ส่งออก',
   thinking: 'การคิด',
+  thinkingOff: 'ปิด',
+  thinkingMinimal: 'น้อยที่สุด',
+  thinkingLow: 'ต่ำ',
+  thinkingMedium: 'กลาง',
+  thinkingHigh: 'สูง',
   shell: 'เชลล์',
   shellRunning: 'กำลังรัน…',
   shellExit: 'จบที่ {code}',
@@ -5364,6 +5474,19 @@ function answerQuestion(answer) {
 
 /* ------------------------------ thinking ---------------------------- */
 
+/** Human label for a reasoning level; unknown levels pass through. */
+const THINKING_LEVEL_KEYS = {
+  off: 'thinkingOff',
+  minimal: 'thinkingMinimal',
+  low: 'thinkingLow',
+  medium: 'thinkingMedium',
+  high: 'thinkingHigh',
+};
+function thinkingLevelLabel(level) {
+  const key = THINKING_LEVEL_KEYS[level];
+  return key ? t(key) : level;
+}
+
 function paintThinking(thinking) {
   const select = el('thinkingSelect');
   if (!select) return;
@@ -5375,7 +5498,7 @@ function paintThinking(thinking) {
   if (select.dataset.levels !== thinking.levels.join(',')) {
     select.dataset.levels = thinking.levels.join(',');
     select.innerHTML = thinking.levels
-      .map((level) => `<option value="${escapeHtml(level)}">${escapeHtml(t('thinking'))}: ${escapeHtml(level)}</option>`)
+      .map((level) => `<option value="${escapeHtml(level)}">${escapeHtml(t('thinking'))}: ${escapeHtml(thinkingLevelLabel(level))}</option>`)
       .join('');
   }
   select.value = thinking.level || 'off';

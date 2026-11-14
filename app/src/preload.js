@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('freepi', {
   // MCP config: the app's own <data>/mcp.json, edited from Settings.
   mcpGet: () => ipcRenderer.invoke('mcp:get'),
   mcpSet: (payload) => ipcRenderer.invoke('mcp:set', payload),
+  // Version/runtime/OS, for the "copy system info" button and crash reports.
+  systemInfo: () => ipcRenderer.invoke('app:systemInfo'),
   // Coarena key: the renderer sees status only, never the key itself.
   coarenaStatus: () => ipcRenderer.invoke('coarena:status'),
   coarenaSetKey: (key) => ipcRenderer.invoke('coarena:setKey', { key }),

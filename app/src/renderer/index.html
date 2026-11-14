@@ -170,6 +170,12 @@
           <div id="emptyState" class="empty">
             <h1 data-i18n="emptyTitle">What are we building?</h1>
             <p data-i18n="emptySub">Pick a folder on the left, then describe a task. NTAPI runs the agent here — no terminal.</p>
+            <div class="empty-actions">
+              <button id="emptyPickFolder" class="primary-btn small" data-i18n="emptyPickFolder">Choose a folder</button>
+              <button id="emptyNewChat" class="ghost small" data-i18n="emptyNewChat">New chat</button>
+              <button id="emptySettings" class="ghost small" data-i18n="emptySettings">Settings</button>
+            </div>
+            <p class="empty-note" data-i18n="emptyWhere">Generated files and downloads go in the folder you pick.</p>
           </div>
         </section>
 
@@ -179,6 +185,11 @@
                from the command palette (Ctrl+P → "Changes in this session"). -->
           <div id="todoPanel" class="todo-panel" hidden role="status" aria-live="polite"></div>
           <div id="notice" class="notice" hidden></div>
+          <div id="crashNotice" class="crash-notice" role="alert" hidden>
+            <span id="crashText" class="crash-text"></span>
+            <button id="crashCopy" class="ghost small" data-i18n="copySystemInfo">Copy system info</button>
+            <button id="crashClose" class="ghost small" data-i18n="close">Close</button>
+          </div>
           <div id="queueBar" class="queue-bar" hidden></div>
           <div id="attachments" class="attachments" hidden></div>
           <div class="composer-box">
@@ -496,6 +507,7 @@
                   <span class="about-app" data-i18n="aboutApp">NTAPI</span>
                   <span class="about-version" id="aboutVersion"></span>
                 </div>
+                <button id="copySystemInfoBtn" class="ghost small about-copy" data-i18n="copySystemInfo">Copy system info</button>
                 <div class="about-divider"></div>
                 <div class="about-fields">
                   <div class="about-field">

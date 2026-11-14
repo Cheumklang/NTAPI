@@ -1,11 +1,12 @@
 {
   "name": "ntapi-desktop",
   "productName": "NTAPI",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Desktop app for NTAPI (no terminal needed)",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
+    "test": "node scripts/run-unit-tests.js",
     "dist": "electron-builder --win --x64",
     "release": "electron-builder --win --x64 --publish always"
   },
@@ -32,6 +33,10 @@
       "package.json",
       "node_modules/**/*"
     ],
+    "asarUnpack": [
+      "node_modules/@earendil-works/**",
+      "node_modules/quickjs-wasi/**"
+    ],
     "win": {
       "target": [
         "nsis"
@@ -53,6 +58,7 @@
     ]
   },
   "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.2.0",
     "electron-updater": "^6.8.11"
   }
 }

@@ -1,0 +1,42 @@
+name: CI
+
+# Offline checks only: no provider keys, no network beyond `npm install`, and no
+# Electron window. The release build has its own workflow (release.yml) and runs
+# on tags, so a tag push is deliberately not matched here.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Syntax check every source file
+        working-directory: app
+        shell: bash
+        run: |
+          set -e
+          for f in $(find src scripts -name '*.js'); do
+            node --check "$f"
+          done
+
+      - name: Offline unit tests
+        working-directory: app
+        run: node scripts/run-unit-tests.js
