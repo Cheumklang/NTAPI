@@ -848,3 +848,48 @@ Electron FAIL 5 โดยเฉพาะ `the old text is never sent — {"sent"
 - **hold หนึ่งอันผูกกับ item ได้ทางเดียว** คือ `record.item` ซึ่ง `queueMessage` ตั้ง**หลัง**
   `holdMessage()` คืนค่า → ตัวช่วยที่ต้องหา hold จาก item ต้องอ่านตอนกด ไม่ใช่ตอนสร้าง
   (บทเรียนเดียวกับ bug ปุ่มยกเลิก `d7f5972`)
+
+## 2026-11-15 — ghost ใหญ่เกิน + ไม่มีเลขลำดับ (`d16be22`)
+
+**คำขอ (ผู้ใช้ทดสอบเอง):** "ตอนลาก ghost มันใหญ่มากๆ ปรับขนาดให้เหมาะสม ไม่ต้องแสดงข้อความ
+ทั้งหมดก็ได้ ... มีตัวเลขอยู่ด้านหน้าของคิวว่าข้อความไหนอยู่ลำดับที่เท่าไหร่ด้วยจะดีมาก"
+
+**รากของ ghost ใหญ่:** `showDragGhost()` ตั้ง `ghost.style.width` = ความกว้างของ `#queueBar`
+(850px) และใส่ `textContent` เต็มข้อความ → เป็นแถบเต็มความกว้างที่**บังรายการที่กำลังลากไปใส่**
+- วัดก่อนแก้: `{width:850, height:23, text: เต็มข้อความ 90 ตัวอักษร}`
+- วัดหลังแก้: `{width:176, height:23, chars:33, endsWithEllipsis:true}` = เล็กลง **79%**
+
+**แก้ ghost:**
+- ตัด `ghost.style.width` ทิ้ง — ให้ขนาดตามเนื้อหา (`max-width: 260px` ใน CSS)
+- `shortenGhost(text, limit=32)` — ยุบช่องว่างก่อน แล้วตัดด้วย **code point**
+  (`[...flat]`) ไม่ใช่ UTF-16 unit เพราะสระ/วรรณยุกต์ไทยแยก code point ได้
+  → ตัดด้วย `slice` ธรรมดาอาจตัดวรรณยุกต์หลุดจากพยัญชนะ
+- CSS: `border-radius: 999px` (แคปซูล) + ขอบสี accent + `left: 8px` `top: 0`
+  (ไม่ใช้ `right: 0` อีกแล้ว) + `font-size: 11px`
+- `moveDragGhost` เปลี่ยน `clientY - 16` → `clientY - 14` ให้ตรงกับความสูงใหม่
+
+**แก้เลขลำดับ:**
+- `items.forEach((item, index)` (เดิมไม่มี index)
+- `<span class="queue-num">` = `String(index + 1)` เป็น**ลูกตัวแรก**ของแถว (ก่อน `⠿`)
+- `aria-label` = `t('queuePosition', { n })` — ตัวเลขเดี่ยว ๆ screen reader อ่านลอย ๆ
+- เพิ่มคีย์ `queuePosition` ทั้ง EN/TH
+- CSS `.queue-num`: `font-variant-numeric: tabular-nums` (เลข 1 หลัก/2 หลักกว้างเท่ากัน
+  ไม่ให้ข้อความกระโดดตอนขึ้นหลักสิบ) + `user-select: none` + `min-width: 11px`
+- เลขคำนวณจาก `index` ตอน render → **อัปเดตตามหลังลากอัตโนมัติ** (ทดสอบแล้ว)
+
+**เทสต์:** `selftest-queue-number.js` (24) · `check-queue-number.js` (19, Electron วัดจริง)
+· npm script `check:queue-number` · `npm test` **48/48**
+
+**ย้อนกลับ:**
+- คืน `ghost.style.width` + `textContent = raw` → FAIL 3 (`chars:90`, ไม่มี `…`)
+- comment `row.appendChild(num)` → FAIL 3 (`[null,null,null]`)
+
+**Learned:**
+- **เทสต์หยิบแถวตาม index หลัง reorder = ผิดแถว** — ของผมเลือก `rows[1]` หลังสลับลำดับ
+  ได้ข้อความสั้นมาแทนข้อความยาว → ต้องเลือกจาก `textContent` ที่ต้องการ
+- **`.queue-num` ทำให้เทสต์เดิมพัง 3 ข้อ** ใน `check-queue-placement.js` (`gripFirst`,
+  ระยะจากขอบซ้าย) เพราะทุกอย่างเลื่อนไปทางขวา ~15px · แก้ให้ `gripFirst` ข้าม `.queue-num`
+  แล้วขยายเพดานระยะจาก 40 → 60px พร้อมเพิ่ม check ว่าเลขเป็นลูกตัวแรก
+  (**บทเรียน: เพิ่ม element หน้าแถวแล้วต้องรันเทสต์ geometry เก่าทั้งชุด**)
+- `body()` ที่จับ `{...}` ด้วยการนับวงเล็บใช้ไม่ได้กับไฟล์ CRLF ที่มี regex ยาว — ใช้ `slice` แทน
+- **`look_at_image` ยังใช้ไม่ได้** — path ต้องอยู่ใน project แต่ก็ยัง reject; ทำงานจากคำอธิบายผู้ใช้แทน

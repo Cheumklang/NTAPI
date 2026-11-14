@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-15 · **v0.4.2** (`master` = `98125ea`, tag `v0.4.2`)
+**อัปเดตล่าสุด:** 2026-11-15 · **v0.4.2** (`master` = `d16be22`, tag `v0.4.2`)
 
 > v0.4.2 รวมทุกอย่างตั้งแต่ v0.3.5: สวิตช์อนุมัติแบบสไลด์ · คิวในช่องพิมพ์
 > (แก้/ลาก/ดินสอ/ghost) · คำตอบหลายก้อนไม่หาย · scroll ติดล่างเสมอ
@@ -110,12 +110,26 @@
 - **Learned:** `saveQueueEdit` เรียก `drainQueue()` → เซฟแล้ว **ส่งทันที** ถ้าคิวว่าง
   อย่าเขียนเทสต์ว่า "เซฟแล้วยังอยู่คิว"
 
+**(ข3) `d16be22` — ghost ใหญ่เกิน + เพิ่มเลขลำดับหน้าคิว** (ผู้ใช้ทดสอบเจอเอง 2026-11-15)
+- ราก ghost: `showDragGhost()` ตั้ง `ghost.style.width` = ความกว้าง `#queueBar` (850px)
+  + ใส่ข้อความเต็ม → แถบเต็มความกว้าง**บังรายการที่ลากไปใส่**
+  · หลังแก้ `shortenGhost(text, 32)` + `max-width: 260px` + `border-radius: 999px`
+  · วัดจริง **850px → 176px** (เล็กลง 79%), 33 code point + `…`
+  · **ตัดด้วย `[...flat]` ไม่ใช่ slice ตรง ๆ** — สระ/วรรณยุกต์ไทยแยก code point
+    slice แบบ UTF-16 จะตัดวรรณยุกต์หลุดจากพยัญชนะ
+- เลขลำดับ: `<span class="queue-num">` เป็นลูกตัวแรก (ก่อน `⠿`) · `t('queuePosition',{n})`
+  · `tabular-nums` ให้เลข 1/2 หลักกว้างเท่ากัน · คำนวณจาก `index` ตอน render → อัปเดตตามหลังลาก
+- เทสต์: `selftest-queue-number.js` (24) · `check-queue-number.js` (19, Electron วัดจริง)
+- ย้อนกลับ: คืน `ghost.style.width` → FAIL 3 (`chars:90`) · comment `appendChild(num)` → FAIL 3
+- **Learned:** เพิ่ม element หน้าแถวทำให้ `check-queue-placement.js` พัง 3 ข้อ (geometry เลื่อน ~15px)
+  → `gripFirst` ต้องข้าม `.queue-num`, เพดานระยะ 40 → 60px · **รันเทสต์ geometry เก่าทุกครั้งที่เพิ่ม element**
+
 **(ค) เทสต์**
-- `npm test` = **47/47** (ทุกไฟล์ผ่าน `node --check` ก่อน)
+- `npm test` = **48/48** (ทุกไฟล์ผ่าน `node --check` ก่อน)
   · **ต้องลงทะเบียน `selftest-*.js` ใน `TESTS` ของ `scripts/run-unit-tests.js`** ไม่งั้นไม่รัน
 - npm scripts: `check:queue` `check:reload` `check:history` `check:hold` `check:attach`
   `check:read` `check:cancel` `check:queue-edit` `check:approval` `check:blocks`
-  `check:queue-controls` `check:queue-edit-hold`
+  `check:queue-controls` `check:queue-edit-hold` `check:queue-number`
 - เทสต์ Electron ที่สำคัญ: `check-queue-controls.js` (27) · `check-turn-blocks.js` (17)
   · `check-read-position.js` · `check-cancel-button.js`
 
