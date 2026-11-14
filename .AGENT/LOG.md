@@ -527,3 +527,40 @@ client-version, "ไม่อนุมัติเลย", status-row, compactFa
 
 **Learned:** รอบแรกผมวาง `#queueBar` ไว้ *ก่อน* `.composer-actions` ในคอลัมน์ → ตอนวัดจริง
 `belowSend` เป็น false (คิวอยู่บนปุ่ม) ต้องสลับลำดับเป็นปุ่มก่อนแล้วคิวใต้ปุ่ม
+
+### Ctrl+Shift+R ระหว่างงาน — reload ไม่ทำให้งานหลุด (2026-11-14)
+
+**คำถามผู้ใช้:** ระหว่างที่ AI ทำงาน กด Ctrl+Shift+R ได้ไหม จะหลุดไหม ถ้าหลุดขอให้แก้
+เพราะอยาก reload ดูผลหลังแก้อะไร โดยไม่ต้องปิดเปิดโปรแกรมใหม่
+
+**คำตอบหลังตรวจ:** **หลุด** — ไม่ใช่เพราะ reload ฆ่างาน แต่เพราะ 3 บั๊กซ้อนกัน
+
+1. **`tab:open` สร้าง tab ใหม่เสมอ** (`newTabId()`) แม้ session file เดียวกันจะมี tab เปิดอยู่
+   → หลัง reload ได้ tab ที่สองบนไฟล์เดียวกัน ส่วน tab เดิมยังสตรีมอยู่แบบกำพร้า
+   (ผลลัพธ์ลงดิสก์ก็จริง แต่หน้าต่างเห็น state เก่า → ดูเหมือนงานหาย)
+2. **`boot()` ทิ้ง state ที่ได้มา** — `views.set(view.state.tabId, createView(...))`
+   สร้าง view เปล่าทับ ทำให้หน้าต่างว่างหลัง reload
+3. **`applyTabState` ไม่คืนสถานะ busy** → หลัง reload ปุ่มส่งกลับมาดูว่าง ทั้งที่งานยังรัน
+   กดส่งซ้ำ = เปิดเทิร์นที่สองบนบทสนทนาเดียวกัน
+
+**แก้:**
+- `main.js` `tab:open` — ก่อนสร้าง tab ใหม่ วนหา tab ที่ `sessionFile` ตรงกัน
+  (เทียบด้วย `path.resolve` ให้ slash ต่างกันก็เจอ) แล้วคืน `{ tabId: liveId, state, reused: true }`
+- `renderer/app.js` `boot()` — เปลี่ยนเป็น `applyTabState(res.state)`
+- `renderer/app.js` `applyTabState` — เพิ่ม `setBusy(Boolean(state.busy))` หลังตั้ง `activeTabId`
+  (ต้องหลัง ไม่งั้น `setBusy` ใช้ `activeView()` ผิดตัว)
+
+**ยืนยันแล้วว่า reload ไม่ปิดหน้าต่าง:** `webContents.id` เดิม, ไม่มี `beforeunload` บล็อก,
+ไม่มีคีย์แฮนด์เลอร์กลืน Ctrl+R (ไม่มี custom menu — ใช้เมนู Electron default)
+
+**เทสต์:**
+- `selftest-reload-reattach.js` (static, 18 checks) — ตรวจว่ามี reattach ก่อน `newTabId()`,
+  เทียบ sessionFile ด้วย `path.resolve`, `boot` ใช้ `applyTabState`, `applyTabState` คืน busy
+  · ย้อนกลับทั้ง 3 บั๊ก → **FAIL 9**
+- `scripts/check-reload-safety.js` — reload จริงใน Electron (7 checks)
+- `scripts/check-reload-reattach-live.js` — ทดสอบกฎ reattach ด้วยข้อมูลจริง (8 checks):
+  เจอ tab ที่รันอยู่, slash ต่างกันก็เจอ, session อื่นไม่ถูกจับคู่, tab ที่ไม่มีไฟล์ถูกข้าม
+- npm scripts ใหม่: `npm run check:reload`
+- `npm test` **38/38** (จาก 37)
+
+**ผู้ใช้ต้องทดสอบเอง:** เริ่มงานยาว → กด Ctrl+Shift+R → งานต้องทำงานต่อและหน้าต่างกลับมาเห็นแถบงาน

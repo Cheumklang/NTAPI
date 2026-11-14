@@ -2059,6 +2059,11 @@ function applyTabState(state) {
   if (!view.label) view.label = state.name || deriveLabel(state);
   activeTabId = state.tabId;
   renderActiveTab();
+  // A turn may still be running in this tab: after a window reload the renderer
+  // is new but the agent in the main process never stopped. Without this the
+  // Send button comes back looking idle, and pressing it would start a second
+  // turn on the same conversation.
+  if (typeof setBusy === 'function') setBusy(Boolean(state.busy));
   renderSessions(state.cwd);
   paintContext(state.stats || null);
   renderTodos(state.todos || []);
@@ -3703,8 +3708,11 @@ async function boot() {
       if (seen.has(key) || restored >= MAX_RESTORED_TABS) continue;
       seen.add(key);
       try {
-        const view = await api.openTab({ cwd: t.cwd, sessionId: t.sessionFile || undefined, restore: true });
-        views.set(view.state.tabId, createView(view.state.tabId));
+        const res = await api.openTab({ cwd: t.cwd, sessionId: t.sessionFile || undefined, restore: true });
+        // Apply the state we were handed. Creating an empty view here threw the
+        // state away, so after a reload the window showed a blank tab until
+        // the next event happened to refresh it.
+        applyTabState(res.state);
         restored += 1;
       } catch {}
     }

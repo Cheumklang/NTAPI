@@ -2315,7 +2315,6 @@ ipcMain.on('win:close', () => win?.close());
 ipcMain.handle('win:state', () => winState());
 
 ipcMain.handle('tab:open', async (_e, opts = {}) => {
-  const tabId = opts.tabId && !tabs.has(opts.tabId) ? opts.tabId : newTabId();
   const cwd = path.resolve(opts.cwd || readPrefs().lastCwd || process.cwd());
   // Restoring a saved tab must not move the default workspace: only a folder the
   // user picked (or a new tab they opened) updates `lastCwd`.
@@ -2326,6 +2325,34 @@ ipcMain.handle('tab:open', async (_e, opts = {}) => {
   if (opts.restore && opts.sessionId && !resolveSessionFile(cwd, opts.sessionId)) {
     throw new Error('saved session file not found');
   }
+
+  /**
+   * Reattach instead of duplicating.
+   *
+   * A window reload (Ctrl+R / Ctrl+Shift+R) throws the renderer away but leaves
+   * this process — and every running agent turn — alive. The renderer then
+   * boots and asks for the tabs in prefs. If we always made a new tab here, the
+   * reloaded window would open a *second* tab on the same session file while
+   * the first kept streaming into nothing: the reply would be written to disk
+   * eventually, but the window would show the state from before, and the turn
+   * would look lost.
+   *
+   * So when a tab is already open on the requested session, hand back that same
+   * tab. The turn keeps streaming into the pane you are looking at.
+   */
+  if (opts.sessionId) {
+    const wanted = resolveSessionFile(cwd, opts.sessionId) || opts.sessionId;
+    for (const [liveId, liveTab] of tabs) {
+      const liveFile = liveTab?.handle?.session?.sessionFile;
+      if (!liveFile) continue;
+      if (path.resolve(liveFile) === path.resolve(wanted)) {
+        activeTabId = liveId;
+        return { tabId: liveId, state: tabState(liveId), reused: true };
+      }
+    }
+  }
+
+  const tabId = opts.tabId && !tabs.has(opts.tabId) ? opts.tabId : newTabId();
 
   const manager = opts.sessionId
     ? openExisting(cwd, opts.sessionId)

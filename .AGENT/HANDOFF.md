@@ -105,6 +105,13 @@ push tag `v0.3.5` → GitHub Actions (`release.yml`) build และอัปโ
 `scripts/check-queue-placement.js` (Electron วัดพิกเซลจริง 13 checks, ย้อนกลับ FAIL 5)
 · `npm run check:queue` · `npm test` **37/37**
 
+**Ctrl+Shift+R ระหว่างงานใช้ได้แล้ว:** reload ทำลายแค่ renderer ส่วน tab/agent อยู่ใน main process
+ที่แก้ 3 จุด: `tab:open` reattach กับ tab ที่เปิด session file เดียวกันอยู่แล้ว (เดิมสร้าง tab ใหม่เสมอ
+ทำให้งานที่รันอยู่กลายเป็นกำพร้า), `boot()` ใช้ `applyTabState` (เดิมสร้าง view เปล่าทิ้ง state),
+`applyTabState` คืน `setBusy` (เดิมหลัง reload ปุ่มส่งดูว่างทั้งที่งานยังรัน → กดซ้ำได้)
+· เทสต์ `selftest-reload-reattach.js` (ย้อนกลับ FAIL 9) + `check-reload-safety.js` +
+`check-reload-reattach-live.js` · `npm run check:reload` · `npm test` **38/38**
+
 **ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตารอบสอง (`npm start`) และยังไม่ได้ทดสอบ
 browser agent mode กับ Chrome จริงรอบยืนยัน
 
