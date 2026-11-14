@@ -658,3 +658,35 @@ auth check ก่อนค่อย `_startRun` จึงเกิดช่อ�
 **Learned:** brace matcher ในเทสต์ตัดผิดเพราะ parameter เป็น destructuring `{ text, images }`
 ต้องข้ามวงเล็บ parameter ก่อนหาวงเล็บปีกกาของ body · และ `renderQueue` มี `view` อยู่แล้ว
 ประกาศซ้ำทำให้ SyntaxError
+
+## 2026-11-14 — แนบวิดีโอ + ไม่ดีดข้อความลงล่าง + syntax guard
+
+**บริบท:** ผู้ใช้เจอ 2 อาการ (แนบ `.mp4` ไม่ได้ · กำลังอ่านข้างบนแล้วถูกดีดลงล่าง)
+และระหว่างทางมี error dialog จาก syntax error ที่ผมพิมพ์เอง
+
+**(1) `8100fca` — แถบคิวกว้างเท่าช่องพิมพ์ + ตรวจ syntax ทุกไฟล์**
+- คิวเคย `max-width: 46%` → แถบสั้นชิดขวา · ย้ายเป็นแถวกว้างเต็มใต้ปุ่ม (`flex: 1 0 100%`)
+  + `.composer-box{flex-wrap:wrap}` · วัดจริง 750px vs กล่อง 772px
+- error dialog ที่ผู้ใช้เห็น = `'the composer's left edge'` (apostrophe ปิด string)
+  → `run-unit-tests.js` รัน `node --check` ทุกไฟล์ (110) ก่อนรันเทสต์
+- ย้อนกลับ → FAIL 7 (mimeFor), FAIL 1 (picker), FAIL 1 (describeFile)
+
+**(2) `51c327e` — แนบไฟล์ได้ทุกชนิด**
+- `mimeFor()` คืน `'image/png'` ให้ทุกนามสกุล → `.mp4` 3MB กลายเป็น base64 4.2MB ที่ประกาศว่า PNG
+- คืน `null` แทน · เอา allowlist ออก · renderer ใช้ `INLINE_IMAGE_TYPES`
+- `describeFile()` บอก AI ว่าเป็น video/audio/pdf/... + สั่งให้แก้ปัญหาเองถ้าเปิดไม่ได้
+- `npm test` 41/41 · `check:attach` 6/6
+
+**(3) `dd7d496` — ไม่ดีดลงล่างตอนอ่านอยู่ + ปุ่ม "ล่าสุด"**
+- `NEAR_BOTTOM_PX` 180 → 48 · `isReadingUp()` + `syncJumpToBottom()` ตัวตัดสินเดียว
+- ลบ `force` จากเส้นทาง output: delta, assistant ใหม่, tool เสร็จ, shell card
+- `#jumpToBottom` + `.transcript-wrap{position:relative}`
+- `npm test` 42/42 · `check:read` 16/16
+- ย้อนกลับ (`!force && false && isReadingUp()`) → scrollTop 0 → 3139 (ดึงลงจริง)
+
+**Learned:**
+- `scroll-behavior: smooth` = async → อ่าน `scrollTop` ทันทีได้ค่าเก่า ต้อง `insertCSS` ปิดก่อนวัด
+- เทสต์ Electron ต้องโหลด `preload.js` ไม่งั้น `api.getWinState()` throw แล้ว listener ทั้งไฟล์
+  ไม่ถูกผูก → เทสต์รายงานผ่านทั้งที่ไม่มีอะไรทำงาน
+- Python heredoc/`-c` กิน backslash ทําให้ `\n` กลายเป็นบรรทัดใหม่จริง → string JS แตก ต้องใช้ `edit`
+- `look_at_image` ใช้กับไฟล์ใน session นี้ไม่ได้เลย
