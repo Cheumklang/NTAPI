@@ -50,6 +50,8 @@ const {
   isLimitError,
   nextFallbackModel,
   modelKey,
+  sameModel,
+  failedModelFromMessage,
   switchMessage,
 } = require('./model-fallback');
 
@@ -829,32 +831,45 @@ function fallbackState(tab) {
 }
 
 /**
- * Switch to the next free DeepSeek route that has not been tried yet.
- * @returns {Promise<{ok: boolean, exhausted?: boolean, count?: number, model?: object, error?: string}>}
+ * Switch to the next free DeepSeek route that has not been refused yet.
+ *
+ * `failed` is the route that *actually* answered with a limit error. It matters:
+ * by the time a turn settles, pi may already have retried on the route we
+ * switched to, so reading `session.model` there would retire a model that never
+ * ran and the walk would skip a candidate every round — which is how the pool
+ * looked spent after a single switch.
+ *
+ * @param {object|null} [failed] The route that refused the request.
+ * @returns {Promise<{ok: boolean, exhausted?: boolean, count?: number, model?: object, reused?: boolean, error?: string}>}
  */
-async function switchToNextFreeModel(tabId, tab) {
+async function switchToNextFreeModel(tabId, tab, failed = null) {
   const state = fallbackState(tab);
   if (state.exhausted) return { ok: false, exhausted: true, count: state.tried.size };
 
-  const current = tab.handle.session?.model || null;
-  if (current) state.tried.add(modelKey(current));
+  const selected = tab.handle.session?.model || null;
+  const refused = failed || selected;
+  const refusedKey = modelKey(refused);
+  if (refusedKey) state.tried.add(refusedKey);
 
-  const next = nextFallbackModel(tab.handle.modelList, { current, tried: state.tried });
+  const next = nextFallbackModel(tab.handle.modelList, { current: refused, tried: state.tried });
   if (!next) {
     state.exhausted = true;
     return { ok: false, exhausted: true, count: state.tried.size };
   }
 
-  state.tried.add(modelKey(next));
+  // Already on the route we want: re-setting it would fire a second "switched"
+  // notice for one failure. It stays a candidate — it has not refused anything.
+  if (sameModel(next, selected)) return { ok: true, model: selected, reused: true };
+
   state.attempts += 1;
   try {
     const model = await tab.handle.setModel(next.provider, next.id);
     sendTab(tabId, 'model:changed', { model });
     sendTab(tabId, 'agent:notice', {
-      text: switchMessage(current, next),
+      text: switchMessage(refused, next),
       key: 'notice.switched',
       params: {
-        from: current ? current.name || current.id : 'the current model',
+        from: refused ? refused.name || refused.id : 'the current model',
         to: next.name || next.id,
       },
     });
@@ -903,9 +918,20 @@ async function runModelFallback(tabId, tab) {
   if (!last || last.role !== 'assistant' || last.stopReason !== 'error') return;
   if (!isLimitError({ text: last.errorMessage })) return;
 
-  const res = await switchToNextFreeModel(tabId, tab);
+  // Blame the route recorded on the failed message, not whatever is selected
+  // now: pi may have retried elsewhere before giving up.
+  const res = await switchToNextFreeModel(tabId, tab, failedModelFromMessage(last));
   if (!res.ok) {
     if (res.exhausted) announceFallbackExhausted(tabId, tab);
+    else if (res.error) {
+      // The route list knows a model this session cannot select (key pulled,
+      // catalog changed). Say so instead of leaving the turn silent.
+      sendTab(tabId, 'agent:notice', {
+        text: `Could not switch to the next free model: ${res.error}`,
+        key: 'notice.switchFailed',
+        params: { model: 'free DeepSeek', error: res.error },
+      });
+    }
     return;
   }
   if (state.seq !== (tab.promptSeq || 0)) return;
@@ -1218,20 +1244,23 @@ function subscribeTab(tabId) {
       }
 
       case 'auto_retry_start': {
-        // pi treats a 429 as a throttle and re-asks the same model. For a spent
-        // free allowance that is 14 s of waiting on a route that will not answer;
-        // switching routes first turns the retry into a productive one.
+        // pi treats a 429 as a throttle and re-asks the same model with backoff.
+        // A spent free allowance will not come back in 2 seconds, so skip the
+        // wait: the turn settles at once and runModelFallback moves it to the
+        // next free route there.
+        //
+        // Switching here would be theatre. The retry reuses the model captured
+        // when this run started, and this event fires *before* pi creates the
+        // abort controller, so the abort has to land on the next microtask.
         if (isLimitError({ text: event.errorMessage })) {
-          switchToNextFreeModel(tabId, tab)
-            .then((res) => {
-              if (!res.ok && res.exhausted) {
-                try {
-                  tab.handle.session.abortRetry();
-                } catch {}
-                announceFallbackExhausted(tabId, tab);
-              }
-            })
-            .catch(() => {});
+          const session = tab.handle.session;
+          const stop = () => {
+            try {
+              session?.abortRetry?.();
+            } catch {}
+          };
+          stop();
+          queueMicrotask(stop);
           break;
         }
         sendTab(tabId, 'agent:notice', {

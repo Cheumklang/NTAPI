@@ -89,6 +89,30 @@ function modelKey(model) {
 }
 
 /**
+ * Which model actually refused?
+ *
+ * At settle time `session.model` may already be the route we switched *to*, so
+ * reading it there blamed the new model for a failure it never saw and skipped
+ * it on the next try. Every assistant message records who answered — use that.
+ *
+ * @param {{role?: string, provider?: string, model?: string, responseModel?: string}} message
+ * @returns {{provider: string, id: string, name: string}|null}
+ */
+function failedModelFromMessage(message) {
+  if (!message || message.role !== 'assistant') return null;
+  const provider = message.provider;
+  const id = message.model || message.responseModel;
+  if (!provider || !id) return null;
+  return { provider, id, name: id };
+}
+
+/** True when two entries describe the same route. */
+function sameModel(a, b) {
+  if (!a || !b) return false;
+  return modelKey(a) === modelKey(b);
+}
+
+/**
  * Every free DeepSeek route, in the order the picker shows them (top down).
  * Paid routes are excluded: the whole point is spending no money.
  *
@@ -154,6 +178,8 @@ module.exports = {
   freeDeepSeekOrder,
   nextFallbackModel,
   modelKey,
+  failedModelFromMessage,
+  sameModel,
   exhaustedMessage,
   switchMessage,
   LIMIT_CODES,
