@@ -814,3 +814,37 @@ save ย้ายไปท้าย → FAIL 3 (`["first","third","second, corre
   ด้วย session file (`main.js` ~2384) ไม่สร้างแท็บซ้ำ
 - **`main.js` / `preload.js` ไม่ถูกโหลดใหม่** → แก้สองไฟล์นี้ต้อง `npm start` ใหม่
 - ปิดโปรแกรม → agent ตาย · **คิว + hold อยู่ใน memory ของ renderer ไม่ลง disk** → หายทั้งสองกรณี
+
+## 2026-11-15 — ดินสอแก้ไขในคิวแล้ว countdown ยังเดิน (`98125ea`)
+
+**คำขอ (ผู้ใช้ทดสอบเอง):** "ตอนใช้แก้ไขด้วยปุ่มดินสอ ยังมีการนับถอยหลัง แต่ตอนกดปุ่ม แก้ไข
+ไม่มีการนับถอยหลัง"
+
+**ราก:** ปุ่มดินสอ (`queue-edit-btn`) ตั้ง `item.editing = true` แล้ว `renderQueue()` เฉย ๆ
+**ไม่ได้แตะ hold ที่ค้างอยู่** → `setInterval` เดินต่อและยิง `send()` ตอนครบ 5 วิ
+ในขณะที่ผู้ใช้ยังพิมพ์แก้อยู่
+- ฝั่งที่ทำงานถูกคือปุ่ม `holdEdit` ในแถว countdown ซึ่งเรียก `giveBack(true)` → `detach()`
+  → `clearInterval` + `holds.delete` + `row.remove()`
+- probe ก่อนแก้: `{hold:true, clock:"Sending in 4s · เข้าคิว", rows:1, editing:true}`
+  → รอต่ออีก 6 วิได้ `sent:1` = **ส่งข้อความเก่าออกไปจริง**
+
+**แก้ (`98125ea`):**
+- เพิ่ม `cancelHoldFor(queueId)` — หา hold ที่ `record.item.queueId` ตรงกัน แล้ว
+  `cancelHold(view, {silent:true})` (ตัด countdown, เก็บ item ไว้)
+- ปุ่มดินสอเรียก `cancelHoldFor(item.queueId)` **ก่อน** ตั้ง `editing`
+- **จงใจไม่ใช้ `giveBack(true)`** เพราะดินสอแก้ในที่ ไม่ดึงข้อความกลับไปช่องพิมพ์
+- หลังแก้: `{hold:false, clock:null, rows:1, editing:true}` → รอ 6 วิได้ `{sent:0, queueLen:1}`
+
+**เทสต์:** `selftest-queue-edit-hold.js` (19) · `check-queue-edit-hold.js` (14, Electron
+รอครบ 6 วิจริง) · npm script `check:queue-edit-hold` · `npm test` **47/47**
+
+**ย้อนกลับ:** ลบ `cancelHoldFor(item.queueId)` → `npm test` FAIL 1 ·
+Electron FAIL 5 โดยเฉพาะ `the old text is never sent — {"sent":1}`
+
+**Learned:**
+- `saveQueueEdit` เรียก `drainQueue()` → ของที่บันทึกแล้ว **ถูกส่งทันที** ถ้าคิวว่าง
+  เทสต์ที่สร้าง hold ปลอมจึงต้องไม่ assert ว่า "เซฟแล้วยังอยู่ในคิว" — ผมเขียนผิดตอนแรก
+  (`text:null, queueLen:0`) แล้วแก้เป็น assert ว่า "เซฟแล้ว editor ปิด และไม่ส่งข้อความเก่า"
+- **hold หนึ่งอันผูกกับ item ได้ทางเดียว** คือ `record.item` ซึ่ง `queueMessage` ตั้ง**หลัง**
+  `holdMessage()` คืนค่า → ตัวช่วยที่ต้องหา hold จาก item ต้องอ่านตอนกด ไม่ใช่ตอนสร้าง
+  (บทเรียนเดียวกับ bug ปุ่มยกเลิก `d7f5972`)

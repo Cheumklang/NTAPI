@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-15 · **v0.4.2** (`master` = `81349d1`, tag `v0.4.2`)
+**อัปเดตล่าสุด:** 2026-11-15 · **v0.4.2** (`master` = `98125ea`, tag `v0.4.2`)
 
 > v0.4.2 รวมทุกอย่างตั้งแต่ v0.3.5: สวิตช์อนุมัติแบบสไลด์ · คิวในช่องพิมพ์
 > (แก้/ลาก/ดินสอ/ghost) · คำตอบหลายก้อนไม่หาย · scroll ติดล่างเสมอ
@@ -99,11 +99,23 @@
   · `jumpingToBottom` guard + `scrollend` + fallback 420ms (scroll event กลางทางการ jump จะ unpin ผิด)
   · listener เปลี่ยน `scroll` → `syncFollow`
 
+**(ข2) `98125ea` — ดินสอแก้ไขในคิวแล้ว countdown ยังเดิน** (ผู้ใช้ทดสอบเจอเอง 2026-11-15)
+- ราก: `queue-edit-btn` ตั้ง `item.editing` แล้ว `renderQueue()` เฉย ๆ **ไม่แตะ hold**
+  → `setInterval` เดินต่อ ยิง `send()` ครบ 5 วิ **ขณะผู้ใช้กำลังพิมพ์** = ส่งข้อความเก่าออกไป
+- ฝั่งที่ถูกคือ `holdEdit` ซึ่งเรียก `giveBack(true)` → `detach()` → `clearInterval` + `holds.delete`
+- แก้: เพิ่ม `cancelHoldFor(queueId)` + ปุ่มดินสอเรียก **ก่อน** ตั้ง `editing`
+  · **จงใจไม่ใช้ `giveBack(true)`** — ดินสอแก้ในที่ ไม่ดึงข้อความกลับช่องพิมพ์
+- เทสต์: `selftest-queue-edit-hold.js` (19) · `check-queue-edit-hold.js` (14, รอครบ 6 วิจริง)
+- ย้อนกลับ: ลบ `cancelHoldFor(...)` → FAIL 1 + Electron FAIL 5 (`sent:1`)
+- **Learned:** `saveQueueEdit` เรียก `drainQueue()` → เซฟแล้ว **ส่งทันที** ถ้าคิวว่าง
+  อย่าเขียนเทสต์ว่า "เซฟแล้วยังอยู่คิว"
+
 **(ค) เทสต์**
-- `npm test` = **46/46** (ทุกไฟล์ผ่าน `node --check` ก่อน)
+- `npm test` = **47/47** (ทุกไฟล์ผ่าน `node --check` ก่อน)
   · **ต้องลงทะเบียน `selftest-*.js` ใน `TESTS` ของ `scripts/run-unit-tests.js`** ไม่งั้นไม่รัน
 - npm scripts: `check:queue` `check:reload` `check:history` `check:hold` `check:attach`
-  `check:read` `check:cancel` `check:queue-edit` `check:approval` `check:blocks` `check:queue-controls`
+  `check:read` `check:cancel` `check:queue-edit` `check:approval` `check:blocks`
+  `check:queue-controls` `check:queue-edit-hold`
 - เทสต์ Electron ที่สำคัญ: `check-queue-controls.js` (27) · `check-turn-blocks.js` (17)
   · `check-read-position.js` · `check-cancel-button.js`
 
