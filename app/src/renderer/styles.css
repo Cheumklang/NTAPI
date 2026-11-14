@@ -2557,6 +2557,37 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
   font-size: 12.5px;
 }
 
+/*
+ * The approval switch in the sidebar. It is a native <select>, so the dropdown
+ * list itself is drawn by Windows and cannot be themed — but the closed control
+ * takes the app's own colours, and `appearance: none` stops Windows painting its
+ * own arrow and border over the theme.
+ */
+.approval-policy-select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.approval-policy-select:hover { border-color: #39415a; }
+.approval-policy-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* Windows draws the option list itself; keep it readable on a dark theme. */
+.approval-policy-select option {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
 /* todo checklist, sits right above the composer like the CLI's live plan */
 .todo-panel {
   border: 1px solid var(--line);
