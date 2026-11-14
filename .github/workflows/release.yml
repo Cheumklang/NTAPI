@@ -51,6 +51,11 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN }}
           tag_name: ${{ github.ref_name }}
           name: NTAPI ${{ github.ref_name }}
+          # The description lives in the source repo so it can be edited without
+          # touching this workflow. Without it the public release page showed a
+          # filename and nothing else, which tells a first-time visitor nothing
+          # about what they are downloading.
+          body_path: RELEASE_NOTES.md
           draft: false
           make_latest: 'true'
           overwrite_files: true

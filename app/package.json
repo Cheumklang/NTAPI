@@ -2,7 +2,7 @@
   "name": "ntapi-desktop",
   "productName": "NTAPI",
   "version": "0.4.3",
-  "description": "Desktop app for NTAPI (no terminal needed)",
+  "description": "รวม AI ที่มีโควตาฟรีไว้ในที่เดียว ลองก่อนจ่ายรายเดือน",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
