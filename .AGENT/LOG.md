@@ -28,6 +28,13 @@
 
 <!-- ต่อท้ายด้านล่างนี้ -->
 
+## 2026-11-14 — ผลปล่อย v0.2.6: สําเร็จ
+- commit: `f382f33` (Batch A/B/C), `ff39b94` (เวอร์ชัน 0.2.6)
+- release `v0.2.6` ออนไลน์; assets: NTAPI-Setup-0.2.6.exe (117.7 MB), latest.yml, blockmap
+- `/releases/latest` ชี้ v0.2.6; installer โตจาก 0.2.5 (102→117.7 MB) เพราะ bundle pi SDK
+- Ops (code signing) — ผู้ใช้ข้าม
+- เหลือ: ผู้ใช้อัปเดตโปรแกรมทดสอบเอง
+
 ## 2026-11-14 — Batch C: typography + first-run
 - C2 (accent) มีอยู่แล้วใน HEAD; C1 ยกพื้นฟอนต์ต่ำสุด 12px (35 จุด); C3 empty state 3 ปุ่ม; C4 ป้ายคิดภาษาไทย
 - ไฟล์: renderer/{app.js,index.html,styles.css}; เทส 18 PASS + smoke PASS; ยังไม่ commit

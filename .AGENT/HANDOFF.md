@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · ปล่อย **v0.2.5** แล้ว (`origin/master` HEAD `737b8a6`, release ที่ `NTAPI-releases`)
+**อัปเดตล่าสุด:** 2026-11-14 · ปล่อย **v0.2.6** แล้ว (`origin/master` HEAD `ff39b94`, release ที่ `NTAPI-releases`)
 
 > นี่คือไฟล์ **"อ่านอันเดียวจบ"** ของ session ใหม่ — อ่านบนลงล่าง
 > ถ้าคุณเป็น AI แล้วเพิ่งเปิดโปรเจกต์: อ่านหัวข้อ 0–3 ให้ครบก่อนแตะโค้ด
@@ -24,7 +24,7 @@
 
 ## 1) กำลังทำ / ค้างอยู่ตอนนี้ (สำคัญสุด — อ่านก่อน)
 > ⚠️ ตรวจ `git status` เทียบกับที่นี่เสมอ — อาจมี session อื่นทํางานคู่ขนานอยู่
-> สถานะ: งาน 1a–1h อยู่ใน v0.2.4 (รวมงาน session อื่น: single-instance)
+> สถานะ: งาน 1a–1l อยู่ใน v0.2.6 (รวมงาน session อื่น: single-instance)
 
 ### 1a) เคส LLM7 — แก้เสร็จ ยืนยันกับโมเดลจริงแล้ว และ commit แล้ว (`e6b959d`)
 - **อาการ:** reasoning model กินโควตา output จนหมด แล้วได้ `finish_reason: "length"` + content ว่าง
@@ -128,7 +128,7 @@
   smoke test เปิด Electron จริง (model picker) PASS
 - **Phase 3 (ยังไม่ทำ):** per-model gating — SDK ตั้ง exposure เป็น `codemode` อยู่แล้ว จึงยังไม่จำเป็น
 
-### 1j) Polish Batch A + เก็บไฟล์หลุดจาก session อื่น (uncommitted)
+### 1j) Polish Batch A + เก็บไฟล์หลุดจาก session อื่น (commit `f382f33`)
 - session อื่นทิ้งไฟล์ไว้ (untracked): `src/system-info.js`, `scripts/selftest-system-info.js`,
   `scripts/run-unit-tests.js`, `docs/superpowers/plans/2026-11-14-polish-batch.md` (ทำครึ่งทาง),
   + spec MCP ที่ซ้ำ
@@ -141,7 +141,7 @@
 - **ยืนยัน:** `npm test` (17 scripts) PASS, `node --check` ผ่าน, smoke test Electron PASS
 - **เหลือ:** Batch B (bundle pi SDK), C (typography/first-run), Ops (code signing)
 
-### 1k) Batch B — bundle pi SDK (uncommitted)
+### 1k) Batch B — bundle pi SDK (commit `f382f33`)
 - เพิ่ม `@earendil-works/pi-coding-agent@1.2.0` เป็น dependency → เครื่องใหม่เปิดแอปได้เลย ไม่ต้อง npx
 - `resolveSdk()` ใหม่: **bundled** (`app/node_modules`) → env override → npx cache
   - SDK เป็น ESM-only, `exports` ไม่มี `require` → ต้อง `require` ที่ **โฟลเดอร์** (ใช้ `main`)
@@ -151,7 +151,7 @@
   `app.asar.unpacked` มี SDK; version ที่ bundle = pi-ai/agent-core 1.5.2, pi-tui 1.5.2
   (baseline npx = pi-tui 1.2.0, แอปไม่ใช้ TUI) 
 
-### 1l) Batch C — typography + first-run (uncommitted)
+### 1l) Batch C — typography + first-run (commit `f382f33`)
 - **C2 (accent contrast):** เสร็จก่อนหน้าแล้วใน HEAD (`--accent: #8b74ff`, `--accent-soft`)
 - **C1 (font):** ยกพื้นฟอนต์ต่ำสุดเป็น **12px** (35 จุด เลิกใช้ 9.5–11.5px) → 15 เหลือ 10 ระดับ
   — **ยังไม่ย่อเหลือ 4 ระดับ** เพราะต้องตรวจด้วยตา
