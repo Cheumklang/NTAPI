@@ -78,6 +78,10 @@
 — ไม่มี `#approvalModeBanner` / `#approvalModeReset` / i18n `approvalsOff`+`turnPromptsBackOn` /
 CSS `.approval-banner` แล้ว · เทสต์เปลี่ยนเป็นตรวจว่า**ไม่มี**ของเหล่านั้น (ทดสอบย้อนกลับ FAIL จริง)
 
+**แถบกิจกรรม AI ย่อเป็นข้อความ:** ย้าย `#activityStrip` ไปอยู่ใน `.status-row` แถวเดียวกับ
+"กำลังทำงาน…" · ตัดปุ่ม "ดูแท็บนั้น" (`#activityFocus`) ออก · ไม่มีกรอบ/พื้นหลังแล้ว
+เหลือข้อความ + ปุ่ม Stop แบบลิงก์ · เทสต์ +8 checks (ย้อนกลับ FAIL จริง)
+
 **ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตารอบสอง (`npm start`)
 
 ### 1n) FreePi 426 `upgrade_required` — แก้เสร็จ + bump 0.3.4 (2026-11-14) ✅ UNCOMMITTED

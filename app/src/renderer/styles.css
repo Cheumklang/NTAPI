@@ -1292,6 +1292,24 @@ button { font-family: inherit; }
   color: var(--muted);
 }
 
+/*
+ * One row: the status line on the left, live agent activity beside it.
+ * The activity used to be a blue-bordered box above the composer — a second
+ * panel competing with the box you type in, for text you only glance at.
+ */
+.status-row {
+  max-width: var(--read-width);
+  margin: 6px auto 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.status-row .hint {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
 /* Crash / unhandled-error banner above the composer. */
 .crash-notice {
   display: flex;
@@ -1731,17 +1749,20 @@ button { font-family: inherit; }
 }
 
 /* Hand-over: what the agent is doing, and the way to stop it. */
+/*
+ * Live agent activity: plain text on the status row. No border, no fill, no
+ * buttons of its own except Stop — it is a line to read, not a panel.
+ */
 .activity-strip {
   display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  margin: 0 0 8px;
-  padding: 8px 10px;
-  border: 1px solid rgba(90, 169, 255, .28);
-  border-radius: 10px;
-  background: rgba(90, 169, 255, .07);
-  font-size: 12px;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 12.5px;
+  color: var(--muted);
 }
+.activity-strip[hidden] { display: none; }
 .activity-lines {
   flex: 1 1 auto;
   min-width: 0;
@@ -1757,7 +1778,19 @@ button { font-family: inherit; }
   text-overflow: ellipsis;
 }
 .activity-line.bad { color: #ffb020; }
-.activity-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+/* Stop is a link-weight control here, not a button: it should not look like the
+ * primary action next to the composer's Send. */
+.activity-strip .ghost.small {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  color: var(--muted);
+}
+.activity-strip .ghost.small:hover { color: var(--text); }
 
 /* Hand over / take back / stop asking. Deliberately not `.wrap`: that class is
    the one the install-helper row owns. */

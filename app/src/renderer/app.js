@@ -84,7 +84,6 @@ const STRINGS = {
     browserAutopilotUntil: 'Stops on its own at',
     browserDebugBarNote:
       'Chrome shows a yellow "started debugging this browser" bar while the agent works. Leave it alone — dismissing it disconnects the agent.',
-    activityFocus: 'Show the tab',
     activityStop: 'Stop',
     activityFailed: 'failed',
     autopilotStopIdle: 'Hand-over mode ended after five quiet minutes.',
@@ -407,7 +406,6 @@ const STRINGS = {
     browserAutopilotUntil: 'จะหยุดเองเมื่อ',
     browserDebugBarNote:
       'Chrome จะขึ้นแถบเหลือง "started debugging this browser" ระหว่างที่ AI ทำงาน — อย่าปิดแถบนั้น เพราะจะตัดการเชื่อมต่อทันที',
-    activityFocus: 'ดูแท็บนั้น',
     activityStop: 'หยุด',
     activityFailed: 'ล้มเหลว',
     autopilotStopIdle: 'โหมดมอบงานจบลงหลังเงียบไป 5 นาที',
@@ -4739,10 +4737,6 @@ el('activityStop').addEventListener('click', async () => {
   renderAutopilot();
   clearActivity();
   await api.browserAutopilot(false).catch(() => null);
-});
-
-el('activityFocus').addEventListener('click', async () => {
-  await api.browserWatch().catch(() => null);
 });
 
 

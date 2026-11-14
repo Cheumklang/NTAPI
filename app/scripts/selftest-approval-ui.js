@@ -102,3 +102,20 @@ if (failures) {
   process.exit(1);
 }
 console.log('\nAll approval UI checks passed');
+
+// --- live agent activity shares the status row ---------------------------
+//
+// It used to be a bordered, tinted panel above the composer with two buttons,
+// one of which ("show the tab") duplicated what clicking the tab already does.
+// It is now one line of text beside the "working…" hint.
+check('the activity strip exists', /id="activityStrip"/.test(html));
+check('it has no "show the tab" button', !/id="activityFocus"/.test(html));
+check('the renderer does not wire a removed button', !/activityFocus/.test(appJs));
+check('the strip still has its Stop control', /id="activityStop"/.test(html));
+check('the strip sits inside the status row', /class="status-row"[\s\S]*id="activityStrip"/.test(html));
+check('the strip is hidden until there is activity', /id="activityStrip"[^>]*hidden/.test(html));
+
+const stripRule = rule('.activity-strip');
+check('the strip has a rule', stripRule !== '');
+check('the strip draws no border', !/border:/.test(stripRule));
+check('the strip draws no background', !/background:/.test(stripRule));

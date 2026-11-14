@@ -387,3 +387,15 @@ claim ที่ล้มเหลวไม่เงียบอีก, error ใ
 - `selftest-approval-ui.js` — เปลี่ยนชุดเทสต์ banner เป็นตรวจว่า**ไม่มี** (banner, ปุ่ม, string,
   และ renderer ไม่ query element ที่ถูกลบ) ทดสอบย้อนกลับแล้วว่าใส่กลับ → FAIL 3 จริง
 - `npm test` **35/35** · grep ยืนยันอ้างอิงที่ถูกลบเหลือ 0 · build 00:02
+
+### (ต่อ) แถบกิจกรรม AI เป็นข้อความในแถวสถานะ ไม่ใช่กล่อง (2026-11-14)
+
+ผู้ใช้ขอ: กรอบใหญ่เกิน เอาแค่ข้อความ ย้ายไปแถวเดียวกับ "กำลังทำงาน…" และตัดปุ่ม "ดูแท็บนั้น"
+
+- ย้าย `#activityStrip` จากเหนือ composer → ลงใน `.status-row` คู่กับ `#statusHint`
+- ตัด `#activityFocus` (ปุ่ม "ดูแท็บนั้น") + listener + i18n `activityFocus` (EN/TH) + `.activity-actions`
+- CSS: ถอด border/background/radius/padding ของ `.activity-strip` → ข้อความเปล่า 12.5px
+  · ปุ่ม Stop ทำเป็นลิงก์ขีดเส้นใต้ น้ำหนักเบา ไม่แย่งกับ Send
+- `selftest-approval-ui.js` +8 checks (มี strip, ไม่มี activityFocus, อยู่ใน status-row, ไม่มี border/background)
+  ทดสอบย้อนกลับแล้วว่าใส่กลับ → FAIL 3 จริง
+- `npm test` **35/35** · build 00:07
