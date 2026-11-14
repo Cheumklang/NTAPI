@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "NTAPI Browser Bridge",
+  "version": "0.1.0",
+  "description": "Lets the NTAPI desktop agent drive this browser, with the app asking before any change.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkqqduhj/Qybyd5kmm3lisKAugj8rftLmBEfaF/TkYgUkZcvq61p+S/K59SpVmu/wciERVxrbL9ZRvvpmoiawg8prtdeCOf9zsld3A1wWbAuyxgdGnAtOUsmVAqj0Fu0eU6VZ5cmDONsg+mpiRq2RQrAvS3IwI2rj0CwZZkelS9N8zQBo4OS0iFzzHlPrkvZqHLonheJ2h7b6LzHY+xhpiNzpb/Qpza426eIpEOT0YXrKIQaB3BDyD9gtcBUDUykMdsFB1UJAPwuDgxCzpINkWYKW3zBb7oMWdCjrOBIRpkZgEeGrZgKRIZ8aGHQDSKENUL085GFDF2Zop2wVdMZogwIDAQAB",
+  "permissions": [
+    "debugger",
+    "tabs",
+    "scripting",
+    "storage",
+    "alarms",
+    "windows"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "NTAPI Browser Bridge",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  }
+}
