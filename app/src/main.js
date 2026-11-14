@@ -1742,20 +1742,40 @@ ipcMain.handle('fs:pickFolder', async () => {
   return res.filePaths[0];
 });
 
+/**
+ * A short word for what an attachment is, so the agent knows what it is dealing
+ * with before it opens the file.
+ */
+function describeFile(file) {
+  const ext = path.extname(file).toLowerCase();
+  if (['.mp4', '.mov', '.mkv', '.avi', '.webm', '.m4v', '.wmv', '.mpg', '.mpeg'].includes(ext)) return 'video';
+  if (['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.opus'].includes(ext)) return 'audio';
+  if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.tif', '.tiff', '.heic'].includes(ext)) return 'image';
+  if (['.pdf'].includes(ext)) return 'pdf';
+  if (['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2'].includes(ext)) return 'archive';
+  if (['.csv', '.tsv'].includes(ext)) return 'table';
+  if (['.json', '.yaml', '.yml', '.xml', '.toml', '.ini'].includes(ext)) return 'data';
+  if (['.md', '.txt', '.log', '.rst'].includes(ext)) return 'text';
+  const code = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.rb', '.go', '.rs', '.java', '.kt', '.c', '.h', '.cc', '.cpp', '.hpp', '.cs', '.php', '.swift', '.sh', '.ps1', '.bat', '.css', '.html', '.sql'];
+  if (code.includes(ext)) return 'source code';
+  if (['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt'].includes(ext)) return 'office document';
+  return ext ? `${ext.slice(1)} file` : 'file';
+}
+
 ipcMain.handle('fs:pickImages', async () => {
   const res = await dialog.showOpenDialog(win, {
     properties: ['openFile', 'multiSelections'],
-    filters: [
-      { name: 'Images and documents', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'md', 'txt', 'json', 'js', 'ts', 'py', 'csv', 'log'] },
-      { name: 'All files', extensions: ['*'] },
-    ],
+    // Deliberately no extension list: any file can be attached. Images are
+    // inlined for the model to look at; everything else (video, audio, archives,
+    // source) is passed by path and the agent opens it with its own tools.
+    filters: [{ name: 'All files', extensions: ['*'] }],
   });
   if (res.canceled) return [];
   const out = [];
   for (const file of res.filePaths) {
     const mime = mimeFor(file);
-    if (!mime.startsWith('image/')) {
-      // Non-image files are passed by path; the agent reads them itself.
+    if (!mime) {
+      // Anything that is not a plain image goes by path.
       try {
         const stat = await fs.promises.stat(file);
         out.push({ kind: 'file', path: file, name: path.basename(file), bytes: stat.size });
@@ -1777,13 +1797,27 @@ ipcMain.handle('fs:pickImages', async () => {
 });
 
 /** Attachments are pasted or dropped as data URIs; keep only a whitelist. */
+const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp']);
+
+/**
+ * The MIME type for an image, or null when the file is not an image we can read
+ * inline.
+ *
+ * This used to return 'image/png' for anything it did not recognise, so a video
+ * was read whole into memory, base64-encoded, and handed to the renderer as a
+ * PNG data URI — a 5 MB clip became a ~7 MB string that could never be decoded,
+ * which is why attaching one simply did not work. Anything that is not a real
+ * image now takes the "file" path instead: the agent gets the path and opens it
+ * with its own tools, exactly as it does for a video sent from a shell.
+ */
 function mimeFor(file) {
   const ext = path.extname(file).toLowerCase();
   if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
   if (ext === '.webp') return 'image/webp';
   if (ext === '.gif') return 'image/gif';
   if (ext === '.bmp') return 'image/bmp';
-  return 'image/png';
+  if (ext === '.png') return 'image/png';
+  return null;
 }
 
 ipcMain.handle('app:boot', async () => {
@@ -2648,9 +2682,17 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
     );
   }
   if (filePaths.length) {
+    // Say what kind of file it is. The agent can only act on a video or an
+    // unsupported format if it knows that is what it is — otherwise it reaches
+    // for the image reader and gives up.
+    const kinds = filePaths.map((f) => `${f} (${describeFile(f)})`).join('\n');
     parts.push(
-      filePaths.map((f) => `[Attached file: ${f}]`).join('\n') +
-        '\nThese files are on disk. Use the read, grep or find tools to inspect them as needed.'
+      `[Attached file${filePaths.length > 1 ? 's' : ''}:\n${kinds}]` +
+        '\nThese files are on disk and were not read into the conversation.' +
+        ' Use your own tools on the path: read it, grep it, or run a command to inspect it.' +
+        ' If a format cannot be opened directly (a video, an archive, a binary),' +
+        ' work out how to handle it yourself — list what tools are available,' +
+        ' extract frames or text, or explain what you cannot do — rather than assuming it is unreadable.'
     );
   }
   const promptText = parts.join('\n\n');

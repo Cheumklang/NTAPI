@@ -3904,10 +3904,17 @@ function updateSendState() {
  *   file  → just the path, so the agent can use its own read/grep tools on it
  * Dropped paths only work inside Electron's renderer when the file comes from the
  * OS; the path is available on `file.path` (Electron adds it).
+ *
+ * Only the raster formats the model can actually open are inlined. An SVG, a
+ * video or anything with no type of its own goes by path — that is the whole
+ * point of dropping a .mp4 in: the agent opens it with its own tools instead of
+ * the app trying to draw it.
  */
+const INLINE_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/bmp']);
+
 async function addAttachmentsFromFiles(files) {
   for (const file of files) {
-    if (file.type.startsWith('image/')) {
+    if (INLINE_IMAGE_TYPES.has(file.type)) {
       const dataUri = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);

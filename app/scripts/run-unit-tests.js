@@ -27,6 +27,7 @@ const TESTS = [
   'selftest-history-merge.js',
   'selftest-hold-before-send.js',
   'selftest-update-splash.js',
+  'selftest-attachments.js',
   'selftest-browser-autopilot.js',
   'selftest-browser-bridge.js',
   'selftest-browser-claims.js',
