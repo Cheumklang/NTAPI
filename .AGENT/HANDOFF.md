@@ -315,6 +315,23 @@ AI ขับ Chrome ของผู้ใช้เองได้ผ่านส
 ### ยังต้องทํา (ตามคิว)
 1. ทดสอบจริงกับ Chrome: โหลด unpacked → จับคู่ → สั่งเปิดเว็บ/อ่าน/คลิก
 
+### ทดสอบกับ Chrome จริงแล้ว (ec578d2) — เจอบั๊ก 2 ตัวที่ปิดไม่ให้ใช้งานได้เลย
+
+1. **tool เบราว์เซอร์มองไม่เห็น:** `defaultTools` ที่ส่งให้ `createAgentSessionFromServices`
+   เป็น allow-list ไม่ใช่การเพิ่ม (ดู `docs/cli.md:128` ของ SDK) — `browser_*` ทั้ง 17 ตัว
+   ถูก `registerTool` แล้วแต่ไม่ถูกใส่ในลิสต์ โมเดลจึงไม่เคยเห็นเลย แล้วตอบ "You didn't include a link"
+   → แก้ด้วย `allBrowserToolNames()` และต่อท้าย allow-list เมื่อมี `browserBridge`
+2. **ไม่รู้ว่ามีแท็บพร้อมใช้แล้ว:** system prompt ไม่เคยบอกสถานะแท็บ โมเดลจึงเรียก
+   `browser_claim` ซ้ำ → ผู้ใช้เห็น dialog ทุกครั้ง หรือได้คำตอบ "การขอใช้แท็บถูกปฏิเสธ"
+   ทั้งที่แท็บพร้อมอยู่ → เพิ่ม `browserBridge.claimedTab()` แล้วให้ prompt อ่านสดทุกเทิร์น
+   (มีแท็บ = "ALREADY handed over" / ไม่มี = บอกวิธีมอบแท็บ)
+
+เพิ่มกฎให้เข้าใจภาษาธรรมชาติด้วย: "ผมเปิดให้แล้ว" / "this news item" = แท็บ Chrome ของผู้ใช้
+ห้ามขอให้วาง URL หรือคัดลอกข้อความถ้ามีแท็บให้อ่านได้
+
+เทสต์กันซ้ำ: `selftest-browser-tools.js` (allow-list + description) และ
+`selftest-browser-claims.js` (`claimedTab`) — ทดสอบแล้วว่าใส่บั๊กกลับไปจะ FAIL จริง
+
 ## v0.3.0 — มีอะไรใหม่
 
 1. **Browser control** (ปิดไว้เป็นค่าเริ่มต้น) — AI ขับ Chrome ที่ล็อกอินอยู่ผ่านส่วนขยาย MV3

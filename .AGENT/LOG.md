@@ -310,3 +310,17 @@
 
 **ยังค้าง:** `browser-extension/popup.js` + `selftest-browser-popup.js` (งาน session ก่อน),
 ทดสอบ browser agent mode กับ Chrome จริง
+
+### ทดสอบ browser agent mode กับ Chrome จริง (ec578d2)
+
+ผู้ใช้ทดสอบเองทุกครั้งด้วยการเปิด session ใหม่ — เจอบั๊กที่ทำให้ใช้ไม่ได้เลย 2 ตัว
+
+1. **agent ไม่เห็น tool เบราว์เซอร์:** `tools` ที่ส่งให้ session เป็น allow-list (แทนที่ ไม่ใช่เพิ่ม)
+   `browser_*` 17 ตัว register แล้วแต่ไม่อยู่ในลิสต์ → โมเดลตอบ "You didn't include a link"
+   แก้: `allBrowserToolNames()` + ต่อท้าย `defaultTools` เมื่อมี bridge
+2. **ไม่รู้ว่ามีแท็บพร้อมใช้:** prompt ไม่บอกสถานะแท็บ → เรียก `browser_claim` ซ้ำ
+   หรือรายงานว่า "ถูกปฏิเสธ" ทั้งที่แท็บพร้อม
+   แก้: `browserBridge.claimedTab()` + อ่านสดทุกเทิร์นใน prompt, ปรับถ้อยคำ NOT_CLAIMED
+
+เทสต์: `selftest-browser-tools.js` +6, `selftest-browser-claims.js` +5 — ยืนยันด้วยการใส่บั๊กกลับ (FAIL จริง)
+`npm test` 33/33 ผ่าน; ผู้ใช้ยืนยันว่าใช้งานได้แล้ว
