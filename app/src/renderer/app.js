@@ -4403,19 +4403,19 @@ el('browserBtn').addEventListener('click', async () => {
 
 el('browserOpenFolder').addEventListener('click', async () => {
   const res = await api.browserOpenFolder().catch(() => null);
-  if (res && !res.ok) toast(t('browserNotInstalled'), 'warn');
+  if (res && !res.ok) showToast({ title: t('browserTitle'), body: t('browserNotInstalled') });
 });
 
 el('browserCopyUrl').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText('chrome://extensions');
-    toast(t('browserCopied'), 'ok');
+    showToast({ title: t('browserTitle'), body: t('browserCopied') });
   } catch {}
 });
 
 el('browserWatch').addEventListener('click', async () => {
   const res = await api.browserWatch().catch(() => null);
-  if (res && !res.ok) toast(`Browser: ${res.error}`, 'warn');
+  if (res && !res.ok) showToast({ title: t('browserTitle'), body: String(res.error || '') });
 });
 
 el('browserToggle').addEventListener('click', async () => {
