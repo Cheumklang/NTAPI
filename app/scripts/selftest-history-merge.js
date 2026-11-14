@@ -113,6 +113,51 @@ if (typeof merge === 'function') {
   check('a streamed reply is not duplicated',
     out5.filter((m) => m.text === 'streaming…').length === 1);
 
+  // 5b. A message sent WITH an attachment. main rewrites the prompt before the
+  //     session sees it — the image is written to disk and a
+  //     "[Attached image saved to: ...]" note is appended — so an exact text
+  //     match never lines up and the message was shown twice.
+  const viewAtt = { messages: [{ kind: 'user', text: 'ดูรูปนี้ให้หน่อย', images: [{ dataUri: 'd' }], pending: true }] };
+  const attachedText = [
+    'ดูรูปนี้ให้หน่อย',
+    '',
+    '[Attached image saved to: C:/NTAPI/attachments/a.png]',
+    'The image is saved on disk.',
+  ].join('\n');
+  const incomingAtt = [
+    { kind: 'user', text: attachedText, images: [] },
+    { kind: 'assistant', text: 'เห็นรูปแล้ว' },
+  ];
+  const outAtt = merge(viewAtt, incomingAtt);
+  check('a message with an attachment is not duplicated',
+    outAtt.filter((m) => String(m.text).startsWith('ดูรูปนี้ให้หน่อย')).length === 1);
+
+  // 5c. A file attachment appends a note the same way.
+  const viewFile = { messages: [{ kind: 'user', text: 'อ่านไฟล์นี้', images: [], pending: true }] };
+  const fileText = [
+    'อ่านไฟล์นี้',
+    '',
+    '[Attached file: C:/x/a.md]',
+    'These files are on disk.',
+  ].join('\n');
+  const outFile = merge(viewFile, [
+    { kind: 'user', text: fileText, images: [] },
+  ]);
+  check('a message with a file attachment is not duplicated',
+    outFile.filter((m) => String(m.text).startsWith('อ่านไฟล์นี้')).length === 1);
+
+  // 5d. A rewritten prompt (a /skill: command expanded) still matches.
+  const viewSkill = { messages: [{ kind: 'user', text: '@caveman hello', images: [], pending: true }] };
+  const outSkill = merge(viewSkill, [{ kind: 'user', text: '@caveman hello — expanded body follows', images: [] }]);
+  check('an expanded command is not duplicated',
+    outSkill.filter((m) => m.kind === 'user').length === 1);
+
+  // 5e. Prefix matching must not over-match: a different question stays pending.
+  const viewDiff = { messages: [{ kind: 'user', text: 'สวัสดี', images: [], pending: true }] };
+  const outDiff = merge(viewDiff, [{ kind: 'user', text: 'สวัสดีครับ ผมชื่อ', images: [] }, { kind: 'assistant', text: 'ok' }]);
+  check('a different question is not swallowed by a prefix',
+    outDiff.filter((m) => m.kind === 'user').length === 2);
+
   // 6. Undo/compact legitimately removes messages: history wins for those.
   const view6 = { messages: [{ kind: 'user', text: 'old but real' }] };
   const out6 = merge(view6, []);

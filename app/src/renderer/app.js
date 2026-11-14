@@ -2252,23 +2252,42 @@ function mergeIncomingMessages(view, incoming) {
   const local = (view && Array.isArray(view.messages) ? view.messages : []).filter((m) => m && m.pending);
   if (!local.length) return next;
 
-  // A message counts as "already in the session" when the same text and the same
-  // number of images is there, in the same kind. Windowed, not a set, so two
-  // identical questions sent in a row each match one entry.
-  const key = (m) => `${m.kind}\u0000${m.text || ''}\u0000${(m.images || []).length}`;
-  const remaining = new Map();
-  for (const m of next) {
-    const k = key(m);
-    remaining.set(k, (remaining.get(k) || 0) + 1);
-  }
+  // A message counts as "already in the session" when the session holds an entry
+  // of the same kind whose text starts with the text we sent.
+  //
+  // It cannot be an exact match: main turns attachments into a rewritten prompt
+  // before it reaches the session — "[Attached image saved to: …]" is appended
+  // and the base64 images are replaced by that path. Comparing the literal text
+  // therefore never matched a message with an attachment, so the pending copy
+  // was kept forever and the message appeared twice. Prefix matching also covers
+  // `/skill:` and template expansion, which rewrite the front of the text.
+  //
+  // Windowed, not a set: two identical questions sent in a row each consume one
+  // session entry, so neither is swallowed.
+  const localText = (m) => String(m.text || '').trim();
+  const same = (a, b) => {
+    if (a.kind !== b.kind) return false;
+    const mine = localText(a);
+    const theirs = localText(b);
+    // An image-only message has no text to compare; count it as matching the
+    // first user entry that has none.
+    if (!mine) return !theirs;
+    if (theirs === mine) return true;
+    // Only a rewrite counts as the same message when what follows is a boundary.
+    // A bare prefix would swallow a genuinely different question that happens to
+    // start the same way ("สวัสดี" vs "สวัสดีครับ ผมชื่อ…").
+    if (!theirs.startsWith(mine)) return false;
+    const nextChar = theirs.charAt(mine.length);
+    return nextChar === '\n' || nextChar === ' ' || nextChar === '\t';
+  };
 
   const kept = [];
+  const claimed = new Set();
   for (const m of local) {
-    const k = key(m);
-    const count = remaining.get(k) || 0;
-    if (count > 0) {
+    const at = next.findIndex((candidate, i) => !claimed.has(i) && same(m, candidate));
+    if (at !== -1) {
       // The session has it now: drop the pending copy, it is already shown.
-      remaining.set(k, count - 1);
+      claimed.add(at);
       continue;
     }
     kept.push(m);

@@ -214,6 +214,8 @@ function resolveSdk() {
 
 let sdk;
 let win = null;
+/** Resolves when the main window has painted its first frame. */
+let winUiReady = null;
 
 /**
  * After the data folder is renamed, any absolute path saved inside it still
@@ -1710,6 +1712,11 @@ function createWindow() {
     },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  // Resolves once the UI has painted, so the update splash can stay up until
+  // there is something to look at behind it.
+  winUiReady = new Promise((resolve) => {
+    win.webContents.once('did-finish-load', () => resolve());
+  });
   win.on('closed', () => {
     win = null;
   });
@@ -3465,10 +3472,14 @@ function splashPidFile() {
 function openUpdateSplash() {
   try {
     const { spawn } = require('node:child_process');
+    // NTAPI_DATA_DIR is passed explicitly: the app can resolve its data folder
+    // to a legacy path while the splash defaults to C:\NTAPI. If the two
+    // disagreed, the pid file would be written where the new build does not
+    // look, and the splash would sit on screen with nothing able to close it.
     const child = spawn(process.execPath, ['--ntapi-splash'], {
       detached: true,
       stdio: 'ignore',
-      env: { ...process.env },
+      env: { ...process.env, NTAPI_DATA_DIR: DATA_ROOT },
     });
     child.unref();
   } catch (err) {
@@ -3800,10 +3811,16 @@ app.whenReady().then(async () => {
   // will reject. Failure is silent: the hardcoded floor stays in force.
   resolveClientVersionFloor({ baseUrl: process.env.FREEPI_BASE_URL || 'https://api.freepi.ai' }).catch(() => {});
 
-  // The update splash outlives the old build; close it now that this one runs.
-  closeLeftoverSplash();
-
+  // The update splash outlives the old build. Keep it up until the new window
+  // has actually painted: closing it here, before createWindow() even runs,
+  // left a stretch of empty desktop while Electron started and the renderer
+  // loaded — the gap looked like the app had failed to come back.
   createWindow();
+  if (winUiReady) {
+    winUiReady.then(() => closeLeftoverSplash()).catch(() => closeLeftoverSplash());
+  } else {
+    closeLeftoverSplash();
+  }
   setUpdates();
   startPresence();
 

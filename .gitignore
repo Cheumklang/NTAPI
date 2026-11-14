@@ -16,3 +16,4 @@ app/build/candidates/
 app/build/logo-preview.png
 app/tmpimg/
 app/tmp_img/
+.agent-tmp
