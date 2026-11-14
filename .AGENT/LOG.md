@@ -28,6 +28,12 @@
 
 <!-- ต่อท้ายด้านล่างนี้ -->
 
+## 2026-11-14 — ผลปล่อย v0.2.2: สําเร็จ
+- GitHub Actions บิลด์เสร็จ ~4 นาที; release `v0.2.2` ออนไลน์ (ไม่ draft)
+- assets: `NTAPI-Setup-0.2.2.exe` (102,275,727 B), `latest.yml` (version 0.2.2), `.blockmap`
+- `/releases/latest` ชี้ที่ v0.2.2 แล้ว → electron-updater เห็นรุ่นใหม่
+- เหลือ: ผู้ใช้อัปเดตโปรแกรมที่ติดตั้งเอง + ทดสอบเป็นผู้ใช้ทั่วไป
+
 ## 2026-11-14 — ปล่อยเวอร์ชัน 0.2.2 (ผู้ใช้อนุญาต)
 - bump `app/package.json` 0.2.1 → 0.2.2, commit + push tag `v0.2.2`
 - GitHub Actions บิลด์ installer → ปล่อยขึ้น `Cheumklang/NTAPI-releases`
