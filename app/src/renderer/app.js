@@ -1338,6 +1338,32 @@ function cancelHold(view, { silent = false } = {}) {
   }
 }
 
+/**
+ * Stop the countdown attached to one queued message, keeping the message.
+ *
+ * The hold row is drawn inside the queue row it belongs to, so it can be found
+ * from the queue id. This is the "I am about to change this message" path: the
+ * clock must stop, but the item stays where it is, unlike `cancelHold`, which is
+ * for the message being taken back or thrown away.
+ */
+function cancelHoldFor(queueId) {
+  if (!queueId) return false;
+  for (const [tabId, record] of [...holds.entries()]) {
+    if (record.finished) continue;
+    if (record.item?.queueId !== queueId) continue;
+    const view = views.get(tabId);
+    if (view) cancelHold(view, { silent: true });
+    else {
+      record.finished = true;
+      clearInterval(record.timer);
+      holds.delete(tabId);
+      record.row.remove();
+    }
+    return true;
+  }
+  return false;
+}
+
 /** Nothing should fire for a tab the window is no longer showing. */
 function cancelAllHolds(exceptTabId) {
   for (const tabId of [...holds.keys()]) {
@@ -4790,6 +4816,16 @@ function renderQueue() {
         if (!v?.queue) return;
         const at = v.queue.findIndex((q) => q.queueId === item.queueId);
         if (at === -1) return;
+        // Stop any countdown still running on this row before opening the editor.
+        // Otherwise the clock keeps running under the field and fires while the
+        // user is still typing: the *old* text goes out, and the row they are
+        // editing is pulled out from under them. Choosing to edit is precisely
+        // the statement that this message is not ready to send yet.
+        //
+        // Silent: the hold is dropped but the queue item stays, because the
+        // pencil edits it in place rather than taking the words back to the
+        // composer the way the "edit" button in the countdown row does.
+        cancelHoldFor(item.queueId);
         v.queue[at].editing = true;
         v.queue[at].draft = v.queue[at].text || '';
         renderQueue();
