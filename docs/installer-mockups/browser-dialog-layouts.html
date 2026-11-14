@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../app/src/renderer/styles.css" />
+    <title>Browser dialog — final layout</title>
+    <style>
+      body { padding: 20px; background: #0a0b10; display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
+      .col { display: flex; flex-direction: column; gap: 8px; }
+      .cap { font-size: 12px; color: #9aa3b2; font-family: "Segoe UI", system-ui, sans-serif; }
+      .cap b { color: #e8e9f2; }
+      /* Pinned copies of the fixed, centred overlay for review. */
+      .overlay { position: static; padding: 16px; background: none; backdrop-filter: none; align-items: flex-start; }
+      /* A short window: the dialog must scroll inside itself, not lose its footer. */
+      .short .overlay { height: 420px; align-items: center; }
+      .short .browser-dialog { max-height: calc(100% - 32px); }
+    </style>
+  </head>
+  <body>
+    <div class="col">
+      <div class="cap"><b>Full height</b> — 600px window</div>
+      <div class="overlay">
+        <div class="dialog browser-dialog" style="width: 600px">
+          <h2>ควบคุมเบราว์เซอร์</h2>
+          <p class="dialog-sub">รอส่วนขยาย Chrome เชื่อมต่อ...</p>
+          <p class="dialog-sub">ติดตั้งครั้งเดียว</p>
+          <pre class="dialog-code">1. เปิดโฟลเดอร์ส่วนขยาย
+2. ใน Chrome ไปที่ chrome://extensions -> เปิด Developer mode -> Load unpacked -> เลือกโฟลเดอร์นี้
+3. เปิด popup ของส่วนขยาย แล้ววางรหัสจับคู่ด้านล่าง</pre>
+          <p class="dialog-sub">รหัสจับคู่ <span class="tool-chip">702730</span></p>
+          <div class="dialog-actions wrap">
+            <button class="ghost">เปิดโฟลเดอร์</button>
+            <button class="ghost">คัดลอก chrome://extensions</button>
+            <button class="ghost">ดูว่า AI ทําอะไรอยู่</button>
+          </div>
+          <div class="dialog-actions footer">
+            <button class="ghost danger">ปิดการใช้งาน</button>
+            <button class="send">ปิด</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col short" style="width: 660px">
+      <div class="cap"><b>Short window</b> — scrolls inside, footer reachable</div>
+      <div class="overlay">
+        <div class="dialog browser-dialog" style="width: 100%">
+          <h2>ควบคุมเบราว์เซอร์</h2>
+          <p class="dialog-sub">รอส่วนขยาย Chrome เชื่อมต่อ...</p>
+          <p class="dialog-sub">ติดตั้งครั้งเดียว</p>
+          <pre class="dialog-code">1. เปิดโฟลเดอร์ส่วนขยาย
+2. ใน Chrome ไปที่ chrome://extensions -> เปิด Developer mode -> Load unpacked -> เลือกโฟลเดอร์นี้
+3. เปิด popup ของส่วนขยาย แล้ววางรหัสจับคู่ด้านล่าง</pre>
+          <p class="dialog-sub">รหัสจับคู่ <span class="tool-chip">702730</span></p>
+          <div class="dialog-actions wrap">
+            <button class="ghost">เปิดโฟลเดอร์</button>
+            <button class="ghost">คัดลอก chrome://extensions</button>
+            <button class="ghost">ดูว่า AI ทําอะไรอยู่</button>
+          </div>
+          <div class="dialog-actions footer">
+            <button class="ghost danger">ปิดการใช้งาน</button>
+            <button class="send">ปิด</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="cap"><b>English</b></div>
+      <div class="overlay">
+        <div class="dialog browser-dialog" style="width: 560px">
+          <h2>Browser control</h2>
+          <p class="dialog-sub">Waiting for the Chrome extension to connect...</p>
+          <p class="dialog-sub">One-time setup</p>
+          <pre class="dialog-code">1. Open the extension folder
+2. In Chrome: chrome://extensions -> Developer mode -> Load unpacked -> pick that folder
+3. Open the extension's popup and paste the code below</pre>
+          <p class="dialog-sub">Pairing code <span class="tool-chip">702730</span></p>
+          <div class="dialog-actions wrap">
+            <button class="ghost">Open folder</button>
+            <button class="ghost">Copy chrome://extensions</button>
+            <button class="ghost">Watch what the agent does</button>
+          </div>
+          <div class="dialog-actions footer">
+            <button class="ghost danger">Turn off</button>
+            <button class="send">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

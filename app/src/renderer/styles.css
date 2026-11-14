@@ -157,6 +157,16 @@ body.resizing #sidebar { pointer-events: none; }
   font-weight: 650;
   font-size: 15px;
   letter-spacing: .2px;
+  /* The sidebar can get narrow: keep the chips whole and let the name give way,
+     instead of stacking the buttons on top of each other. */
+  min-width: 0;
+}
+
+.brand > span:not(.brand-count):not(.badge) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .brand .brand-icon {
   width: 28px;
@@ -1081,7 +1091,12 @@ button { font-family: inherit; }
   color: #c8cede;
   background: #10131a;
 }
-.tool.collapsed .tool-body { display: none; }
+/* Everything a card shows lives below its header, so collapsing hides the
+   output text *and* the image previews. The previews are card children (they sit
+   outside the dark output box), so hiding `.tool-body` alone left a thumbnail
+   floating under a one-line header — a failed `read` looked expanded again. */
+.tool.collapsed .tool-body,
+.tool.collapsed .msg-images { display: none; }
 
 .notice { font-size: 13px; color: var(--warn); margin-bottom: 6px; }
 .error-banner {
@@ -1089,8 +1104,19 @@ button { font-family: inherit; }
   border: 1px solid rgba(255,95,109,.35);
   background: rgba(255,95,109,.08);
   border-radius: 9px;
-  padding: 8px 12px;
   font-size: 13px;
+  line-height: 1.5;
+}
+
+/* The transcript insets every block by 22px, but a block with its own padding
+   loses that inset (`padding: 0 22px` is replaced, not added). The banner sets
+   the same 22px for itself, so its border lines up with the tool cards, and
+   keeps the 22px available for real padding inside the border. */
+.transcript > .error-banner {
+  max-width: calc(var(--read-width) - 44px);
+  margin: 0 auto 14px;
+  padding: 11px 14px;
+  overflow-wrap: anywhere;
 }
 
 /* ---------------- ad banner ---------------- */
@@ -1382,6 +1408,27 @@ button { font-family: inherit; }
 }
 .dialog-actions .ghost { padding: 8px 16px; font-size: 13px; }
 .dialog-actions .send { padding: 8px 18px; }
+
+/* A row of helper buttons of different lengths reads as ragged when it is only
+   right-aligned, so the row shares its width out equally instead. */
+.dialog-actions.wrap {
+  flex-wrap: wrap;
+}
+.dialog-actions.wrap .ghost { flex: 1 1 auto; }
+
+/* Footer: the destructive action on the left, the way out on the right. Keeps
+   "Turn off" out of the path to the primary button. */
+.dialog-actions.footer {
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+/* The browser dialog is the tallest one: a 600px window used to cut its footer
+   off with no way to reach it. Scroll inside the dialog instead. */
+.browser-dialog {
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
 
 /* "Allow everything" is not the primary action — it stays quiet and only turns
    red on hover, so the safe button keeps the visual weight. */

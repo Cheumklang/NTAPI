@@ -28,6 +28,7 @@ const TESTS = [
   'selftest-update-splash.js',
   'selftest-installer-assets.js',
   'selftest-duration.js',
+  'selftest-sidebar-min.js',
   'selftest-empty-answer.js',
   'selftest-image-history.js',
   'selftest-image-review.js',

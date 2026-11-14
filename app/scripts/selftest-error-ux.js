@@ -94,6 +94,59 @@ check(
   Boolean(scroll) && /nearBottom/.test(scroll) && /if\s*\(\s*force\s*\|\|\s*nearBottom\s*\)/.test(scroll)
 );
 
+// 6. The banner carries its own gutter.
+//
+// `.transcript > *` insets every block by 22px, but a block that sets its own
+// padding replaces that inset instead of adding to it — so the banner used to
+// hug the transcript edge at 12px while everything around it sat at 22px, and
+// the error text looked like it was touching the border.
+const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'styles.css'), 'utf8');
+const bannerRule = css.match(/\n\.transcript > \.error-banner \{[\s\S]*?\n\}/);
+check('the banner is re-inset to the transcript gutter', Boolean(bannerRule));
+check(
+  'the inset is expressed against the read width',
+  Boolean(bannerRule) && /max-width:\s*calc\(var\(--read-width\) - 44px\)/.test(bannerRule[0])
+);
+check(
+  'the banner keeps padding inside its own border',
+  Boolean(bannerRule) && /padding:\s*11px 14px/.test(bannerRule[0])
+);
+check(
+  'the longer form of the rule wins over the shared `> *` inset',
+  css.indexOf('.transcript > .error-banner') > css.indexOf('.transcript > *')
+);
+
+// 7. The browser dialog's buttons: a tidy helper row, then a footer with the
+// destructive action kept away from the way out.
+const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'index.html'), 'utf8');
+const wrapRow = html.match(/<div class="dialog-actions wrap">[\s\S]*?<\/div>/);
+check('the helper buttons share one row', Boolean(wrapRow));
+check(
+  'that row holds all three helpers',
+  Boolean(wrapRow) && ['browserOpenFolder', 'browserCopyUrl', 'browserWatch'].every((id) => wrapRow[0].includes(id))
+);
+check('the helper row no longer ends the dialog', Boolean(wrapRow) && !wrapRow[0].includes('browserClose'));
+
+const footerRow = html.match(/<div class="dialog-actions footer">[\s\S]*?<\/div>/);
+check(
+  'the footer holds the toggle and close',
+  Boolean(footerRow) && footerRow[0].includes('browserToggle') && footerRow[0].includes('browserClose')
+);
+
+const wrapCss = css.match(/\n\.dialog-actions\.wrap \{[\s\S]*?\n\}/);
+check('the helper row may wrap instead of overflowing', Boolean(wrapCss) && /flex-wrap:\s*wrap/.test(wrapCss[0]));
+check('the helpers share the width evenly', /\n\.dialog-actions\.wrap \.ghost \{[^}]*flex:\s*1 1 auto/.test(css));
+const footCss = css.match(/\n\.dialog-actions\.footer \{[\s\S]*?\n\}/);
+check(
+  'the footer separates the way out from the primary button',
+  Boolean(footCss) && /justify-content:\s*space-between/.test(footCss[0])
+);
+check(
+  'the dialog scrolls so its footer is never cut off',
+  /\.browser-dialog \{[\s\S]*?overflow-y:\s*auto/.test(css)
+);
+check('the browser dialog opts into that rule', /class="dialog browser-dialog"/.test(html));
+
 if (failures) {
   console.log(`\n${failures} failure(s)`);
   process.exit(1);

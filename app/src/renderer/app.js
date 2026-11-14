@@ -2811,8 +2811,28 @@ const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 520;
 const SIDEBAR_DEFAULT = 268;
 
+/**
+ * How wide the top row (icon, name, badges, chips) needs to be.
+ *
+ * A fixed 200px floor let the sidebar shrink below its own header, so the
+ * language / browser / settings chips slid under each other. Measure the row's
+ * natural width instead: each child reports its own content width through
+ * scrollWidth even while flex is squeezing it.
+ */
+function sidebarMinWidth() {
+  const brand = document.querySelector('#sidebar .brand');
+  if (!brand) return SIDEBAR_MIN;
+  const gap = parseFloat(getComputedStyle(brand).columnGap) || 0;
+  const kids = [...brand.children].filter((n) => !n.hidden);
+  if (!kids.length) return SIDEBAR_MIN;
+  const row = kids.reduce((sum, n) => sum + Math.max(n.scrollWidth, n.offsetWidth), 0) + gap * (kids.length - 1);
+  // #sidebar: 12px padding each side, 1px border, and a little breathing room.
+  return Math.max(SIDEBAR_MIN, Math.ceil(row) + 24 + 2 + 6);
+}
+
 function applySidebarWidth(px) {
-  const w = Math.round(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Number(px) || SIDEBAR_DEFAULT)));
+  const min = sidebarMinWidth();
+  const w = Math.round(Math.min(SIDEBAR_MAX, Math.max(min, Number(px) || SIDEBAR_DEFAULT)));
   document.documentElement.style.setProperty('--sidebar-w', `${w}px`);
   return w;
 }
@@ -2858,6 +2878,20 @@ function applySidebarWidth(px) {
     const w = applySidebarWidth(cur + (e.key === 'ArrowRight' ? step : -step));
     appPrefs.sidebarWidth = w;
     api.setPrefs({ sidebarWidth: w });
+  });
+
+  // A saved width from a build with a smaller floor, or a font/zoom change,
+  // must not leave the header cramped.
+  window.addEventListener('resize', () => {
+    const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || SIDEBAR_DEFAULT;
+    applySidebarWidth(cur);
+  });
+
+  // Text widths are only reliable once the font is in; the first paint can be
+  // narrower than the final glyphs.
+  document.fonts?.ready.then(() => {
+    const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || SIDEBAR_DEFAULT;
+    applySidebarWidth(cur);
   });
 })();
 el('settingsClose').addEventListener('click', closeSettings);
