@@ -351,3 +351,13 @@ claim ที่ล้มเหลวไม่เงียบอีก, error ใ
 `renderer/app.js`, `selftest-browser-claims.js`)
 
 **ยังค้าง:** ทดสอบ UI จริง/Chrome จริงด้วยตา · ยังไม่ merge เข้า master
+
+### (ต่อ) สวิตช์อนุมัติ 3 ระดับ — แก้ UI select (2026-11-14)
+
+- หลัง build ครั้งแรก พบว่า `<select>` ยืมคลาส `.path-btn` (ออกแบบมาเพื่อ `<button>`)
+  → Windows วาดกรอบขาว/ลูกศรทับธีมมืด
+- แก้: คลาสใหม่ `approval-policy-select` (appearance:none + var tokens + focus ring + option ธีมมืด)
+- กันซ้ำ: `selftest-approval-ui.js` ใหม่ — ตรวจว่าสวิตช์มีคลาสของตัวเอง, ไม่ยืม .path-btn,
+  appearance:none, token มีจริง, banner เริ่ม hidden (ทดสอบย้อนกลับ: ใส่ .path-btn กลับ → FAIL 2 จริง)
+- `npm test` 34 → **35/35**
+- build ใหม่ `dist/NTAPI-Setup-0.3.5.exe` (23:48) มี CSS ใหม่แล้ว
