@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-15 · **v0.4.3** (`master` = `ef5e1e1`, tag `v0.4.3`)
+**อัปเดตล่าสุด:** 2026-11-15 · **v0.4.3** (`master` = `5a34a25`, tag `v0.4.3`)
 
 > v0.4.3 รวมทุกอย่างตั้งแต่ v0.3.5: สวิตช์อนุมัติแบบสไลด์ · คิวในช่องพิมพ์
 > (แก้/ลาก/ดินสอ/ghost) · คำตอบหลายก้อนไม่หาย · scroll ติดล่างเสมอ
@@ -124,8 +124,20 @@
 - **Learned:** เพิ่ม element หน้าแถวทำให้ `check-queue-placement.js` พัง 3 ข้อ (geometry เลื่อน ~15px)
   → `gripFirst` ต้องข้าม `.queue-num`, เพดานระยะ 40 → 60px · **รันเทสต์ geometry เก่าทุกครั้งที่เพิ่ม element**
 
+**(ข4) `5a34a25` — หน้า release ไม่มีคำอธิบาย (เตรียมปล่อยสู่สาธารณะ)**
+- ราก: `release.yml` ไม่เคยตั้ง `body`/`body_path` → release มีแค่ชื่อ + ไฟล์ `.exe`
+- แก้: `RELEASE_NOTES.md` ที่ **repo root** + `body_path: RELEASE_NOTES.md` (root-relative)
+  + `package.json` description เป็นภาษาไทยที่สื่อความหมาย
+- `RELEASE_NOTES.md` ตอบคำถามที่คนโหลดต้องรู้: โปรแกรมคืออะไร · ต้อง Windows อะไร ·
+  **ทำไม Windows เตือน → More info → Run anyway** (ไม่มี code signing) · อัปเดตเอง ·
+  แจ้งปัญหาที่ไหน · API ของเจ้าอื่นมีกติกาของตัวเอง
+- เทสต์: `selftest-release-notes.js` (19, offline, อยู่ใน `npm test`)
+- **`LICENSE` ยังไม่มี — ผู้ใช้เลือกข้าม** (ไม่ใช่เรื่องงบ แต่ผู้ใช้ไม่ต้องการ)
+- **ข้อจำกัด:** release ที่ปล่อยแล้วแก้ย้อนหลังไม่ได้ (ไม่มี `gh`, repo private)
+  → คำอธิบายเริ่มมีที่ **v0.5.0** · ถ้าอยากให้ v0.4.3 มี ผู้ใช้กด Edit ที่หน้าเว็บเอง
+
 **(ค) เทสต์**
-- `npm test` = **48/48** (ทุกไฟล์ผ่าน `node --check` ก่อน)
+- `npm test` = **49/49** (ทุกไฟล์ผ่าน `node --check` ก่อน)
   · **ต้องลงทะเบียน `selftest-*.js` ใน `TESTS` ของ `scripts/run-unit-tests.js`** ไม่งั้นไม่รัน
 - npm scripts: `check:queue` `check:reload` `check:history` `check:hold` `check:attach`
   `check:read` `check:cancel` `check:queue-edit` `check:approval` `check:blocks`

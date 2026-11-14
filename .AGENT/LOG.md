@@ -907,3 +907,34 @@ Electron FAIL 5 โดยเฉพาะ `the old text is never sent — {"sent"
 · `npm test` 48/48 · working tree สะอาด · master = origin/master
 
 CI ดูไม่ได้ (gh ไม่มี, repo private) — ผู้ใช้ตรวจที่ NTAPI-releases
+
+## 2026-11-15 — หน้า release ไม่มีคำอธิบาย (`5a34a25`)
+
+**คำขอ:** ผู้ใช้จะปล่อยโปรแกรมสู่สาธารณะ ขอให้อัปเดตข้อมูลที่ `Cheumklang/NTAPI-releases`
+(ข้าม LICENSE — ผู้ใช้ไม่มีงบ, และ MIT ไม่เกี่ยวกับค่าใช้จ่าย แต่ผู้ใช้ไม่ต้องการ)
+
+**ราก:** `release.yml` ไม่เคยตั้ง `body`/`body_path` เลย → release ทุกอันมีแค่ชื่อกับไฟล์
+คนที่เข้ามาจากโพสต์ Facebook เห็นชื่อไฟล์ `.exe` เฉย ๆ ไม่รู้ว่าโปรแกรมคืออะไร
+
+**แก้:**
+1. `RELEASE_NOTES.md` ที่ **repo root** — ถาม-ตอบที่คนโหลดต้องรู้: โปรแกรมคืออะไร,
+   ต้อง Windows อะไร, **ทำไม Windows เตือน (ไม่มี code signing → More info → Run anyway)**,
+   อัปเดตเอง, วิธีแจ้งปัญหา, และหมายเหตุเรื่อง API ของเจ้าอื่น
+2. `release.yml` → `body_path: RELEASE_NOTES.md` (root-relative เพราะ job รันที่ repo root)
+3. `package.json` description: `Desktop app for NTAPI (no terminal needed)` →
+   `รวม AI ที่มีโควตาฟรีไว้ในที่เดียว ลองก่อนจ่ายรายเดือน`
+
+**ยืนยันจากเอกสาร:** `body_path` ชนะ `body`; อ่าน relative กับ workspace root
+
+**เทสต์:** `selftest-release-notes.js` (19) — offline, อยู่ใน `npm test` → **49/49**
+ตรวจ: ไฟล์มีจริง · workflow ชี้ถูก · ไม่มี `body:` ซ้อน · ยัง publish ไป
+`Cheumklang/NTAPI-releases` · `latest.yml` + `blockmap` ยังอยู่ (electron-updater ต้องใช้) ·
+เนื้อหาครบ 8 ข้อที่คนใหม่ต้องรู้ · ไม่มีอักขระ CJK หลุด
+
+**ย้อนกลับ:** ลบ `body_path` → FAIL 1 · ลบส่วน SmartScreen → FAIL 2 ·
+ชี้ไป `app/RELEASE_NOTES.md` → FAIL 2
+
+**Learned:** เขียน `RELEASE_NOTES.md` แล้วมีอักขระจีนหลุด (`它会แจ้งเอง`) — จับได้ด้วย check
+`no stray CJK characters` ที่ใส่ไว้เอง · **ข้อจำกัด:** release ที่ปล่อยแล้ว (`v0.4.3`)
+แก้ย้อนหลังไม่ได้เพราะไม่มี `gh` และ repo เป็น private → คำอธิบายเริ่มมีที่ `v0.5.0`
+ถ้าอยากให้ v0.4.3 มีด้วย ผู้ใช้ต้องกด Edit ที่หน้าเว็บเอง
