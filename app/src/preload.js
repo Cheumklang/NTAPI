@@ -82,6 +82,10 @@ contextBridge.exposeInMainWorld('freepi', {
   renameSession: (tabId, name) => ipcRenderer.invoke('session:rename', { tabId, name }),
   renameSessionFile: (cwd, sessionPath, name) =>
     ipcRenderer.invoke('session:renameFile', { cwd, sessionPath, name }),
+  // Pins and colours on saved chats, keyed by the session file on disk.
+  getSessionColors: () => ipcRenderer.invoke('session:colors'),
+  setSessionMark: (sessionPath, patch) =>
+    ipcRenderer.invoke('session:mark', { sessionPath, ...(patch || {}) }),
 
   sendPrompt: (tabId, text, images, mode) =>
     ipcRenderer.invoke('prompt:send', { tabId, text, images, mode }),

@@ -81,6 +81,14 @@ app.on('render-process-gone', (_event, _contents, details) =>
 );
 const { diffLines } = require('./diff');
 const { sessionDirName } = require('./session-paths');
+const {
+  COLORS: SESSION_COLORS,
+  applyMark: applySessionMark,
+  readMark: readSessionMark,
+  sortByMark: sortSessionsByMark,
+  pruneMarks: pruneSessionMarks,
+  markKey: sessionMarkKey,
+} = require('./session-marks');
 const { friendlyProviderError } = require('./provider-errors');
 const { isUpgradeRequired: isUpgradeRequiredText, resolveClientVersionFloor } = require('./client-version');
 const { createProviderKeyStore } = require('./provider-key');
@@ -429,6 +437,42 @@ function writePrefs(patch) {
     fs.mkdirSync(path.dirname(prefsPath()), { recursive: true });
     fs.writeFileSync(prefsPath(), JSON.stringify(next, null, 2));
   } catch {}
+}
+
+/* --------------------------- pins and colours ---------------------------
+ * Stored in prefs.json, keyed by the session file's absolute path. The pi
+ * session files stay untouched: the SDK owns that format. See session-marks.js
+ * for why marks follow the file and not the tab.
+ */
+
+/** Every pin and colour, as stored. */
+function sessionMarks() {
+  const marks = readPrefs().sessionMarks;
+  return marks && typeof marks === 'object' ? marks : {};
+}
+
+/** Write one chat's pin/colour. Returns the saved mark for that chat. */
+function saveSessionMark(sessionPath, patch) {
+  const next = applySessionMark(sessionMarks(), sessionPath, patch);
+  writePrefs({ sessionMarks: next });
+  return readSessionMark(next, sessionPath);
+}
+
+/**
+ * Forget marks whose chat is gone.
+ *
+ * Deleting a conversation, or clearing it (which replaces the file) would
+ * otherwise leave rows in prefs forever. Pruning is lazy — it runs whenever the
+ * sidebar lists a folder — because there is no reliable "file deleted" hook for
+ * every path (an external delete, a synced folder).
+ */
+function pruneSessionMarkStore() {
+  const current = sessionMarks();
+  if (!Object.keys(current).length) return;
+  const next = pruneSessionMarks(current, (file) => fs.existsSync(file));
+  if (Object.keys(next).length !== Object.keys(current).length) {
+    writePrefs({ sessionMarks: next });
+  }
 }
 
 /* --------------------------- browser control ---------------------------
@@ -874,9 +918,13 @@ async function migrateSessionDirs() {
 
 async function listSessions(cwd) {
   const dir = sessionDirFor(cwd);
+  // Marks whose file disappeared are dropped here, so prefs does not grow with
+  // rows for conversations deleted in an earlier run.
+  pruneSessionMarkStore();
+  const marks = sessionMarks();
   try {
     const infos = await sdk.SessionManager.list(path.resolve(cwd), dir);
-    return infos
+    const listed = infos
       .slice()
       // Newest conversation on top, by *creation* time. Creation never changes,
       // so the sidebar order stays put while you chat. Sorting by `modified`
@@ -888,16 +936,25 @@ async function listSessions(cwd) {
         const tb = new Date(b.created).getTime() || new Date(b.modified).getTime() || 0;
         return tb - ta || String(b.id).localeCompare(String(a.id));
       })
-      .map((i) => ({
-        id: i.id,
-        path: i.path,
-        created: i.created,
-        modified: i.modified,
-        // A user-set name (session:rename) wins over the derived first message.
-        name: i.name || null,
-        firstMessage: (i.firstMessage || '').slice(0, 120),
-        messageCount: i.messageCount ?? null,
-      }));
+      .map((i) => {
+        const mark = readSessionMark(marks, i.path);
+        return {
+          id: i.id,
+          path: i.path,
+          created: i.created,
+          modified: i.modified,
+          // A user-set name (session:rename) wins over the derived first message.
+          name: i.name || null,
+          firstMessage: (i.firstMessage || '').slice(0, 120),
+          messageCount: i.messageCount ?? null,
+          // The sidebar reads these two to draw the pin and colour stripe.
+          pinned: mark.pinned,
+          color: mark.color,
+        };
+      });
+    // Pinning is the only thing that moves a row; everything else keeps the
+    // creation-time order above.
+    return sortSessionsByMark(marks, listed);
   } catch {
     return [];
   }
@@ -2464,6 +2521,35 @@ ipcMain.handle('tab:state', async (_e, tabId) => tabState(tabId || activeTabId))
 
 ipcMain.handle('session:list', async (_e, cwd) => listSessions(cwd || readPrefs().lastCwd || process.cwd()));
 
+/** The colours the user may choose, in display order. */
+ipcMain.handle('session:colors', async () => SESSION_COLORS);
+
+/**
+ * Pin, unpin, colour or un-colour one saved chat.
+ *
+ * Addressed by session *file*, not tab: a chat in the sidebar may not be open,
+ * and `/clear` replaces its tab anyway. Out-of-range values are rejected by
+ * session-marks.js rather than stored.
+ */
+ipcMain.handle('session:mark', async (_e, { sessionPath, pinned, color } = {}) => {
+  const key = sessionMarkKey(sessionPath);
+  if (!key) return { ok: false, error: 'a session file is required' };
+  // Refuse paths outside the store: prefs is not a general-purpose side table.
+  // Compare in lower case because `markKey` lower-cases the path on Windows.
+  const root = path.resolve(SESSIONS_ROOT).toLowerCase();
+  if (!key.startsWith(root + path.sep)) {
+    return { ok: false, error: 'session file is outside the session store' };
+  }
+
+  const patch = {};
+  if (pinned !== undefined) patch.pinned = pinned === true;
+  if (color !== undefined) patch.color = color;
+  if (!Object.keys(patch).length) return { ok: false, error: 'nothing to change' };
+
+  const mark = saveSessionMark(sessionPath, patch);
+  return { ok: true, sessionPath, mark };
+});
+
 /**
  * Delete a saved session from disk. Any open tab using that session is closed
  * first so pi stops writing to the file before it disappears.
@@ -2567,6 +2653,14 @@ function attachmentPathsForSession(sessionFile, cwd) {
  * `/clear`: delete this conversation's text (its session file) and the images
  * it attached, then reopen the same workspace with an empty chat.
  *
+ * The new chat is a genuine new session — new id, new file, and *no* context —
+ * exactly like pressing "+ New", so clearing costs the same tokens as starting
+ * over. Two things the user set deliberately are carried across, because losing
+ * them is what made `/clear` feel like it threw the chat away:
+ *
+ *   name  — written back with `appendSessionInfo`, the same call a rename makes
+ *   model — re-selected so clearing does not silently move you to the default
+ *
  * Not touched: skills, generated images, downloaded files, other sessions.
  */
 ipcMain.handle('session:clear', async (_e, tabId) => {
@@ -2574,6 +2668,14 @@ ipcMain.handle('session:clear', async (_e, tabId) => {
   const cwd = tab.cwd;
   const file = tab.handle.session.sessionFile;
   const attachments = file ? attachmentPathsForSession(file, cwd) : [];
+
+  // Read what the old chat was before the handle goes away. `sessionName` is
+  // only set when the user named it; a derived name would come back anyway from
+  // the first message of the *new* chat, so it is deliberately not carried.
+  const keepName = (tab.handle.session.sessionName || '').trim();
+  const keepModel = tab.handle.session.model
+    ? { provider: tab.handle.session.model.provider, id: tab.handle.session.model.id }
+    : null;
 
   try {
     await tab.handle.session.abort();
@@ -2613,6 +2715,25 @@ ipcMain.handle('session:clear', async (_e, tabId) => {
     const newId = newTabId();
     const manager = sdk.SessionManager.create(cwd, sessionDirFor(cwd));
     const state = await attachTab(newId, manager, cwd);
+
+    // Restore the two things the user chose. Both are best-effort: a failed
+    // rename or model switch must not turn a successful clear into an error.
+    if (keepName) {
+      try {
+        const newTab = tabs.get(newId);
+        await newTab.handle.session.setSessionName(keepName);
+        newTab.fallbackName = keepName;
+        state.name = keepName;
+      } catch {}
+    }
+    if (keepModel) {
+      try {
+        const newTab = tabs.get(newId);
+        const model = await newTab.handle.setModel(keepModel.provider, keepModel.id);
+        if (model) state.model = { provider: model.provider, id: model.id, name: model.name };
+      } catch {}
+    }
+
     activeTabId = newId;
     persistTabs();
     return {
@@ -2620,6 +2741,8 @@ ipcMain.handle('session:clear', async (_e, tabId) => {
       tabId: newId,
       state,
       attachmentsRemoved: attachments.length,
+      keptName: Boolean(keepName),
+      keptModel: Boolean(state.model && keepModel),
       warning,
     };
   } catch (err) {

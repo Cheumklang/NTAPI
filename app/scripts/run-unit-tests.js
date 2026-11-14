@@ -65,6 +65,8 @@ const TESTS = [
   'selftest-provider-timeout.js',
   'selftest-resolve-sdk.js',
   'selftest-session-paths.js',
+  'selftest-session-marks.js',
+  'selftest-session-marks-ui.js',
   'selftest-single-instance.js',
   'selftest-sse-guard.js',
   'selftest-system-info.js',

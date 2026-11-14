@@ -17,6 +17,12 @@
 ---
 
 ## 0) กติกาเหล็ก (ต้องทำก่อนแตะโค้ด)
+- **ตอบเป็นภาษาไทยเสมอ** — ผู้ใช้ถนัดภาษาไทย
+  - ถ้าผู้ใช้ส่งข้อความสั้น ๆ ที่เป็น**แค่ชื่อโฟลเดอร์/พาธ/URL** หรือข้อความที่ยังไม่บอกงาน
+    (เช่น `C:\Users\cheum\OneDrive\เดสก์ท็อป\NTAPI`) **ให้อ่านว่า "เข้าไปดูโปรเจกต์นี้แล้วรายงาน"**
+    — ไม่ใช่ "หางานให้ทำเอง" ห้ามเดาแล้วลงมือแก้โค้ด
+  - ให้: อ่าน `.AGENT/HANDOFF.md` → สรุปสถานะสั้น ๆ เป็นไทย → ถามว่าอยากให้ทำอะไรต่อ (พร้อมตัวเลือก)
+  - ใช้ภาษาอังกฤษได้เฉพาะโค้ด/commit message/ชื่อไฟล์/คำสั่ง shell
 - **ห้าม `git commit` / `push` / tag / เปิด PR เอง — ต้องขออนุญาตผู้ใช้ก่อนเสมอ**
   (ผู้ใช้ใช้ **GitHub Desktop** จัดการ repo)
 - commit message = **ภาษาไทย กระชับ บรรทัดเดียว** (ดูสไตล์: `git log --oneline`)
@@ -39,8 +45,98 @@
   - build/tag/release เมื่อถึงรอบ (0.5.0) หรือเมื่อผู้ใช้สั่งเท่านั้น
 - **ห้ามอ่าน/ลิสต์ `C:\Program Files\NTAPI\`** — แม้แต่อ่านก็ไม่ต้อง
   ถ้าอยากรู้เวอร์ชันที่ติดตั้งจริง ให้ถามผู้ใช้ หรือดู `prefs.lastVersion` ใน `prefs.json`
+- **อย่าเดางานจากบริบทแวดล้อม:** ถ้าข้อความของผู้ใช้ไม่ระบุงานชัดเจน (ส่งมาแค่พาธ/รูป/คำสั้น ๆ)
+  ห้ามเริ่มแก้โค้ดเพราะ "เห็นว่ามีไฟล์ค้างหรือดูน่าจะอยาก" → **ถามก่อนเสมอ** แล้วรอคำตอบ
+  (ผู้ใช้สั่งไว้ 2026-11-15 หลัง AI เข้าใจผิดว่าพาธล้วน ๆ คือคำสั่งให้ไปทำงาน)
 
 ## 1) กําลังทํา / ค้างอยู่ตอนนี้ (สําคัญสุด — อ่านก่อน)
+
+### 1t) พับ "บันทึกการทำงาน" (2026-11-15) ✅ เสร็จ ยังไม่ commit
+
+ผู้ใช้เห็นข้อความยาว ๆ ของ AI เต็มจอ (กรอบสีเขียว) อยากให้ย่อแบบ "ใช้เครื่องมือ N ครั้ง"
+แต่ **คำตอบสุดท้ายต้องไม่ย่อ** · ผู้ใช้ยืนยันว่าเป็น A = ไม่ใช่ thinking
+
+- **ไม่ใช่ thinking** — thinking พับอยู่แล้ว · เป็น **`.body` หลายก้อนต่อเทิร์น**
+  (พูด → tool → พูด) ที่เดิมแสดงเต็มทุกก้อน
+- `sealBody()` เรียก `collapseNarration()` → ย้ายก้อนนั้นเข้า `.narration-group`
+  ปุ่มบรรทัดเดียว "บันทึกการทำงาน N ช่วง" ปิดเริ่มต้น · **ก้อนสุดท้ายไม่ถูก seal = คำตอบเปิดเสมอ**
+- replay เรียก `sealBody()` ตอนเจอ `m.kind === 'tool'` → ผลเหมือน live
+- **บั๊กเดิมที่แก้ด้วย:** replay ใช้ `.body` ตัวแรก → ทุกก้อนต่อกันเป็นบับเบิลยักษ์
+  → เปลี่ยนเป็น `currentBody(wrap)`
+- เทสต์: `npm run check:narration` (12 checks, รวม live path) · ย้อนกลับ FAIL 9
+- วัดจริง: เทิร์นที่เคยเต็มจอ → 156px
+
+### 1s) ป้ายผู้ตอบ = provider + model (2026-11-15) ✅ เสร็จ ยังไม่ commit
+
+เดิม `addMessage()` ใส่ `t('assistant')` = `"NTAPI"` ตายตัวทุกคำตอบ
+→ เปลี่ยนเป็น `messageAuthor()` = `providerLabel | Model: <ชื่อ model>`
+เช่น `FreePi | Model: DeepSeek V4.1 Flash` (CSS upper จะแสดงเป็น `FREEPI | MODEL: …`)
+
+- `refreshMessageAuthors()` เรียกหลังสลับ model → ป้ายของคำตอบเก่าในเธรดเดียวกันอัปเดตตาม
+- ไม่มี model → ถอยไป `t('assistant')` ไม่พิมพ์ตัวคั่นลอย ๆ
+- คำตอบของผู้ใช้ (`You` / `คุณ`) ไม่เปลี่ยน
+- เทสต์: `npm run check:author` (6 checks) · ย้อนกลับแล้ว FAIL 3
+
+### 1r) `/clear` เก็บชื่อ+model · ปักหมุดแชท · สีแชท (2026-11-15) ✅ STAGED, ยังไม่ commit
+
+**(ก) `/clear` ไม่ลบชื่อแชทแล้ว (และไม่เปลี่ยน model)**
+- ราก: `session:clear` สร้าง `SessionManager.create` ใหม่ → `sessionName` ว่าง → `attachTab()`
+  เข้าเงื่อนไข `if (!handle.session.sessionName)` แล้ว `deriveName()` ใส่ชื่อจากข้อความแรก
+  · model ก็ถูกเลือกใหม่จาก `plan.defaultProvider/defaultModel` ของแผน
+- แก้ (ใน `main.js` `ipcMain.handle('session:clear')`): อ่าน `sessionName` + `session.model`
+  **ก่อน** `tab.handle.dispose()` แล้วหลัง `attachTab()` ใหม่: `setSessionName(keepName)`
+  (เขียนผ่าน `appendSessionInfo` เหมือน rename) + `handle.setModel(provider,id)`
+  · อัปเดต `state.name` / `state.model` ให้ renderer ตรงกับความจริง
+  · คืน `keptName` / `keptModel` → renderer ขึ้น notice `clearKeptName`
+- **ยังเป็นเซสชันใหม่จริง** (ไฟล์ `.jsonl` ใหม่, id ใหม่, บริบทว่าง) = token เท่ากับกด "+ New"
+  ตามที่ผู้ใช้ยืนยัน (`pull request: 1A + 2A`)
+- ทั้ง rename และ setModel เป็น best-effort (`try/catch` เฉย ๆ) — ล้มเหลวต้องไม่ทำให้ clear ล้ม
+
+**(ข) ปักหมุด + สีแชท — ไฟล์ใหม่ `src/session-marks.js` (pure module)**
+- เก็บใน **`prefs.json` คีย์ `sessionMarks`** คีย์ย่อย = path ของไฟล์ `.jsonl` (normalize +
+  `toLowerCase()` บน Windows) — **ไม่เขียนอะไรลง `.jsonl` ของ pi** (SDK เป็นเจ้าของฟอร์แมต)
+- `readMark` / `applyMark` (pure, ไม่ mutate) / `sortByMark` / `pruneMarks`
+- สีเป็นรายการปิด 7 สี (`red orange yellow green blue purple pink`) — ค่าที่ไม่รู้จัก
+  **ถูกทิ้ง ไม่เก็บดิบ** (ทดสอบแล้วว่าค่า `RED`/`chartreuse` ไม่สร้าง entry)
+- mark ที่ว่าง (ไม่หมุด ไม่สี) → `delete` ออกจาก store ไม่เก็บเป็น `{pinned:false,color:null}`
+- `pruneMarks` เรียกทุกครั้งที่ `listSessions()` → prefs ไม่บวมเมื่อลบแชทไปแล้ว
+- **`sortByMark` ไม่เรียงตามเวลา** — แค่ย้าย pinned ขึ้นบน ที่เหลือคงลำดับเดิมที่ `listSessions`
+  เรียงมาแล้ว (ถ้าเรียงซ้ำจะกลายเป็น sort ตัวที่สองที่แย่งกับ sort ตาม `created`)
+  · **บทเรียน:** เทสต์ชุดแรกเขียนผิดคาดหวังว่าระยะเวลาจะจัดลำดับ → แก้ที่เทสต์ ไม่ใช่ที่โค้ด
+- IPC: `session:mark` (ตรวจว่า path อยู่ใต้ `SESSIONS_ROOT`), `session:colors`
+- UI: `.s-pin-slot` (ช่องกว้าง 14px **จองไว้ทุกแถว** แม้ไม่มีหมุด) + แถบสี `border-left: 4px`
+  · เมนูคลิกขวา: ปักหมุด/เอาหมุด + สวอตช์ 7 สี + "ไม่ใช้สี" · กดสีเดิมซ้ำ = เอาสีออก
+  · `sessionMarksLocal` ใน renderer เป็น mirror ให้คลิกติดทันที (IPC ตอบช้ากว่า render)
+
+**บั๊กที่เจอจากการวัดพิกเซล (แก้แล้ว):**
+1. **ชื่อแถวไม่ตรงคอลัมน์** — ตอนแรกใส่ไอคอนหมุดแบบมีเงื่อนไข → แถวที่ปักหมุดชื่อเริ่มที่ 42px
+   แถวอื่น 21px (リストดูพัง) → เปลี่ยนเป็น slot กว้างคงที่ที่ทุกแถวมี
+2. **1px เหลื่อมระหว่างสถานะ** — `box-sizing: border-box` → ระยะข้อความ = `border-left + padding-left`
+   · แถวธรรมดา 1+9=10 แต่ `.open` 2+7=9 และ `.active` 3+6=9 → ปรับเป็น 2+8 / 3+7 / สี 4+6 = **10 ทุกสถานะ**
+   · วัดจริงหลังแก้: `[42, 42, 42, 42, 42]`
+3. `session:mark` เคยเทียบ `root` ที่ยังไม่ lower-case → บน Windows path ที่ตัวพิมพ์ต่างกันจะถูกปฏิเสธ
+
+**เทสต์:**
+- `scripts/selftest-session-marks.js` (24 checks, pure) — identity ข้ามการเขียน path ต่างแบบ,
+  corrupt entry, prune, palette round-trip, ลำดับ pinned, ไม่ mutate
+- `scripts/selftest-session-marks-ui.js` (20 checks, static) — `/clear` อ่านชื่อ**ก่อน** dispose,
+  เขียนกลับ, set model, ยังลบไฟล์เดิม, list/`session:mark`/preload, sidebar วาดหมุด+สี,
+  palette renderer ตรงกับ `session-marks.js`, i18n ครบ 2 ภาษา, CSS ทุกสี, **สีต้องชนะ `.active`**
+- `scripts/check-session-marks.js` (18 checks, Electron) — `npm run check:marks`
+  · **Important:** `window.freepi` จาก contextBridge เป็น **frozen** — แก้ `api.listSessions`
+    ในหน้าเว็บไม่ได้ผลเงียบ ๆ (เจอจริงตอนแรก: ทุกอย่างว่าง) → ต้อง `ipcMain.handle('session:list')`
+    ที่ main process แทน (และทดสอบ IPC จริงไปด้วย)
+- ผล: `npm test` **51/51** · `check:marks` **18/18**
+- ย้อนกลับที่พิสูจน์แล้ว: ลบ `setSessionName(keepName)` → UI FAIL 1 · ทำให้ `state.model` ไม่รับค่า
+  → FAIL 1 · สลับ `[...rest, ...pinned]` → marks FAIL 1 · ย้าย CSS สีไปก่อน `.active` → FAIL 1
+
+**ค้าง/ยังไม่ทำ:** ยังไม่ commit (ผู้ใช้ commit เองด้วย GitHub Desktop) · ยังไม่ bump เวอร์ชัน
+(ยัง 0.4.3) · **ยังไม่ได้ทดสอบด้วยตาบนแอปจริง** (`npm start`) — `look_at_image` ใช้ไม่ได้ทั้ง session
+จึงวัดด้วย `getBoundingClientRect` + `getComputedStyle` แทน
+
+**คิวถัดไป (ผู้ใช้สั่งไว้ 2026-11-15 ระหว่างงานนี้):** คำตอบยาวมาก → ต้องมีปุ่มย่อ/ขยาย
+(แบบเดียวกับแถวสรุป "ใช้เครื่องมือ … ครั้ง") เพื่อให้หาข้อความที่ตัวเองพิมพ์ล่าสุดได้ง่าย
+
 
 ### 1q) v0.4.0 → v0.4.2 (2026-11-14/15) ✅ ปล่อยแล้ว ไม่มีงานค้าง
 

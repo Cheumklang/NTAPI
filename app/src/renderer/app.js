@@ -300,11 +300,24 @@ const STRINGS = {
     deleteSub: 'This removes the conversation from disk. It cannot be undone.',
     clearTitle: 'Clear this chat?',
     clearSub:
-      'Deletes every message and attached image in this chat from disk. Skills, generated images and downloaded files are not touched.',
+      'Deletes every message and attached image in this chat from disk. The chat name and model are kept, and the new chat starts with no context — the same cost as a new chat. Skills, generated images and downloaded files are not touched.',
     clearMeta: 'The chat reopens empty in the same folder.',
     clearNoFile: 'No history file yet — only the open messages will be cleared.',
     clearAction: 'Clear chat',
     clearDone: 'Chat cleared — messages and attached images were deleted.',
+    clearKeptName: 'Chat cleared. The name and model were kept.',
+    pinChat: 'Pin chat',
+    unpinChat: 'Unpin chat',
+    chatColor: 'Chat colour',
+    colorNone: 'No colour',
+    color_red: 'Red',
+    color_orange: 'Orange',
+    color_yellow: 'Yellow',
+    color_green: 'Green',
+    color_blue: 'Blue',
+    color_purple: 'Purple',
+    color_pink: 'Pink',
+    pinNeedsFile: 'This chat has no history file yet — send a message first.',
     chooseWorkspace: 'Choose a workspace folder first.',
     readyHint: 'Ready — press + to start a session',
     chooseToBegin: 'Choose a workspace folder to begin',
@@ -331,6 +344,8 @@ const STRINGS = {
     toolDone: 'done',
     toolsUsed: '{n} tools used',
     toolsUsedOne: '1 tool used',
+    narrationMany: '{n} working notes',
+    narrationOne: '1 working note',
     toolsFailed: '{n} failed',
     cancel: 'Cancel',
     delete: 'Delete',
@@ -629,11 +644,24 @@ const STRINGS = {
     deleteSub: 'แชทนี้จะถูกลบออกจากเครื่องถาวร กู้คืนไม่ได้',
     clearTitle: 'ล้างแชทนี้?',
     clearSub:
-      'ลบข้อความและรูปที่แนบในแชทนี้ออกจากดิสก์ — ไม่แตะ skills, รูปที่ AI สร้าง หรือไฟล์ที่ดาวน์โหลด',
+      'ลบข้อความและรูปที่แนบในแชทนี้ออกจากดิสก์ — ชื่อแชทและ model ยังอยู่ แชทใหม่เริ่มด้วยบริบทว่างเหมือนกดแชทใหม่ (ไม่เปลือง token เพิ่ม) ไม่แตะ skills, รูปที่ AI สร้าง หรือไฟล์ที่ดาวน์โหลด',
     clearMeta: 'แชทจะเปิดใหม่แบบว่างในโฟลเดอร์เดิม',
     clearNoFile: 'ยังไม่มีไฟล์ประวัติ — จะล้างเฉพาะข้อความที่เปิดอยู่',
     clearAction: 'ล้างแชท',
     clearDone: 'ล้างแชทแล้ว — ลบข้อความและรูปที่แนบเรียบร้อย',
+    clearKeptName: 'ล้างแชทแล้ว — เก็บชื่อและ model เดิมไว้ให้',
+    pinChat: 'ปักหมุดแชท',
+    unpinChat: 'เอาหมุดออก',
+    chatColor: 'สีของแชท',
+    colorNone: 'ไม่ใช้สี',
+    color_red: 'แดง',
+    color_orange: 'ส้ม',
+    color_yellow: 'เหลือง',
+    color_green: 'เขียว',
+    color_blue: 'ฟ้า',
+    color_purple: 'ม่วง',
+    color_pink: 'ชมพู',
+    pinNeedsFile: 'แชทนี้ยังไม่มีไฟล์ประวัติ — ส่งข้อความก่อนแล้วค่อยปักหมุด',
     chooseWorkspace: 'เลือกโฟลเดอร์ทำงานก่อนครับ',
     readyHint: 'พร้อมแล้ว — กด + เพื่อเริ่มเซสชัน',
     chooseToBegin: 'เลือกโฟลเดอร์ทำงานเพื่อเริ่มต้น',
@@ -660,6 +688,8 @@ const STRINGS = {
     toolDone: 'เสร็จ',
     toolsUsed: 'ใช้เครื่องมือ {n} ครั้ง',
     toolsUsedOne: 'ใช้เครื่องมือ 1 ครั้ง',
+    narrationMany: 'บันทึกการทำงาน {n} ช่วง',
+    narrationOne: 'บันทึกการทำงาน 1 ช่วง',
     toolsFailed: 'ล้มเหลว {n}',
     cancel: 'ยกเลิก',
     delete: 'ลบ',
@@ -1028,6 +1058,27 @@ function toolText(result) {
 
 /* ------------------------------ messages ------------------------------ */
 
+/**
+ * The name shown above an assistant reply.
+ *
+ * It names who actually answered — the provider and the model — rather than
+ * this app, because a conversation can move between providers mid-thread and
+ * "NTAPI" said nothing about what produced the words. The provider part is
+ * upper-cased by CSS (`.msg .role`), so this returns "FreePi | Model: …" and
+ * displays as "FREEPI | MODEL: …".
+ */
+function messageAuthor(view = activeView()) {
+  const model = view?.model || null;
+  const provider = model?.provider ? FPProvider.providerLabel(model.provider) : '';
+  const name = model?.name || model?.id || '';
+  // With no model chosen yet the room to name one is unknown; fall back to the
+  // plain role label instead of printing a lone separator.
+  if (!provider && !name) return t('assistant');
+  if (!name) return provider;
+  if (!provider) return `Model: ${name}`;
+  return `${provider} | ${t('model')}: ${name}`;
+}
+
 function addMessage(kind) {
   emptyState.hidden = true;
   const wrap = document.createElement('div');
@@ -1035,7 +1086,8 @@ function addMessage(kind) {
 
   const role = document.createElement('div');
   role.className = 'role';
-  role.textContent = kind === 'user' ? t('you') : kind === 'system' ? t('system') : t('assistant');
+  role.textContent =
+    kind === 'user' ? t('you') : kind === 'system' ? t('system') : messageAuthor();
   wrap.appendChild(role);
 
   if (kind === 'user') {
@@ -2027,7 +2079,7 @@ function renderActiveTab() {
       // A tool-using turn is stored as several assistant messages (one per
       // step). Group the steps into one bubble so the transcript shows a
       // single "tools used" line and the final answer right below it.
-      const bodyText = currentAssistant?.querySelector('.body')?.textContent || '';
+      const bodyText = currentAssistant?.querySelector(':scope > .body')?.textContent || '';
       const prevHasTools = Boolean(currentAssistant?.querySelector('.tool'));
       const reuse =
         Boolean(currentAssistant) &&
@@ -2045,7 +2097,11 @@ function renderActiveTab() {
         }
       }
       if (text) {
-        const body = wrap.querySelector('.body');
+        // `currentBody` continues an unfinished block and starts a new one after
+        // a seal. Using the first `.body` instead appended every block of a turn
+        // into the top one — which is why a replayed chat showed one enormous
+        // bubble that could not be folded.
+        const body = currentBody(wrap);
         body.__fpText = body.__fpText ? `${body.__fpText}${text}` : text;
         MD.renderInto(body, body.__fpText, { copiedLabel: t('copied') });
         appendImagePreviews(body, text, view.cwd);
@@ -2059,6 +2115,9 @@ function renderActiveTab() {
     } else if (m.kind === 'tool') {
       const target = currentAssistant?.querySelector('.tools');
       if (!target) continue;
+      // A tool call ends the prose before it, exactly as it does live, so a
+      // reopened chat shows the same folded narration it showed while running.
+      if (currentAssistant) sealBody(currentAssistant);
       const card =
         target.querySelector(`[data-tool-id="${m.id}"]`) || toolCard(target, { id: m.id, name: m.name, args: {} });
       const stored = view.toolResults?.get(m.id);
@@ -2492,6 +2551,58 @@ async function openNewTab(cwd, sessionId) {
 
 /* ------------------------------ sessions ------------------------------ */
 
+/**
+ * Pins and colours set in this window.
+ *
+ * The store of record is `prefs.json` in the main process (see
+ * session-marks.js). This mirror exists for one reason: a click must show up
+ * immediately, and the IPC reply is asynchronous. Entries are replaced, never
+ * merged, so a local copy can never contradict what the main process saved.
+ */
+const sessionMarksLocal = new Map();
+
+/** Colour keys, matching `COLORS` in src/session-marks.js. */
+const SESSION_COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'];
+
+/** Normalised path key, so two spellings of one file share a mark. */
+function sessionMarkKey(sessionPath) {
+  if (!sessionPath || typeof sessionPath !== 'string') return null;
+  return sessionPath.replace(/\\/g, '/').toLowerCase();
+}
+
+/**
+ * The mark to draw for a chat.
+ *
+ * `set` says whether this window has an opinion (a click happened here). When it
+ * does not, the caller's `pinned`/`color` from the main process is used as-is,
+ * so we never overwrite a value we did not set.
+ */
+function sessionMarkOf(sessionPath) {
+  const key = sessionMarkKey(sessionPath);
+  if (key && sessionMarksLocal.has(key)) return { ...sessionMarksLocal.get(key), set: true };
+  return { pinned: false, color: null, set: false };
+}
+
+/** Apply a pin/colour change to one chat and redraw the sidebar. */
+async function setSessionMark(sessionPath, patch, cwd) {
+  const key = sessionMarkKey(sessionPath);
+  if (!key) {
+    showNotice(t('pinNeedsFile'));
+    return;
+  }
+  try {
+    const res = await api.setSessionMark(sessionPath, patch);
+    if (!res?.ok) throw new Error(res?.error || 'could not save');
+    sessionMarksLocal.set(key, {
+      pinned: Boolean(res.mark?.pinned),
+      color: res.mark?.color || null,
+    });
+    await renderSessions(cwd || lastWorkspace);
+  } catch (err) {
+    showNotice(errorText(err));
+  }
+}
+
 async function renderSessions(cwd) {
   const list = el('sessionList');
   let sessions = await api.listSessions(cwd);
@@ -2499,6 +2610,7 @@ async function renderSessions(cwd) {
   // Include active session even if not yet persisted to disk
   const active = activeView();
   if (active?.sessionId && !sessions.some(s => s.id === active.sessionId)) {
+    const known = sessionMarkOf(active.sessionFile);
     sessions = [
       {
         id: active.sessionId,
@@ -2507,10 +2619,20 @@ async function renderSessions(cwd) {
         modified: new Date().toISOString(),
         firstMessage: active.name || active.label || t('untitled'),
         messageCount: (active.messages || []).filter(m => m.kind === 'user').length,
+        pinned: known.pinned,
+        color: known.color,
       },
       ...sessions,
     ];
   }
+
+  // Marks set in this window are mirrored to the main process, but the reply may
+  // not have caught up with the render that follows it. Overlay the local copy
+  // so the row you just pinned never blinks back to unpinned.
+  sessions = sessions.map((s) => {
+    const local = sessionMarkOf(s.path);
+    return local.set ? { ...s, pinned: local.pinned, color: local.color } : s;
+  });
 
   // Newest conversation on top, by creation time, with `id` as a deterministic
   // tie-break. Creation never changes, so the order does not shuffle while you
@@ -2520,6 +2642,14 @@ async function renderSessions(cwd) {
     const tb = new Date(b.created || b.modified).getTime() || 0;
     return tb - ta || String(b.id).localeCompare(String(a.id));
   });
+
+  // Pinned chats move to the top; everything else keeps the order above. The
+  // main process already does this, but the "active session not yet on disk"
+  // row is added here, so sorting has to be applied to the merged list.
+  sessions = [
+    ...sessions.filter((s) => s.pinned),
+    ...sessions.filter((s) => !s.pinned),
+  ];
   
   list.innerHTML = '';
   if (!sessions.length) {
@@ -2535,11 +2665,16 @@ async function renderSessions(cwd) {
     const isActive = open && open[0] === activeTabId;
     btn.className = 'session-item' + (open ? ' open' : '') + (isActive ? ' active' : '');
     if (isActive) btn.setAttribute('aria-current', 'true');
+    // The colour is drawn as a stripe down the left edge, so it shows for every
+    // chat in the group at a glance instead of only on the one being hovered.
+    if (s.color) btn.dataset.color = s.color;
+    if (s.pinned) btn.classList.add('pinned');
 
     const busy = open?.[1]?.busy;
     const title = s.name || s.firstMessage || t('untitled');
     btn.innerHTML = `
       <span class="s-row">
+        <span class="s-pin-slot" aria-hidden="true">${s.pinned ? '\u{1F4CC}' : ''}</span>
         <span class="s-title">${busy ? '<span class="s-spin"></span>' : ''}${escapeHtml(title)}</span>
         ${isActive ? `<span class="s-current">${t('currentBadge')}</span>` : ''}
       </span>
@@ -2597,6 +2732,50 @@ function openSessionMenu(x, y, cwd, session, itemEl) {
     else await openNewTab(cwd, session.path);
   });
   menu.appendChild(openItem);
+
+  // Pin / unpin. Sits second because it is the reason most people open this
+  // menu: "keep this chat where I can find it".
+  const pinItem = document.createElement('button');
+  pinItem.textContent = session.pinned ? t('unpinChat') : t('pinChat');
+  pinItem.addEventListener('click', () => {
+    closeSessionMenu();
+    setSessionMark(session.path, { pinned: !session.pinned }, cwd);
+  });
+  menu.appendChild(pinItem);
+
+  // Colour swatches, one row. Clicking the colour that is already set clears it,
+  // because a separate "no colour" entry is one more thing to read for a
+  // decision you make with your eyes.
+  const colorRow = document.createElement('div');
+  colorRow.className = 'ctx-colors';
+  colorRow.setAttribute('role', 'group');
+  colorRow.setAttribute('aria-label', t('chatColor'));
+  for (const color of SESSION_COLORS) {
+    const swatch = document.createElement('button');
+    swatch.className = 'ctx-color';
+    swatch.dataset.color = color;
+    swatch.title = t(`color_${color}`);
+    swatch.setAttribute('aria-label', t(`color_${color}`));
+    if (session.color === color) swatch.setAttribute('aria-pressed', 'true');
+    swatch.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeSessionMenu();
+      // Clicking the active colour removes it.
+      setSessionMark(session.path, { color: session.color === color ? null : color }, cwd);
+    });
+    colorRow.appendChild(swatch);
+  }
+  const clearColors = document.createElement('button');
+  clearColors.className = 'ctx-color ctx-color-none';
+  clearColors.title = t('colorNone');
+  clearColors.setAttribute('aria-label', t('colorNone'));
+  clearColors.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeSessionMenu();
+    setSessionMark(session.path, { color: null }, cwd);
+  });
+  colorRow.appendChild(clearColors);
+  menu.appendChild(colorRow);
 
   const renameItem = document.createElement('button');
   renameItem.textContent = t('rename');
@@ -2768,10 +2947,19 @@ async function clearSession(tabId) {
   const view = views.get(tabId);
   if (!view) return;
   const cwd = view.cwd;
+  // `/clear` deletes this chat's file, so its pin and colour must go with it.
+  // Keeping them would leave an orphan entry that the next prune would drop
+  // anyway — better to forget it now than to have the sidebar briefly disagree.
+  const oldKey = sessionMarkKey(view.sessionFile);
   try {
     const res = await api.clearSession(tabId);
+    if (oldKey) sessionMarksLocal.delete(oldKey);
     views.delete(tabId);
     if (res?.state) {
+      // The new session is genuinely empty (no carried-over context); only the
+      // name and model come back, so the header must follow the state.
+      const next = views.get(res.state.tabId);
+      if (next) next.label = res.state.name || '';
       applyTabState(res.state);
     } else {
       activeTabId = [...views.keys()][0] || null;
@@ -2782,7 +2970,7 @@ async function clearSession(tabId) {
     renderAttachments();
     input.value = '';
     autoGrow();
-    showNotice(res?.warning || t('clearDone'));
+    showNotice(res?.warning || (res?.keptName ? t('clearKeptName') : t('clearDone')));
     setTimeout(() => showNotice(null), 3200);
   } catch (err) {
     showNotice(errorText(err));
@@ -3955,6 +4143,10 @@ el('confirmDelete').addEventListener('click', async () => {
   showNotice(`Deleted session from disk.`);
   setTimeout(() => showNotice(null), 2500);
 
+  // The chat is gone, so its pin/colour has nothing left to mark.
+  const deletedKey = sessionMarkKey(state.session.path);
+  if (deletedKey) sessionMarksLocal.delete(deletedKey);
+
   const active = activeView();
   await renderSessions(active?.cwd || state.cwd);
 });
@@ -4208,10 +4400,25 @@ modelSelect.addEventListener('change', async () => {
     paintModelTrigger(m);
     syncModelMenuSelection();
     statusHint.textContent = `Model: ${m.name || m.id}`;
+    refreshMessageAuthors();
   } catch (err) {
     showNotice(`Could not switch model: ${err.message || err}`);
   }
 });
+
+/**
+ * Re-label assistant replies after the model changes.
+ *
+ * The label is read from the tab's live model, so every reply in the thread is
+ * re-stamped rather than only the next one. One thread, one answering model at a
+ * time, so a header that disagreed with the picker would just be confusing.
+ */
+function refreshMessageAuthors() {
+  const label = messageAuthor();
+  for (const node of transcript.querySelectorAll('.msg.assistant > .role')) {
+    node.textContent = label;
+  }
+}
 
 function autoGrow() {
   input.style.height = 'auto';
@@ -5722,11 +5929,80 @@ const payloadTabIsActive = (view) => view && view.tabId === activeTabId;
  *
  * Called at a real boundary in the agent's output — a tool call, which always
  * separates one statement from the next.
+ *
+ * The bubble being closed is narration, not the answer: it says what the agent
+ * is about to do, and a tool result follows it. Long narration was the reason a
+ * single turn could fill the whole transcript with prose that nobody needs to
+ * read twice, so it is wrapped in a collapsible "stepped through N notes" line.
+ * The *last* block of a turn is never sealed, so the real answer always shows.
  */
 function sealBody(wrap) {
   const bodies = wrap.querySelectorAll('.body');
   const last = bodies[bodies.length - 1];
-  if (last && (last.__fpText || '').trim()) last.__fpDone = true;
+  if (last && (last.__fpText || '').trim()) {
+    last.__fpDone = true;
+    collapseNarration(wrap, last);
+  }
+}
+
+/**
+ * Put one narration block behind a one-line toggle.
+ *
+ * Built lazily so a turn whose agent calls no tools — one block, nothing after
+ * it — never grows a toggle at all. Re-labeling is centralised so the count in
+ * "Stepped through 3 notes" stays right as the turn goes on.
+ */
+function collapseNarration(wrap, body) {
+  // Already wrapped (a replay may seal the same node twice).
+  if (body.parentElement?.classList.contains('narration')) return;
+
+  let group = wrap.querySelector('.narration-group');
+  if (!group) {
+    group = document.createElement('div');
+    group.className = 'narration-group';
+    group.hidden = true;
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'narration-toggle';
+    toggle.setAttribute('aria-expanded', 'false');
+
+    const list = document.createElement('div');
+    list.className = 'narration-list';
+    list.hidden = true;
+
+    toggle.addEventListener('click', () => {
+      const open = list.hidden;
+      list.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      const chev = toggle.querySelector('.narration-chevron');
+      if (chev) chev.textContent = open ? '\u25be' : '\u25b8';
+      if (open) scrollToBottom();
+    });
+
+    toggle.append(
+      Object.assign(document.createElement('span'), { className: 'narration-chevron', textContent: '\u25b8' }),
+      Object.assign(document.createElement('span'), { className: 'narration-text' })
+    );
+    group.append(toggle, list);
+    // The group sits where the first note was, so reading order is preserved.
+    body.parentElement.insertBefore(group, body);
+  }
+
+  const item = document.createElement('div');
+  item.className = 'narration';
+  item.appendChild(body);
+  group.querySelector('.narration-list').appendChild(item);
+  group.hidden = false;
+  labelNarration(group);
+}
+
+/** Keep the summary line in step with how many notes are folded away. */
+function labelNarration(group) {
+  const text = group.querySelector('.narration-text');
+  if (!text) return;
+  const n = group.querySelectorAll('.narration').length;
+  text.textContent = n === 1 ? t('narrationOne') : t('narrationMany', { n });
 }
 
 function currentBody(wrap) {
@@ -5946,7 +6222,9 @@ api.onTurnStart((p) => {
   view.steerPending = false;
   const live = view.liveAssistant;
   if (live && document.body.contains(live)) {
-    const text = live.querySelector('.body')?.textContent || '';
+    // Only the live block counts: folded narration is already finished work and
+    // would otherwise keep an empty bubble on screen.
+    const text = live.querySelector(':scope > .body')?.textContent || '';
     const hasTools = Boolean(live.querySelector('.tool'));
     if (!text.trim() && !hasTools) live.remove();
     else live.classList.remove('streaming');

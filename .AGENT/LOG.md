@@ -938,3 +938,110 @@ CI ดูไม่ได้ (gh ไม่มี, repo private) — ผู้ใ�
 `no stray CJK characters` ที่ใส่ไว้เอง · **ข้อจำกัด:** release ที่ปล่อยแล้ว (`v0.4.3`)
 แก้ย้อนหลังไม่ได้เพราะไม่มี `gh` และ repo เป็น private → คำอธิบายเริ่มมีที่ `v0.5.0`
 ถ้าอยากให้ v0.4.3 มีด้วย ผู้ใช้ต้องกด Edit ที่หน้าเว็บเอง
+
+---
+
+## 2026-11-15 — `/clear` เก็บชื่อ+model · ปักหมุดแชท · สีแชท
+
+**สั่งโดยผู้ใช้:** เวลา `/clear` อย่าลบชื่อแชท และอย่าเปลี่ยน model · เพิ่มระบบปักหมุดแชท
+และเปลี่ยนสีแชท (เพื่อจัดระเบียบแชท/แยกงาน) · ยืนยันทางเลือก: เก็บ mark ใน `prefs.json`
+(ไม่ใช่ใน `.jsonl`) และ "หมุดแยกจากสี" · `/clear` ต้องเหมือนเซสชันใหม่เรื่อง token
+
+**(ก) `/clear`** — อ่าน `sessionName` + `session.model` ก่อน `dispose()` แล้วเขียนกลับ:
+`setSessionName(keepName)` + `handle.setModel(provider,id)` · `state.name`/`state.model`
+อัปเดตให้ตรง · คืน `keptName`/`keptModel` → notice ใหม่ `clearKeptName`
+· **ยังลบไฟล์ `.jsonl` เดิมและสร้างไฟล์ใหม่** = token เท่ากับ "+ New" (ตามที่ผู้ใช้ต้องการ)
+
+**(ข) ปักหมุด + สี** — ไฟล์ใหม่ `src/session-marks.js` (pure, 24 checks)
+- คีย์ = path ไฟล์ session (normalize + lowercase บน Windows) · เก็บใน `prefs.json`
+  คีย์ `sessionMarks` → **ไม่แตะฟอร์แมต `.jsonl` ของ pi**
+- palette ปิด 7 สี · ค่าที่ไม่รู้จักถูกทิ้ง · mark ว่างถูกลบออกจาก store
+- `pruneMarks` ทุกครั้งที่ `listSessions()` → ไม่มีขยะค้างเมื่อลบแชท
+- `sortByMark` **ไม่เรียงตามเวลา** ย้ายแค่ pinned ขึ้นบน (ที่เหลือคงลำดับจาก `listSessions`)
+- IPC `session:mark` (ตรวจ path ใต้ `SESSIONS_ROOT`) + `session:colors`
+- UI: `.s-pin-slot` จองที่ทุกแถว · แถบสี `border-left:4px` · เมนูคลิกขวา มีปักหมุด + 7 สวอตช์
+  + "ไม่ใช้สี" · กดสีเดิมซ้ำ = เอาสีออก
+
+**บั๊กที่วัดพิกเซลแล้วเจอ (แก้หมด):**
+- ชื่อแถวเยื้อง 21px vs 42px เพราะไอคอนหมุดมีเงื่อนไข → เปลี่ยนเป็น slot คงที่ทุกแถว
+- เหลื่อม 1px ระหว่าง `.open`/`.active`/สี เพราะ `box-sizing:border-box` (border+padding)
+  → ตั้งทุกสถานะให้รวมเป็น 10px · วัดจริง `[42,42,42,42,42]`
+- `session:mark` เทียบ `root` ที่ยังไม่ lowercase
+
+**เทสต์:** `selftest-session-marks.js` (24) · `selftest-session-marks-ui.js` (20) ·
+`check-session-marks.js` (18, Electron ผ่าน IPC จริง) → `npm test` **51/51** ·
+`npm run check:marks` **18/18**
+
+**ย้อนกลับ (พิสูจน์แล้ว FAIL จริง):** ลบ `setSessionName(keepName)` → 1 · ไม่รับ `state.model` → 1 ·
+สลับ `[...rest,...pinned]` → 1 · ย้าย CSS สีก่อน `.active` → 1
+
+**Learned:**
+1. `window.freepi` จาก **contextBridge เป็น frozen** — แก้ method จากในหน้าเว็บไม่ error
+   แต่ไม่มีผลเลย (เทสต์ Electron แรกได้ลิสต์ว่างทั้งที่ข้อมูลถูก) → stub ที่ `ipcMain` แทน
+2. **เขียนเทสต์ให้ตรงกับพฤติกรรมที่ต้องการ ไม่ใช่ที่โค้ดทำอยู่** — เทสต์แรกคาดว่า `sortByMark`
+   จะเรียงตามเวลาแล้ว FAIL ซึ่งชี้บั๊กจริง (ลำดับ sidebar จะสลับ) → แก้ที่โค้ด ไม่ใช่ที่เทสต์
+3. วัด UI ด้วย `getBoundingClientRect`/`getComputedStyle` ได้ผลเท่ากับดูรูป — จำเป็นเพราะ
+   `look_at_image` reject ทุก path ทั้ง session
+
+---
+
+## 2026-11-15 — ป้ายชื่อผู้ตอบในแชท: ชื่อ provider + model แทน "NTAPI"
+
+**สั่งโดยผู้ใช้:** ในช่องแชทมีคำว่า NTAPI อยู่ → เปลี่ยนเป็น
+`FREEPI | Model: DeepSeek V4.1 Flash` (ชื่อบริษัท/provider + ชื่อ model ที่ใช้อยู่)
+
+**แก้:** `src/renderer/app.js` เพิ่ม `messageAuthor(view)` — สร้างข้อความจาก
+`FPProvider.providerLabel(model.provider)` + `model.name`
+· `addMessage()` ใช้ตัวนี้แทน `t('assistant')` แบบตายตัว
+· เพิ่ม `refreshMessageAuthors()` เรียกหลัง `api.setModel()` → เปลี่ยน model แล้ว
+  คำตอบเก่าในเธรดเดียวกันถูกเปลี่ยนป้ายตามทั้งหมด (1 เธรด = 1 model ที่ตอบ)
+· ไม่มี model → ถอยไปใช้ `t('assistant')` ไม่พิมพ์ `" | Model: "` ลอย ๆ
+· ไม่ต้องแก้ CSS: `.msg .role` มี `text-transform: uppercase` อยู่แล้ว
+  → `FreePi` แสดงเป็น `FREEPI` ตรงตามที่ผู้ใช้พิมพ์มา
+
+**เทสต์:** `scripts/check-author-label.js` (6 checks, Electron + IPC จริง)
+→ `npm run check:author` · ยืนยันข้อความที่แสดงจริงด้วย assertion ตัวสุดท้าย:
+`FREEPI | MODEL: DEEPSEEK V4.1 FLASH`
+· **ย้อนกลับ:** ตัดให้คืนแค่ `provider` → FAIL 3
+· `npm test` ยัง **51/51**
+
+**Learned:** แก้ `renderModelPicker(view)` พลาดใส่ `const view = activeView();` ซ้ำ
+ทำให้ `SyntaxError: Identifier 'view' has already been declared` — จับได้ด้วย `node --check`
+**ก่อน** รันเทสต์ · บทเรียน: รัน `node --check` ทุกครั้งหลังแก้ renderer ที่เป็นไฟล์เดียวจบ
+
+---
+
+## 2026-11-15 — พับ "บันทึกการทำงาน" (narration) คำตอบสุดท้ายไม่พับ
+
+**สั่งโดยผู้ใช้:** กรอบสีเขียว (ข้อความยาว ๆ ของ AI) ให้ย่อแบบเดียวกับ "ใช้เครื่องมือ N ครั้ง"
+· **ห้ามย่อ** คำตอบสุดท้ายของ AI · ผู้ใช้ยืนยันว่าเป็น **A** (ไม่ใช่ thinking) และให้ใช้
+ข้อความอังกฤษของผมเองเป็นตัวอย่าง (`Let me look at…`)
+
+**สิ่งที่ค้นพบ (สำคัญ):** ที่ผู้ใช้เห็นไม่ใช่ thinking — thinking พับอยู่แล้ว (วัดแล้ว `hidden:true`)
+แต่เป็น **`.body` หลายก้อนต่อ 1 เทิร์น** เพราะ agent พูด → เรียก tool → พูดอีก
+· ก่อนหน้านี้ทุกก้อนแสดงเต็มหมด → เทิร์นเดียวยาวเต็มจอ
+
+**แก้:**
+- `sealBody()` เดิมแค่ตั้ง `__fpDone` → เพิ่ม `collapseNarration()`: ย้ายก้อนนั้นเข้า
+  `.narration-group` ที่มีปุ่มบรรทัดเดียว "บันทึกการทำงาน N ช่วง" (ปิดไว้เริ่มต้น)
+- ก้อนสุดท้ายของเทิร์นไม่ถูก seal → **คำตอบจริงเปิดเสมอ**
+- เทิร์นที่ไม่เรียก tool เลย → ไม่มีปุ่มโผล่ (สร้าง lazily)
+- replay (เปิดแชทเก่า) เรียก `sealBody()` ตอนเจอ `m.kind === 'tool'` → ได้ผลเหมือนตอน live
+- i18n: `narrationOne` / `narrationMany` (EN + TH)
+- CSS: `.narration-group/-toggle/-list/.narration` ตั้งใจให้หน้าตาเหมือน `.tools-toggle`
+  (ของที่พับได้สองแบบในแถวเดียวกันควรดูเป็นชนิดเดียวกัน) · `.narration .body` เป็นสีจาง + เส้นซ้าย
+
+**บั๊กเดิมที่เจอระหว่างทาง (แก้ด้วย):** ใน replay โค้ดใช้ `wrap.querySelector('.body')`
+ตัว **แรก** → ข้อความทุกก้อนของเทิร์นถูกต่อเข้าก้อนบนสุด = บับเบิลยักษ์ก้อนเดียวที่พับไม่ได้
+→ เปลี่ยนเป็น `currentBody(wrap)` ที่ใช้ร่วมกับ live path
+
+**เทสต์:** `scripts/check-narration-fold.js` (12 checks, Electron) — `npm run check:narration`
+ตรวจ: พับ + ปิดเริ่มต้น + นับจำนวนถูก + คำตอบจริงเปิด + ก้อนคำตอบไม่ถูกพับ + กดแล้วกาง +
+เทิร์นไม่มี tool ไม่มีปุ่ม + **live path** ก็พับ
+· **ย้อนกลับ:** ลบ `collapseNarration()` → FAIL 9
+· วัดผลจริง: เทิร์นที่เคยเต็มจอ → **156px** (ปุ่ม 29px + คำตอบ)
+· `npm test` **51/51** · `check:author` 6/6 · `check:marks` 18/18
+
+**Learned:** ซ่อมจาก "สิ่งที่ผู้ใช้เห็น" ไม่ใช่ "สิ่งที่ผมเดาว่าเป็น" — ผมเดาไป 3 รอบ
+(thinking → max-height → pre-tool prose) ก่อนผู้ใช้ชี้ว่าข้อความอังกฤษของผมเองคือตัวอย่าง
+· ทางลัด: ถามให้ผู้ใช้ชี้ตัวอย่างจริงตั้งแต่แรก จะประหยัดไปหลายรอบ
