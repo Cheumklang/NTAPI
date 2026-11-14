@@ -76,6 +76,7 @@ app.on('render-process-gone', (_event, _contents, details) =>
 const { diffLines } = require('./diff');
 const { sessionDirName } = require('./session-paths');
 const { friendlyProviderError } = require('./provider-errors');
+const { isUpgradeRequired: isUpgradeRequiredText, resolveClientVersionFloor } = require('./client-version');
 const { createProviderKeyStore } = require('./provider-key');
 const { installSseErrorGuard } = require('./sse-error-guard');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
@@ -864,6 +865,19 @@ async function listSessions(cwd) {
 }
 
 /**
+ * Ask the bridge to move to a client version the backend will accept, after it
+ * answered 426 `upgrade_required`. Best effort: a failure here must never mask
+ * the original error the user is about to read.
+ */
+async function refreshFreePiClientVersion(tabId, tab) {
+  const handle = tab && tab.handle;
+  if (!handle || typeof handle.refreshClientVersion !== 'function') return;
+  const next = await handle.refreshClientVersion();
+  if (!next) return;
+  sendTab(tabId, 'agent:clientVersion', { version: next });
+}
+
+/**
  * One failure can surface twice (the assistant message and the rejected
  * prompt), so report each distinct failure once per few seconds.
  */
@@ -876,6 +890,16 @@ function reportTabError(tabId, raw) {
   const now = Date.now();
   if (tab?.lastError && tab.lastError.key === dedupe && now - tab.lastError.at < 10000) return;
   if (tab) tab.lastError = { key: dedupe, at: now };
+
+  // A 426 `upgrade_required` is the backend rejecting our version header, not a
+  // problem with the user's message. When the installed CLI — or the `min` the
+  // backend just published — is newer than what we sent, re-register the
+  // provider with the refreshed header and let the user press Send once. This
+  // is only attempted once per tab so a genuine mismatch cannot loop.
+  if (isUpgradeRequiredText(raw) && tab && !tab.upgradeRetry) {
+    tab.upgradeRetry = true;
+    refreshFreePiClientVersion(tabId, tab).catch(() => {});
+  }
   // `key` is the translatable version of `text`: the renderer shows the message
   // in the language the user picked, and falls back to `text` when it has no
   // translation for a raw provider sentence.
@@ -3720,6 +3744,11 @@ app.whenReady().then(async () => {
   try {
     await migrateSessionDirs();
   } catch {}
+
+  // Adopt whatever client version the backend currently accepts, so a build cut
+  // months ago never pins a machine without free-pi-cli to a number the backend
+  // will reject. Failure is silent: the hardcoded floor stays in force.
+  resolveClientVersionFloor({ baseUrl: process.env.FREEPI_BASE_URL || 'https://api.freepi.ai' }).catch(() => {});
 
   // The update splash outlives the old build; close it now that this one runs.
   closeLeftoverSplash();

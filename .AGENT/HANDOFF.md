@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.3** (สาขา `feat/browser-agent-mode` — ยังไม่ merge ยังไม่ bump)
+**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.4** (สาขา `feat/browser-agent-mode` — ยังไม่ merge ยังไม่ tag)
 
 > งานล่าสุดอยู่บนสาขา `feat/browser-agent-mode` (ยังไม่ merge เข้า `master`, ยังไม่ bump เวอร์ชัน)
 > ดูหัวข้อ 1m
@@ -30,6 +30,27 @@
   ถ้าอยากรู้เวอร์ชันที่ติดตั้งจริง ให้ถามผู้ใช้ หรือดู `prefs.lastVersion` ใน `prefs.json`
 
 ## 1) กําลังทํา / ค้างอยู่ตอนนี้ (สําคัญสุด — อ่านก่อน)
+
+### 1n) FreePi 426 `upgrade_required` — แก้เสร็จ + bump 0.3.4 (2026-11-14) ✅ UNCOMMITTED
+
+**อาการ:** ใช้ FreePi ไม่ได้ ขึ้น "ไคลเอนต์เวอร์ชันเก่าเกินไป — รัน `npx free-pi-cli@latest`"
+ทั้งที่ CLI บนเครื่องเป็น 0.6.21 (ล่าสุดแล้ว)
+
+**รากปัญหา:** (1) fallback hardcode `0.6.20` ต่ำกว่า min ของ backend (0.6.21)
+(2) `CLIENT_VERSION` คำนวณครั้งเดียวตอน module load → อัป CLI ระหว่างเปิดแอปไม่มีผล
+(3) `AppData\Roaming\npm` มี 0.6.19 ค้าง และไม่มีการกันค่าที่ต่ำกว่า min
+
+**แก้:** ไฟล์ใหม่ `src/client-version.js` (detection สดทุกครั้ง · `CLIENT_VERSION_FLOOR`
+`resolveClientVersionFloor()` ถาม backend ตอนเปิดแอป · `upgradedClientVersion()` กู้หลัง 426 ·
+`isUpgradeRequired()`) + `freepi-bridge.js` (`currentClientVersion()`, `refreshClientVersion()`)
++ `main.js` (startup fetch + กู้ 426 ครั้งเดียวต่อแท็บ) + `selftest-client-version.js` (29 checks)
+
+**เทสต์:** `npm test` → **PASS 33/33** · ยืนยันกับ backend จริง (min = 0.6.21) ผ่าน ·
+จำลอง backend อนาคตบนเครื่องไม่มี CLI → ส่ง 0.8.3 ได้เอง
+
+**ไม่ต้องคอยอัปเดตแอปอีก:** เครื่องที่มี CLI ใหม่ → อ่านสด · backend ขึ้น min กลาง session → กู้ 426
+เอง · เครื่องใหม่ไม่มี CLI → ถาม backend ตอนเปิดแอป เหลือแค่ `CLIENT_VERSION_FLOOR` เป็นค่าสำรอง
+ตอนออฟไลน์ครั้งแรก
 
 ### 1m) Browser agent mode — งาน 1–12 เขียนเสร็จแล้ว (2026-11-14) สาขา `feat/browser-agent-mode`
 

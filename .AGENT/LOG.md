@@ -278,3 +278,35 @@
 `registrableDomain()` ตัวเดียวกับ claims
 
 **ยังค้าง:** ทดสอบกับ Chrome จริง (ยังไม่ได้รัน), merge, bump เวอร์ชัน
+
+## 2026-11-14 · FreePi ตอบ 426 upgrade_required — แก้ที่ต้นเหตุ + bump 0.3.4
+
+**อาการผู้ใช้:** ใช้งาน FreePi ไม่ได้ ขึ้น "ไคลเอนต์เวอร์ชันเก่าเกินไป — รัน `npx free-pi-cli@latest`"
+(HTTP 426 · upgrade_required) ทั้งที่ CLI บนเครื่องเป็น 0.6.21 ซึ่งเป็นเวอร์ชันล่าสุดแล้ว
+
+**รากปัญหา (3 ชั้น ซ้อนกัน):**
+1. `FALLBACK_CLIENT_VERSION = '0.6.20'` ต่ำกว่า `min` ที่ backend ประกาศ (ตอนนั้น 0.6.21)
+2. `const CLIENT_VERSION = detectClientVersion()` แช่แข็งค่าตอน module load
+   → อัปเดต CLI ระหว่างเปิดแอปไม่มีผลจนกว่าจะรีสตาร์ต
+3. `AppData\Roaming\npm` มี free-pi-cli 0.6.19 ค้างอยู่ และ detection เดิมเลือกค่าที่ "สูงสุด"
+   แต่ไม่มีการกันค่าที่ต่ำกว่า min ของ backend เลย
+
+**แก้ (ผู้ใช้เลือกแนว A เต็มรูปแบบ):**
+- ไฟล์ใหม่ `src/client-version.js` — detection เรียกใหม่ทุกครั้ง (ไม่แช่แข็ง), มี
+  `CLIENT_VERSION_FLOOR = '0.6.21'` กันส่งเลขที่ backend ปฏิเสธแน่นอน,
+  `resolveClientVersionFloor()` ถาม `/client-version` ตอนเปิดแอป (ขยับขึ้นอย่างเดียว
+  ออฟไลน์ไม่พัง), `upgradedClientVersion()` สำหรับกู้หลังโดน 426, `isUpgradeRequired()`
+- `src/freepi-bridge.js` — ลบ detector เดิม, `currentClientVersion()` แทนทุกจุดที่ใช้ header,
+  เพิ่ม `handle.refreshClientVersion()` (re-register provider ด้วย header ใหม่)
+- `src/main.js` — เรียก `resolveClientVersionFloor()` ตอน `whenReady()` (fire-and-forget
+  ไม่หน่วงหน้าต่าง), กู้ 426 อัตโนมัติครั้งเดียวต่อแท็บใน `reportTabError`
+- `scripts/run-unit-tests.js` + `scripts/selftest-client-version.js` (ใหม่, 29 checks)
+
+**เทสต์:** `cd app && npm test` → PASS 33/33 (เพิ่ม 1 สคริปต์)
+**ยืนยันกับของจริง:** `/client-version` ตอบ `{min: 0.6.21, latest: 0.6.21}`; bridge ส่ง 0.6.21
+ผ่านแล้ว; จำลอง backend ในอนาคต (min 0.8.0) บนเครื่องไม่มี CLI → ส่ง 0.8.3 ได้เองโดยไม่อัปแอป
+
+**bump:** `app/package.json` 0.3.3 → **0.3.4** (ผู้ใช้สั่ง bump) — ยังไม่ tag, ยังไม่ build installer
+
+**ยังค้าง:** `browser-extension/popup.js` + `selftest-browser-popup.js` (งาน session ก่อน),
+ทดสอบ browser agent mode กับ Chrome จริง

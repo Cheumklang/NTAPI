@@ -18,6 +18,7 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 
 const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER } = require('./provider-plan');
+const { detectClientVersion, upgradedClientVersion, FALLBACK_CLIENT_VERSION } = require('./client-version');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
 const {
   EXTENSION_ID,
@@ -54,42 +55,17 @@ const MAX_OUTPUT_TOKENS = 8192;
 const MODEL_ID = 'deepseek/deepseek-v4-flash';
 const SAFE_TOOLS = ['read', 'bash', 'edit', 'write', 'grep', 'find', 'ls'];
 const FREE_PI_DIR_NAME = '.free-pi';
-const FALLBACK_CLIENT_VERSION = '0.6.20';
 
 /**
  * The version header the backend compares against `min` in /client-version.
- * Read it from the installed free-pi-cli so a newer CLI never makes this app
- * look out of date, and fall back to the version the app was written against.
+ *
+ * Resolved per call, not once at load: a CLI the user updates mid-session must
+ * be visible without restarting the app, and the answer is never below the
+ * protocol floor (see src/client-version.js).
  */
-function detectClientVersion() {
-  if (process.env.FREEPI_CLIENT_VERSION) return process.env.FREEPI_CLIENT_VERSION;
-  const found = [];
-  const npxRoot = path.join(os.homedir(), 'AppData', 'Local', 'npm-cache', '_npx');
-  try {
-    for (const dir of fs.readdirSync(npxRoot)) {
-      const pkg = path.join(npxRoot, dir, 'node_modules', 'free-pi-cli', 'package.json');
-      try {
-        const v = JSON.parse(fs.readFileSync(pkg, 'utf8')).version;
-        if (typeof v === 'string' && /^\d+\.\d+\.\d+/.test(v)) found.push(v);
-      } catch {}
-    }
-  } catch {}
-  try {
-    const v = JSON.parse(
-      fs.readFileSync(path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'node_modules', 'free-pi-cli', 'package.json'), 'utf8')
-    ).version;
-    if (typeof v === 'string' && /^\d+\.\d+\.\d+/.test(v)) found.push(v);
-  } catch {}
-  if (!found.length) return FALLBACK_CLIENT_VERSION;
-  const rank = (v) => v.split('.').map((n) => Number(n) || 0);
-  found.sort((a, b) => {
-    const [x, y] = [rank(a), rank(b)];
-    for (let i = 0; i < 3; i += 1) if (x[i] !== y[i]) return x[i] - y[i];
-    return 0;
-  });
-  return found[found.length - 1];
+function currentClientVersion() {
+  return detectClientVersion();
 }
-const CLIENT_VERSION = detectClientVersion();
 
 function getAgentDir() {
   return path.join(os.homedir(), FREE_PI_DIR_NAME, 'agent');
@@ -134,7 +110,7 @@ async function startGuestSession(baseUrl) {
       // The backend validates this as a string; a number is rejected with
       // "invalid body". "4" is the current terms version used by the CLI.
       consent_version: '4',
-      client: { os: process.platform, cli_version: CLIENT_VERSION },
+      client: { os: process.platform, cli_version: currentClientVersion() },
       ...deviceReport(),
     }),
   });
@@ -227,7 +203,7 @@ function buildProviderConfig(baseUrl, jwt, sessionId, models, name = PROVIDER_NA
     baseUrl: completionsBaseUrl(baseUrl),
     apiKey: jwt,
     api: 'openai-completions',
-    headers: { 'x-session-id': sessionId, 'x-client-version': CLIENT_VERSION },
+    headers: { 'x-session-id': sessionId, 'x-client-version': currentClientVersion() },
     models: models.map((m) => ({
       id: m.id,
       name: m.name,
@@ -354,7 +330,7 @@ function createAdsClient(options) {
     baseUrl,
     getToken,
     sessionId,
-    clientVersion = CLIENT_VERSION,
+    clientVersion = currentClientVersion(),
     onAd = () => {},
     log = () => {},
   } = options;
@@ -719,7 +695,7 @@ async function createFreePiSession(options) {
         baseUrl,
         getToken: () => auth.jwt,
         sessionId,
-        clientVersion: CLIENT_VERSION,
+        clientVersion: currentClientVersion(),
         onAd,
         log,
       })
@@ -1747,9 +1723,44 @@ async function createFreePiSession(options) {
     return { ok: true, models: rebuildModelList() };
   }
 
+  /**
+   * Re-register the free-pi provider after the backend says our version header
+   * is too old. The header is resolved per call now (see currentClientVersion),
+   * so this exists for the case where a *newer* CLI appeared on disk while the
+   * app was open, and for re-reading what the backend just published.
+   *
+   * Returns the version now in use, or null when nothing changed.
+   */
+  async function refreshClientVersion() {
+    if (!plan.freePi || !piApi) return null;
+    const before = currentClientVersion();
+    const next = await upgradedClientVersion({ baseUrl, sent: before });
+    if (!next) return before;
+    process.env.FREEPI_CLIENT_VERSION = next;
+    try {
+      piApi.unregisterProvider(PROVIDER_NAME);
+    } catch {}
+    piApi.registerProvider(
+      PROVIDER_NAME,
+      buildProviderConfig(baseUrl, auth.jwt, sessionId, models, PROVIDER_NAME)
+    );
+    if (defense.length > 0) {
+      try {
+        piApi.unregisterProvider(DEFENSE_PROVIDER_NAME);
+      } catch {}
+      piApi.registerProvider(
+        DEFENSE_PROVIDER_NAME,
+        buildProviderConfig(baseUrl, auth.jwt, sessionId, defense, DEFENSE_PROVIDER_NAME)
+      );
+    }
+    log(`client version ${before} -> ${next} after upgrade_required`);
+    return next;
+  }
+
   return {
     session,
     services,
+    refreshClientVersion,
     // Getter: a live key swap rebuilds this list inside the same handle.
     get modelList() {
       return modelList;
@@ -2212,7 +2223,8 @@ module.exports = {
   getCredentialsPath,
   resolveBaseUrl,
   saveJwt,
-  CLIENT_VERSION,
+  CLIENT_VERSION: FALLBACK_CLIENT_VERSION,
+  currentClientVersion,
   SAFE_TOOLS,
   PROVIDER_NAME,
   isGuardedTool,
