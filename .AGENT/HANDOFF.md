@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · ปล่อย **v0.2.4** แล้ว (`origin/master` HEAD `9b14db4`, release ที่ `NTAPI-releases`)
+**อัปเดตล่าสุด:** 2026-11-14 · ปล่อย **v0.2.5** แล้ว (`origin/master` HEAD `737b8a6`, release ที่ `NTAPI-releases`)
 
 > นี่คือไฟล์ **"อ่านอันเดียวจบ"** ของ session ใหม่ — อ่านบนลงล่าง
 > ถ้าคุณเป็น AI แล้วเพิ่งเปิดโปรเจกต์: อ่านหัวข้อ 0–3 ให้ครบก่อนแตะโค้ด
@@ -113,7 +113,7 @@
 - เทส `selftest-single-instance.js` PASS — เปิดซ้ำจะโฟกัสหน้าต่างเดิม ไม่เปิดโปรเซสใหม่
 - เป็น P0 ในรีวิว
 
-### 1i) MCP — Phase 1+2 เสร็จ (uncommitted)
+### 1i) MCP — Phase 1+2 เสร็จ (commit `0577f5e` + push แล้ว)
 - **พบ:** โปรแกรม **โหลด MCP อยู่แล้ว** (`sdk.createMcpExtension()`)
 - **Phase 1 (ความปลอดภัย):** `isGuardedTool()` + `mcpToolLabel()` ใน `freepi-bridge.js`
   → MCP tools ต้องอนุมัติทุกครั้ง + dialog โชว์ชื่อ server (`main.js` → `renderer/app.js`)

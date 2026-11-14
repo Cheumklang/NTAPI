@@ -28,6 +28,13 @@
 
 <!-- ต่อท้ายด้านล่างนี้ -->
 
+## 2026-11-14 — ผลปล่อย v0.2.5: สําเร็จ
+- commit: `0577f5e` (MCP Phase 1+2), `737b8a6` (เวอร์ชัน 0.2.5)
+- release `v0.2.5` ออนไลน์; assets: NTAPI-Setup-0.2.5.exe, latest.yml, blockmap
+- `/releases/latest` ชี้ v0.2.5 แล้ว
+- ⚠️ พบ spec MCP ของ session อื่น (untracked): `docs/superpowers/specs/2026-11-14-mcp-ui-design.md`
+  แนวทางต่าง (config `~/.free-pi/agent`, UI แบบ list) — ต้องให้ผู้ใช้ตัดสินใจก่อนทําซ้ำ
+
 ## 2026-11-14 — MCP Phase 2: ใช้ได้จริง (Settings + config ที่ C:\NTAPI)
 - Phase 2: config ย้ายมาที่ `C:\NTAPI\mcp.json`, opt-in ปิดดีฟอลต์, Settings แท็บ MCP แก้/บันทึกได้
 - ไฟล์: freepi-bridge.js, main.js, preload.js, renderer/*, selftest-mcp-config.js
