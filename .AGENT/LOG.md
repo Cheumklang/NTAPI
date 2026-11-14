@@ -28,6 +28,13 @@
 
 <!-- ต่อท้ายด้านล่างนี้ -->
 
+## 2026-11-14 — แก้ CI แดง: ต้องใช้ Node 22
+- ต้นเหตุ: `selftest-resolve-sdk` require bundled SDK ไม่ได้ใต้ Node 20
+  (`fs.globSync` ไม่มี — SDK ต้อง Node 22+)
+- Electron 38 = Node 22.22 → โหลด bundled SDK ได้ (ตรวจด้วย Electron จริงแล้ว)
+- แก้: ci.yml + release.yml ใช้ `node-version: 22`
+- เทสใต้ Node 22: 18 scripts PASS (ไม่ bump เพราะแอปไม่เปลี่ยน)
+
 ## 2026-11-14 — ผลปล่อย v0.2.6: สําเร็จ
 - commit: `f382f33` (Batch A/B/C), `ff39b94` (เวอร์ชัน 0.2.6)
 - release `v0.2.6` ออนไลน์; assets: NTAPI-Setup-0.2.6.exe (117.7 MB), latest.yml, blockmap

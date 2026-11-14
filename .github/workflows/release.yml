@@ -25,7 +25,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 22 matches Electron 38 and the bundled pi SDK (fs.globSync).
+          node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
 
