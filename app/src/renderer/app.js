@@ -110,6 +110,12 @@ const STRINGS = {
     placeholderIdle: 'Ask NTAPI to build, fix, or explain… (Enter to send, Shift+Enter for newline)',
     placeholderBusy: 'Agent is working — Enter sends into the turn, Ctrl+Enter queues',
     steerSent: 'Sent into the running turn.',
+    holdCountdown: 'Sending in {n}s · {what}',
+    holdWhatSteer: 'into the running turn',
+    holdWhatQueue: 'queued',
+    holdEdit: 'Edit',
+    holdCancel: 'Cancel',
+    holdDropped: 'Dropped.',
     untitled: 'Untitled session',
     rename: 'Rename',
     noSessions: 'No saved sessions yet.',
@@ -432,6 +438,12 @@ const STRINGS = {
     placeholderIdle: 'พิมพ์ให้ NTAPI สร้าง แก้ หรืออธิบาย… (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)',
     placeholderBusy: 'AI กำลังทำงาน — Enter ส่งเข้าเทิร์น, Ctrl+Enter เข้าคิว',
     steerSent: 'ส่งเข้าเทิร์นที่กำลังทำงานแล้ว',
+    holdCountdown: 'จะส่งในอีก {n} วิ · {what}',
+    holdWhatSteer: 'ส่งเข้าเทิร์นที่กำลังทำ',
+    holdWhatQueue: 'เข้าคิว',
+    holdEdit: 'แก้ไข',
+    holdCancel: 'ยกเลิก',
+    holdDropped: 'ยกเลิกแล้ว',
     untitled: 'แชทไม่มีชื่อ',
     rename: 'เปลี่ยนชื่อ',
     noSessions: 'ยังไม่มีแชทที่บันทึกไว้',
@@ -1069,6 +1081,187 @@ function renderUserMessage(text, attachments) {
     const p = document.createElement('div');
     p.textContent = text;
     bubble.appendChild(p);
+  }
+
+  // Returned so the caller can hang a countdown row under this exact message.
+  return wrap;
+}
+
+/**
+ * A message typed while the agent is working is held for a few seconds first.
+ *
+ * Sending mid-turn was instant and final: a typo, or a second thought, could not
+ * be taken back, and the only fix was to send a correction on top. So the message
+ * is shown straight away — you see exactly what you sent — with a countdown and
+ * two ways out: edit it, or drop it. When the countdown reaches zero it is sent
+ * down the path the key would have taken anyway (steer for Enter, queue for
+ * Ctrl+Enter), so nothing about sending changes, only the moment of it.
+ *
+ * If the turn finishes first the message goes immediately: there is no longer
+ * anything to wait for.
+ */
+const HOLD_SECONDS = 5;
+
+/** One pending hold per tab, so switching tabs cannot orphan a timer. */
+const holds = new Map();
+
+/**
+ * Show the countdown row under a message and schedule the send.
+ *
+ * `send` is the real send. `giveUp` returns the text to the composer.
+ */
+/**
+ * Show the countdown row and schedule the send.
+ *
+ * Two places a held message can live: under the bubble it was drawn in (`wrap`),
+ * or under its row in the queue (`rowInto`, a function, because the queue is
+ * re-rendered and the row does not exist yet at call time). Whichever it is, the
+ * message is sent by `send()` at zero, and `onCancel(taken)` undoes it.
+ *
+ * `onCancel` receives `true` when the user chose "edit" (their words are owed
+ * back to the composer) and `false` when they dropped it.
+ */
+function holdMessage(view, wrap, { text, images, send, what, rowInto, onCancel }) {
+  cancelHold(view, { silent: true });
+
+  const row = document.createElement('div');
+  row.className = 'hold-row';
+
+  const clock = document.createElement('span');
+  clock.className = 'hold-clock';
+
+  const edit = document.createElement('button');
+  edit.type = 'button';
+  edit.className = 'hold-btn';
+  edit.textContent = t('holdEdit');
+
+  const drop = document.createElement('button');
+  drop.type = 'button';
+  drop.className = 'hold-btn hold-drop';
+  drop.textContent = t('holdCancel');
+
+  row.append(clock, edit, drop);
+  if (wrap) wrap.appendChild(row);
+
+  let left = HOLD_SECONDS;
+  const paint = () => {
+    // `what` names the path so the countdown is not a mystery: a message going
+    // into the queue reads differently from one joining the running turn.
+    clock.textContent = t('holdCountdown', { n: left, what });
+  };
+  paint();
+
+  const record = {
+    id: holdIdFor(view),
+    view,
+    wrap,
+    row,
+    text,
+    images,
+    send,
+    onCancel,
+    rowInto,
+    finished: false,
+    timer: null,
+  };
+  holds.set(view.tabId, record);
+
+  const detach = () => {
+    record.finished = true;
+    clearInterval(record.timer);
+    holds.delete(view.tabId);
+    row.remove();
+  };
+
+  record.timer = setInterval(() => {
+    left -= 1;
+    if (left > 0) {
+      paint();
+      return;
+    }
+    if (record.finished) return;
+    detach();
+    send();
+  }, 1000);
+
+  const giveBack = (taken) => {
+    if (record.finished) return;
+    detach();
+    if (typeof onCancel === 'function') {
+      onCancel(taken);
+      return;
+    }
+    // Transcript path: remove the entry and the bubble it drew.
+    const at = (view.messages || []).findIndex((m) => m.pending && m.holdId === record.id);
+    if (at !== -1) view.messages.splice(at, 1);
+    if (wrap) wrap.remove();
+    emptyState.hidden = (view.messages || []).length > 0;
+    if (taken) {
+      input.value = text || '';
+      pendingImages = (images || []).slice();
+      renderAttachments();
+      autoGrow();
+      updateSendState();
+      input.focus();
+    } else {
+      showNotice(t('holdDropped'), 1800);
+    }
+  };
+
+  edit.addEventListener('click', () => giveBack(true));
+  drop.addEventListener('click', () => giveBack(false));
+
+  // A queued message's row only exists after renderQueue(), so mount it now.
+  if (!wrap && typeof rowInto === 'function') {
+    const target = rowInto();
+    if (target) target.appendChild(row);
+  }
+
+  return record;
+}
+
+/** A stable id so the message entry and its row agree on which hold they belong to. */
+function holdIdFor(view) {
+  view.holdSeq = (view.holdSeq || 0) + 1;
+  return `${view.tabId}:${view.holdSeq}`;
+}
+
+/**
+ * Stop a hold. `silent` keeps the message in the transcript (used by the
+ * buttons, which remove it themselves); otherwise it is cancelled because the
+ * message can no longer be sent as written — a tab switch, say.
+ */
+function cancelHold(view, { silent = false } = {}) {
+  const record = holds.get(view?.tabId);
+  if (!record || record.finished) return;
+  record.finished = true;
+  clearInterval(record.timer);
+  holds.delete(view.tabId);
+  record.row.remove();
+  if (silent) return;
+  // The message never went out, so it must not stay looking sent.
+  if (typeof record.onCancel === 'function') {
+    record.onCancel(true);
+    return;
+  }
+  const at = (view.messages || []).findIndex((m) => m.pending && m.holdId === record.id);
+  if (at !== -1) view.messages.splice(at, 1);
+  if (record.wrap) record.wrap.remove();
+  emptyState.hidden = (view.messages || []).length > 0;
+  // Give the words back rather than swallowing them.
+  if (!input.value.trim() && record.text) {
+    input.value = record.text;
+    autoGrow();
+    updateSendState();
+  }
+}
+
+/** Nothing should fire for a tab the window is no longer showing. */
+function cancelAllHolds(exceptTabId) {
+  for (const tabId of [...holds.keys()]) {
+    if (tabId === exceptTabId) continue;
+    const view = views.get(tabId);
+    if (view) cancelHold(view, { silent: true });
   }
 }
 
@@ -2154,6 +2347,10 @@ async function closeTab(tabId) {
 }
 
 async function activateTabDirect(tabId) {
+  // A held message belongs to the tab the user is looking at. Switching away
+  // must not fire a send they can no longer see, and must not leave a timer
+  // ticking behind their back — the text goes back to that tab's composer.
+  cancelAllHolds(tabId);
   const state = await api.getTabState(tabId);
   applyTabState(state);
 }
@@ -4179,16 +4376,56 @@ async function appendImagePreviews(container, text, cwd) {
  * of dropping it. It is sent automatically as soon as the current turn
  * settles. Each view keeps its own queue, so background tabs do not steal it.
  */
+/**
+ * Put a message in the queue, held for a few seconds first when a turn is
+ * running so a typo can still be fixed before it is sent.
+ */
 async function queueMessage(text, attachments) {
   const view = activeView();
   if (!view) return;
   view.queue = view.queue || [];
-  view.queue.push({ kind: 'prompt', text: await resolveForSend(text), images: attachments });
+  const resolved = await resolveForSend(text);
+  const item = {
+    kind: 'prompt',
+    text: resolved,
+    images: attachments,
+    queueId: `q${(view.queueSeq = (view.queueSeq || 0) + 1)}`,
+  };
+  view.queue.push(item);
 
   input.value = '';
   autoGrow();
   renderQueue();
   updateSendState();
+
+  // The queue already waits for the turn to end, but a mistyped message would
+  // still be sent as-is once it drains. The countdown buys the same few seconds
+  // to fix it that the steer path gets.
+  const hold = holdMessage(view, null, {
+    text: resolved,
+    images: attachments,
+    send: () => {},
+    what: t('holdWhatQueue'),
+    rowInto: () => {
+      const row = el('queueBar')?.querySelector(`[data-queue-id="${item.queueId}"]`);
+      return row || null;
+    },
+  });
+  hold.item = item;
+  hold.onCancel = (taken) => {
+    const at = (view.queue || []).indexOf(item);
+    if (at !== -1) view.queue.splice(at, 1);
+    renderQueue();
+    updateSendState();
+    if (taken) {
+      input.value = resolved || '';
+      pendingImages = (attachments || []).slice();
+      renderAttachments();
+      autoGrow();
+      updateSendState();
+      input.focus();
+    }
+  };
 }
 
 /**
@@ -4223,6 +4460,16 @@ async function drainQueue(view) {
   if (!view.queue || !view.queue.length) return;
   const next = view.queue.shift();
   renderQueue();
+  // The turn that was running when this was queued has ended, so any countdown
+  // still ticking on it is moot: release it before the message goes out, or the
+  // timer would later fire a second send for the same text.
+  const held = holds.get(view.tabId);
+  if (held && !held.finished && held.item === next) {
+    held.finished = true;
+    clearInterval(held.timer);
+    holds.delete(view.tabId);
+    held.row.remove();
+  }
   if (next.kind === 'action') {
     // An action does not produce a turn, so nothing will call `onSettled` to
     // restart the queue. Run it and keep draining by hand.
@@ -4286,6 +4533,8 @@ function renderQueue() {
   items.forEach((item, i) => {
     const row = document.createElement('div');
     row.className = 'queue-item';
+    // Marks the row so a held message can hang its countdown underneath.
+    if (item.queueId) row.dataset.queueId = item.queueId;
     const label = document.createElement('span');
     label.className = 'queue-text';
     // A queued slash command has no message text; show what it will do.
@@ -4306,6 +4555,15 @@ function renderQueue() {
     row.appendChild(rm);
     bar.appendChild(row);
   });
+
+  // Rebuilding the rows throws away the countdown row that was mounted in one,
+  // so put it back: a re-render (a second message queued, an item removed) must
+  // not silently cancel the countdown.
+  const held = view ? holds.get(view.tabId) : null;
+  if (held && !held.finished && held.item?.queueId) {
+    const target = bar.querySelector(`[data-queue-id="${held.item.queueId}"]`);
+    if (target) target.appendChild(held.row);
+  }
 }
 
 async function submit() {
@@ -4329,25 +4587,40 @@ async function submit() {
   // instruction after the current step, before its next call. Ctrl+Enter is
   // the queue path instead.
   if (view.busy) {
-    renderUserMessage(outgoing, pendingImages);
-    view.messages.push({ kind: 'user', text: outgoing, images: pendingImages.slice(), pending: true });
-    // The reply to this steer will arrive on the next turn. Remember that a
-    // boundary is owed so `agent:turnStart` starts that reply below this message
-    // instead of appending it to the block that was already streaming.
-    view.steerPending = true;
+    const steerWrap = renderUserMessage(outgoing, pendingImages);
     const steerImages = pendingImages.slice();
+    const steerSend = async () => {
+      // The reply to this steer will arrive on the next turn. Remember that a
+      // boundary is owed so `agent:turnStart` starts that reply below this
+      // message instead of appending it to the block already streaming.
+      view.steerPending = true;
+      try {
+        playSound('send');
+        await api.sendPrompt(view.tabId, outgoing, steerImages, 'steer');
+        showNotice(t('steerSent'), 2600);
+      } catch (err) {
+        showNotice(errorText(err));
+      }
+    };
+    const hold = holdMessage(view, steerWrap, {
+      text: outgoing,
+      images: steerImages,
+      send: steerSend,
+      what: t('holdWhatSteer'),
+    });
+    view.messages.push({
+      kind: 'user',
+      text: outgoing,
+      images: steerImages.slice(),
+      pending: true,
+      holdId: hold.id,
+    });
     pendingImages = [];
     renderAttachments();
     input.value = '';
     autoGrow();
     hideFileMenu();
-    try {
-      playSound('send');
-      await api.sendPrompt(view.tabId, outgoing, steerImages, 'steer');
-      showNotice(t('steerSent'), 2600);
-    } catch (err) {
-      showNotice(errorText(err));
-    }
+    updateSendState();
     return;
   }
 
@@ -5105,7 +5378,13 @@ api.onSettled((p) => {
   view.liveAssistant = null;
   view.liveTools = null;
   if (payloadTabIsActive(view)) setBusy(false);
-  // Send anything the user queued while this turn was running.
+  // A message held back while this turn ran no longer has anything to wait for:
+  // send it now rather than making the user watch a countdown for a turn that
+  // already finished.
+  const held = holds.get(view.tabId);
+  if (held && !held.finished && held.item) {
+    held.item.holdReleased = true;
+  }
   drainQueue(view);
   if (!hadQueue) notifyFinished(view);
 });

@@ -11,7 +11,8 @@
     "release": "electron-builder --win --x64 --publish always",
     "check:queue": "electron scripts/check-queue-placement.js",
     "check:reload": "electron scripts/check-reload-safety.js && electron scripts/check-reload-reattach-live.js",
-    "check:history": "electron scripts/check-history-merge.js"
+    "check:history": "electron scripts/check-history-merge.js",
+    "check:hold": "electron scripts/check-hold-before-send.js"
   },
   "author": "Chanathip Cheumklang",
   "license": "MIT",

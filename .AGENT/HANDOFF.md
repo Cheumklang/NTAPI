@@ -121,6 +121,12 @@ push tag `v0.3.5` → GitHub Actions (`release.yml`) build และอัปโ
 · จุดส่ง 3 แห่ง mark `pending` · เทสต์ `selftest-history-merge.js` (ย้อนกลับ FAIL 2/3/2)
 + `check-history-merge.js` (renderer จริง 8 checks) · `npm run check:history` · `npm test` **39/39**
 
+**ข้อความระหว่างงานหน่วง 5 วิ + แก้ไข/ยกเลิก:** `HOLD_SECONDS=5` · ข้อความขึ้นทันทีนับถอยหลัง
+5→1 แล้วส่งเอง · ปุ่ม **แก้ไข** ดึงข้อความ+รูปกลับช่องพิมพ์ · **ยกเลิก** ทิ้ง · ใช้ทั้งทาง
+Enter (steer) และ Ctrl+Enter (คิว) · สลับแท็บ/แท็บปิด = ยกเลิก · เทิร์นจบก่อนครบ 5 วิ = ส่งเลย
+· เทสต์ `selftest-hold-before-send.js` (ย้อนกลับ FAIL 2/1/1) + `check-hold-before-send.js`
+(กดปุ่มจริง 13 checks) · `npm run check:hold` · `npm test` **40/40**
+
 **ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตารอบสอง (`npm start`) และยังไม่ได้ทดสอบ
 browser agent mode กับ Chrome จริงรอบยืนยัน
 

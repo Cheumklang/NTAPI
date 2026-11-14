@@ -619,3 +619,42 @@ auth check ก่อนค่อย `_startRun` จึงเกิดช่อ�
 - `npm test` **39/39** (จาก 38)
 
 **หมายเหตุ:** `pending` เป็นแค่เครื่องหมาย ไม่กระทบการวาด (`renderActiveTab` อ่านแค่ kind/text/images)
+
+### ข้อความระหว่างงาน: หน่วง 5 วิ + ปุ่มแก้ไข/ยกเลิก (2026-11-14)
+
+**คำขอผู้ใช้:** ข้อความที่พิมพ์ระหว่าง AI ทำงาน ให้หน่วงไว้ 5 วิ พร้อมนับถอยหลัง
+และมีปุ่มแก้ไข (เผื่อพิมพ์ผิด/อยากแก้อะไร) · ผู้ใช้เลือก: **A + ทั้งคู่**
+= กดแก้ไขแล้วดึงข้อความกลับช่องพิมพ์ และใส่ทั้งทาง Enter (steer) และ Ctrl+Enter (คิว)
+
+**ได้อะไร:** ข้อความขึ้นในประวัติ/แถบคิวทันที พร้อมแถวใต้ข้อความ
+`จะส่งในอีก 5 วิ · ส่งเข้าเทิร์นที่กำลังทำ   [แก้ไข] [ยกเลิก]` นับ 5→1 แล้วส่งเอง
+
+**แก้ (`renderer/app.js` + `styles.css`):**
+- `HOLD_SECONDS = 5` · `holds` Map (1 hold ต่อแท็บ) · `holdMessage()` ·
+  `holdIdFor()` · `cancelHold()` · `cancelAllHolds()`
+- `renderUserMessage` คืน `wrap` เพื่อให้แปะแถวนับถอยหลังใต้บับเบิลนั้น
+- **steer (Enter)**: ส่งถูกห่อเป็น `steerSend` แล้วส่งเป็น callback — ไม่เรียกทันที
+- **คิว (Ctrl+Enter)**: `queueMessage` สร้าง `queueId` ให้ item, hold แปะใต้แถวคิว
+  (`rowInto` เพราะแถวเกิดหลัง `renderQueue`), `onCancel(taken)` เอา item ออกจากคิว
+- `activateTabDirect` → `cancelAllHolds(tabId)`: เปลี่ยนแท็บ = ยกเลิก คืนข้อความเข้าช่องพิมพ์
+- `onSettled` ตั้ง `item.holdReleased`; `drainQueue` เคลียร์ hold ก่อนส่ง item นั้น
+  (กัน timer ยิงซ้ำ)
+- `renderQueue` re-mount แถวนับถอยหลังหลังวาดใหม่ (ไม่งั้นกดคิวที่สองแล้วตัวนับหาย)
+- i18n EN+TH: `holdCountdown` `holdWhatSteer` `holdWhatQueue` `holdEdit` `holdCancel` `holdDropped`
+- CSS: `.hold-row` (11.5px, muted), `.hold-clock` (`min-width:15ch` + `tabular-nums`
+  กันเลขกระโดด), `.queue-item { flex-wrap: wrap }`, ปุ่มเป็นลิงก์ขีดเส้น + `:focus-visible`
+
+**เทสต์:**
+- `selftest-hold-before-send.js` (33 checks) — 5 วิ/ติ๊ก 1 วิ, ทั้งสองเส้นทาง hold,
+  แก้ไขคืนข้อความ+รูป, ยกเลิกแจ้ง, สลับแท็บยกเลิก, turn จบปล่อย hold, re-render ไม่หาย,
+  คำแปล EN+TH, CSS
+  · ย้อนกลับ: delay→0 → FAIL 2 · ลบ `cancelAllHolds` → FAIL 1 · ลบ re-mount → FAIL 1
+- `scripts/check-hold-before-send.js` (**Electron กดปุ่มจริง 13 checks**):
+  แถวขึ้น, นับ 5→4 ได้จริง, แก้ไขดึง "held text" กลับช่องพิมพ์ + ลบข้อความ,
+  ยกเลิกทิ้ง + ไม่ส่ง, ไม่มีการส่งระหว่างนับ
+- npm script ใหม่: `npm run check:hold`
+- `npm test` **40/40** (จาก 39)
+
+**Learned:** brace matcher ในเทสต์ตัดผิดเพราะ parameter เป็น destructuring `{ text, images }`
+ต้องข้ามวงเล็บ parameter ก่อนหาวงเล็บปีกกาของ body · และ `renderQueue` มี `view` อยู่แล้ว
+ประกาศซ้ำทำให้ SyntaxError

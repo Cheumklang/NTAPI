@@ -1001,6 +1001,52 @@ button { font-family: inherit; }
   word-break: break-word;
 }
 .msg.assistant .body { white-space: pre-wrap; word-break: break-word; }
+
+/*
+ * Countdown under a message typed while the agent is working.
+ *
+ * It sits under the bubble, not over it, so the text stays readable. Quiet at
+ * rest — the clock is the smallest thing on the row — because it is a heads-up,
+ * not an alert. It removes itself when the timer reaches zero.
+ */
+.hold-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.hold-clock {
+  /* Fixed width so 5s → 1s does not shift the buttons sideways. */
+  min-width: 15ch;
+  font-variant-numeric: tabular-nums;
+}
+/* Inside a queue row the countdown stacks under the text. */
+.queue-item .hold-row {
+  flex-basis: 100%;
+  margin-top: 1px;
+  font-size: 11px;
+}
+.hold-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--accent-2, var(--accent));
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.hold-btn:hover { color: var(--text); }
+.hold-btn.hold-drop { color: var(--muted); }
+.hold-btn.hold-drop:hover { color: var(--danger); }
+.hold-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
 .msg.assistant.streaming .body::after {
   content: "▍";
   color: var(--accent);
@@ -1654,6 +1700,7 @@ button { font-family: inherit; }
 }
 .queue-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 4px;
   max-width: 100%;
