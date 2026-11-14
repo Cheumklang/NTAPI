@@ -22,6 +22,15 @@ function delay(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+async function expectCode(fn) {
+  try {
+    await fn();
+    return '';
+  } catch (err) {
+    return (err && err.code) || 'ERROR';
+  }
+}
+
 // --- catalogue ---
 check('catalogue has 15 tools', b.browserToolNames().length === 15, b.browserToolNames().join(','));
 check('write tools are guarded', b.browserGuardedTools().includes('browser_click'));
@@ -141,6 +150,52 @@ async function main() {
     disabledCode = err.code;
   }
   check('call after stop is DISABLED', disabledCode === 'DISABLED', `code=${disabledCode}`);
+
+  // --- claims decide which tab the agent may touch at all ---
+  const { createClaims } = require('../src/browser-claims');
+  const claims = createClaims({});
+  const claimBridge = b.createBrowserBridge({ port: 0, extensionId: 'testext', token: '123456' });
+  claimBridge.setClaims(claims);
+  const claimPort = (await claimBridge.start()).port;
+
+  const w5 = await open(`ws://127.0.0.1:${claimPort}`, 'chrome-extension://testext');
+  await hello(w5, '123456');
+  w5.on('message', (raw) => {
+    const frame = JSON.parse(raw.toString());
+    if (!frame.id) return;
+    w5.send(
+      JSON.stringify({
+        id: frame.id,
+        ok: true,
+        result: { done: true, cmd: frame.cmd, tabId: frame.args ? frame.args.tab : undefined },
+      })
+    );
+  });
+
+  check('an explicit tab with no claim is refused', (await expectCode(() => claimBridge.call('read', { tab: 99 }))) === 'NOT_CLAIMED');
+  check('with no claim, a call naming no tab still works as before', (await claimBridge.call('read', {})).done === true);
+
+  claims.claim({ tabId: 7, url: 'https://ads.google.com' });
+  check('a claimed tab is used when none is given', (await claimBridge.call('read', {})).tabId === 7);
+  check('the claimed tab id is accepted', (await claimBridge.call('read', { tab: 7 })).tabId === 7);
+  check('another tab id is refused', (await expectCode(() => claimBridge.call('read', { tab: 99 }))) === 'NOT_CLAIMED');
+  check('reads on an unclaimed tab are refused too', (await expectCode(() => claimBridge.call('snapshot', { tab: 99 }))) === 'NOT_CLAIMED');
+  check('writes on an unclaimed tab are refused too', (await expectCode(() => claimBridge.call('click', { tab: 99 }))) === 'NOT_CLAIMED');
+
+  const activity = [];
+  claimBridge.onActivity((entry) => activity.push(entry));
+  await claimBridge.call('click', { ref: 'e1' });
+  check('activity is emitted with the host', activity.length === 1 && activity[0].host === 'ads.google.com' && activity[0].cmd === 'click', JSON.stringify(activity));
+  check('activity carries the ref and the tab', activity[0].ref === 'e1' && activity[0].tabId === 7);
+  await claimBridge.call('read', {});
+  check('activity is emitted for reads too', activity.length === 2 && activity[1].cmd === 'read');
+  check('activity is stamped', Number.isFinite(Date.parse(activity[0].ts)));
+
+  claims.release();
+  check('releasing the claim stops explicit tabs', (await expectCode(() => claimBridge.call('read', { tab: 7 }))) === 'NOT_CLAIMED');
+  check('and releases the automatic target', (await claimBridge.call('read', {})).tabId === undefined);
+  w5.close();
+  await claimBridge.stop();
 }
 
 main()

@@ -114,6 +114,9 @@ function createBrowserBridge(options = {}) {
   const pending = new Map();
   const listeners = new Set();
 
+  let claims = null;
+  const activityListeners = new Set();
+
   function status() {
     return { enabled: Boolean(server), connected, port: actualPort, paired: Boolean(token) };
   }
@@ -134,6 +137,59 @@ function createBrowserBridge(options = {}) {
 
   function setToken(next) {
     token = String(next || '');
+  }
+
+  /** The claim store decides which tabs the agent may touch at all. */
+  function setClaims(next) {
+    claims = next || null;
+  }
+
+  function onActivity(fn) {
+    activityListeners.add(fn);
+    return () => activityListeners.delete(fn);
+  }
+
+  function emitActivity(entry) {
+    for (const fn of activityListeners) {
+      try {
+        fn(entry);
+      } catch {}
+    }
+  }
+
+  function hostOf(url) {
+    try {
+      return new URL(String(url)).hostname;
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Which tab a call may act on.
+   *
+   * An explicit tab id is honoured **only** when it is the tab the user handed
+   * over. Any other id is refused — that is the whole difference between "the
+   * agent may act" and "the agent may act anywhere". With no claim at all, a
+   * call that names no tab is passed through untouched, so the agent's own
+   * browser window keeps working exactly as it did before claims existed.
+   */
+  function targetFor(argsTab) {
+    const claimed = claims && typeof claims.get === 'function' ? claims.get() : null;
+    if (Number.isInteger(argsTab)) {
+      if (!claimed || claimed.tabId !== argsTab) {
+        return {
+          ok: false,
+          code: 'NOT_CLAIMED',
+          message: claimed
+            ? 'That tab was not handed to the agent. Only the tab the user handed over can be used.'
+            : 'No browser tab has been handed to the agent. Ask the user to hand one over before naming a tab.',
+        };
+      }
+      return { ok: true, tabId: argsTab };
+    }
+    if (claimed) return { ok: true, tabId: claimed.tabId };
+    return { ok: true, tabId: null };
   }
 
   function prepareAudit() {
@@ -274,41 +330,61 @@ function createBrowserBridge(options = {}) {
     if (!connected || !socket) {
       return Promise.reject(bridgeError('NOT_CONNECTED', 'The browser extension is not connected.'));
     }
+
+    const input = args && typeof args === 'object' ? { ...args } : {};
+    const target = targetFor(input.tab);
+    if (!target.ok) return Promise.reject(bridgeError(target.code, target.message));
+    const callArgs = target.tabId === null ? input : { ...input, tab: target.tabId };
+
     seq += 1;
     const id = seq;
     const ws = socket;
-    const auditArgs = args && typeof args === 'object' ? args : {};
+    const claimed = claims && typeof claims.get === 'function' ? claims.get() : null;
+
     // Every command is recorded, not just the ones that change a page: the log
-    // is the only witness to what the agent read as well as what it did.
-    const auditLine = (ok) =>
+    // and the activity strip are the only witnesses to what the agent read as
+    // well as what it did.
+    const record = (ok) => {
+      const tabId = Number.isInteger(callArgs.tab) ? callArgs.tab : null;
       appendAudit({
         cmd,
-        tabId: Number.isInteger(auditArgs.tab) ? auditArgs.tab : null,
-        url: auditArgs.url ?? null,
-        ref: auditArgs.ref ?? null,
-        selector: auditArgs.selector ?? null,
+        tabId,
+        url: callArgs.url ?? null,
+        ref: callArgs.ref ?? null,
+        selector: callArgs.selector ?? null,
         ok,
       });
+      emitActivity({
+        ts: new Date().toISOString(),
+        cmd,
+        tabId,
+        host: hostOf(callArgs.url || (claimed ? claimed.url : '')),
+        ref: callArgs.ref ?? null,
+        selector: callArgs.selector ?? null,
+        ok,
+      });
+    };
+
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.delete(id);
-        auditLine(false);
+        record(false);
         reject(bridgeError('TIMEOUT', `The browser did not answer ${cmd} in ${timeoutMs}ms.`));
       }, timeoutMs);
       pending.set(id, {
         resolve: (result) => {
-          auditLine(true);
+          record(true);
           resolve(result);
         },
         reject: (err) => {
-          auditLine(false);
+          record(false);
           reject(err);
         },
         timer,
         cmd,
       });
       try {
-        ws.send(JSON.stringify(makeRequest(id, cmd, args)));
+        ws.send(JSON.stringify(makeRequest(id, cmd, callArgs)));
       } catch (err) {
         clearTimeout(timer);
         pending.delete(id);
@@ -317,7 +393,7 @@ function createBrowserBridge(options = {}) {
     });
   }
 
-  return { start, stop, status, call, setToken, onStatus };
+  return { start, stop, status, call, setToken, setClaims, targetFor, onActivity, onStatus };
 }
 
 module.exports = {
