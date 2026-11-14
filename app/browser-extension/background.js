@@ -162,6 +162,22 @@ async function handle(cmd, args) {
       return readPage(args);
     case 'screenshot':
       return screenshot(args);
+    case 'click':
+      return click(args);
+    case 'type':
+      return typeText(args);
+    case 'fill':
+      return fillFields(args);
+    case 'key':
+      return pressKey(args);
+    case 'scroll':
+      return scrollPage(args);
+    case 'wait':
+      return waitFor(args);
+    case 'eval':
+      return evaluate(args);
+    case 'close':
+      return closeTab(args);
     default:
       throw Object.assign(new Error('This command is not implemented yet.'), { code: 'UNSUPPORTED' });
   }
@@ -268,7 +284,7 @@ async function gotoUrl(args) {
 
 async function readPage(args) {
   const tabId = await resolveTab(args.tab);
-  const maxChars = Number.isInteger(args.maxChars) ? Math.max(200, args.maxChars) : 8000;
+  const maxChars = Number.isInteger(args.maxChars) ? Math.max(20, args.maxChars) : 8000;
   const selector = typeof args.selector === 'string' && args.selector ? args.selector : null;
   const expression = selector
     ? `(document.querySelector(${JSON.stringify(selector)}) || {}).innerText || ''`
@@ -334,4 +350,180 @@ connect();
 /* Exported for the bundled smoke test; harmless in the service worker. */
 if (typeof module !== 'undefined') {
   module.exports = { PORT, handle };
+}
+
+/* ----------------------------------------------------------- write commands */
+
+/**
+ * Resolve a target element and describe it in page coordinates.
+ *
+ * `selector` wins; then `text` (first visible element whose text contains it);
+ * then explicit `x`/`y`. Whatever matched is scrolled into view so the caller
+ * can dispatch a click at its centre.
+ */
+async function locate(tabId, args) {
+  const expression = `(() => {
+    const sel = ${JSON.stringify(args.selector || null)};
+    const text = ${JSON.stringify(args.text || null)};
+    let el = null;
+    if (sel) el = document.querySelector(sel);
+    else if (text) {
+      const wanted = text.trim();
+      const all = Array.from(document.querySelectorAll('a,button,input,textarea,select,[role=button],[role=link],[role=tab],[contenteditable=true]'));
+      el = all.find((n) => {
+        const r = n.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return false;
+        return (n.innerText || n.value || n.getAttribute('aria-label') || '').includes(wanted);
+      }) || null;
+    }
+    if (!el) return { found: false };
+    el.scrollIntoView({ block: 'center', inline: 'center' });
+    const r = el.getBoundingClientRect();
+    return {
+      found: true,
+      x: r.left + r.width / 2,
+      y: r.top + r.height / 2,
+      tag: (el.tagName || '').toLowerCase(),
+      label: (el.innerText || el.value || el.getAttribute('aria-label') || '').slice(0, 80),
+    };
+  })()`;
+  const res = await cdp(tabId, 'Runtime.evaluate', { expression, returnByValue: true });
+  return (res.result && res.result.value) || { found: false };
+}
+
+async function click(args) {
+  const tabId = await resolveTab(args.tab);
+  let x = args.x;
+  let y = args.y;
+  let label = '';
+  if (typeof args.selector === 'string' || typeof args.text === 'string') {
+    const spot = await locate(tabId, args);
+    if (!spot.found) {
+      throw Object.assign(new Error('Nothing on the page matched the target.'), { code: 'NO_ELEMENT' });
+    }
+    x = spot.x;
+    y = spot.y;
+    label = spot.label;
+  }
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw Object.assign(new Error('Give a selector, text, or x/y coordinates.'), { code: 'BAD_ARGS' });
+  }
+  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+  return Object.assign({ clicked: label }, await tabSummary(tabId));
+}
+
+/** Focus an element, then insert text at the caret (keeps the page's handlers). */
+async function focusAndInsert(tabId, selector, text, clearFirst) {
+  const focusExpr = `(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el) return false;
+    el.focus();
+    ${clearFirst ? "if ('value' in el) { const setter = Object.getOwnPropertyDescriptor(el.constructor.prototype, 'value')?.set; if (setter) setter.call(el, ''); else el.value = ''; } else if (el.isContentEditable) { el.textContent = ''; }" : ''}
+    return true;
+  })()`;
+  const res = await cdp(tabId, 'Runtime.evaluate', { expression: focusExpr, returnByValue: true });
+  if (!(res.result && res.result.value)) {
+    throw Object.assign(new Error(`No element matched ${selector}.`), { code: 'NO_ELEMENT' });
+  }
+  await cdp(tabId, 'Input.insertText', { text: String(text ?? '') });
+  await cdp(tabId, 'Runtime.evaluate', {
+    expression: `(() => { const el = document.querySelector(${JSON.stringify(selector)});
+      if (el) { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); } })()`,
+  });
+}
+
+async function typeText(args) {
+  if (typeof args.selector !== 'string' || !args.selector) {
+    throw Object.assign(new Error('`selector` is required.'), { code: 'BAD_ARGS' });
+  }
+  const tabId = await resolveTab(args.tab);
+  await focusAndInsert(tabId, args.selector, args.text, Boolean(args.clear));
+  if (args.submit) await pressKey({ tab: tabId, key: 'Enter' });
+  return tabSummary(tabId);
+}
+
+async function fillFields(args) {
+  const fields = Array.isArray(args.fields) ? args.fields : [];
+  if (!fields.length) throw Object.assign(new Error('`fields` is required.'), { code: 'BAD_ARGS' });
+  const tabId = await resolveTab(args.tab);
+  for (const field of fields) {
+    if (!field || typeof field.selector !== 'string') continue;
+    await focusAndInsert(tabId, field.selector, field.value, true);
+  }
+  return Object.assign({ filled: fields.length }, await tabSummary(tabId));
+}
+
+const KEY_CODES = {
+  Enter: { windowsVirtualKeyCode: 13, key: 'Enter', text: '\r' },
+  Tab: { windowsVirtualKeyCode: 9, key: 'Tab' },
+  Escape: { windowsVirtualKeyCode: 27, key: 'Escape' },
+  Backspace: { windowsVirtualKeyCode: 8, key: 'Backspace' },
+  ArrowDown: { windowsVirtualKeyCode: 40, key: 'ArrowDown' },
+  ArrowUp: { windowsVirtualKeyCode: 38, key: 'ArrowUp' },
+};
+
+async function pressKey(args) {
+  const name = String(args.key || 'Enter');
+  const spec = KEY_CODES[name];
+  if (!spec) throw Object.assign(new Error(`Unsupported key: ${name}`), { code: 'BAD_ARGS' });
+  const tabId = await resolveTab(args.tab);
+  await cdp(tabId, 'Input.dispatchKeyEvent', { type: 'keyDown', ...spec });
+  if (spec.text) await cdp(tabId, 'Input.dispatchKeyEvent', { type: 'char', text: spec.text, ...spec });
+  await cdp(tabId, 'Input.dispatchKeyEvent', { type: 'keyUp', ...spec });
+  return tabSummary(tabId);
+}
+
+async function scrollPage(args) {
+  const tabId = await resolveTab(args.tab);
+  const dy = Number.isFinite(args.dy) ? args.dy : 600;
+  await cdp(tabId, 'Runtime.evaluate', {
+    expression: `window.scrollBy({ top: ${dy}, behavior: 'instant' })`,
+  });
+  return tabSummary(tabId);
+}
+
+async function waitFor(args) {
+  const timeoutMs = Number.isInteger(args.timeoutMs) ? Math.max(200, args.timeoutMs) : 10000;
+  const tabId = await resolveTab(args.tab);
+  const expression = `(() => {
+    const sel = ${JSON.stringify(args.selector || null)};
+    const text = ${JSON.stringify(args.text || null)};
+    if (sel) return Boolean(document.querySelector(sel));
+    if (text) return (document.body ? document.body.innerText : '').includes(text);
+    return true;
+  })()`;
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const res = await cdp(tabId, 'Runtime.evaluate', { expression, returnByValue: true });
+    if (res.result && res.result.value) return Object.assign({ waited: Date.now() - started }, await tabSummary(tabId));
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw Object.assign(new Error('The page never showed what was asked for.'), { code: 'NO_ELEMENT' });
+}
+
+async function evaluate(args) {
+  if (typeof args.expression !== 'string' || !args.expression) {
+    throw Object.assign(new Error('`expression` is required.'), { code: 'BAD_ARGS' });
+  }
+  const tabId = await resolveTab(args.tab);
+  const res = await cdp(tabId, 'Runtime.evaluate', {
+    expression: args.expression,
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  const value = res.result ? res.result.value : undefined;
+  return Object.assign({ value: typeof value === 'string' ? value.slice(0, 8000) : value }, await tabSummary(tabId));
+}
+
+async function closeTab(args) {
+  const tabId = await resolveTab(args.tab);
+  const summary = await tabSummary(tabId);
+  try {
+    await chrome.debugger.detach({ tabId });
+  } catch {}
+  attached.delete(tabId);
+  await chrome.tabs.remove(tabId);
+  return summary;
 }
