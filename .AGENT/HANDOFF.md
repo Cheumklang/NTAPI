@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · ปล่อย **v0.2.2** แล้ว (`origin/master` HEAD `96df01a`, release อยู่ที่ `NTAPI-releases`)
+**อัปเดตล่าสุด:** 2026-11-14 · ปล่อย **v0.2.3** แล้ว (`origin/master` HEAD `8071707`, release ที่ `NTAPI-releases`)
 
 > นี่คือไฟล์ **"อ่านอันเดียวจบ"** ของ session ใหม่ — อ่านบนลงล่าง
 > ถ้าคุณเป็น AI แล้วเพิ่งเปิดโปรเจกต์: อ่านหัวข้อ 0–3 ให้ครบก่อนแตะโค้ด
@@ -24,7 +24,7 @@
 
 ## 1) กำลังทำ / ค้างอยู่ตอนนี้ (สำคัญสุด — อ่านก่อน)
 > ⚠️ ตรวจ `git status` เทียบกับที่นี่เสมอ — อาจมี session อื่นทํางานคู่ขนานอยู่
-> ✅ commit + push ครบแล้ว (หัวข้อ 1a–1c) · ⚠️ มีงานค้างใหม่ 1 อย่างที่ยังไม่ commit (ข้อ 1d)
+> ✅ working tree สะอาด — commit + push ครบทุกอย่าง (งาน 1a–1e) และปล่อย v0.2.3 แล้ว
 
 ### 1a) เคส LLM7 — แก้เสร็จ ยืนยันกับโมเดลจริงแล้ว และ commit แล้ว (`e6b959d`)
 - **อาการ:** reasoning model กินโควตา output จนหมด แล้วได้ `finish_reason: "length"` + content ว่าง
@@ -69,7 +69,7 @@
 - ไฟล์: `app/src/main.js` (`listSessions`), `app/src/renderer/app.js` (`renderSessions`)
 - ยืนยัน: `node --check` ผ่านทั้งสองไฟล์, `selftest-session-paths.js` PASS
 
-### 1d) ข้อความที่ส่งกลางเทิร์น (steer) โผล่ผิดลําดับ — แก้แล้ว (uncommitted)
+### 1d) ข้อความที่ส่งกลางเทิร์น (steer) โผล่ผิดลําดับ — แก้แล้ว (commit `1f05f90`)
 - **ปัญหา:** ส่งข้อความขณะ AI กำลังทำงาน → ข้อความไปอยู่ล่างสุด และคำตอบที่เหลือสตรีมกลับเข้า
   บล็อกเดิมด้านบน → คำตอบไปโผล่เหนือข้อความผู้ใช้ อ่านสลับลําดับ สับสน
 - **แก้:** เพิ่ม event `turn_start` (main → renderer) แล้ว “ปิดบล็อก” ตอนขึ้นเทิร์นใหม่
@@ -79,9 +79,9 @@
   - `app/src/renderer/app.js`: `view.steerPending` + `api.onTurnStart` + reset ใน settled/error
 - ยืนยัน: `node --check` ผ่าน 3 ไฟล์, selftest (sse-guard/provider-plan/empty-answer) PASS,
   ตรวจลําดับ event ใน SDK แล้วว่า `turn_start` ยิงก่อนข้อความ steer + คำตอบใหม่
-- **ยังไม่ได้รัน UI จริง** — ต้องทดสอบผ่านเวอร์ชันใหม่ (ยังไม่ commit / ยังไม่ bump)
+- **สถานะ:** commit `1f05f90` → อยู่ใน v0.2.3 แล้ว; เหลือผู้ใช้ทดสอบ UI จริง
 
-### 1e) คําว่า "กำลังทำงาน..." ให้ขยับ (uncommitted)
+### 1e) คําว่า "กำลังทำงาน..." ให้ขยับ (commit `1f05f90`)
 - **เหตุ:** ข้อความนิ่ง อ่านเหมือนโปรแกรมค้าง
 - **แก้:** ต่อท้ายด้วยจุด 3 จุด เด้ง/จางสลับจังหวะ (`.hint-dots`, `@keyframes hint-dot`)
   - `app/src/renderer/app.js` (`setBusy`), `app/src/renderer/styles.css`
