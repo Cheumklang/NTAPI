@@ -69,7 +69,12 @@
 `approval-policy-select` (`appearance:none` + token + focus ring + `option` ธีมมืด)
 เทสต์กันซ้ำ `selftest-approval-ui.js` (ทดสอบแล้วว่าใส่ `.path-btn` กลับจะ FAIL จริง) → `npm test` **35/35**
 
-**ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตา (`npm start`)
+**ปรับตามที่ผู้ใช้ทดสอบแล้ว (ล้น/เกะกะ):** สวิตช์เหลือแถวเดียว (ไม่มี heading/hint —
+ข้อความย้ายไป `title` ที่เปลี่ยนตามค่า) และย้ายไปใต้ Workspace · แบนเนอร์ "ไม่ถาม" ย้ายไปล่างสุด
+ของแถบข้าง (ใต้ Status) ไม่ดันเนื้อหาแล้ว · `selftest-approval-ui.js` +4 checks
+(ทดสอบย้อนกลับ: ย้ายแบนเนอร์ขึ้นบน → FAIL จริง)
+
+**ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตารอบสอง (`npm start`)
 
 ### 1n) FreePi 426 `upgrade_required` — แก้เสร็จ + bump 0.3.4 (2026-11-14) ✅ UNCOMMITTED
 

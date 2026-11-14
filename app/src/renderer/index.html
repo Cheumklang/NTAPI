@@ -52,27 +52,26 @@
           </button>
         </div>
 
-        <div id="approvalModeBanner" class="approval-banner" hidden role="status">
-          <span class="approval-banner-text" data-i18n="approvalsOff">Not asking for permission</span>
-          <button id="approvalModeReset" class="ghost small" data-i18n="turnPromptsBackOn">Ask me again</button>
-        </div>
-
-        <div class="section">
-          <label for="approvalPolicy">การอนุมัติเครื่องมือ</label>
-          <select id="approvalPolicy" class="approval-policy-select" title="ถามเสมอ / อนุมัติเสมอ / ไม่อนุมัติเสมอ">
-            <option value="ask">ถามเสมอ</option>
-            <option value="allow">อนุมัติเสมอ</option>
-            <option value="deny">ไม่อนุมัติเสมอ</option>
-          </select>
-          <p class="settings-hint" id="approvalPolicyHint">ถามทุกครั้งก่อนให้ AI รันคำสั่ง</p>
-        </div>
-
         <div class="section">
           <label data-i18n="workspace">Workspace</label>
           <button id="pickFolder" class="path-btn" title="Choose a folder">
             <span id="cwdLabel">…</span>
             <svg viewBox="0 0 24 24" width="14" height="14"><path d="M4 6h6l2 2h8v10H4z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
           </button>
+        </div>
+
+        <!--
+          The approval switch. One row, no heading and no hint line: the sidebar
+          already has enough stacked labels, and the chosen option says what it
+          does. It sits below Workspace so the folder picker stays where people
+          expect it.
+        -->
+        <div class="section">
+          <select id="approvalPolicy" class="approval-policy-select" aria-label="การอนุมัติเครื่องมือ" title="การอนุมัติเครื่องมือ">
+            <option value="ask">ถามเสมอ</option>
+            <option value="allow">อนุมัติเสมอ</option>
+            <option value="deny">ไม่อนุมัติเสมอ</option>
+          </select>
         </div>
 
         <div class="section grow">
@@ -113,6 +112,16 @@
             <div class="usage-row" id="providerResetsRow" hidden><span data-i18n="resets">Resets</span><span id="providerResets" class="mono">—</span></div>
           </div>
           <button id="refreshUsage" class="ghost small full" data-i18n="refreshStatus">Refresh status</button>
+        </div>
+
+        <!--
+          The "not asking" warning lives at the bottom of the sidebar, not above
+          the workspace: at the top it competed with the primary controls and
+          pushed everything down whenever it appeared.
+        -->
+        <div id="approvalModeBanner" class="approval-banner" hidden role="status">
+          <span class="approval-banner-text" data-i18n="approvalsOff">Not asking for permission</span>
+          <button id="approvalModeReset" class="ghost small" data-i18n="turnPromptsBackOn">Ask me again</button>
         </div>
       </aside>
       <div id="sidebarResizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize sidebar"></div>

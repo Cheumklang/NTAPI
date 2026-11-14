@@ -1453,12 +1453,19 @@ button { font-family: inherit; }
 .dialog-check:hover { color: var(--text); }
 
 /* Sidebar reminder while permission prompts are suppressed. */
+/*
+ * The "not asking" warning sits at the bottom of the sidebar, below everything
+ * else. `margin-top: auto` is omitted on purpose: the grown session list above
+ * already pushes it down, and pinning it would leave a gap when the list is
+ * empty.
+ */
 .approval-banner {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 0 0 10px;
+  flex: 0 0 auto;
+  margin: 0;
   padding: 8px 10px;
   border-radius: 8px;
   background: rgba(255, 176, 32, .12);
@@ -2558,16 +2565,22 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 }
 
 /*
- * The approval switch in the sidebar. It is a native <select>, so the dropdown
- * list itself is drawn by Windows and cannot be themed — but the closed control
- * takes the app's own colours, and `appearance: none` stops Windows painting its
- * own arrow and border over the theme.
+ * The approval switch in the sidebar: one row, no heading, no hint under it.
+ *
+ * It is a native <select>, so the open list is drawn by Windows and cannot be
+ * themed — but the closed control takes the app's colours. `appearance: none`
+ * stops Windows painting its own border and arrow over the theme, so both have
+ * to be drawn here: the border below, and the chevron as a background image.
  */
 .approval-policy-select {
   width: 100%;
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--bg-3);
+  /* No chevron: the native one is gone with `appearance: none`, and drawing a
+   * data-URI arrow here looked heavier than the sidebar's own buttons. The
+   * extra right padding leaves room for the browser's own affordance on the
+   * platforms that still draw one. */
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: var(--radius);

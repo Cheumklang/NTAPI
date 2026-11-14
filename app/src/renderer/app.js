@@ -5218,18 +5218,24 @@ el('approvalDeny').addEventListener('click', () => answerApproval(false));
  * they were why the same command asked on one launch and ran silently on the
  * next. Whenever prompts are off, the sidebar says so permanently.
  */
-const APPROVAL_HINTS = {
-  ask: 'ถามทุกครั้งก่อนให้ AI รันคำสั่ง',
-  allow: 'ไม่ถามเลย — AI รันคำสั่งได้ทันที',
-  deny: 'ไม่ถามเลย — AI รันคำสั่งไม่ได้',
+/*
+ * One switch, one row. There is no heading or hint line under it: the sidebar
+ * already stacks enough labels, and the selected option names its own effect.
+ * The tooltip carries the same wording for anyone hovering.
+ */
+const APPROVAL_TITLES = {
+  ask: 'ถามเสมอ — ถามทุกครั้งก่อนให้ AI รันคำสั่ง',
+  allow: 'อนุมัติเสมอ — ไม่ถามเลย AI รันคำสั่งได้ทันที',
+  deny: 'ไม่อนุมัติเสมอ — ไม่ถามเลย AI รันคำสั่งไม่ได้',
 };
 
 function applyApprovalMode({ policy } = {}) {
   const mode = policy === 'allow' || policy === 'deny' ? policy : 'ask';
   const select = el('approvalPolicy');
-  if (select && select.value !== mode) select.value = mode;
-  const hint = el('approvalPolicyHint');
-  if (hint) hint.textContent = APPROVAL_HINTS[mode];
+  if (select) {
+    if (select.value !== mode) select.value = mode;
+    select.title = APPROVAL_TITLES[mode];
+  }
 
   const off = mode !== 'ask';
   const banner = el('approvalModeBanner');

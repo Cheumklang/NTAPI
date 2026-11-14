@@ -361,3 +361,17 @@ claim ที่ล้มเหลวไม่เงียบอีก, error ใ
   appearance:none, token มีจริง, banner เริ่ม hidden (ทดสอบย้อนกลับ: ใส่ .path-btn กลับ → FAIL 2 จริง)
 - `npm test` 34 → **35/35**
 - build ใหม่ `dist/NTAPI-Setup-0.3.5.exe` (23:48) มี CSS ใหม่แล้ว
+
+### (ต่อ) ปรับ UI สวิตช์อนุมัติตามที่ผู้ใช้เห็น实际问题 (2026-11-14)
+
+ผู้ใช้ทดสอบจริงแล้วแจ้ง 2 เรื่อง: ส่วนอนุมัติล้น/ไม่สวย และแบนเนอร์อยู่บนเกะกะ
+
+- **ย่อส่วนอนุมัติเป็นแถวเดียว:** ลบ `<label>` และ `<p class="settings-hint">` ออก
+  (ไม่ต้องมี `id="approvalPolicyHint"` แล้ว) — ข้อความอธิบายย้ายไป `title` ของ `<select>`
+  ที่เปลี่ยนตามค่า · ย้ายไปไว้ใต้ Workspace (เดิมอยู่เหนือ Workspace)
+- **ย้ายแบนเนอร์ลงล่างสุดของแถบข้าง** (ใต้ปุ่ม Refresh status) — เดิมอยู่บนสุด ดันเนื้อหาทั้งแถบลง
+  · `margin` 0 0 10px → 0 · เพิ่ม `flex: 0 0 auto`
+- `applyApprovalMode()` — เลิกเขียน hint, เขียน `title` แทน (`APPROVAL_TITLES`)
+- `selftest-approval-ui.js` — เพิ่ม 4 checks: ไม่มี hint, มี aria-label, แบนเนอร์มีตัวเดียว,
+  แบนเนอร์อยู่หลัง Workspace และหลัง Status (ทดสอบย้อนกลับ: ย้ายขึ้นบน → FAIL 2 จริง)
+- `npm test` **35/35** · build ใหม่ 23:54

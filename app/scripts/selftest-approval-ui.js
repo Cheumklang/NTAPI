@@ -45,7 +45,14 @@ check('it has its own class', /class="approval-policy-select"/.test(selectTag));
 check('it does not borrow .path-btn', !/class="[^"]*path-btn/.test(selectTag));
 check('every choice is present', (html.match(/<option value="(ask|allow|deny)"/g) || []).length === 3);
 check('"ask" is the first choice a user sees', /<option value="ask"/.test(html));
-check('the hint line is bound to the switch', /id="approvalPolicyHint"/.test(html));
+
+// The switch used to take three stacked rows (heading + select + hint line),
+// which overflowed the sidebar. It now takes one: the option names its own
+// effect, and the tooltip carries the longer wording.
+const selectSection = (html.split('<section').find((s) => s.includes('id="approvalPolicy"')) || '').split('</select>')[0] || '';
+check('the switch has no heading of its own', !/approvalPolicyHint/.test(html));
+check('the switch needs no hint line', !/id="approvalPolicyHint"/.test(html));
+check('the switch is still reachable by screen readers', /aria-label=/.test(selectTag));
 
 // --- the styling ---------------------------------------------------------
 const body = rule('.approval-policy-select');
@@ -70,8 +77,16 @@ check('--radius exists', token('radius'));
 
 // --- the reasoning banner -----------------------------------------------
 check('the banner exists', /id="approvalModeBanner"/.test(html));
+check('the banner appears exactly once', (html.match(/id="approvalModeBanner"/g) || []).length === 1);
 check('the banner starts hidden', /id="approvalModeBanner"[^>]*hidden/.test(html));
 check('the banner offers a way back to asking', /id="approvalModeReset"/.test(html));
+// It used to sit above Workspace and shoved the whole sidebar down whenever it
+// appeared. It belongs at the end, next to the status block.
+const bannerAt = html.indexOf('id="approvalModeBanner"');
+const workspaceAt = html.indexOf('id="pickFolder"');
+const statusAt = html.indexOf('id="refreshUsage"');
+check('the banner comes after the workspace picker', bannerAt > workspaceAt);
+check('the banner sits at the bottom of the sidebar', bannerAt > statusAt);
 
 if (failures) {
   console.log(`\n${failures} check(s) failed`);
