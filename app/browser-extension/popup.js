@@ -10,6 +10,7 @@
 const codeEl = document.getElementById('code');
 const saveEl = document.getElementById('save');
 const statusEl = document.getElementById('status');
+const claimEl = document.getElementById('claim');
 
 function setStatus(text, kind) {
   statusEl.textContent = text;
@@ -48,20 +49,22 @@ saveEl.addEventListener('click', async () => {
 
 // Hand the active tab of this window to the agent. The worker resolves the tab
 // and tells the app, which asks the user to confirm it in its own dialog.
-claimEl.addEventListener('click', async () => {
-  claimEl.disabled = true;
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) {
-    setStatus('No tab to hand over.', 'bad');
-    claimEl.disabled = false;
-    return;
-  }
-  await chrome.runtime.sendMessage({ type: 'claim-here', tabId: tab.id }).catch(() => {});
-  setStatus('Handing this tab over — confirm it in NTAPI.');
-  setTimeout(() => {
-    claimEl.disabled = false;
-    refresh();
-  }, 900);
-});
+if (claimEl) {
+  claimEl.addEventListener('click', async () => {
+    claimEl.disabled = true;
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) {
+      setStatus('No tab to hand over.', 'bad');
+      claimEl.disabled = false;
+      return;
+    }
+    await chrome.runtime.sendMessage({ type: 'claim-here', tabId: tab.id }).catch(() => {});
+    setStatus('Handing this tab over — confirm it in NTAPI.');
+    setTimeout(() => {
+      claimEl.disabled = false;
+      refresh();
+    }, 900);
+  });
+}
 
 refresh();
