@@ -229,3 +229,9 @@
   `session:thinking` → `setThinkingLevel()` และกล่อง "ดูความคิด" รับ `thinking_delta` จาก `main.js`
 - สรุป: กล่องว่าง = โมเดล/เทิร์นนั้นไม่ได้ส่ง reasoning มา (ระดับ off หรือโมเดลไม่รองรับ) ไม่ใช่แอปพลาด
 - ตัดสินใจ: ไม่แก้โค้ด; ปิด P0 ชื่อเจ้าของหน้า About ตามคำสั่งผู้ใช้ (ไม่เก็บเป็นงานค้าง)
+
+## 2026-11-14 · v0.3.0
+- browser control (MV3 + ws bridge 51789), 13 tools, approval gate
+- auto-switch ไป DeepSeek ฟรีตัวถัดไปเมื่อ limit แล้ว `agent.continue()` ต่อจากเดิม
+- error catalog 2 ภาษา (80 keys) — main ส่ง key, renderer แปล
+- fix: กล่อง error ไม่กาง/ไม่เลื่อนจอเอง (Q1)

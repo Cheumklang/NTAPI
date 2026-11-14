@@ -31,6 +31,12 @@ const {
 } = require('./browser-bridge');
 const { formatSystemInfo, safeErrorMessage } = require('./system-info');
 const { sdkCandidatePaths } = require('./sdk-path');
+const {
+  isLimitError,
+  nextFallbackModel,
+  modelKey,
+  switchMessage,
+} = require('./model-fallback');
 
 /**
  * Keep a crash on disk so a report can reference it, and let the window offer
@@ -717,12 +723,17 @@ async function listSessions(cwd) {
  */
 function reportTabError(tabId, raw) {
   const tab = tabs.get(tabId);
-  const { text, code } = friendlyProviderError(raw, { provider: tab?.handle?.session?.model?.provider });
-  const key = code || text;
+  const { text, code, key: messageKey, status } = friendlyProviderError(raw, {
+    provider: tab?.handle?.session?.model?.provider,
+  });
+  const dedupe = `${code || ''}|${messageKey || text}`;
   const now = Date.now();
-  if (tab?.lastError && tab.lastError.key === key && now - tab.lastError.at < 10000) return;
-  if (tab) tab.lastError = { key, at: now };
-  sendTab(tabId, 'agent:error', { text, code });
+  if (tab?.lastError && tab.lastError.key === dedupe && now - tab.lastError.at < 10000) return;
+  if (tab) tab.lastError = { key: dedupe, at: now };
+  // `key` is the translatable version of `text`: the renderer shows the message
+  // in the language the user picked, and falls back to `text` when it has no
+  // translation for a raw provider sentence.
+  sendTab(tabId, 'agent:error', { text, code, key: messageKey || null, status: status || null });
 }
 
 /**
@@ -784,6 +795,118 @@ function sendPromptToTab(tabId, tab, text) {
 }
 
 /** Run the recovery `planEmptyAnswerRetry` recorded, once the agent is idle. */
+/**
+ * Free DeepSeek routes are rationed one account at a time, and each of them can
+ * run dry while another still answers. This walks the free DeepSeek routes from
+ * the top of the picker down and carries on with the first one that has
+ * allowance left — the user never retypes the message.
+ *
+ * What counts as "the same turn": the prompt sequence number. A new message from
+ * the user starts a fresh pool; anything the agent does on its own keeps walking
+ * the pool it already started on.
+ */
+function fallbackState(tab) {
+  const seq = tab.promptSeq || 0;
+  if (!tab.fallback || tab.fallback.seq !== seq) {
+    tab.fallback = { seq, tried: new Set(), attempts: 0, exhausted: false };
+  }
+  return tab.fallback;
+}
+
+/**
+ * Switch to the next free DeepSeek route that has not been tried yet.
+ * @returns {Promise<{ok: boolean, exhausted?: boolean, count?: number, model?: object, error?: string}>}
+ */
+async function switchToNextFreeModel(tabId, tab) {
+  const state = fallbackState(tab);
+  if (state.exhausted) return { ok: false, exhausted: true, count: state.tried.size };
+
+  const current = tab.handle.session?.model || null;
+  if (current) state.tried.add(modelKey(current));
+
+  const next = nextFallbackModel(tab.handle.modelList, { current, tried: state.tried });
+  if (!next) {
+    state.exhausted = true;
+    return { ok: false, exhausted: true, count: state.tried.size };
+  }
+
+  state.tried.add(modelKey(next));
+  state.attempts += 1;
+  try {
+    const model = await tab.handle.setModel(next.provider, next.id);
+    sendTab(tabId, 'model:changed', { model });
+    sendTab(tabId, 'agent:notice', {
+      text: switchMessage(current, next),
+      key: 'notice.switched',
+      params: {
+        from: current ? current.name || current.id : 'the current model',
+        to: next.name || next.id,
+      },
+    });
+    return { ok: true, model: next };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Tell the UI once that every free route is spent, instead of retrying blind. */
+function announceFallbackExhausted(tabId, tab) {
+  const state = fallbackState(tab);
+  state.exhausted = true;
+  sendTab(tabId, 'agent:fallback', { exhausted: true, tried: state.tried.size });
+}
+
+/**
+ * Drop the failed assistant message so the transcript ends on the user turn
+ * again. Mirrors what pi's own retry does: the failure stays in the session
+ * file, it is only left out of the projection the next request is built from.
+ */
+function dropFailedAssistant(tab) {
+  const messages = tab.handle?.session?.agent?.state?.messages;
+  if (!Array.isArray(messages) || !messages.length) return false;
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== 'assistant') return false;
+  if (last.stopReason !== 'error' && last.stopReason !== 'aborted') return false;
+  messages.pop();
+  return true;
+}
+
+/**
+ * Runs after a turn settles. Two failures reach this point:
+ *   - a spent allowance pi refuses to retry (quota wording, not 429), and
+ *   - a route that exhausted pi's own retries on the same dead model.
+ * Both continue the interrupted turn on the next free route.
+ */
+async function runModelFallback(tabId, tab) {
+  const state = tab.fallback;
+  if (!state || state.exhausted) return;
+  if (state.seq !== (tab.promptSeq || 0)) return;
+  if (tab.busy) return;
+
+  const messages = tab.handle?.session?.agent?.state?.messages || [];
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== 'assistant' || last.stopReason !== 'error') return;
+  if (!isLimitError({ text: last.errorMessage })) return;
+
+  const res = await switchToNextFreeModel(tabId, tab);
+  if (!res.ok) {
+    if (res.exhausted) announceFallbackExhausted(tabId, tab);
+    return;
+  }
+  if (state.seq !== (tab.promptSeq || 0)) return;
+
+  dropFailedAssistant(tab);
+  tab.busy = true;
+  sendTab(tabId, 'agent:busy', { busy: true });
+  try {
+    await tab.handle.session.agent.continue();
+  } catch (err) {
+    tab.busy = false;
+    sendTab(tabId, 'agent:busy', { busy: false });
+    reportTabError(tabId, err instanceof Error ? err.message : String(err));
+  }
+}
+
 async function runEmptyAnswerRetry(tabId, tab) {
   const pending = tab.emptyAnswer;
   tab.emptyAnswer = null;
@@ -795,6 +918,7 @@ async function runEmptyAnswerRetry(tabId, tab) {
     tab.emptyRetryCount = 1;
     sendTab(tabId, 'agent:notice', {
       text: 'LLM7 cut that reply before it started — retrying once in a moment…',
+      key: 'notice.emptyRepeat',
     });
     await new Promise((resolve) => setTimeout(resolve, 2500));
     if ((tab.promptSeq || 0) !== pending.seq || tab.busy) return;
@@ -807,6 +931,8 @@ async function runEmptyAnswerRetry(tabId, tab) {
   } catch (err) {
     sendTab(tabId, 'agent:notice', {
       text: `Could not switch to ${pending.to.id}: ${err instanceof Error ? err.message : String(err)}. Pick another model.`,
+      key: 'notice.switchFailed',
+      params: { model: pending.to.id, error: err instanceof Error ? err.message : String(err) },
     });
     return;
   }
@@ -817,6 +943,8 @@ async function runEmptyAnswerRetry(tabId, tab) {
     text:
       `${pending.from} spent LLM7's free output on reasoning and never answered. ` +
       `Switched to ${pending.to.name || pending.to.id} and sent your message again.`,
+    key: 'notice.emptySwitched',
+    params: { from: pending.from, to: pending.to.name || pending.to.id },
   });
   if ((tab.promptSeq || 0) !== pending.seq || tab.busy) return;
   sendPromptToTab(tabId, tab, pending.prompt);
@@ -953,7 +1081,15 @@ function subscribeTab(tabId) {
         tab.busy = false;
         sendTab(tabId, 'agent:busy', { busy: false });
         sendTab(tabId, 'agent:settled', { aborted: Boolean(event.aborted) });
-        if (!event.aborted) runEmptyAnswerRetry(tabId, tab);
+        if (!event.aborted) {
+          // A spent allowance is handled first: the empty-answer retry would
+          // only re-send the prompt to a model that has nothing left.
+          runModelFallback(tabId, tab)
+            .catch(() => {})
+            .then(() => {
+              if (!tab.fallback?.attempts) runEmptyAnswerRetry(tabId, tab);
+            });
+        }
         break;
 
       case 'message_update': {
@@ -1066,14 +1202,37 @@ function subscribeTab(tabId) {
         break;
       }
 
-      case 'auto_retry_start':
+      case 'auto_retry_start': {
+        // pi treats a 429 as a throttle and re-asks the same model. For a spent
+        // free allowance that is 14 s of waiting on a route that will not answer;
+        // switching routes first turns the retry into a productive one.
+        if (isLimitError({ text: event.errorMessage })) {
+          switchToNextFreeModel(tabId, tab)
+            .then((res) => {
+              if (!res.ok && res.exhausted) {
+                try {
+                  tab.handle.session.abortRetry();
+                } catch {}
+                announceFallbackExhausted(tabId, tab);
+              }
+            })
+            .catch(() => {});
+          break;
+        }
         sendTab(tabId, 'agent:notice', {
           text: `Retrying (${event.attempt}/${event.maxAttempts}): ${event.errorMessage || ''}`,
+          key: 'notice.retrying',
+          params: {
+            attempt: event.attempt,
+            max: event.maxAttempts,
+            error: event.errorMessage || '',
+          },
         });
         break;
+      }
 
       case 'compaction_start':
-        sendTab(tabId, 'agent:notice', { text: 'Compacting conversation…' });
+        sendTab(tabId, 'agent:notice', { text: 'Compacting conversation…', key: 'notice.compacting' });
         break;
 
       case 'session_info_changed':
@@ -1470,10 +1629,14 @@ async function applyKeyToTabs({ provider, label, key, apply }) {
           await tab.handle.setModel(fallback.provider, fallback.id);
           sendTab(tabId, 'agent:notice', {
             text: `${label} key removed — switched to ${fallback.provider}/${fallback.id}.`,
+            key: 'notice.keyRemoved',
+            params: { label, provider: fallback.provider, id: fallback.id },
           });
         } else {
           sendTab(tabId, 'agent:notice', {
             text: `${label} key removed — this tab has no provider left. Add a key or sign in to FreePi.`,
+            key: 'notice.keyRemovedNoProvider',
+            params: { label },
           });
         }
       }
@@ -2196,6 +2359,8 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
     } catch (err) {
       sendTab(tabFor(tabId).tabId, 'agent:notice', {
         text: `Could not save attachment: ${err instanceof Error ? err.message : String(err)}`,
+        key: 'notice.attachmentFailed',
+        params: { error: err instanceof Error ? err.message : String(err) },
       });
     }
   }
@@ -2221,6 +2386,8 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
   tab.promptSeq = (tab.promptSeq || 0) + 1;
   tab.emptyAnswer = null;
   tab.emptyRetryCount = 0;
+  // A new message starts a fresh pool of free routes to fall back through.
+  tab.fallback = null;
 
   // A second prompt while the agent is running must say how to queue itself:
   // 'steer' joins this turn, 'followUp' waits for the run to finish. Idle

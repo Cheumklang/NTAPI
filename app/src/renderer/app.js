@@ -48,6 +48,7 @@ const MAX_RESTORED_TABS = 4;
 const STRINGS = {
   en: {
     // Browser control (chip next to the language button).
+    errorPrefix: 'Error',
     browserTitle: 'Browser control',
     browserOff: 'Browser control is off. The agent cannot use your browser.',
     browserWaiting: 'Waiting for the Chrome extension to connect…',
@@ -354,6 +355,7 @@ const STRINGS = {
   },
   th: {
     // Browser control (chip next to the language button).
+    errorPrefix: 'ข้อผิดพลาด',
     browserTitle: 'ควบคุมเบราว์เซอร์',
     browserOff: 'ยังปิดอยู่ — AI จะใช้เบราว์เซอร์ของคุณไม่ได้',
     browserWaiting: 'รอส่วนขยาย Chrome เชื่อมต่อ…',
@@ -665,7 +667,14 @@ let accountData = null;
 /** Translate a key, substituting {placeholders}. */
 function t(key, vars) {
   const table = STRINGS[lang] || STRINGS.en;
-  let s = table[key] ?? STRINGS.en[key] ?? key;
+  let s = table[key] ?? STRINGS.en[key];
+  // Failure wording lives in src/error-messages.js, which both processes read:
+  // main only reports a key, the renderer picks the language.
+  if (s === undefined && globalThis.FPErrorMessages) {
+    s = globalThis.FPErrorMessages.messageFor(key, lang, vars || null);
+    if (s !== key) return s;
+  }
+  if (s === undefined) s = key;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, v);
   return s;
 }
@@ -4703,14 +4712,14 @@ api.onSettled((p) => {
 });
 
 api.onNotice((p) => {
-  if (payloadTabIsActive(viewFor(p))) showNotice(p.text);
+  if (payloadTabIsActive(viewFor(p))) showNotice(p.key ? t(p.key, p.params || null) : p.text);
 });
 
 /** A failed turn is invisible otherwise: the assistant message has no text. */
 function appendErrorBanner(text, scroll = true) {
   const div = document.createElement('div');
   div.className = 'error-banner';
-  div.textContent = `Error: ${text}`;
+  div.textContent = `${t('errorPrefix')}: ${text}`;
   transcript.appendChild(div);
   // Only follow a reader who is already at the bottom; someone scrolled up to
   // read is never yanked away by an error.
@@ -4725,8 +4734,23 @@ api.onError((p) => {
   view.steerPending = false;
   if (!payloadTabIsActive(view)) return;
   showNotice(null);
-  appendErrorBanner(p.text);
+  // `key` is the same failure in the user's language; `status`/`code` stay
+  // attached because they are what support needs when the wording is not enough.
+  const body = p.key ? t(p.key) : p.text;
+  const suffix = p.status ? ` (HTTP ${p.status}${p.code ? ` · ${p.code}` : ''})` : '';
+  appendErrorBanner(`${body}${suffix}`);
   setBusy(false);
+});
+
+
+/**
+ * Every free route is spent. Say it in the transcript of the tab that hit it and
+ * leave the view where the reader put it — no scrolling, no dialog.
+ */
+api.onFallback((p) => {
+  const view = viewFor(p);
+  if (!view) return;
+  if (payloadTabIsActive(view)) appendErrorBanner(t('fallback.exhausted', { n: p.tried || 0 }));
 });
 
 /* ------------------------------ ads ------------------------------ */

@@ -1,5 +1,16 @@
 'use strict';
 
+const { MESSAGES } = require('./error-messages');
+
+/**
+ * English sentence -> message key.
+ *
+ * The wording below stays where it is (and stays English) because that is what
+ * logs and tests expect. This map is how the same sentence gets a key the
+ * renderer can translate into the language the user picked.
+ */
+const KEY_BY_TEXT = new Map(Object.entries(MESSAGES).map(([key, entry]) => [entry.en, key]));
+
 /**
  * Turn a provider error into something a person can act on.
  *
@@ -232,11 +243,15 @@ function friendlyProviderError(raw, { provider } = {}) {
   // like the user cancelled rather than the provider going quiet.
   if (!hint && looksLikeStall(text)) hint = STALL_HINTS[provider] || STALL_HINTS.default;
   if (!hint) hint = (code && ERROR_HINTS[code]) || message || text || 'The model request failed.';
+  // A network failure names no provider code, so it gets the generic key; the
+  // renderer still has one sentence per provider for the stall cases above.
   const suffix = status ? ` (HTTP ${status}${code ? ` · ${code}` : ''})` : '';
-  return { text: `${hint}${suffix}`, code };
+  const key = KEY_BY_TEXT.get(hint) || null;
+  return { text: `${hint}${suffix}`, code, key, status };
 }
 
 module.exports = {
+  KEY_BY_TEXT,
   ERROR_HINTS,
   COARENA_HINTS,
   ZRO_HINTS,
