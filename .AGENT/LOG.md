@@ -235,3 +235,4 @@
 - auto-switch ไป DeepSeek ฟรีตัวถัดไปเมื่อ limit แล้ว `agent.continue()` ต่อจากเดิม
 - error catalog 2 ภาษา (80 keys) — main ส่ง key, renderer แปล
 - fix: กล่อง error ไม่กาง/ไม่เลื่อนจอเอง (Q1)
+- ปล่อย v0.3.0 แล้ว: tag v0.3.0, release ที่ NTAPI-releases (published 2026-11-14T04:21:18Z), assets NTAPI-Setup-0.3.0.exe 112MB + latest.yml
