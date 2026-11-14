@@ -1453,36 +1453,6 @@ button { font-family: inherit; }
 .dialog-check:hover { color: var(--text); }
 
 /* Sidebar reminder while permission prompts are suppressed. */
-/*
- * The "not asking" warning sits at the bottom of the sidebar, below everything
- * else. `margin-top: auto` is omitted on purpose: the grown session list above
- * already pushes it down, and pinning it would leave a gap when the list is
- * empty.
- */
-.approval-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(255, 176, 32, .12);
-  border: 1px solid rgba(255, 176, 32, .38);
-  font-size: 12.5px;
-}
-.approval-banner[hidden] { display: none; }
-.approval-banner-text {
-  color: var(--warn);
-  font-weight: 600;
-  flex: 1 1 auto;
-}
-.approval-banner .ghost.small {
-  flex: 0 0 auto;
-  padding: 3px 9px;
-  font-size: 12.5px;
-}
 .dialog-hint {
   margin-top: 10px;
   font-size: 12.5px;

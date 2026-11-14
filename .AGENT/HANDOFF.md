@@ -74,6 +74,10 @@
 ของแถบข้าง (ใต้ Status) ไม่ดันเนื้อหาแล้ว · `selftest-approval-ui.js` +4 checks
 (ทดสอบย้อนกลับ: ย้ายแบนเนอร์ขึ้นบน → FAIL จริง)
 
+**ลบแบนเนอร์ "กลับมาถาม" ออกแล้ว (ผู้ใช้ชี้ว่าไม่ต้องใช้):** เหลือสวิตช์เป็นตัวควบคุมเดียว
+— ไม่มี `#approvalModeBanner` / `#approvalModeReset` / i18n `approvalsOff`+`turnPromptsBackOn` /
+CSS `.approval-banner` แล้ว · เทสต์เปลี่ยนเป็นตรวจว่า**ไม่มี**ของเหล่านั้น (ทดสอบย้อนกลับ FAIL จริง)
+
 **ค้าง:** ยังไม่ได้ทดสอบ UI จริงด้วยตารอบสอง (`npm start`)
 
 ### 1n) FreePi 426 `upgrade_required` — แก้เสร็จ + bump 0.3.4 (2026-11-14) ✅ UNCOMMITTED

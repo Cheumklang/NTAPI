@@ -335,8 +335,6 @@ const STRINGS = {
     signOutSub:
       'The saved login token will be deleted from this computer. The next start will ask you to sign in again.',
     signOutMeta: 'This does not delete your chats or files.',
-    approvalsOff: 'Not asking for permission',
-    turnPromptsBackOn: 'Ask me again',
     waitingForYou: 'Waiting for you — nothing runs until you choose',
     thinkingShow: 'Show thinking',
     thinkingHide: 'Hide thinking',
@@ -654,8 +652,6 @@ const STRINGS = {
     signOutTitle: 'ออกจากระบบบนเครื่องนี้?',
     signOutSub: 'token ล็อกอินจะถูกลบออกจากเครื่องนี้ ครั้งถัดไปต้องล็อกอินใหม่',
     signOutMeta: 'ไม่ลบแชทหรือไฟล์ของคุณ',
-    approvalsOff: 'กําลังไม่ถาม permission',
-    turnPromptsBackOn: 'กลับมาถาม',
     waitingForYou: 'กำลังรอคุณตัดสินใจ — ยังไม่มีอะไรถูกทำจนคุณเลือก',
     thinkingShow: 'ดูความคิด',
     thinkingHide: 'ซ่อนความคิด',
@@ -5236,24 +5232,11 @@ function applyApprovalMode({ policy } = {}) {
     if (select.value !== mode) select.value = mode;
     select.title = APPROVAL_TITLES[mode];
   }
-
-  const off = mode !== 'ask';
-  const banner = el('approvalModeBanner');
-  if (banner) {
-    banner.hidden = !off;
-    const label = banner.querySelector('.approval-banner-text');
-    if (label) label.textContent = mode === 'deny' ? 'กำลังไม่อนุมัติทุกคำสั่ง' : t('approvalsOff');
-  }
-  document.body.classList.toggle('approvals-off', off);
-  document.body.classList.toggle('approvals-deny', mode === 'deny');
+  // No banner and no body class: the switch shows its own state, and a second
+  // warning that says the same thing is just something else to read.
 }
 
 api.onApprovalMode(applyApprovalMode);
-
-el('approvalModeReset').addEventListener('click', async () => {
-  const res = await api.setApprovalMode({ policy: 'ask' });
-  applyApprovalMode(res);
-});
 
 el('approvalPolicy').addEventListener('change', async (e) => {
   const res = await api.setApprovalMode({ policy: e.target.value });

@@ -75,18 +75,27 @@ check('--line exists', token('line'));
 check('--accent exists', token('accent'));
 check('--radius exists', token('radius'));
 
-// --- the reasoning banner -----------------------------------------------
-check('the banner exists', /id="approvalModeBanner"/.test(html));
-check('the banner appears exactly once', (html.match(/id="approvalModeBanner"/g) || []).length === 1);
-check('the banner starts hidden', /id="approvalModeBanner"[^>]*hidden/.test(html));
-check('the banner offers a way back to asking', /id="approvalModeReset"/.test(html));
-// It used to sit above Workspace and shoved the whole sidebar down whenever it
-// appeared. It belongs at the end, next to the status block.
-const bannerAt = html.indexOf('id="approvalModeBanner"');
-const workspaceAt = html.indexOf('id="pickFolder"');
-const statusAt = html.indexOf('id="refreshUsage"');
-check('the banner comes after the workspace picker', bannerAt > workspaceAt);
-check('the banner sits at the bottom of the sidebar', bannerAt > statusAt);
+// --- no second warning ------------------------------------------------
+//
+// There used to be a banner here saying "not asking for permission" with an
+// "ask me again" button. Both are gone: the switch itself shows the state, and
+// the button only existed to undo a setting the switch can now change directly.
+// Left in, it was a second place to look, in the corner of the sidebar, for a
+// fact the switch already told you.
+check('no "not asking" banner is left in the UI', !/approvalModeBanner/.test(html));
+check('no separate "ask me again" button is left', !/approvalModeReset/.test(html));
+check('the old banner strings are gone', !/approvalsOff|turnPromptsBackOn/.test(html));
+
+// The rendered module must not look for those elements either: a getter for a
+// missing node throws, and that would break every call to applyApprovalMode.
+const appJs = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+check('the renderer does not query the removed banner', !/approvalModeBanner|approvalModeReset/.test(appJs));
+check('the renderer does not set the removed strings', !/approvalsOff|turnPromptsBackOn/.test(appJs));
+
+// The switch is now the only control, so it has to be reachable and must show
+// the current value without a hint line underneath.
+check('the switch is a real form control', /<select[^>]*id="approvalPolicy"/.test(html));
+check('the switch carries its explanation in a tooltip', /title="การอนุมัติเครื่องมือ"/.test(html));
 
 if (failures) {
   console.log(`\n${failures} check(s) failed`);

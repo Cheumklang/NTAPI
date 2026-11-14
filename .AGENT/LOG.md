@@ -375,3 +375,15 @@ claim ที่ล้มเหลวไม่เงียบอีก, error ใ
 - `selftest-approval-ui.js` — เพิ่ม 4 checks: ไม่มี hint, มี aria-label, แบนเนอร์มีตัวเดียว,
   แบนเนอร์อยู่หลัง Workspace และหลัง Status (ทดสอบย้อนกลับ: ย้ายขึ้นบน → FAIL 2 จริง)
 - `npm test` **35/35** · build ใหม่ 23:54
+
+### (ต่อ) ลบแบนเนอร์ "กลับมาถาม" ออกทั้งหมด (2026-11-14)
+
+ผู้ใช้ชี้ว่าปุ่มนี้ไม่ต้องใช้แล้ว เพราะ dropdown ทำหน้าที่ได้เอง
+
+- ลบ HTML: `#approvalModeBanner` + `#approvalModeReset` และคอมเมนต์ที่เกี่ยวข้อง
+- ลบ JS: การอัปเดต banner ใน `applyApprovalMode()`, listener ของปุ่มรีเซ็ต,
+  และ `document.body.classList` (`approvals-off`/`approvals-deny`) ที่ไม่มี CSS ใช้แล้ว
+- ลบ i18n: `approvalsOff`, `turnPromptsBackOn` (ทั้ง EN/TH) · ลบ CSS `.approval-banner*` ทั้งบล็อก
+- `selftest-approval-ui.js` — เปลี่ยนชุดเทสต์ banner เป็นตรวจว่า**ไม่มี** (banner, ปุ่ม, string,
+  และ renderer ไม่ query element ที่ถูกลบ) ทดสอบย้อนกลับแล้วว่าใส่กลับ → FAIL 3 จริง
+- `npm test` **35/35** · grep ยืนยันอ้างอิงที่ถูกลบเหลือ 0 · build 00:02
