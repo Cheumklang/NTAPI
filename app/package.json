@@ -55,10 +55,17 @@
         "repo": "NTAPI-releases",
         "releaseType": "release"
       }
+    ],
+    "extraResources": [
+      {
+        "from": "browser-extension",
+        "to": "browser-extension"
+      }
     ]
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "1.2.0",
-    "electron-updater": "^6.8.11"
+    "electron-updater": "^6.8.11",
+    "ws": "8.23.0"
   }
 }
