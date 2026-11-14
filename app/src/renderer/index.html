@@ -146,7 +146,31 @@
             <input id="sessionTitle" class="title-input" placeholder="Untitled session" />
           </div>
           <div class="controls">
-            <select id="thinkingSelect" class="thinking-select" title="Reasoning effort" hidden></select>
+            <!--
+              Reasoning effort. A three-to-five position switch, built like the
+              approval switch in the sidebar: one visible control, current state
+              shown at a glance rather than hidden behind a dropdown click.
+
+              It is always on screen. It used to be hidden whenever the model
+              reported no reasoning support, so it blinked in and out as models
+              changed — which read as a bug. Now it dims and locks instead, so the
+              control stays where the eye expects it and still says why it is off.
+            -->
+            <div class="think-slot">
+              <span class="think-label" id="thinkingLabel" data-i18n="thinking">Reasoning</span>
+              <!-- The value source for IPC and tests; the visible control is the
+                   switch below, exactly as the model picker does it. -->
+              <select id="thinkingSelect" class="think-value" tabindex="-1" aria-hidden="true" hidden></select>
+              <div
+                class="think-switch"
+                id="thinkingSwitch"
+                role="radiogroup"
+                aria-labelledby="thinkingLabel"
+              >
+                <span class="think-thumb" aria-hidden="true"></span>
+              </div>
+              <span class="think-note" id="thinkingNote" hidden></span>
+            </div>
             <div class="model-picker" id="modelPicker">
               <!-- Native select stays as the value source for IPC and tests; the
                    visible control is the grouped, logo-led picker below. -->

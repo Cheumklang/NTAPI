@@ -1045,3 +1045,86 @@ CI ดูไม่ได้ (gh ไม่มี, repo private) — ผู้ใ�
 **Learned:** ซ่อมจาก "สิ่งที่ผู้ใช้เห็น" ไม่ใช่ "สิ่งที่ผมเดาว่าเป็น" — ผมเดาไป 3 รอบ
 (thinking → max-height → pre-tool prose) ก่อนผู้ใช้ชี้ว่าข้อความอังกฤษของผมเองคือตัวอย่าง
 · ทางลัด: ถามให้ผู้ใช้ชี้ตัวอย่างจริงตั้งแต่แรก จะประหยัดไปหลายรอบ
+
+---
+
+## 2026-11-15 (v0.4.5) — ปุ่มระดับการคิด: แสดงตลอด + เป็นสไลด์ไล่สีเขียว→แดง
+
+**สั่งโดยผู้ใช้:** ปุ่ม "การคิด" ขึ้้นบางทีไม่ขึ้น อยากให้ขึ้นตลอด · ไม่ต้องเป็น dropdown
+ให้เป็นสไลด์เหมือน "การอนุมัติเครื่องมือ" · ห้ามย้ายตำแหน่ง · ใช้สีบอกอารมณ์ เขียว(ประหยัด/eco) → แดง(ดุ/แพง)
+· ผู้ใช้เลือกตัวเลือก **A** = ตอน model ไม่รองรับ ให้แสดงไว้แต่หรี่+ล็อก พร้อมบอกเหตุผล
+
+**สาเหตุที่หาย:** pi SDK คืน `["off"]` + `supported:false` เมื่อ model ไม่รองรับ reasoning
+· `paintThinking()` เดิมทำ `select.hidden = true` → หายทั้งอัน (ไม่ใช่บั๊ก แต่เป็นพฤติกรรมที่ไม่ต้องการ)
+
+**แก้:**
+- `index.html`: `<select>` ถูกซ่อนถาวร (`.think-value`) เป็นแหล่งค่าให้ IPC/เทสต์
+  · เพิ่ม `#thinkingSwitch` (role=radiogroup) + `.think-thumb` **ในตำแหน่งเดิมของ topbar**
+- `paintThinking()` เขียนใหม่: **ไม่ซ่อนอีก** · สร้าง radio ตาม level ที่ model ให้ (ไม่ hardcode 5)
+  · `--count` / `--at` / `--p` เป็น CSS var → thumb เลื่อน + เปลี่ยนสี
+  · ถ้าไม่รองรับ: `input.disabled`, `.is-locked` (opacity .55), thumb เป็นสีเทา, `#thinkingNote` โชว์ "model นี้ไม่รองรับการคิด"
+- คลิก → เขียนค่าเข้า hidden select แล้ว `dispatchEvent('change')` → ใช้ path เดิม (`session:thinking` IPC)
+  **ไม่แตะ main process เลย** · คลิกตัวเดิม = ไม่ยิง IPC ซ้ำ
+- สี: `hsl(calc(140 - (--p * 140)) 58% 34%)` → 0=เขียว 140°, 1=แดง 0°
+  · อิง **ตำแหน่ง** ไม่ใช่ชื่อ level → model ที่มีแค่ 3 ระดับยังไล่สีเต็มช่วง (ไม่เป็นหลุม)
+  · ตัวอักษรที่เลือกใช้สีขาว เพราะปลายแดงเข้ม ตัวอักษรเข้มจะ contrast ไม่ผ่าน
+- `/thinking` slash command เดิม focus hidden select (ไม่มีอะไรเกิดขึ้น) → เปลี่ยนไป focus radio ที่เลือกอยู่
+
+**เทสต์:** `scripts/check-thinking-switch.js` (14 checks, Electron) — `npm run check:thinking`
+ตรวจ: ขึ้นตลอด (รวมตอน unsupported และตอนไม่มี tab) · ไม่ใช่ dropdown · ระดับถูกเลือก ·
+**คำนวณ hue จริง**: off = เขียว (hue 80–170), high = แดง (<20 หรือ >340) · thumb เลื่อนจริง ·
+ไม่รองรับ → disabled หมด + dim + มีข้อความบอก · 3 ระดับไล่สีเต็ม · **คลิกแล้วถึง `session:thinking` จริง**
+· **ย้อนกลับ:** ใส่ `if (unsupported) { style.display='none'; return; }` → FAIL 5
+· วัด layout: สูง 30px ใน topbar 57px, อยู่ซ้าย model picker, ไม่ตัดบรรทัด, ไม่มี label ล้น
+· `npm test` **51/51** · check:thinking 14/14 · narration/author/marks ผ่านหมด
+
+**Learned:**
+1. **เทสต์ที่วัดสีต้องปิด transition ก่อน** — รอบแรก FAIL เพราะอ่านสีระหว่าง `transition: .18s`
+   (ได้ค่าเดิมค้าง) · ใส่ `transition:none !important` แล้วผ่าน
+2. ตั้ง `--p` ที่ **ตัว switch** ด้วย ไม่ใช่แค่ที่ label — thumb อ่านค่าจาก parent
+   (รอบแรกตั้งที่ label อย่างเดียว → thumb สีเดียวตลอด)
+
+---
+
+## 2026-11-15 (v0.4.5) — status strip แถวเดียว · ป้าย "การคิด:" · แก้ highlight ไม่ตรงช่อง
+
+**สั่งโดยผู้ใช้:**
+1. `detachAll ✓` ขึ้นซ้อนหลายชั้น ดันช่องแชทขึ้น → อยากให้เหลือแถวเดียว แสดงอันล่าสุด
+2. ปุ่มการคิด อยากให้มีข้อความบอกว่าเป็นอะไร เช่น "การคิด:"
+3. ตอนเลือก "ต่ำ" สี highlight เบี่ยงไปทาง "น้อยที่สุด" และทับตัวอักษร → ไม่มืออาชีพ
+4. **ให้ปล่อยอัปเดตได้เลย** (จะไปลองตัวติดตั้ง)
+
+**(1) status strip แถวเดียว**
+- `pushActivity()` เดิม `appendChild` + เก็บ 6 แถว (`ACTIVITY_MAX`) → footer สูงขึ้น แล้วดัน
+  composer/transcript ขึ้น (แชทกระโดด)
+- เปลี่ยนเป็น `lines.replaceChildren()` → เหลือแถวเดียว = คำสั่งล่าสุดเสมอ
+- ลบ `ACTIVITY_MAX` ที่ไม่ได้ใช้แล้ว · เพิ่ม `row.title` ให้ hover อ่านเต็มได้
+- เหตุผล: strip นี้เป็น "กำลังทำอะไรอยู่" ไม่ใช่ log — ประวัติมีอยู่ใน tool card ของ transcript แล้ว
+
+**(2) ป้าย "การคิด:"**
+- เพิ่ม `<span id="thinkingLabel" data-i18n="thinking">` หน้า switch · `aria-labelledby` ชี้ไปที่มัน
+- i18n `thinking` เปลี่ยนเป็น `'Reasoning:'` / `'การคิด:'`
+
+**(3) highlight เบี่ยง/ทับตัวอักษร — ต้นเหตุจริง**
+- thumb กว้าง `calc((100% - 6px) / var(--count))` (เท่ากันทุกช่อง)
+- แต่ grid เป็น `repeat(var(--count), minmax(0, auto))` = **กว้างไม่เท่ากัน** (ตามความยาวคำ)
+  → ช่อง "ต่ำ" แคบกว่าค่าเฉลี่ย → highlight เลยไปทางซ้าย ทับ "น้อยที่สุด"
+- แก้: `minmax(0, 1fr)` (ช่องเท่ากันหมด) + `text-align: center` + padding 4px 6px
+- **วัดจริง drift = 0px ทุกระดับ** (ก่อนแก้ 10px)
+
+**(4) บั๊กที่เจอเพิ่ม:** เปลี่ยนภาษาแล้วคำใน switch ไม่แปล เพราะ rebuild key ไม่มี `lang`
+→ ใส่ `lang` ใน key + `applyLanguage()` เรียก `paintThinking()` ใหม่
+
+**เทสต์:**
+- `scripts/check-status-strip.js` (7 checks) — `npm run check:strip` ใหม่
+  ตรวจ 1 แถว · ความสูงไม่โต · **composer ไม่ขยับ** · แสดงอันล่าสุด · แทนที่ของเก่า · error ยังเห็น · clear ได้
+- `check-thinking-switch.js` เพิ่ม 4 checks (18 รวม) — มีป้าย "การคิด:" · คำแปลเปลี่ยนตามภาษา ·
+  **highlight อยู่หลังคำที่เลือก (drift ≤1px)** · ไม่มี label ล้นช่อง
+- **ย้อนกลับ:** คืน `appendChild`+6 แถว → strip FAIL 3 · คืน `auto` → thinking FAIL 1 (drift 10px)
+- `npm test` 51/51 · check:strip 7/7 · check:thinking 18/18 · narration/author/marks ผ่านหมด
+
+**Learned:** `grid` ที่ใช้ `auto` + thumb คำนวณเป็นเศษส่วนของความกว้าง จะไม่ตรงกันเมื่อคำยาวไม่เท่ากัน
+· ตัวเลขที่วัดได้ (drift 10px) คือหลักฐานตรงกับที่ผู้ใช้เห็นด้วยตา — ใช้เป็นเกณฑ์ในเทสต์ได้เลย
+
+**เพิ่ม (ผู้ใช้):** คำว่า "น้อยที่สุด" ยาวกว่าคนอื่นคนเดียว 555 → เปลี่ยนเป็น **"น้อย"**
+· หลังเปลี่ยน: ทุกช่องกว้างเท่ากัน 37px · switch กว้าง 194px (เดิม 243) · ไม่มีคำล้นช่อง

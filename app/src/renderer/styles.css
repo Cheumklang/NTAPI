@@ -2980,6 +2980,136 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 }
 
 /*
+ * Reasoning effort, in the topbar next to the model picker.
+ *
+ * Same shape as .approval-switch in the sidebar (radios under a sliding thumb),
+ * because both answer the same question — "pick one of a few fixed states" — and
+ * a dropdown hides the answer behind a click.
+ *
+ * Colour is the point here. The track runs green -> red by position so effort
+ * reads as cost: green is the frugal end (thinking off), red the expensive one
+ * (the model thinks hard every turn). --p (0..1) is set per option from JS, so
+ * one rule paints every level and the ramp stretches to however many the model
+ * offers; a model with only off/low/medium/high still gets the full green->red
+ * spread instead of a fixed five-stop rainbow with holes in it.
+ */
+.think-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+/* Says what the control is. Without it the row reads as five unexplained words
+ * (Off / Minimal / Low …) sitting next to the model name. */
+.think-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* The value source for IPC; never shown. `.sr-only`-style but kept in the tree. */
+.think-value { display: none; }
+
+.think-switch {
+  position: relative;
+  display: grid;
+  /*
+   * Equal columns, not `auto`.
+   *
+   * The thumb is sized `1/--count` of the track, so the columns must be the same
+   * width or the highlight lands off-centre and spills into the neighbour — the
+   * "ต่ำ" label sitting left of its own colour block and brushing its neighbour.
+   * `1fr` keeps every position exactly one thumb wide whatever the word lengths.
+   */
+  grid-template-columns: repeat(var(--count, 5), minmax(0, 1fr));
+  align-items: stretch;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 3px;
+  /* Set by paintThinking(), 0..count-1. */
+  --at: 0;
+  --count: 5;
+}
+.think-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--count));
+  border-radius: 7px;
+  /*
+   * The thumb takes the colour of the level it selected, not the accent: the
+   * whole reason for the ramp is that colour alone tells you the setting. The
+   * stops are the same green -> amber -> red used by `--p` on the labels, so
+   * thumb and track never disagree.
+   */
+  background: hsl(calc(140 - (var(--p, 0) * 140)) 58% 34%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .12), 0 2px 6px rgba(0, 0, 0, .35);
+  transform: translateX(calc(var(--at) * 100%));
+  transition: transform .18s cubic-bezier(.32, .72, 0, 1), background .18s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .think-thumb { transition: none; }
+}
+
+.think-opt {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  font-size: 11.5px;
+  line-height: 1.25;
+  white-space: nowrap;
+  /* Centre within its own equal-width cell, so the word cannot drift toward one
+   * edge of the colour block behind it. */
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  border-radius: 7px;
+  transition: color .18s ease;
+}
+/* The radio is invisible; the thumb shows the choice and the input keeps it
+ * keyboard-reachable and announced (arrow keys, "2 of 5"). */
+.think-opt input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.think-opt:hover { color: var(--text); }
+/*
+ * White on the thumb, not dark: the ramp's darkest stop is a saturated red, and
+ * dark text on it fails contrast. White clears 4.5:1 across the whole hue sweep.
+ */
+.think-opt:has(input:checked) { color: #fff; font-weight: 620; }
+.think-opt:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* A model with no reasoning support: the same slot, dimmed and inert. */
+.think-switch.is-locked { opacity: .55; }
+.think-switch.is-locked .think-opt { cursor: not-allowed; }
+.think-switch.is-locked .think-thumb { background: var(--bg-2); }
+.think-note {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.think-note[hidden] { display: none; }
+
+/*
  * The approval switch in the sidebar: a heading that names the control, the
  * switch itself, and one line saying what "approve" applies to. The heading is
  * the sidebar's standard small caps label; the note stays quieter than it.

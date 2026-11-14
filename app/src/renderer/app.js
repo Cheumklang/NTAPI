@@ -798,6 +798,9 @@ function applyLanguage() {
   }
   // Placeholders and dialog titles are not plain text nodes.
   el('sessionTitle').placeholder = t('untitled');
+  // The effort switch's positions are translated and built in JS rather than
+  // marked with data-i18n, so switching language has to repaint them.
+  if (typeof paintThinking === 'function') paintThinking(activeView()?.thinking || null);
   setBusy(Boolean(activeView()?.busy));
   renderAttachments();
   renderQueue();
@@ -5552,7 +5555,6 @@ let autopilotState = { on: false };
 /** Every real tab, for the picker. */
 let browserTabs = [];
 
-const ACTIVITY_MAX = 6;
 
 const AUTOPILOT_REASON_KEY = {
   idle: 'autopilotStopIdle',
@@ -5693,11 +5695,22 @@ function pushActivity(entry) {
   const strip = el('activityStrip');
   const lines = el('activityLines');
   if (!strip || !lines) return;
+  /*
+   * One line, always the newest.
+   *
+   * This used to append and keep six rows, so a burst of browser commands grew
+   * the footer upward and shoved the composer and transcript up with it — the
+   * chat visibly jumped while the agent worked. The strip is a "what is it doing
+   * right now" readout, not a log: the previous command has already been
+   * superseded by the time a new one arrives, and a scrolling history belongs in
+   * the transcript's tool cards, where it already is.
+   */
+  lines.replaceChildren();
   const row = document.createElement('div');
   row.className = `activity-line${entry.ok ? '' : ' bad'}`;
   row.textContent = describeActivity(entry);
+  row.title = row.textContent;
   lines.appendChild(row);
-  while (lines.children.length > ACTIVITY_MAX) lines.removeChild(lines.firstChild);
   strip.hidden = false;
   renderAutopilot();
 }
@@ -6574,12 +6587,13 @@ Object.assign(STRINGS.en, {
   redo: 'Redo',
   compact: 'Compact',
   export: 'Export',
-  thinking: 'Reasoning',
+  thinking: 'Reasoning:',
   thinkingOff: 'Off',
   thinkingMinimal: 'Minimal',
   thinkingLow: 'Low',
   thinkingMedium: 'Medium',
   thinkingHigh: 'High',
+  thinkingUnsupported: 'This model does not support reasoning',
   shell: 'Shell',
   shellRunning: 'running…',
   shellExit: 'exit {code}',
@@ -6633,12 +6647,13 @@ Object.assign(STRINGS.th, {
   redo: 'ทำซ้ำ',
   compact: 'ย่อประวัติ',
   export: 'ส่งออก',
-  thinking: 'การคิด',
+  thinking: 'การคิด:',
   thinkingOff: 'ปิด',
-  thinkingMinimal: 'น้อยที่สุด',
+  thinkingMinimal: 'น้อย',
   thinkingLow: 'ต่ำ',
   thinkingMedium: 'กลาง',
   thinkingHigh: 'สูง',
+  thinkingUnsupported: 'model นี้ไม่รองรับการคิด',
   shell: 'เชลล์',
   shellRunning: 'กำลังรัน…',
   shellExit: 'จบที่ {code}',
@@ -7241,21 +7256,102 @@ function thinkingLevelLabel(level) {
   return key ? t(key) : level;
 }
 
+/**
+ * The reasoning-effort switch.
+ *
+ * Shaped like the approval switch: one radio per level, plus a thumb that slides
+ * to the chosen one. Colour runs from green to red across the track, so the cost
+ * of the setting is readable without reading the labels — green is the frugal
+ * end (thinking off costs nothing), red the expensive one (the model thinks hard
+ * on every turn).
+ *
+ * The control is always present. It used to be removed whenever the model had no
+ * reasoning support, so it appeared and vanished as models were switched; now the
+ * same slot stays and the switch dims and locks instead. Locks, not lies: a
+ * control that accepts a click and does nothing is worse than one that says why.
+ */
+
+/** Order levels cheapest-to-dearest, so the colour ramp lines up with cost. */
+const THINKING_ORDER = ['off', 'minimal', 'low', 'medium', 'high'];
+
+/** Shown when the level list is empty or the model reports no support. */
+function thinkingLevelsFor(thinking) {
+  const offered = Array.isArray(thinking?.levels) ? thinking.levels.filter(Boolean) : [];
+  if (!thinking?.supported || !offered.length) return null;
+  // Keep the SDK's own set; only fall back to a sensible order for display.
+  return THINKING_ORDER.filter((level) => offered.includes(level)).concat(
+    offered.filter((level) => !THINKING_ORDER.includes(level))
+  );
+}
+
 function paintThinking(thinking) {
+  const wrap = el('thinkingSwitch');
+  const note = el('thinkingNote');
+  if (!wrap) return;
   const select = el('thinkingSelect');
-  if (!select) return;
-  if (!thinking?.supported || !Array.isArray(thinking.levels) || !thinking.levels.length) {
-    select.hidden = true;
-    return;
+
+  const levels = thinkingLevelsFor(thinking);
+  const unsupported = !levels;
+
+  // The hidden select stays the value source so the existing change handler and
+  // any test that drives it keep working.
+  if (!unsupported && select) {
+    const key = levels.join(',');
+    if (select.dataset.levels !== key) {
+      select.dataset.levels = key;
+      select.innerHTML = levels
+        .map((level) => `<option value="${escapeHtml(level)}">${escapeHtml(level)}</option>`)
+        .join('');
+    }
+    select.value = thinking.level || levels[0];
   }
-  select.hidden = false;
-  if (select.dataset.levels !== thinking.levels.join(',')) {
-    select.dataset.levels = thinking.levels.join(',');
-    select.innerHTML = thinking.levels
-      .map((level) => `<option value="${escapeHtml(level)}">${escapeHtml(t('thinking'))}: ${escapeHtml(thinkingLevelLabel(level))}</option>`)
-      .join('');
+
+  // Rebuild only when the level set changes or the language does: rebuilding on
+  // every paint would reset focus and make clicking feel like it did not take,
+  // but the labels are translated, so a language switch must rebuild.
+  const key = `${unsupported ? 'unsupported' : levels.join(',')}|${lang}`;
+  if (wrap.dataset.levels !== key) {
+    wrap.dataset.levels = key;
+    wrap.replaceChildren(
+      Object.assign(document.createElement('span'), { className: 'think-thumb', ariaHidden: 'true' })
+    );
+    const shown = unsupported ? ['off'] : levels;
+    shown.forEach((level, i) => {
+      const label = document.createElement('label');
+      label.className = 'think-opt';
+      // Position along the ramp: 0 at the green end, 1 at the red end.
+      label.style.setProperty('--p', shown.length > 1 ? String(i / (shown.length - 1)) : '0');
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'thinkingLevel';
+      input.value = level;
+      input.disabled = unsupported;
+      if (unsupported) label.title = t('thinkingUnsupported');
+      label.append(input, Object.assign(document.createElement('span'), { textContent: thinkingLevelLabel(level) }));
+      wrap.appendChild(label);
+    });
+    wrap.style.setProperty('--count', String(shown.length));
   }
-  select.value = thinking.level || 'off';
+
+  const chosen = unsupported ? 'off' : thinking.level || levels[0];
+  const options = [...wrap.querySelectorAll('.think-opt')];
+  let at = options.findIndex((o) => o.querySelector('input')?.value === chosen);
+  if (at < 0) at = 0;
+  for (const opt of options) {
+    const input = opt.querySelector('input');
+    if (input) input.checked = input.value === chosen;
+  }
+  wrap.style.setProperty('--at', String(at));
+  // The thumb takes the colour of the selected level, so the switch's own `--p`
+  // must follow the choice (the per-label `--p` only tints the text).
+  wrap.style.setProperty('--p', options.length > 1 ? String(at / (options.length - 1)) : '0');
+  wrap.classList.toggle('is-locked', unsupported);
+  wrap.setAttribute('aria-disabled', String(unsupported));
+
+  if (note) {
+    note.hidden = !unsupported;
+    note.textContent = unsupported ? t('thinkingUnsupported') : '';
+  }
 }
 
 /* --------------------------- wiring: compose ------------------------ */
@@ -7279,6 +7375,17 @@ el('thinkingSelect')?.addEventListener('change', async (e) => {
   if (!view) return;
   const thinking = await api.setThinking(view.tabId, e.target.value);
   paintThinking(thinking);
+});
+
+// The switch picks a level, then hands it to the hidden select so there is one
+// path into `setThinking`. Clicking the already-chosen level is a no-op rather
+// than a re-send: the SDK call costs a round trip and changes nothing.
+el('thinkingSwitch')?.addEventListener('change', (e) => {
+  const level = e.target?.value;
+  const select = el('thinkingSelect');
+  if (!level || !select || select.value === level) return;
+  select.value = level;
+  select.dispatchEvent(new Event('change'));
 });
 el('undoBtn')?.addEventListener('click', undoLastMessage);
 
@@ -7450,8 +7557,11 @@ SLASH_COMMANDS.push(
     en: 'Change how hard the model reasons',
     th: 'ปรับระดับการคิดของโมเดล',
     run: () => {
-      const select = el('thinkingSelect');
-      if (select && !select.hidden) select.focus();
+      // The visible control is the switch; the select behind it is hidden, so
+      // focusing it did nothing visible. Focus the chosen position so a
+      // keyboard user lands on the control rather than nowhere.
+      const chosen = el('thinkingSwitch')?.querySelector('input:checked') || el('thinkingSwitch')?.querySelector('input');
+      if (chosen) chosen.focus();
       else showNotice(t('noMatches'), 2000);
     },
   },
