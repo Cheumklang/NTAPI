@@ -692,7 +692,14 @@ function setBusy(value) {
   sendBtn.hidden = value;
   stopBtn.hidden = !value;
   sendBtn.disabled = value || (!input.value.trim() && pendingImages.length === 0);
-  statusHint.textContent = value ? t('working') : t('idle');
+  // The working hint gets three softly bouncing dots so a long turn never looks
+  // like a frozen window. Plain static text was easy to mistake for a hang.
+  if (value) {
+    const label = t('working').replace(/[\s.\u2026]+$/, '');
+    statusHint.innerHTML = `${escapeHtml(label)}<span class="hint-dots" aria-hidden="true"><i></i><i></i><i></i></span>`;
+  } else {
+    statusHint.textContent = t('idle');
+  }
   input.placeholder = value ? t('placeholderBusy') : t('placeholderIdle');
 }
 
@@ -3759,6 +3766,10 @@ async function submit() {
   if (view.busy) {
     renderUserMessage(outgoing, pendingImages);
     view.messages.push({ kind: 'user', text: outgoing, images: pendingImages.slice() });
+    // The reply to this steer will arrive on the next turn. Remember that a
+    // boundary is owed so `agent:turnStart` starts that reply below this message
+    // instead of appending it to the block that was already streaming.
+    view.steerPending = true;
     const steerImages = pendingImages.slice();
     pendingImages = [];
     renderAttachments();
@@ -4180,6 +4191,25 @@ api.onBusy((p) => {
   }
 });
 
+api.onTurnStart((p) => {
+  const view = viewFor(p);
+  if (!view || !view.steerPending) return;
+  // The agent's new turn answers the message the user sent mid-run. That reply
+  // belongs below the user's message, so seal the block that was streaming
+  // before it — otherwise the answer grows in above the message and the
+  // transcript reads out of order.
+  view.steerPending = false;
+  const live = view.liveAssistant;
+  if (live && document.body.contains(live)) {
+    const text = live.querySelector('.body')?.textContent || '';
+    const hasTools = Boolean(live.querySelector('.tool'));
+    if (!text.trim() && !hasTools) live.remove();
+    else live.classList.remove('streaming');
+  }
+  view.liveAssistant = null;
+  view.liveTools = null;
+});
+
 api.onSettled((p) => {
   const view = viewFor(p);
   if (!view) return;
@@ -4187,6 +4217,7 @@ api.onSettled((p) => {
   // deserves the "finished" ping.
   const hadQueue = Boolean(view.queue?.length);
   view.busy = false;
+  view.steerPending = false;
   if (view.liveAssistant) view.liveAssistant.classList.remove('streaming');
   view.liveAssistant = null;
   view.liveTools = null;
@@ -4214,6 +4245,7 @@ api.onError((p) => {
   const view = viewFor(p);
   if (!view) return;
   view.busy = false;
+  view.steerPending = false;
   if (!payloadTabIsActive(view)) return;
   showNotice(null);
   appendErrorBanner(p.text);

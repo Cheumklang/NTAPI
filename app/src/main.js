@@ -830,6 +830,13 @@ function subscribeTab(tabId) {
         sendTab(tabId, 'agent:busy', { busy: true });
         break;
 
+      // A new turn begins after any mid-run steer has been delivered. The
+      // renderer uses this boundary to start the reply below the user's
+      // mid-run message instead of growing it in above.
+      case 'turn_start':
+        sendTab(tabId, 'agent:turnStart', {});
+        break;
+
       case 'agent_settled':
         tab.busy = false;
         sendTab(tabId, 'agent:busy', { busy: false });
