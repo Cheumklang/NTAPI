@@ -24,7 +24,7 @@
 
 ## 1) กำลังทำ / ค้างอยู่ตอนนี้ (สำคัญสุด — อ่านก่อน)
 > ⚠️ ตรวจ `git status` เทียบกับที่นี่เสมอ — อาจมี session อื่นทํางานคู่ขนานอยู่
-> ✅ working tree สะอาด — commit + push ครบทุกอย่าง (งาน 1a–1e) และปล่อย v0.2.3 แล้ว
+> สถานะ: งาน 1a–1h อยู่ใน v0.2.4 (รวมงาน session อื่น: single-instance)
 
 ### 1a) เคส LLM7 — แก้เสร็จ ยืนยันกับโมเดลจริงแล้ว และ commit แล้ว (`e6b959d`)
 - **อาการ:** reasoning model กินโควตา output จนหมด แล้วได้ `finish_reason: "length"` + content ว่าง
@@ -88,6 +88,31 @@
   - รองรับ `prefers-reduced-motion` (หยุดขยับให้คนที่ปิดอนิเมชัน)
 - ยืนยัน: `node --check` ผ่าน; ยังไม่ทดสอบ UI
 
+### 1f) ปรับ model picker + สถานะ Coarena (uncommitted)
+- **ลบปุ่ม** "คำสั่ง (Ctrl+P)" ออกจาก sidebar (คีย์ลัด Ctrl+P ยังใช้ได้)
+- **เรียง A-Z:** ค่ายเรียง A-Z (Coarena→FreePi→LLM7→NVIDIA→Token Harbor→Zro)
+  และโมเดลในแต่ละค่ายเรียง A-Z (ทำใน `provider-ui.js` `groupModelsByProvider`)
+- **ดาวโปรด:** ปุ่มดาวทุกแถวโมเดล → ดาวแล้วได้โฟลเดอร์ "รายการโปรด" อยู่บนสุด
+  (เก็บใน `localStorage` คีย์ `ntapi.favoriteModels`; ตัวที่ติดดาวยังอยู่ใต้ค่ายเดิมด้วย)
+- **tooltip ฟองอากาศ:** ชี้เมาส์ที่โมเดล → แสดงโลโก้ค่าย + ชื่อค่าย เป็น pill ไม่มีมุม
+- **สถานะ Coarena:** เพิ่มแถบ % งบรายวัน (`usd_per_day`/`cost_usd`) + เวลารีเซ็ต
+  (เดิมมีแค่บรรทัด limits)
+- ไฟล์: `app/src/renderer/provider-ui.js`, `renderer/app.js`, `renderer/index.html`,
+  `renderer/styles.css`, `scripts/selftest-provider-ui.js`, `scripts/selftest-model-picker.js`
+- **ยืนยัน:** `selftest-provider-ui` PASS, `selftest-model-picker` PASS (A-Z / ดาว / tooltip จริง),
+  `node --check` ผ่าน, ชุด provider-plan/errors/key/model-filter/prompt-mode/markdown/session-paths PASS
+
+### 1g) ไอคอนแอปเป็นสี่เหลี่ยม — ท ามุมโค้ง (uncommitted)
+- **ปัญหา:** ไอคอนบนเดสก์ท็อป/ทาสก์บาร์ (`build/icon.png`) เป็นสี่เหลี่ยม แต่ในโปรแกรมมี CSS `border-radius`
+- **แก้:** เบิร์นมุมโค้ง (rx = 8/28 ของด้าน ให้ตรง `.brand-icon`) + พื้นหลังโปร่งใส ผ่าน
+  `tools/round-icon.js` (idempotent) → `build/icon.png` (512, rx146), `assets/icon.png` (256, rx73)
+- ผลกับ shortcut/taskbar/installer จะเห็นหลังบิลด์ release ถัดไป
+
+### 1h) single-instance lock — session อื่นท า (uncommitted)
+- `app/src/single-instance.js` (`focusExistingWindow`) + `main.js` (`requestSingleInstanceLock`)
+- เทส `selftest-single-instance.js` PASS — เปิดซ้ำจะโฟกัสหน้าต่างเดิม ไม่เปิดโปรเซสใหม่
+- เป็น P0 ในรีวิว
+
 ## 2) ขั้นถัดไปที่ตกลงไว้ (ทำต่อได้เลยเมื่อผู้ใช้สั่ง)
 จากลำดับใน `docs/review-2026-11-13.md` ที่ยังเหลือ:
 - **P0:** เพิ่ม **single-instance lock** (`app.requestSingleInstanceLock()` ไม่มีใน `main.js`)
@@ -97,7 +122,7 @@
 - **P2:** ตรวจซ้ำข้อหน้าจอ (ฟอนต์เล็ก/แถว usage ล้น/คำว่า "เครดิต") เพราะบางส่วนอาจจบแล้ว
 
 ## 3) รู้ไว้ก่อนลงมือ (บริบทกันหลง)
-- โปรเจกต์ = Electron shell ห่อ pi agent ของ free-pi (ไม่ใช่ fork) — v **0.2.3**
+- โปรเจกต์ = Electron shell ห่อ pi agent ของ free-pi (ไม่ใช่ fork) — v **0.2.4**
 - **มี session อื่นทำงานกับ repo นี้ได้พร้อมกัน** → เช็ก `git status`/`git diff` ก่อนลงมือทุกครั้ง
   อย่า revert งานคนอื่น และระวังเขียนทับไฟล์ที่กำลังแก้
 - โครงสร้าง/คำสั่งรันบิลด์เทส/รายชื่อ provider → ดู `PROJECT.md` (ไฟล์เดียว มีครบ)

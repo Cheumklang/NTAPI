@@ -1,7 +1,7 @@
 {
   "name": "ntapi-desktop",
   "productName": "NTAPI",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Desktop app for NTAPI (no terminal needed)",
   "main": "src/main.js",
   "scripts": {

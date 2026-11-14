@@ -28,6 +28,18 @@
 
 <!-- ต่อท้ายด้านล่างนี้ -->
 
+## 2026-11-14 — ปรับ model picker + สถานะ Coarena (ยังไม่ commit)
+- ลบปุ่มคําสั่ง (Ctrl+P) จาก sidebar
+- model picker เรียง A-Z (ค่าย + โมเดล)
+- เพิ่มดาวโปรด (โฟลเดอร์รายการโปรดบนสุด, localStorage) + tooltip โลโก้ค่ายเป็นฟองอากาศ
+- Coarena: เพิ่มแถบ % งบรายวัน + เวลารีเซ็ต
+- เทส: selftest-provider-ui PASS, selftest-model-picker PASS (ดาว/tooltip/A-Z), ชุดอื่น PASS
+
+## 2026-11-14 — ท าไอคอนมุมโค้ง + รับงาน single-instance
+- `tools/round-icon.js`: เบิร์นมุมโค้งลง `build/icon.png` / `assets/icon.png` (โปร่งใส)
+- รับงาน single-instance ของ session อื่น (เทส PASS) รวมเข้า release
+- เริ่มปล่อย v0.2.4
+
 ## 2026-11-14 — ผลปล่อย v0.2.3: สําเร็จ
 - commit: `1f05f90` (แก้ steer + จุดขยับ), `8071707` (เวอร์ชัน 0.2.3)
 - release `v0.2.3` ออนไลน์ (ไม่ draft); assets: NTAPI-Setup-0.2.3.exe (102,276,580 B), latest.yml, .blockmap
