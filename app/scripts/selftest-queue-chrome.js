@@ -111,7 +111,11 @@ check('the composer wraps its rows', /\.composer-box\s*\{[^}]*flex-wrap:\s*wrap/
 // The queue is as wide as the box you type in, not a short strip on the right.
 check('the queue spans the whole row', /flex:\s*1 0 100%/.test(bar));
 check('the queue never exceeds the composer', /max-width:\s*100%/.test(bar));
-check('the queue text takes the row so it truncates at the edge', /flex:\s*1 1 auto/.test(text));
+// The text is sized to its content so the buttons sit next to it, and capped so
+// a long message truncates rather than growing under them.
+check('the queue text is sized to its content', /flex:\s*0 1 auto/.test(text));
+check('the queue text is capped inside the row', /max-width:\s*calc\(100% - \d+px\)/.test(text));
+check('the queue text is always followed by its controls', /white-space:\s*nowrap/.test(text));
 check('the buttons keep their own row above it', /flex:\s*0 0 auto/.test(side));
 check('the textarea keeps a usable width', /#input\s*\{[^}]*min-width:\s*0/.test(css));
 

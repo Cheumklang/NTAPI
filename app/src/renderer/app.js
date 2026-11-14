@@ -4704,6 +4704,29 @@ function renderQueue() {
     const text = item.kind === 'action' ? item.label : item.text;
     label.textContent = text || '(attachment)';
     label.title = text || '';
+
+    // The remove button sits in front of the message, not at the far right.
+    // The row is as wide as the composer, so on a long line the × used to be a
+    // whole screen away from the words it removes — you had to hunt for it and
+    // then check which row it belonged to. Next to the text it is obvious which
+    // message it acts on.
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'queue-remove';
+    rm.textContent = '\u00d7';
+    rm.title = t('removeFromQueue');
+    rm.setAttribute('aria-label', t('removeFromQueue'));
+    rm.addEventListener('click', () => {
+      const v = activeView();
+      if (!v?.queue) return;
+      const at = v.queue.findIndex((q) => q.queueId === item.queueId);
+      if (at === -1) return;
+      v.queue.splice(at, 1);
+      renderQueue();
+      // Removing the head may unblock the queue.
+      if (v === activeView()) drainQueue(v);
+    });
+    row.appendChild(rm);
     row.appendChild(label);
 
     if (item.kind !== 'action') {
@@ -4723,22 +4746,6 @@ function renderQueue() {
       row.appendChild(edit);
     }
 
-    const rm = document.createElement('button');
-    rm.type = 'button';
-    rm.className = 'queue-remove';
-    rm.textContent = '×';
-    rm.title = t('removeFromQueue');
-    rm.addEventListener('click', () => {
-      const v = activeView();
-      if (!v?.queue) return;
-      const at = v.queue.findIndex((q) => q.queueId === item.queueId);
-      if (at === -1) return;
-      v.queue.splice(at, 1);
-      renderQueue();
-      // Removing the head may unblock the queue.
-      if (v === activeView()) drainQueue(v);
-    });
-    row.appendChild(rm);
     bar.appendChild(row);
   });
 

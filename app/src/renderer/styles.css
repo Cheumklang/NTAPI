@@ -1828,10 +1828,15 @@ button { font-family: inherit; }
   border-radius: 3px;
 }
 .queue-text {
-  /* Takes the row so a long message truncates at the composer's edge instead of
-   * pushing the × out of view. */
-  flex: 1 1 auto;
+  /* Sized to its text, so short messages keep the buttons right next to them,
+   * but capped so a long one truncates instead of growing under the controls.
+   * `flex-basis: 0` with `grow: 0` would collapse it to nothing; `auto` alone
+   * lets a nowrap line claim the whole row because `flex-wrap` on the row breaks
+   * to a new line instead of shrinking. The fix is to allow shrinking *and* keep
+   * the row from wrapping this item onto its own line. */
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: calc(100% - 50px);
   font-size: 11.5px;
   line-height: 1.45;
   color: var(--muted);
@@ -1862,6 +1867,15 @@ button { font-family: inherit; }
 /* The edit button reads as a quiet action, not destructive like the ×. */
 .queue-edit-btn { font-size: 11.5px; }
 .queue-item .queue-edit-btn:hover { color: var(--accent-2, var(--accent)); }
+/*
+ * The remove button leads the row now, so it is always visible. Hidden at rest it
+ * would leave a gap at the start of every line and the control the user is looking
+ * for would still be invisible until hover. The selector has to out-weigh
+ * `.queue-item button`, which sets opacity 0.
+ */
+.queue-item .queue-remove { opacity: .55; font-size: 12px; padding: 0 2px; }
+.queue-item:hover .queue-remove { opacity: .85; }
+.queue-item .queue-remove:hover { opacity: 1; color: var(--danger); }
 
 /* ---------------- live status ---------------- */
 

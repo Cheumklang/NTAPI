@@ -23,7 +23,17 @@ const { app, BrowserWindow } = require('electron');
 app.disableHardwareAcceleration();
 
 app.whenReady().then(async () => {
-  const win = new BrowserWindow({ show: false, width: 1100, height: 800 });
+  const win = new BrowserWindow({
+    show: false,
+    width: 1100,
+    height: 800,
+    webPreferences: {
+      // The real preload, so app.js finishes loading and renderQueue() exists.
+      preload: path.join(__dirname, '..', 'src', 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
   win.webContents.on('console-message', (e) => console.log('[renderer]', e.level, e.message));
 
   await win.loadFile(path.join(__dirname, '..', 'src', 'renderer', 'index.html'));
@@ -35,23 +45,23 @@ app.whenReady().then(async () => {
     const input = document.getElementById('input');
     const side = document.querySelector('.composer-side');
 
-    // Build a fake queue of ${fill} long items.
-    bar.innerHTML = '';
-    const head = document.createElement('div');
-    head.className = 'queue-head';
-    head.textContent = 'ในคิว: ${fill}';
-    bar.append(head);
+    // Build a queue of ${fill} long items through the real renderQueue(), so the
+    // rows measured here are the rows the app actually draws. A hand-built
+    // fixture would keep passing after the real markup changed underneath it.
+    activeTabId = 'placement';
+    const view = views.get('placement') || createView('placement');
+    views.set('placement', view);
+    view.busy = true;
+    view.queue = [];
     for (let i = 0; i < ${fill}; i += 1) {
-      const row = document.createElement('div');
-      row.className = 'queue-item';
-      const t = document.createElement('span');
-      t.className = 'queue-text';
-      t.textContent = 'ข้อความที่ต่อคิวไว้ยาวมาก ๆ จำนวนมาก เพื่อทดสอบว่ามันไม่ดันช่องพิมพ์จนแคบ ' + i;
-      const b = document.createElement('button');
-      b.textContent = '×';
-      row.append(t, b);
-      bar.append(row);
+      view.queue.push({
+        kind: 'prompt',
+        text: 'ข้อความที่ต่อคิวไว้ยาวมาก ๆ จำนวนมาก เพื่อทดสอบว่ามันไม่ดันช่องพิมพ์จนแคบ ' + i,
+        images: [],
+        queueId: 'p' + i,
+      });
     }
+    renderQueue();
     bar.hidden = false;
 
     const q = bar.getBoundingClientRect();
@@ -60,7 +70,31 @@ app.whenReady().then(async () => {
     const inp = input.getBoundingClientRect();
     const sideRect = side.getBoundingClientRect();
 
+    // Where the × sits relative to each message, and whether the text runs under
+    // it: the complaint was that the × was a screen away from the words.
+    const rows = [...bar.querySelectorAll('.queue-item')].map((r) => {
+      const rb = r.getBoundingClientRect();
+      const rm = r.querySelector('.queue-remove');
+      const tx = r.querySelector('.queue-text');
+      const xb = rm.getBoundingClientRect();
+      const tb = tx.getBoundingClientRect();
+      return {
+        // The grip leads (so it can be grabbed), then the remove button, then the
+        // words: the × must be next to the message, not at the far right.
+        order: [...r.children].map((c) => c.className).join(','),
+        xBeforeText: !!(rm.compareDocumentPosition(tx) & Node.DOCUMENT_POSITION_FOLLOWING),
+        gripFirst: !!r.firstElementChild && r.firstElementChild.classList.contains('queue-grip'),
+        xFromLeft: Math.round(xb.left - rb.left),
+        gap: Math.round(tb.left - xb.right),
+        // Overlap means the text starts before the button ends. Comparing right
+        // edges would flag a long message as overlapping simply for being long.
+        overlap: Math.round(tb.left < xb.right ? xb.right - tb.left : 0),
+        textInsideRow: tb.right <= rb.right + 1,
+      };
+    });
+
     return {
+      rows,
       inside: box.contains(bar),
       insideSide: side.contains(bar),
       // The queue should be as wide as the box the user types into.
@@ -95,6 +129,26 @@ app.whenReady().then(async () => {
   check('the queue does not pass the bottom edge', one.withinBottom);
   check('the queue sits below the Send button', one.belowSend);
   check('the queue starts at the left edge of the composer', one.withinLeft);
+
+  // The remove button leads every row and sits next to its message.
+  check('the remove button comes before the message',
+    one.rows.every((r) => r.xBeforeText === true), one.rows.map((r) => r.order));
+  check('the grip still leads the row so it can be grabbed',
+    one.rows.every((r) => r.gripFirst === true), one.rows.map((r) => r.order));
+  check('the remove button is close to the left edge',
+    one.rows.every((r) => r.xFromLeft >= 0 && r.xFromLeft <= 40), one.rows.map((r) => r.xFromLeft));
+  // The original complaint: the × was a whole screen away from the words on the
+  // right edge of a 750px row. It must be a fixed short distance from the start,
+  // not a share of the row width.
+  check('the remove button is a fixed short distance from the left',
+    one.rows.every((r) => r.xFromLeft <= 40 && r.xFromLeft < one.queueWidth / 4),
+    { xs: one.rows.map((r) => r.xFromLeft), rowW: one.queueWidth });
+  check('the message starts right after the remove button',
+    one.rows.every((r) => r.gap >= 0 && r.gap <= 12), one.rows.map((r) => r.gap));
+  check('the remove button never covers the message',
+    one.rows.every((r) => r.overlap === 0), one.rows.map((r) => r.overlap));
+  check('a long message stays inside its row',
+    one.rows.every((r) => r.textInsideRow === true), one.rows.map((r) => r.textInsideRow));
 
   const many = await run(6);
   console.log('  geometry (6 items):', JSON.stringify(many));
