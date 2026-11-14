@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.1** (แก้ UX ตอนอัปเดต) (browser control + auto-switch model + error 2 ภาษา) (`origin/master` HEAD `ff39b94`, release ที่ `NTAPI-releases`)
+**อัปเดตล่าสุด:** 2026-11-14 · **v0.3.3** (หน่วยเวลา 2 ภาษา + fallback สลับโมเดลจริง + UI/หน้าติดตั้ง) (`origin/master`, tag `v0.3.3`, release ที่ `NTAPI-releases`)
 
 > นี่คือไฟล์ **"อ่านอันเดียวจบ"** ของ session ใหม่ — อ่านบนลงล่าง
 > ถ้าคุณเป็น AI แล้วเพิ่งเปิดโปรเจกต์: อ่านหัวข้อ 0–3 ให้ครบก่อนแตะโค้ด
@@ -21,8 +21,48 @@
   เพราะอาจแก้หลายอย่างรวมกันก่อนปล่อยอัปเดตครั้งเดียว ห้าม tag/สร้าง release เอง
 - **หลังแก้ปัญหาเสร็จทุกครั้ง:** ต้องสรุปให้ผู้ใช้ทราบว่ามีงานที่แก้แล้วค้างอยู่ (uncommitted)
   **กี่เรื่อง** และ **ถามว่าจะอัปเวอร์ชันเลยไหม** (ห้าม bump เอง)
+- **ไม่ต้องรีบ build/ปล่อย installer ให้เป็นเวอร์ชันล่าสุด** — ผู้ใช้กดอัปเดตในโปรแกรมได้เอง
+  build installer / bump / tag เมื่อผู้ใช้สั่งเท่านั้น (ประหยัดเวลาและ token)
+- **ห้ามอ่าน/ลิสต์ `C:\Program Files\NTAPI\`** — แม้แต่อ่านก็ไม่ต้อง
+  ถ้าอยากรู้เวอร์ชันที่ติดตั้งจริง ให้ถามผู้ใช้ หรือดู `prefs.lastVersion` ใน `prefs.json`
 
 ## 1) กำลังทำ / ค้างอยู่ตอนนี้ (สำคัญสุด — อ่านก่อน)
+
+### 1z) แบทช์ v0.3.3 (2026-11-14) — 5 เรื่อง + บั๊กใหญ่ 2 ตัว ✅ commit + tag แล้ว
+
+1. **บั๊กใหญ่: สคริปต์กลางของ renderer ไม่เคยโหลดเลย**
+   - `index.html` อ้าง `error-messages.js` / `duration.js` แต่ไฟล์อยู่ที่ `src/` ไม่ใช่ `src/renderer/`
+     → **404 เงียบ ๆ** อาการที่ผู้ใช้เห็น: เวลายังเป็น `9150 ms` ทั้งที่เลือกไทย
+     และ **ข้อความ error/notice 2 ภาษาของ v0.3.1 ไม่เคยทำงาน** (ตกไปโชว์ key ดิบ)
+   - แก้ path เป็น `../error-messages.js`, `../duration.js`
+   - เจอบั๊กซ้อน: ทั้งสองไฟล์ประกาศ `const api` ระดับบนสุด → `Identifier 'api' has already been
+     declared` สคริปต์ที่สองไม่รัน ⇒ ครอบ IIFE แบบ `markdown.js` / `provider-ui.js`
+   - **กันซ้ำ:** `selftest-duration.js` ตรวจว่า ทุก `<script src>`/`<link href>` ใน index.html
+     มีไฟล์จริง + โมดูลกลางต้องเป็น IIFE (ทดสอบย้อนกลับแล้วว่า FAIL จริง)
+     และ `scripts/check-duration-wiring.js` (Electron) พิสูจน์ผลจริงใน index.html
+2. **fallback สลับโมเดลจริง ไม่ข้ามตัว** (`src/model-fallback.js`, `src/main.js`)
+   - เดิม `switchToNextFreeModel` ใส่ `tried` ให้โมเดลที่เพิ่งสลับ **ไป** ทันที + settle path
+     อ่าน `session.model` (= ตัวที่เพิ่งสลับไป) มาโทษ ⇒ ข้าม 1 ตัวทุกครั้ง pool หมดเร็วเกินจริง
+   - ตอนนี้โทษจาก `failedModelFromMessage(last)` (provider/model บน assistant message ที่ error)
+     และไม่ retire โมเดลที่แค่ "ถูกเลือก"
+   - `auto_retry_start`: ยกเลิก backoff ที่ไม่ productive ด้วย `abortRetry()` + `queueMicrotask`
+     (pi สร้าง abort controller *หลัง* ยิง event นี้) แล้วให้ settle path เป็นคนสลับ + `continue()`
+   - ไล่บนลงล่างจนหมด pool ค่อยแจ้ง (ตามที่ผู้ใช้ขอ) — ไม่หยุดหลังครั้งเดียว
+3. **หน่วยเวลา 2 ภาษา** (`src/duration.js`) — th: `วินาที/นาที/ชม./มิลลิวินาที`, en: `sec/min/h/ms`
+   (<100 ms ไทย = `86 มิลลิวินาที`) ใช้ทั้งการ์ด tool และตัวนับสิทธิ์ (ไม่ขึ้น `0 นาที` แล้ว)
+4. **error banner ไม่ชิดขอบ** — `.transcript > .error-banner` คิด gutter 22px เอง
+   (เดิม `padding: 8px 12px` ทับ inset ของ `.transcript > *`)
+5. **UI** — ปุ่ม dialog ควบคุมเบราว์เซอร์ (helper row เท่ากัน + footer ซ้าย/ขวา + เลื่อนได้),
+   sidebar กันทับ (ความกว้างขั้นต่ำวัดจากแถวบนจริง), การ์ด tool ที่ collapsed ซ่อนรูป preview
+   ด้วย ⇒ การ์ดที่ **ล้มเหลวไม่ขยายอีก** (`Failed` แค่ทำเครื่องหมาย), หน้าติดตั้ง NSIS มีแบรนด์
+
+**ขั้นถัดไป:** รอผู้ใช้ทดลอง v0.3.3 (fallback, หน่วยเวลา, browser control live)
+ถ้า browser control มีปัญหา ขอ `browser-audit.log` + ข้อความ error ในแชท
+
+**Deferred (ยังไม่ทำ):** (a) ไม่มี unit test ยืนยัน DOM ของ `#browserBtn`/dialog (พึ่ง boot smoke)
+(b) extension ไม่จำกัดโดเมน (อนุมัติต่อ tool ไม่ใช่ต่อเว็บไซต์)
+(c) ข้อความผลลัพธ์ tool (เช่น `Browser error (...)`) ยังเป็นอังกฤษ
+(d) banner เก่าไม่ย้อนแปลเมื่อสลับภาษา
 > ⚠️ ตรวจ `git status` เทียบกับที่นี่เสมอ — อาจมี session อื่นทํางานคู่ขนานอยู่
 > สถานะ: งาน 1a–1l อยู่ใน v0.2.6 (รวมงาน session อื่น: single-instance)
 

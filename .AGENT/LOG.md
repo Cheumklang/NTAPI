@@ -237,3 +237,16 @@
 - fix: กล่อง error ไม่กาง/ไม่เลื่อนจอเอง (Q1)
 - ปล่อย v0.3.0 แล้ว: tag v0.3.0, release ที่ NTAPI-releases (published 2026-11-14T04:21:18Z), assets NTAPI-Setup-0.3.0.exe 112MB + latest.yml
 - v0.3.1: update splash (แยกโปรเซส) + overlay เต็มจอ + toast หลังอัปเดต; เจอบั๊ก disableHardwareAcceleration เรียกหลัง ready ทำให้ splash ตายเงียบ แก้แล้ว
+
+- **Q5 (2026-11-14)**: `src/duration.js` + `selftest-duration.js` — หน่วยเวลาไทย (วินาที/นาที/ชม.) อังกฤษ (sec/min/h); tool card ใช้ `formatSpan()` แทน `${ms} ms`; countdown ใช้โหมด decimals:0 (ไม่ขึ้น "0 นาที" อีก); npm test 27/27
+- **rule**: AGENTS.md เพิ่มข้อ "ไม่ต้อง build/ปล่อย installer ให้ล่าสุดเอง — ผู้ใช้สั่งเท่านั้น"
+
+- UI (2026-11-14): error banner ได้ gutter 22px เหมือนบล็อกอื่น (`calc(var(--read-width) - 44px)` + padding 11px 14px) — เดิม `padding: 8px 12px` ทับ inset ของ `.transcript > *` จึงชิดขอบ
+- UI: dialog ควบคุมเบราว์เซอร์ — แถว helper (`wrap` + `flex: 1 1 auto`), footer แยกซ้าย/ขวา (`space-between`), `.browser-dialog` scroll ได้ (`max-height: calc(100vh - 48px)`) ไม่โดนตัดปุ่มล่าง; เทสต์เพิ่มใน selftest-error-ux (npm test 28/28)
+- Q6 (แก้ model fallback ให้ไล่จริง): `failedModelFromMessage()` + `switchToNextFreeModel(tab, failed)` เลิกใส่ `tried` ให้โมเดลที่เพิ่งสลับไป (ทำให้ข้ามตัวทุกครั้ง); `auto_retry_start` แค่ยกเลิก backoff หยุดรอ 14 วิ (ไม่สลับตรงนั้น เพราะ retry ใช้โมเดลที่ capture ไว้ + abortRetry ต้องรอ microtask) — runModelFallback ที่ settle เป็นคนสลับและ `continue()`; ยังคงลองเรื่อยๆ จนหมด pool แล้วค่อยแจ้ง (ตามที่ผู้ใช้ขอ)
+- **บั๊กใหญ่ (2026-11-14)**: `index.html` อ้าง `error-messages.js` / `duration.js` แต่ไฟล์อยู่ที่ `src/` ไม่ใช่ `src/renderer/` → 404 เงียบๆ ทั้งคู่ (FPDuration/FPMessages ไม่ถูกตั้งค่า)
+  - อาการที่ผู้ใช้เห็น: เวลายังเป็น ms ทั้งที่เลือกไทย; และข้อความ error/notice ของ Q3 ไม่เคยถูกแปล (ตกไปใช้ key ดิบ)
+  - แก้: `<script src="../error-messages.js">` + `../duration.js`
+  - แก้ต่อ: ทั้งสองไฟล์ประกาศ `const api` ระดับบนสุด → "Identifier 'api' has already been declared" สคริปต์ที่สองไม่รัน; ครอบ IIFE แบบเดียวกับ markdown.js/provider-ui.js
+  - เทสต์กันซ้ำ: `selftest-duration.js` ตรวจว่า script/link ทุกตัวใน index.html มีไฟล์จริง + ต้องเป็น IIFE; เพิ่ม `scripts/check-duration-wiring.js` (Electron) พิสูจน์ผลจริง
+  - หน่วยมิลลิวินาที: th = "มิลลิวินาที", en = "ms"
