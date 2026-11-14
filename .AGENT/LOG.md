@@ -28,6 +28,13 @@
 
 <!-- ต่อท้ายด้านล่างนี้ -->
 
+## 2026-11-14 — ผลปล่อย v0.2.4: สําเร็จ
+- commit: `f6483b9` (model picker + Coarena), `efc866b` (single-instance),
+  `19497a8` (ไอคอนมุมโค้ง), `9b14db4` (เวอร์ชัน 0.2.4)
+- release `v0.2.4` ออนไลน์; assets: NTAPI-Setup-0.2.4.exe (102,341,110 B), latest.yml, blockmap
+- `/releases/latest` ชี้ v0.2.4 แล้ว
+- เหลือ: ผู้ใช้อัปเดตโปรแกรมที่ติดตั้งเอง + ทดสอบ (A-Z/ดาว/tooltip/ไอคอนโค้ง/single-instance)
+
 ## 2026-11-14 — ปรับ model picker + สถานะ Coarena (ยังไม่ commit)
 - ลบปุ่มคําสั่ง (Ctrl+P) จาก sidebar
 - model picker เรียง A-Z (ค่าย + โมเดล)

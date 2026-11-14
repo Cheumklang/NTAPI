@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-14 · ปล่อย **v0.2.3** แล้ว (`origin/master` HEAD `8071707`, release ที่ `NTAPI-releases`)
+**อัปเดตล่าสุด:** 2026-11-14 · ปล่อย **v0.2.4** แล้ว (`origin/master` HEAD `9b14db4`, release ที่ `NTAPI-releases`)
 
 > นี่คือไฟล์ **"อ่านอันเดียวจบ"** ของ session ใหม่ — อ่านบนลงล่าง
 > ถ้าคุณเป็น AI แล้วเพิ่งเปิดโปรเจกต์: อ่านหัวข้อ 0–3 ให้ครบก่อนแตะโค้ด
@@ -88,7 +88,7 @@
   - รองรับ `prefers-reduced-motion` (หยุดขยับให้คนที่ปิดอนิเมชัน)
 - ยืนยัน: `node --check` ผ่าน; ยังไม่ทดสอบ UI
 
-### 1f) ปรับ model picker + สถานะ Coarena (uncommitted)
+### 1f) ปรับ model picker + สถานะ Coarena (commit `f6483b9`)
 - **ลบปุ่ม** "คำสั่ง (Ctrl+P)" ออกจาก sidebar (คีย์ลัด Ctrl+P ยังใช้ได้)
 - **เรียง A-Z:** ค่ายเรียง A-Z (Coarena→FreePi→LLM7→NVIDIA→Token Harbor→Zro)
   และโมเดลในแต่ละค่ายเรียง A-Z (ทำใน `provider-ui.js` `groupModelsByProvider`)
@@ -102,13 +102,13 @@
 - **ยืนยัน:** `selftest-provider-ui` PASS, `selftest-model-picker` PASS (A-Z / ดาว / tooltip จริง),
   `node --check` ผ่าน, ชุด provider-plan/errors/key/model-filter/prompt-mode/markdown/session-paths PASS
 
-### 1g) ไอคอนแอปเป็นสี่เหลี่ยม — ท ามุมโค้ง (uncommitted)
+### 1g) ไอคอนแอปเป็นสี่เหลี่ยม — ท ามุมโค้ง (commit `19497a8`)
 - **ปัญหา:** ไอคอนบนเดสก์ท็อป/ทาสก์บาร์ (`build/icon.png`) เป็นสี่เหลี่ยม แต่ในโปรแกรมมี CSS `border-radius`
 - **แก้:** เบิร์นมุมโค้ง (rx = 8/28 ของด้าน ให้ตรง `.brand-icon`) + พื้นหลังโปร่งใส ผ่าน
   `tools/round-icon.js` (idempotent) → `build/icon.png` (512, rx146), `assets/icon.png` (256, rx73)
 - ผลกับ shortcut/taskbar/installer จะเห็นหลังบิลด์ release ถัดไป
 
-### 1h) single-instance lock — session อื่นท า (uncommitted)
+### 1h) single-instance lock — session อื่นท า (commit `efc866b`)
 - `app/src/single-instance.js` (`focusExistingWindow`) + `main.js` (`requestSingleInstanceLock`)
 - เทส `selftest-single-instance.js` PASS — เปิดซ้ำจะโฟกัสหน้าต่างเดิม ไม่เปิดโปรเซสใหม่
 - เป็น P0 ในรีวิว
