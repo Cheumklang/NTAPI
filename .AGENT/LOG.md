@@ -690,3 +690,33 @@ auth check ก่อนค่อย `_startRun` จึงเกิดช่อ�
   ไม่ถูกผูก → เทสต์รายงานผ่านทั้งที่ไม่มีอะไรทำงาน
 - Python heredoc/`-c` กิน backslash ทําให้ `\n` กลายเป็นบรรทัดใหม่จริง → string JS แตก ต้องใช้ `edit`
 - `look_at_image` ใช้กับไฟล์ใน session นี้ไม่ได้เลย
+
+## 2026-11-14 — แก้ไข/ลากลำดับคิว (`e30114e`)
+
+**คำขอ:** แก้ข้อความในคิวได้แล้วกลับไปอยู่ที่เดิม (1=A) + ลากสลับลำดับ (2=A+B)
+
+**แก้ไข (1A):**
+- `item.editing` + `item.draft` เก็บในตัว item เอง → รอดจากการ re-render
+- `drainQueue` เช็ค `view.queue[0]?.editing` **ก่อน** `shift()` → รายการที่กำลังแก้ไม่ถูกส่ง
+  และยังอยู่หัวคิว (A: ซ่อนจาก drain ระหว่างแก้)
+- `saveQueueEdit` เขียนทับ `view.queue[at].text` ตรง ๆ ไม่ splice/push → **ตำแหน่งเดิม**
+  · ยกเลิก countdown ที่ค้างอยู่ ไม่งั้นจะส่งข้อความเก่า
+- `cancelQueueEdit` ทิ้ง draft แต่เก็บ item
+- Save ปิดเมื่อ draft ว่าง · Enter=บันทึก · Escape=ยกเลิก
+
+**ลากลำดับ (2A+B):**
+- ที่จับ `⠿` (`.queue-grip`) **และ** ตัวแถวเองเริ่มลากได้ (A+B)
+- `moveQueueItem(id, delta)` ใช้ร่วมกันทั้ง drag และ Alt+↑/↓
+- `queueDropIndex(clientY)` เทียบจุดกึ่งกลางแถว
+- `endQueueDrag` แก้ array ตอนปล่อยเท่านั้น → ลากแล้วยกเลิกไม่เปลี่ยนอะไร
+- แถวที่กำลังแก้ไม่ให้ลาก (input จะหลุด)
+- pointerup ฟังที่ `window` เพราะปล่อยนอกคิวได้
+
+**เทสต์:** `selftest-queue-edit.js` (38) · `check-queue-edit.js` (24, Electron กดจริง/ลากจริง)
+→ `npm run check:queue-edit` · `npm test` **44/44**
+
+**ย้อนกลับ:** drain ไม่สนใจ editing → FAIL 2 (`sent:["do not send me"]`) ·
+save ย้ายไปท้าย → FAIL 3 (`["first","third","second, corrected"]`)
+
+**Learned:** `field.focus()` บน element ที่ยังไม่อยู่ใน DOM ไม่ทำอะไร — ต้อง `appendChild`
+ก่อน แล้วค่อย focus · เทสต์ focus ต้อง `show: true` ไม่งั้น window ที่ซ่อนรับ focus ไม่ได้
