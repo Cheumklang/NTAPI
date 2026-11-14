@@ -39,7 +39,25 @@ const { checkNvidiaKey } = require('./nvidia');
 const { checkTokenHarborKey } = require('./tokenharbor');
 const { checkLlm7Key, preferredLlm7Model } = require('./llm7');
 const { nextRecoveryMove } = require('./empty-answer');
+const { focusExistingWindow } = require('./single-instance');
 const { promptOptionsFor } = require('./prompt-mode');
+
+/**
+ * One copy of NTAPI at a time.
+ *
+ * A second launch (taskbar icon, shortcut, installer's "run now") used to start
+ * a whole extra process: two windows, two sets of in-memory tabs, and two writers
+ * fighting over the same session/config files and the presence port. Now the
+ * newcomer quits and the window that is already open comes back to the front.
+ */
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    focusExistingWindow(win);
+  });
+}
 
 /**
  * Turn pi's own display diff into the shape the renderer draws.
@@ -3039,6 +3057,10 @@ ipcMain.handle('notify:done', (_event, payload = {}) => {
 /* ------------------------------ boot ------------------------------ */
 
 app.whenReady().then(async () => {
+  // The second copy quits above; make sure it never builds a window or opens
+  // the presence port on its way out.
+  if (!hasSingleInstanceLock) return;
+
   try {
     sdk = resolveSdk();
   } catch (err) {
