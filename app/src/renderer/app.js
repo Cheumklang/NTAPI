@@ -4771,11 +4771,32 @@ function renderQueue() {
     label.textContent = text || '(attachment)';
     label.title = text || '';
 
-    // The remove button sits in front of the message, not at the far right.
-    // The row is as wide as the composer, so on a long line the × used to be a
-    // whole screen away from the words it removes — you had to hunt for it and
-    // then check which row it belonged to. Next to the text it is obvious which
-    // message it acts on.
+    // The controls sit together in front of the words: drag handle, edit, remove.
+    // They used to be split — handle and × on the left, the word "edit" out at the
+    // far right — which meant crossing the whole row to change a message, and on a
+    // long line the edit control was nowhere near the text it edits.
+    //
+    // Edit is a pencil rather than the word: at this size a glyph is read at a
+    // glance, and the tooltip and aria-label still spell it out.
+    if (item.kind !== 'action') {
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'queue-edit-btn';
+      edit.textContent = '\u270e';
+      edit.title = t('queueEdit');
+      edit.setAttribute('aria-label', t('queueEdit'));
+      edit.addEventListener('click', () => {
+        const v = activeView();
+        if (!v?.queue) return;
+        const at = v.queue.findIndex((q) => q.queueId === item.queueId);
+        if (at === -1) return;
+        v.queue[at].editing = true;
+        v.queue[at].draft = v.queue[at].text || '';
+        renderQueue();
+      });
+      row.appendChild(edit);
+    }
+
     const rm = document.createElement('button');
     rm.type = 'button';
     rm.className = 'queue-remove';
@@ -4794,23 +4815,6 @@ function renderQueue() {
     });
     row.appendChild(rm);
     row.appendChild(label);
-
-    if (item.kind !== 'action') {
-      const edit = document.createElement('button');
-      edit.type = 'button';
-      edit.className = 'queue-edit-btn';
-      edit.textContent = t('queueEdit');
-      edit.addEventListener('click', () => {
-        const v = activeView();
-        if (!v?.queue) return;
-        const at = v.queue.findIndex((q) => q.queueId === item.queueId);
-        if (at === -1) return;
-        v.queue[at].editing = true;
-        v.queue[at].draft = v.queue[at].text || '';
-        renderQueue();
-      });
-      row.appendChild(edit);
-    }
 
     bar.appendChild(row);
   });
@@ -4901,6 +4905,7 @@ function enableQueueDrag(row, handle) {
     if (!item || row.classList.contains('editing')) return;
     dragState = { id: item, row };
     row.classList.add('dragging');
+    showDragGhost(row, e.clientY + queueGhostOffset(row, e.clientY));
     e.dataTransfer?.setData('text/plain', item);
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
   };
@@ -4921,6 +4926,53 @@ function enableQueueDrag(row, handle) {
     e.preventDefault();
     moveQueueItem(row.dataset.queueId, e.key === 'ArrowUp' ? -1 : 1);
   });
+}
+
+/**
+ * The translucent copy of the row that follows the pointer while dragging.
+ *
+ * Without it the only feedback was the original row fading — which says *what* is
+ * moving but not *where to*. A ghost under the cursor makes the drag feel like
+ * picking the message up and carrying it.
+ *
+ * It is built from the row's own text rather than a snapshot of its nodes: a
+ * cloned row would bring its buttons, and a click on a ghost must never do
+ * anything.
+ */
+function showDragGhost(row, clientY) {
+  hideDragGhost();
+  if (!row) return;
+  const bar = el('queueBar');
+  if (!bar) return;
+  const ghost = document.createElement('div');
+  ghost.className = 'queue-ghost';
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.textContent = row.querySelector('.queue-text')?.textContent || '';
+  const width = bar.getBoundingClientRect().width;
+  ghost.style.width = `${Math.round(width)}px`;
+  document.body.appendChild(ghost);
+  queueGhost = ghost;
+  moveDragGhost(clientY);
+}
+
+/** Put the ghost under the pointer. */
+function moveDragGhost(clientY) {
+  if (!queueGhost) return;
+  // Centred vertically on the cursor, and nudged left of the pointer so the text
+  // is not hidden behind the arrow.
+  queueGhost.style.transform = `translateY(${Math.round(clientY - 16)}px)`;
+}
+
+function hideDragGhost() {
+  if (!queueGhost) return;
+  queueGhost.remove();
+  queueGhost = null;
+}
+
+/** Where inside the row the pointer grabbed it, so the ghost does not jump. */
+function queueGhostOffset(row, clientY) {
+  const r = row.getBoundingClientRect();
+  return -(clientY - r.top) + 8;
 }
 
 /** Move one queue item by `delta` positions and repaint. */
@@ -4959,6 +5011,7 @@ function endQueueDrag(clientY) {
   if (!dragState) return;
   const { id, row } = dragState;
   dragState = null;
+  hideDragGhost();
   row.classList.remove('dragging');
   const view = activeView();
   if (!view?.queue) {
@@ -4982,10 +5035,17 @@ function endQueueDrag(clientY) {
 /** The row being dragged, or null. */
 let dragState = null;
 
+/** The translucent copy following the pointer, or null. */
+let queueGhost = null;
+
 // The drag ends wherever the pointer is released, which may be outside the queue,
 // so the listener is on the window rather than on the row.
 window.addEventListener('pointerup', (e) => endQueueDrag(e.clientY));
 window.addEventListener('pointercancel', () => endQueueDrag(-1));
+// The ghost tracks the pointer everywhere, including outside the queue bar.
+window.addEventListener('pointermove', (e) => {
+  if (dragState) moveDragGhost(e.clientY);
+});
 
 async function submit() {
   const view = activeView();
