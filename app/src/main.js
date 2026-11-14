@@ -27,8 +27,13 @@ const { diffLines } = require('./diff');
 const { sessionDirName } = require('./session-paths');
 const { friendlyProviderError } = require('./provider-errors');
 const { createProviderKeyStore } = require('./provider-key');
+const { installSseErrorGuard } = require('./sse-error-guard');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
 
+// Some OpenAI-compatible gateways answer a streaming request with 200 and the
+// failure inside the SSE body; without this pi would wait forever for a turn
+// that already failed. Installed before any provider request can run.
+installSseErrorGuard();
 const { checkZroKey } = require('./zro');
 const { checkNvidiaKey } = require('./nvidia');
 const { checkTokenHarborKey } = require('./tokenharbor');
