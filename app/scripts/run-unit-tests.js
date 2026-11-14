@@ -19,6 +19,7 @@ const fs = require('node:fs');
  * those still run by hand (see .AGENT/HANDOFF.md).
  */
 const TESTS = [
+  'selftest-browser-autopilot.js',
   'selftest-browser-bridge.js',
   'selftest-browser-claims.js',
   'selftest-browser-extension.js',
