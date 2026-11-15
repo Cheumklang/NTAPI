@@ -1711,3 +1711,223 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - release body (สร้างจาก git log อัตโนมัติ): "โฆษณาเต็มกรอบและอยู่กึ่งกลาง sidebar" + "ชื่อผู้พัฒนาในหน้าตั้งค่าแสดงตามภาษาที่เลือก"
   (commit ที่ขึ้นต้น `internal:` ถูกกรองออกตามกฎ)
 - หมายเหตุ: ไม่มี `gh` ในเครื่อง → poll CI ด้วย GitHub API จาก `git credential fill`
+
+**NTAPI ADS: หน้าใหม่เป็น "การ์ดโฆษณา" + อัตราส่วน 9:16/กำหนดเอง (ผู้ใช้สั่ง 2026-11-17 · ทำต่อจากโมเดลก่อนที่ติด limit)**
+- โจทย์: โปรแกรมใช้ยาก + บั๊กพิมพ์ได้ทีละตัว · อยากได้หน้าใหม่ที่สวย มีพลัง ใส่โลโก้ NTAPI และกรอบหน้าต่างเหมือน NTAPI
+  · การ์ดเพิ่ม/ลบได้ แถวละ 4 ใบ · คลิกการ์ด → ตั้งค่าใบนั้น · 1:1, 2:1, 4:5, 9:16, กำหนดเอง · เริ่มด้วยสองช่องให้ตรวจ
+- **ตรวจก่อนแก้ (บทเรียนสำคัญ):** โมเดลก่อนหน้าเขียน `index.html`/`styles.css` ชุดใหม่ลงโปรเจกต์แล้ว แล้วติด limit กลางทาง
+  · ไฟล์ไม่มี `assets/logo.png` (แต่ HTML อ้างถึง) → เปลี่ยนเป็น SVG inline
+  · CSP ที่เขียนใหม่จำกัด `img-src 'self' data: blob:` → รูปพรีวิวจากฟีด (https CDN) จะถูกบล็อก · แก้เป็นเพิ่ม `https:`
+  · `app.js` ยังอ้าง element เก่าทั้งหมด (`#settings`, `#repoName`, `#previewNotes`, `.slot`) → ยืนยันว่าเขียนใหม่ทั้งไฟล์
+  · **ยืนยัน:** การเขียนทับไฟล์ที่โมเดลอื่นเริ่มไว้ต้องอ่านของจริงให้ครบก่อน ไม่ใช่ทำต่อจากความจำใน HANDOFF
+- **titlebar ของตัวเอง:** `frame: false` + `-webkit-app-region: drag` · ปุ่มย่อ/ขยาย/ปิด ผ่าน IPC `win:minimize`/`win:toggle-maximize`/`win:close`
+  · ใช้ `BrowserWindow.fromWebContents(e.sender)` (ไม่ใช่ตัวแปร `win` ตัวเดียว — ผิดเมื่อมีมากกว่าหนึ่งหน้าต่าง)
+- **แก้บั๊กพิมพ์ได้ทีละตัวที่ราก:** กระดาน (`renderBoard`) สร้างใหม่เฉพาะตอนจำนวนการ์ดเปลี่ยน
+  ระหว่างพิมพ์เขียนลง slot แล้ว repaint เฉพาะ preview + `.card-name` ของใบนั้น — เทสต์เช็ค `document.activeElement` ตรง ๆ
+- **อัตราส่วนกำหนดเอง — แก้ทั้งสองโปรแกรมพร้อมกัน (สัญญา `sponsor.json`):**
+  · `ADS/src/feed.js`: เพิ่ม `9:16` · `parseRatio()`/`ratioFromSides()` · ผ่อนจาก "ปิดตาย" เป็นรับ `w:h` ในช่วง
+    (ด้านละ ≤64 · สูง ≤2.5×กว้าง · กว้าง ≤5×สูง) นอกช่วง = 2:1 เหมือนเดิม
+  · `app/src/sponsor.js` + `app/src/renderer/app.js`: เพิ่ม `9:16` / `parseRatio` / `sponsorRatio()` อ่าน `w:h` ทั่วไปได้ (กัน NaN)
+  · **ไม่แตะ CSS ของ NTAPI** (`.sponsor-media` ยัง `max-height: 288px` + `cover`) → เทสต์ layout เดิมไม่กระทบ
+- เทสต์: `ADS npm test` 5 suites (selftest-feed เพิ่ม custom/ใน-นอกช่วง/กัน `__proto__`) · `ADS check:render` **39/39** · `app npm test` **62 scripts**
+  · check-render ตรวจ: การ์ดจากฟีด · คลิกเปิด drawer · preview 268px/2:1 · เพิ่มการ์ด · พิมพ์ไม่หลุด focus · ลากวางจริง → 1072×536 WebP
+    · กด 1:1 → 1072×1072 · เผยแพร่พา `ratio:'1:1'` · รีโหลดหลังเผยแพร่ → ปุ่ม active กลับมาเป็น `4:5` และกล่อง preview เป็น 4:5
+- **หมายเหตุ:** ภาพที่ harness เซฟเป็นเฟรมเก่า เพราะหน้าต่าง `show:false` ไม่ compose ใหม่ → หลักฐานจริงคือ DOM assertions
+- **ไม่ได้ทำ:** ยังไม่ทดสอบด้วยตาในโปรแกรมจริง · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS (คง `0.1.0`)
+- **กฎที่ทําได้ครบรอบนี้:** 1 เทิร์น = 1 bash call (รันทั้ง 3 สูทในคําสั่งเดียว + สรุป PASS/FAIL ท้ายสคริปต์) · 1 ไฟล์ = 1 edit call
+
+**ย้ายคอลัมน์เครื่องมือไปขวา (ผู้ใช้สั่งต่อ 2026-11-17)**
+- หลังผู้ใช้ดูหน้าใหม่แล้วบอกว่าชอบ แต่ขอ "ย้ายแท็บทั้งหมดที่อยู่ซ้ายไปอยู่ขวา"
+- แก้แค่ CSS ไม่แตะ DOM: `.shell` เปลี่ยนจาก `grid` → `display:flex; flex-direction:row-reverse`
+  · `.tools` ได้ `width/flex-basis: 296px` + เปลี่ยนเส้นคั่นเป็น `border-left` (เดิม `border-right`)
+  · `.board` ได้ `flex: 1 1 auto; min-width: 0` (แทน `minmax(0, 1fr)` ของ grid)
+  · media query ≤940px ย้ายจาก `.shell { grid-template-columns }` → `.tools { width/flex-basis: 260px }`
+- ทําไมเลือก `row-reverse` แทนสลับบล็อกใน HTML: งานเล็กกว่าและไม่เสี่ยงกับบล็อกยาว ~150 บรรทัด
+  (แลกกับ tab order ที่ยังเป็นเครื่องมือก่อนกระดาน — ยอมรับได้สําหรับเครื่องมือภายใน)
+- **เพิ่มเทสต์กันถอย 3 checks** ใน `check-render.js` (ตําแหน่งจริงจาก `getBoundingClientRect`):
+  เครื่องมืออยู่ขวาของกระดาน · ขวาสุดไม่ล้นจอ · กระดานกว้างกว่าเครื่องมือ
+- ผล: `ADS npm test` 5 suites · `ADS check:render` **42/42** (39 → 42) · ไม่ต้องรัน `app npm test` เพราะไม่แตะ NTAPI
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
+
+**ชื่อการ์ดอยู่ระนาบเดียวกันทุกใบ (ผู้ใช้สั่งต่อ 2026-11-17 · เลือกแบบ A)**
+- ผู้ใช้ส่งภาพมาวงแดง 2 จุด (ซ้าย = การ์ด 1:1 · ขวา = การ์ด 4:5) แล้วบอกว่าชอบแบบขวาที่ชื่ออยู่ต่ำกว่า
+  · ให้ความชัดเจนภายหลังว่า: "เวลาเราหาข้อมูลหรือมองด้วยตัวข้อความ มันจะอยู่ระนาบเดียวกันทั้งหมด"
+  → คืออยากให้ **ชื่อการ์ดทุกใบอยู่บรรทัดล่างเดียวกัน** ไม่ว่าไฟล์จะสูงเตี้ยแค่ไหน (A)
+- **ถามก่อนแก้ (ตามที่ผู้ใช้ขอ):** เสนอ 2 ทาง — A ข้อความติดขอบล่างแต่รูปคงสัดส่วนเดิม / B ยืดรูปให้เต็มพื้นที่
+  โดยชี้ว่า B จะครอปเกินสัดส่วนที่ผู้ใช้ตั้งไว้ · ผู้ใช้ตอบ "A"
+- แก้แค่ CSS: `.card-body { margin-top: auto }` (การ์ดเป็น flex column + grid ยืดทุกใบสูงเท่ากันอยู่แล้ว)
+  · `.card-meta { flex-wrap: nowrap; overflow: hidden }` + `.badge { flex: 0 0 auto }` กันป้ายขึ้นบรรทัดที่สอง
+    (ถ้าขึ้น 2 บรรทัด การ์ดใบนั้นชื่อจะสูงกว่าเพื่อน ระนาบเสีย — max 3 ป้ายต่อใบที่ความกว้างจริงยังพอดี)
+- **เทสต์กันถอย 4 checks** (`check-render.js`): ใช้การ์ด 2 ใบที่สัดส่วนต่างกันจริง (2:1 จากฟีด กับ 1:1 ที่เพิ่งตั้ง)
+  — บรรทัดล่างของ `.card-name` ตรงกัน ±1px · รูปเตี้ยดันชื่อลง (gap > 40px) · ทุกชื่ออยู่ติดขอบล่างการ์ด (≤ 45px)
+- ผล: `ADS npm test` 5 suites · `ADS check:render` **46/46** (42 → 46) · ไม่ต้องรัน `app npm test` (ไม่แตะ NTAPI)
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
+
+**"กำหนดเอง" เป็นป๊อปอัป + stepper สไตล์โปรแกรม (ผู้ใช้สั่งต่อ 2026-11-17)**
+- ผู้ใช้: "ปุ่มกำหนดเอง(ขนาด) อยากให้กดแล้วมี pop-up เด้งขึ้นมาให้ใส่ขนาดแทน ... อันเก่ามันเปิดไว้ตลอดแม้ไม่ได้กด
+  มันดูไม่สวย และปุ่มปรับขึ้นลงทำให้ดูสวยเข้าธีมของโปรแกรมมากกว่านี้"
+- **รากของความไม่สวย:** ช่อง กว้าง×สูง ถูกวาดค้างใน `#fields` ทุกครั้งที่เปิดการ์ด และเป็น `input[type=number]`
+  เปล่า ๆ → Chromium โชว์ลูกศร native สีเทาเล็ก ๆ ที่ไม่เข้าธีม
+- แก้: ลบ `customWrap`/`setCustom`/`onCustom` ออกจาก `ratioRow()` → ปุ่ม "กำหนดเอง" เรียก `openSizeDialog(slot, opener)`
+  · ไดอะล็อกสร้างด้วย JS ต่อท้าย `document.body` (z-index 60 เหนือ drawer 40) · ค่าเริ่มต้น 3:2
+  · มีตัวอย่างขนาดจริงสด ๆ · นอกช่วง = ปุ่มยืนยันดับ + บอกเหตุผลในไดอะล็อก (เดิมใช้ `setStatus` ที่มุมล่างซ้าย)
+  · ปิด 3 ทาง: ✕ · scrim · Escape — และ Escape ต้องปิดไดอะล็อกก่อน drawer (แก้ handler ให้มีลําดับ)
+  · `stepperRow()` สร้าง −/input/+ เอง + ซ่อน native spinner ของ `input[type=number]` **ทุกตัว** ในไฟล์
+  · `.step-btn` ปรับใหม่: พื้น gradient · hover เป็น accent · active ขยับลง 1px (ใช้ร่วมกับ stepper ของ "หมุนเวียนทุก")
+- **เทสต์กันถอย 7 checks** (`check-render.js`): ช่องขนาดไม่ค้างใน editor · กดแล้วไดอะล็อกเปิด · 1:20 ถูกปฏิเสธ+ไดอะล็อกยังเปิด
+  · 3:2 ยืนยันแล้วไดอะล็อกปิด · ปุ่ม active = `custom` · `#frameSize` ขึ้น `3:2`
+- ผล: `ADS npm test` 5 suites · `ADS check:render` **53/53** (46 → 53) · ไม่ต้องรัน `app npm test`
+- **บทเรียน:** ฟอร์มที่แสดงตลอดเวลาสำหรับค่าที่กรอกครั้งเดียว = เสียงรบกวนทางสายตา → ย้ายเข้าไดอะล็อก
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
+
+**preview ในแผงแก้ไขต้องอยู่กลาง ไม่ใช่ชิดซ้าย (ผู้ใช้สั่งต่อ 2026-11-17)**
+- ผู้ใช้: "เวลากดเข้าไปในการ์ด วิดีโอหรือภาพที่เป็นตัวอย่าง อยากให้ขยับมาอยู่ตรงกลาง ... ตอนนี้มันออกซ้ายไปหน่อย"
+- ราก: `.preview` กว้าง 268px อยู่ใน `.drawer-body` กว้าง ~402px และ `align-items: stretch`
+  → กล่องชิดซ้าย เหลือที่ว่าง 134px อยู่ข้างขวา
+- แก้ CSS 2 จุด: `.preview { margin-inline: auto }` + `.preview-note { text-align: center }`
+  (ตัวเลขใต้กรอบเขยิบตามกรอบ ไม่ปล่อยให้ชิดซ้ายคนละทาง)
+- **เทสต์กันถอย 1 check:** เทียบช่องว่างซ้าย/ขวาของ `#frameMedia` กับ `#editorBody` ต่างกัน ≤ 1px
+- **สองบทเรียนจากการรอบนี้:**
+  1. **วัดผิดเองรอบแรก:** ใช้ `getBoundingClientRect().right` ของ `#editorBody` → ได้ 76/86 แล้ว FAIL
+     เพราะ drawer มี scrollbar 10px · ที่ถูกคือ `box.left + body.clientWidth` (ไม่นับ scrollbar)
+     → ของจริงอยู่กลางอยู่แล้ว ผิดที่เทปวัด
+  2. **กับดักที่สำคัญกว่า:** `electron scripts/check-render.js` คืน exit code 0 แม้ harness ตั้ง `process.exitCode = 1`
+     → สคริปต์สรุปของผมขึ้น PASS ทั้งที่ผลคือ `1/54 checks FAILED`
+     · แก้สคริปต์สรุปให้ grep `checks FAILED` ใน output ด้วย ไม่ดูแค่ rc
+     · **ต้องจํา:** อย่าตัดสิน pass/fail จาก exit code ของ electron อย่างเดียว ต้องอ่าน output
+- ผล: `ADS npm test` 5 suites · `ADS check:render` **54/54** (53 → 54)
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
+
+**ปุ่ม "สร้าง / ดู token ของ GitHub" ทำให้เป็นปุ่มจริง (ผู้ใช้สั่งต่อ 2026-11-17)**
+- ผู้ใช้: "ปุ่ม สร้าง / ดู Token ของ GitHub อยากให้ทำเป็นปุ่มกดสวยกว่านี้"
+- เดิม `.link-btn` = ลิงก์ข้อความล้วน (ไม่มีขอบ ไม่มีพื้น อยู่ชิดซ้าย) → ดูเหมือนข้อความ ไม่เหมือนปุ่ม
+- ใหม่: เต็มความกว้าง · ขอบ accent จาง · พื้น gradient ม่วงอ่อน · hover สว่างขึ้น + เงา accent
+  · active กดลง 1px · `:focus-visible` outline · ไอคอนโซ่ซ้าย + **ลูกศรออกขวา** (`margin-left:auto`, opacity .6 → 1 ตอน hover)
+  · เพิ่ม `title` + ห่อข้อความด้วย `<span>` · ยังเรียก `api.openExternal` ผ่าน bridge (ไม่ใช่ `<a>`)
+- **เทสต์กันถอย 2 checks** (`check-render.js`):
+  · ต้องเป็น `<button>` เต็มความกว้าง มีลูกศร สูง ≥ 26px (จับได้ถ้ามีคนเปลี่ยนกลับเป็นลิงก์)
+  · คลิกแล้ว stub `shell:open` ต้องได้ `https://github.com/settings/personal-access-tokens...`
+- **ข้อผิดพลาดของผมในรอบนี้ (บันทึกไว้):** หลังแก้ CSS ผมรันเทสต์แล้วพิมพ์ในคําตอบว่า "ตรวจ geometry"
+  ทั้งที่ในสคริปต์มีแค่ `echo` เปล่า ๆ — เป็นการอ้างเกินหลักฐาน จึงเพิ่มเช็คจริงแล้วรันซ้ำ (54 → 56)
+- ผล: `ADS npm test` 5 suites · `ADS check:render` **56/56**
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
+
+**NTAPI: ข้อความ 503 ค้าง 2 อัน หลังเซิร์ฟเวอร์กลับมาปกติ (ผู้ใช้แจ้ง 2026-11-17)**
+- ผู้ใช้ส่งข้อความจริงมา 2 อัน: `Retrying (1/3): 503: {"message":"The service is busy..."}`
+  และ `Error: The service is busy right now... (HTTP 503 · service_busy) (HTTP 503 · service_busy)`
+  แล้วบอกว่า "เด้งขึ้นมาแล้วค้างอยู่แบบนั้นทั้ง ๆ ที่ใช้งานได้ปกติแล้ว"
+- **สาเหตุ 1 (ค้าง):** `api.onNotice` → `showNotice(p.text)` ไม่ส่ง `ms` → ไม่มี timer
+  และไม่มีใครล้างเมื่อเทิร์นจบ (เดิมมีแค่ `api.onError` ที่ `showNotice(null)` และเฉพาะแท็บที่ active)
+  · แก้: `let noticeIsRetry` · `onNotice` ตั้ง `noticeIsRetry = p.key === 'notice.retrying'` + ให้เพดาน 10 วิ
+  · `onSettled` ล้าง: `if (payloadTabIsActive(view) && noticeIsRetry) showNotice(null)` · `showNotice(null)` reset flag
+- **สาเหตุ 2 (suffix ซ้ำ):** `friendlyProviderError()` คืน `text` ที่มี `(HTTP 503 · service_busy)` ต่ออยู่แล้ว
+  (และเทสต์เดิม lock ไว้: `badKey.text.includes('HTTP 401')`) แต่ `api.onError` เติม suffix ซ้ำ
+  · แก้: `const suffix = p.key && p.status ? ... : ''` — เฉพาะประโยคแปลที่ยังไม่มี suffix
+- **ปรับเพิ่ม:** `auto_retry_start` ใน main เปลี่ยนจาก `${event.errorMessage}` เป็น `friendlyProviderError(...).text`
+  → notice ไม่โชว์ JSON ดิบอีก
+- **เทสต์ใหม่:** `app/scripts/selftest-retry-notice.js` (9 checks) + ลงทะเบียนใน `run-unit-tests.js`
+  · ใช้ทั้งการเทสต์ pure module และ source-level regex (ตามแบบ `selftest-sponsor-refresh.js`)
+- ผล: `app npm test` → **63 scripts ผ่าน**
+- **ข้อควรระวังที่เจอระหว่างทาง:** `electron scripts/check-render.js` ของ ADS คืน exit code 0 แม้เทสต์ล้ม
+  → สคริปต์สรุปต้อง grep `checks FAILED` ใน output ด้วย
+
+**NTAPI ADS: กดปิดเสียงแล้วยังดัง (ผู้ใช้แจ้ง 2026-11-17)**
+- ผู้ใช้: "ลองเปิดฟังแล้วกดปิด แต่ยังดังอยู่"
+- **สาเหตุจริง:** `HTMLMediaElement` ที่ถูกถอดออกจาก document **ยังเล่นต่อ**
+  · `paintPreview()` เรียก `host.replaceChildren()` ทุกครั้ง (รวมทุกคีย์ที่พิมพ์ชื่อ) → ทิ้ง `<video>` ที่ยังดัง
+  · ผลคือ mute ไปโดน element ใหม่ที่เงียบอยู่ ส่วนตัวเก่ายังเล่นเป็นเสียงผี
+- **สาเหตุร่วม:** ป้ายชิปผูกกับ *สถานะ* ไม่ใช่ *การกระทำ* — ตอนเงียบเขียน "ปิดเสียง" กดแล้วเปิดเสียง (ตรงข้ามกับคํา)
+- แก้: `releaseVideos(root)` = `pause()` + `removeAttribute('src')` + `load()` เรียกก่อน `replaceChildren()`
+  ทั้ง `paintPreview` และ `paintCardThumb` · `applyMuteNow()` mute ของที่อยู่บนจอโดยไม่ rebuild
+  · `paintPreviewText()` แยกจาก `paintPreview()` → พิมพ์ชื่อไม่รีสตาร์ทคลิป
+  · ชิป: `state.mutePreview ? 'เปิดเสียง' : 'ปิดเสียง'` + `aria-pressed` · index.html ตั้งต้นเป็น "เปิดเสียง"
+  · วิดีโอสร้างแบบ muted แล้ว unmute เมื่อ event `playing` (ตั้ง `muted = false` ก่อน play → Chromium บล็อก autoplay)
+- **เทสต์ใหม่ 7 checks** (`check-render.js`) — ใช้ `<video>` ปลอมที่ override `pause()` เพื่อพิสูจน์ว่า
+  ตัวที่ถูกทิ้งถูก pause จริง, toggle ไม่สร้าง element ใหม่, ป้ายเป็น "เปิดเสียง", และ element ถูกถอดออก
+- ผล: `ADS npm test` 5 suites · `ADS check:render` **63/63** (56 → 63)
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
+
+**ADS ปุ่มเสียง รอบสอง — ผู้ใช้บอกยังไม่หาย (2026-11-17)**
+- ผู้ใช้: "NTAPI ADS ยังไม่หายนะคับ" → รอบแรกแก้ mute ของพรีวิว แต่ต้นเหตุจริงอีกอันคือ **การปิดแผง**
+- **ต้นเหตุจริง:** `closeEditor()` แค่ `$('drawer').hidden = true`
+  · media element ไม่หยุดเมื่อ ancestor เป็น `display:none` → คลิปเล่นต่อ
+  · ชิปเสียงอยู่ในแผง → หายไปพร้อมแผง → เหลือเสียงที่ไม่มีปุ่มให้กดปิด
+  · คําว่า "กดปิด" ของผู้ใช้คือปุ่มปิด (✕) ไม่ใช่ชิปเสียง — ผมตีความรอบแรกแคบไป
+- แก้: `closeEditor()` → `releaseVideos($('frameMedia'))` + `replaceChildren()`
+  · `paintCardThumb()` → `video.muted = true` ตรง ๆ (ไม่พึ่ง content attribute อย่างเดียว)
+  · `applyMuteNow()` → เมื่อ mute ให้ mute `<video>` ทุกตัวในหน้าต่าง (ตาข่ายกันเสียงหลุด)
+- **เทสต์เพิ่ม 3 checks** (`check-render.js`) —— ใช้ probe `<video>` ที่ override `pause()`:
+  ปิดแผงแล้วคลิปถูก pause · ไม่มี media ค้างใน preview · `#drawer` ถูกซ่อนจริง
+- ผล: `ADS npm test` 5 suites · `ADS check:render` **66/66** (63 → 66)
+- **บทเรียน (สำคัญ):** อาการ "กดปิดแล้วยังดัง" ต้องถามให้ชัดว่าปุ่มไหน — "ปิด" ของผู้ใช้อาจหมายถึงปิดทั้งหน้าต่าง
+  ไม่ใช่ปิดเสียง · ครั้งหน้าถ้าเป็น UI ที่มีหลายปุ่มคําเดียวกัน ให้ยืนยันก่อนแก้
+- **ผู้ใช้ยืนยันแล้ว 2026-11-17:** "ผ่านแล้วคับโอเคแล้ว" — เสียงหายจริง
+- ค้าง: ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
+
+**NTAPI: session item ที่ตั้งสีแล้วกรอบซ้อนกัน (ผู้ใช้แจ้ง 2026-11-17)**
+- ผู้ใช้: "session item ด้วยความที่มันมีกรอบสีม่วงอยู่แล้ว พอเราใส่สีเข้าไป มันดันไปซ้อนกัน"
+  (เป็นคิวถัดจากเรื่อง sidebar ที่ยังไม่ได้ลงมือ — แจ้งผู้ใช้แล้ว)
+- **ต้นเหตุจริง:** ขอบซ้ายของแถวเดียวกันถูกวาด 3 ชั้น
+  1. `.session-item.active` → `border-color: rgba(124,92,255,.8)` รอบทั้งแถว (กรอบม่วง)
+  2. `.session-item[data-color]` → `border-left: 4px solid var(--swatch)` (แถบสี)
+  3. `.session-item[data-color].active` → `box-shadow: inset 0 0 0 1px var(--swatch)` (วงในอีกชั้น)
+- แก้ CSS: แถวที่มีสี → `border-top/right/bottom-color: transparent` + ตัด inset ring ออก
+  · คง `border-left: 4px` + `padding-left: 6px` (ระยะข้อความ 10px เท่าเดิม) → ข้อความยังตรงคอลัมน์
+  · gradient + เงายังบอก active อยู่
+- **เทสต์ใหม่ 2 checks** (`selftest-session-marks-ui.js`): ไม่มีกรอบม่วงเหลือ + ไม่มีวงที่สองในแถวสี
+- ผล: `app npm test` **63 scripts ผ่าน** · `check-session-marks` ผ่านทุกข้อ
+- **บทเรียน (ตัวตรวจจริงของผมเอง):** สคริปต์สรุปใช้ `grep -E 'FAIL|failed'` กับ output ทั้งก้อน
+  → ขึ้น FAIL ทั้งที่ทุกอย่างผ่าน เพราะ **ชื่อเทสต์มีคําว่า "failed"** (เช่น "PASS a failed turn is dropped")
+  · ต้องดูบรรทัดสรุปท้าย (`PASS: all N scripts passed`) ไม่ใช่ grep คําเดี่ยว
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน
+
+**NTAPI: โฆษณาวิดีโอ 9:16 ไม่ยอมปรับขนาด (ผู้ใช้แจ้ง 2026-11-17)**
+- ผู้ใช้: "ใส่โฆษณาด้วย video แล้วตั้งเป็น 9:16 NTAPI ไม่ยอมปรับขนาดให้ รอมาสักพักแล้ว"
+- **ตรวจของจริงก่อนแก้:** ดึง `sponsor.json` จาก raw (cache-busted) → `t1 | video | ratio "9:16" | media/t1.mp4`
+  + `ads | image | 1:1` → ฟีดถูก, การเผยแพร่ถูก, ไม่ใช่ปัญหา cache
+- **ต้นเหตุ:** `.sponsor-media` ใช้ `width:100%` + `aspect-ratio` (ตั้ง inline เป็น 0.5625) + **`max-height: 288px`**
+  · `max-height` บีบเฉพาะความสูง → 268×476 กลายเป็น 268×288 = สัดส่วน 0.93 ไม่ใช่ 9:16
+- แก้: เพดานอยู่ที่ความกว้างแทน
+  `width: min(100%, calc(var(--sponsor-cap, 480px) * var(--sponsor-r, 2)))` + `max-height: 480px`
+  · `paintSponsorMedia()` ตั้ง `--sponsor-r` = `sponsorReservedRatio()`
+  · เหตุผลที่ใช้ width cap: กล่องยังรักษาสัดส่วนได้ เมื่อสูงเกินเพดานมันจะแคบลง ไม่ใช่แบนลง
+- **เทสต์ใหม่ 6 checks** ใน `check-sponsor-layout.js` (รัน 2 ขนาดหน้าต่าง):
+  `TALL_SPONSOR` (slot เดียว 9:16) → สูงกว่ากว้าง · สัดส่วน = 16/9 ±0.06 · สูง > 400px
+- **วัดได้:** 270×480 (1.778) ทั้ง 1240×840 และ 900×560 · เดิม 268×288
+- ผล: `npm test` **63 scripts ผ่าน** · layout ผ่านหมด **ยกเว้น 1 ข้อที่ค้างมานาน**
+  (`each creative keeps its own shape, fitted not cropped` — เกิดจาก `object-fit: cover` ที่ผู้ใช้เลือกเอง)
+- **ค้างตัดสินใจ:** ฟีดจริงมี 1:1 + 9:16 ผสม → แถบจองที่ 9:16 ทำให้รูป 1:1 ถูกครอปแนวตั้ง
+  ทางเลือก: (ก) คง cover อย่างเดิม (ข) เปลี่ยนเป็น fit มีแถบดํา (ค) แยกกรอบต่อสล็อต
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน
+
+**NTAPI: ล็อค sidebar ไม่ให้ยืด/หด (ผู้ใช้สั่ง 2026-11-17 · เลือกแบบ A)**
+- ผู้ใช้: "อยากให้แก้ sidebar ให้ล็อคอยู่กับที่ ... ถ้าผู้ใช้งานขยับมันจะเปลี่ยนมุมมองที่ตั้งเอาไว้ของโฆษณา"
+  · ผมเสนอ A = ล็อคที่ความกว้างที่เห็นตอนนี้ (คํานวณจากข้อความยาวสุด) · B = ค่าคงที่ที่ระบุ
+  · ผู้ใช้ถามว่า "ใช่เลขเดียวกับที่ตั้งให้ย่นสุดได้ไหม" → ใช่ (305px) → **เลือก A**
+- **ถอดออก:** `#sidebarResizer` (HTML+CSS) · drag handler ทั้งชุด · `dblclick` (ตัวคั่น + พื้น sidebar) ·
+  คีย์ ←/→ · `Home` · `resetSidebarWidth()` · การเขียน prefs `sidebarWidth` · i18n `sidebarReset` (th/en) ·
+  `body.resizing` · ข้อความ settings hint ที่อ้างถึง sidebar width
+- **ของใหม่:** `applySidebarWidth()` ไม่รับ argument → `clamp(sidebarMinWidth())`
+  · `lockSidebarWidth()` เรียกตอนบูต + วัดใหม่เมื่อ resize / fonts.ready / สลับภาษา
+  · ค่า `prefs.sidebarWidth` เก่าถูกเมิน (ไม่ลบ — แค่ไม่เคยอ่าน)
+- **เหตุผลที่ต้องล็อค (สําหรับอนาคต):** `.sponsor-media` ครอปตามความกว้างคอลัมน์
+  → ความกว้างที่ต่างกัน = ครอปโฆษณาต่างกัน ⇒ กรอบโฆษณาต้องคงที่
+- **เทสต์เขียนใหม่ 2 ไฟล์ + แก้ 2 ไฟล์:**
+  · `selftest-sidebar-reset.js` เปลี่ยนจาก "reset+save" → "ถอดการลากแล้ว" (7 checks)
+  · `check-sidebar-reset.js` (`npm run check:sidebar`) → วัดจริง 7 checks (ไม่มีตัวลาก · 305 · call ไม่ขยับ · gesture ไม่ขยับ · note พอดี)
+  · `selftest-sidebar-min.js` (2 checks) · `check-sidebar-note.js` (เอา reset ออก, check ใหม่)
+- **ผลรอบแรกมี FAIL 2 จุด (ของผมเอง):** (1) assert `!app.includes('sidebarReset')` ยังเจอ i18n ที่ค้าง → ลบคีย์นั้นออก
+  (2) check ใหม่ผมอ่าน `out.before.cssVar` ที่ไม่มีใน object → แก้ให้ดู `after` อย่างเดียว
+- ผลสุดท้าย: `npm test` **63 scripts ผ่าน** · `check:sidebar` ผ่านหมด · `check-sidebar-note` ผ่านหมด
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน
+
+**โฆษณา 1:1 + 9:16 ผสมกัน — ผู้ใช้เลือก ก (2026-11-17)**
+- ผมเสนอ 3 ทาง (ก คง cover / ข fit มีแถบ / ค แยกกรอบต่อสล็อต) · ผู้ใช้ตอบ "ก ดีฟ่า 555 แต่มันยุ่งยาก
+  เพราะแบบนี้มันสมส่วนดีแล้ว" → **คง cover** ไม่เพิ่มความซับซ้อน
+- **ปิด FAIL ค้างที่สําคัญ:** `check-sponsor-layout.js` เดิม assert "each creative keeps its own shape,
+  fitted not cropped" → ขัดกับ `object-fit: cover` ที่ผู้ใช้สั่งไว้ตั้งแต่ต้น ทำให้แดงค้างมาหลายรอบ
+  · แก้ที่ **เทสต์** (ไม่ใช่ที่หน้าตา): เปลี่ยนชื่อเป็น "every creative fills the reserved band, cropped on purpose"
+    และยืนยันว่าทั้งสองใบใช้สัดส่วนที่จองไว้ (0.8)
+  · **บทเรียน:** check ที่ "แดงค้างเพราะผู้ใช้เลือกอย่างอื่น" ต้องอัปเดตให้ตรงการตัดสินใจ ไม่ใช่ปล่อยไว้
+    — ไม่งั้น suite จะมี FAIL ถาวรและไม่มีใครเชื่อมันอีก
+- ผล: `check-sponsor-layout` **59 checks ผ่านหมด** · `npm test` 63 scripts
