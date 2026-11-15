@@ -734,6 +734,10 @@ function publishPayload() {
       url: slot.url,
       media: {
         type: slot.media.type,
+        // The frame the operator picked. Without it the feed says nothing about
+        // the shape and every reader falls back to 2:1, so a 1:1 creative was
+        // published inside a 2:1 band no matter what the dropdown showed.
+        ratio: slot.media.ratio,
         alt: slot.alt || slot.text.th.title,
         ...(slot.media.base64 ? { base64: slot.media.base64 } : {}),
         ...(slot.media.sourcePath ? { sourcePath: slot.media.sourcePath } : {}),

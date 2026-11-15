@@ -196,6 +196,30 @@ async function main() {
   const previewAfter = await js(`document.getElementById('frameTitle').textContent`);
   expect('preview still follows the selected slot', previewAfter.startsWith('ก'), previewAfter.slice(0, 12));
 
+  // ---- switching the frame re-crops, and the choice has to reach the feed.
+  // A 1:1 creative published without its ratio came back as a 2:1 band: the
+  // dropdown said square, the feed said nothing, and every reader defaulted to
+  // 2:1. The payload check below is the one that would have caught it.
+  await js(`(() => {
+    const card = document.querySelectorAll('.slot')[1];
+    const select = card.querySelector('select');
+    const option = [...select.options].find((o) => o.value === '1:1');
+    if (!option) return false;
+    select.value = '1:1';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const square = await waitFor(async () => {
+    const out = await js(`(() => {
+      const card = document.querySelectorAll('.slot')[1];
+      const note = card && card.querySelector('.media-note');
+      const img = card && card.querySelector('.drop img');
+      return { note: note ? note.textContent : '', src: img ? img.src.slice(0, 22) : '' };
+    })()`);
+    return out.note.includes('1072×1072') ? out : null;
+  }, 6000);
+  expect('switching to 1:1 re-crops the creative square', Boolean(square), 'no 1072×1072 crop');
+
   // ---- publish must send the cropped bytes, not the original file.
   // The slot needs a click-through first: a sponsor with no link is refused.
   await js(`(() => {
@@ -214,6 +238,8 @@ async function main() {
     expect('publish sends cropped image bytes', Boolean(slot && slot.media.base64 && slot.media.base64.length > 100));
     expect('publish never sends the browser File object', Boolean(slot && slot.media.file === undefined));
     expect('publish carries the rotate interval', sent.rotateSeconds === 15, String(sent.rotateSeconds));
+    expect('publish carries the chosen frame ratio', slot && slot.media.ratio === '1:1',
+      slot ? String(slot.media.ratio) : 'no slot');
   }
 
   expect('no console errors after interactions', errors.length === 0, errors.join(' | '));
