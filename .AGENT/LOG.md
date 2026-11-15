@@ -1307,3 +1307,14 @@ strip คืน appendChild → FAIL 3
 · `check-sponsor-layout` ผ่าน (mixed ratios heights `[271,271]` ratios `[2,0.8]` reserved `0.8 / 1`)
 
 **ปลายทาง:** `Cheumklang/NTAPI-sponsor` มี 3 สล็อต (2:1 / 1:1 / 4:5) หมุน 8 วิ · ตรวจแล้ว `fetchFeed()` อ่านได้จริงจาก raw
+
+## 2026-11-16 · แก้ launcher ของ NTAPI ADS (cmd ค้าง / ปิดแล้วโปรแกรมดับ)
+
+**อาการ:** เปิด `NTAPI ADS.bat` แล้วมีหน้าต่าง cmd ค้างอยู่ ปิดมัน = โปรแกรมดับตาม
+**สาเหตุ:** `start "" /min cmd /c "npm start"` ทำให้ electron เป็นลูกของ cmd นั้น + npm อีกชั้น
+**แก้:** เรียก `node_modules\electron\dist\electron.exe .` ผ่าน `start ""` ตรง ๆ → cmd ปิดทันที โปรแกรมไม่ดับ
+- เพิ่ม `NTAPI ADS.vbs` (ทางลัดเงียบสนิท ไม่มีหน้าต่างดำ)
+- ตรวจ bravery จริง: รัน bat ด้วย `APPDATA` แยก → bat คืนค่า 0 ทันที และ electron ยังอยู่ 4 process
+- **บทเรียน:** ไฟล์ `.bat` ต้อง ASCII ล้วน — ข้อความไทยทำให้ `cmd` อ่านไบต์ไปชนตัวคั่นคำสั่ง
+  แล้วพังด้วย "was unexpected at this time" (ย้ายคำอธิบายไทยไป `README.md`)
+- เทสต์ใหม่ `scripts/selftest-launcher.js` (6 checks) ลงทะเบียนใน `run-unit-tests.js` → ADS `npm test` 5/5 ไฟล์

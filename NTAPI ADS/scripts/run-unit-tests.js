@@ -17,6 +17,7 @@ const TESTS = [
   'selftest-media.js',
   'selftest-github.js',
   'selftest-config.js',
+  'selftest-launcher.js',
 ];
 
 const scriptsDir = __dirname;
