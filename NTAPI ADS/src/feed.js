@@ -20,17 +20,38 @@
  * changes height while it rotates — a banner that resizes every 15 seconds would
  * shove the whole conversation up and down.
  *
- * The list is closed on purpose: an open ratio would let one bad file claim a
- * 400px-tall band and eat the session list.
+ * The presets are the common cases. A custom frame is allowed too, but only
+ * inside `RATIO_*` bounds: an open ratio would let one bad file claim a 400px
+ * band and eat the session list, so anything outside the band is 2:1.
  */
-const RATIO_ORDER = ['2:1', '16:9', '1:1', '4:5'];
+const RATIO_ORDER = ['2:1', '16:9', '1:1', '4:5', '9:16'];
 const RATIOS = {
   '2:1': [2, 1],
   '16:9': [16, 9],
   '1:1': [1, 1],
   '4:5': [4, 5],
+  '9:16': [9, 16],
 };
 const DEFAULT_RATIO = '2:1';
+
+/** A custom frame: integers up to 64 a side, never taller than 2.5x its width. */
+const RATIO_SIDES_MAX = 64;
+const RATIO_TALL_MAX = 2.5;
+const RATIO_WIDE_MAX = 5;
+
+/** `[w, h]` for a preset or a legal custom `"w:h"`; null when out of band. */
+function parseRatio(value) {
+  const key = String(value === null || value === undefined ? '' : value).trim();
+  if (Object.prototype.hasOwnProperty.call(RATIOS, key)) return RATIOS[key].slice();
+  const match = /^(\d{1,3}):(\d{1,3})$/.exec(key);
+  if (!match) return null;
+  const w = Number(match[1]);
+  const h = Number(match[2]);
+  if (!w || !h || w > RATIO_SIDES_MAX || h > RATIO_SIDES_MAX) return null;
+  const tall = h / w;
+  if (tall > RATIO_TALL_MAX || tall < 1 / RATIO_WIDE_MAX) return null;
+  return [w, h];
+}
 
 /**
  * Encoded media is 2x the frame so it stays sharp on a HiDPI laptop while the
@@ -41,12 +62,22 @@ const FRAME_LONG = 536;
 const MEDIA_LONG = FRAME_LONG * 2;
 
 function ratioOf(value) {
-  const key = String(value || '').trim();
-  return Object.prototype.hasOwnProperty.call(RATIOS, key) ? key : DEFAULT_RATIO;
+  const key = String(value === null || value === undefined ? '' : value).trim();
+  if (Object.prototype.hasOwnProperty.call(RATIOS, key)) return key;
+  return parseRatio(key) ? key : DEFAULT_RATIO;
+}
+
+/** `"3:2"` from two numbers the operator typed; null when it is out of band. */
+function ratioFromSides(w, h) {
+  const width = Math.round(Number(w));
+  const height = Math.round(Number(h));
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  const key = `${width}:${height}`;
+  return parseRatio(key) ? key : null;
 }
 
 function sizeFor(ratioName, longEdge) {
-  const [w, h] = RATIOS[ratioOf(ratioName)];
+  const [w, h] = parseRatio(ratioOf(ratioName));
   return w >= h
     ? { w: longEdge, h: Math.round((longEdge * h) / w) }
     : { w: Math.round((longEdge * w) / h), h: longEdge };
@@ -286,7 +317,12 @@ module.exports = {
   RATIO_ORDER,
   RATIOS,
   DEFAULT_RATIO,
+  RATIO_SIDES_MAX,
+  RATIO_TALL_MAX,
+  RATIO_WIDE_MAX,
+  parseRatio,
   ratioOf,
+  ratioFromSides,
   frameSize,
   mediaSize,
   MAX_IMAGE_BYTES,

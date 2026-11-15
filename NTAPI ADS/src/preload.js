@@ -24,13 +24,24 @@ contextBridge.exposeInMainWorld('ads', {
   fetchMedia: (url) => ipcRenderer.invoke('media:fetch', String(url || '')),
   publish: (payload) => ipcRenderer.invoke('publish', payload),
   openExternal: (url) => ipcRenderer.invoke('shell:open', String(url || '')),
+  // Frameless window: the custom caption bar drives these.
+  winMinimize: () => ipcRenderer.send('win:minimize'),
+  winToggleMaximize: () => ipcRenderer.send('win:toggle-maximize'),
+  winClose: () => ipcRenderer.send('win:close'),
 });
 
 contextBridge.exposeInMainWorld('adsRules', {
   frame: { w: feed.FRAME_W, h: feed.FRAME_H, mediaW: feed.MEDIA_W, mediaH: feed.MEDIA_H },
   ratios: feed.RATIO_ORDER,
   defaultRatio: feed.DEFAULT_RATIO,
+  parseRatio: (value) => feed.parseRatio(value),
   ratioOf: (value) => feed.ratioOf(value),
+  ratioFromSides: (w, h) => feed.ratioFromSides(w, h),
+  ratioBounds: {
+    sidesMax: feed.RATIO_SIDES_MAX,
+    tallMax: feed.RATIO_TALL_MAX,
+    wideMax: feed.RATIO_WIDE_MAX,
+  },
   frameSize: (ratio) => feed.frameSize(ratio),
   mediaSize: (ratio) => feed.mediaSize(ratio),
   limits: {

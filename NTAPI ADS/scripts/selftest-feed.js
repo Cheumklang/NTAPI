@@ -153,20 +153,36 @@ check('the reader base is https on both hosts', () => {
 
 /* ------------------------------ frame ratios ------------------------------ */
 
-check('only the four agreed shapes are selectable', () => {
-  assert.deepStrictEqual(feed.RATIO_ORDER, ['2:1', '16:9', '1:1', '4:5']);
+check('the presets are the agreed shapes, plus room for a custom frame', () => {
+  assert.deepStrictEqual(feed.RATIO_ORDER, ['2:1', '16:9', '1:1', '4:5', '9:16']);
   for (const name of feed.RATIO_ORDER) {
     assert.ok(feed.frameSize(name).w > 0, name);
   }
 });
 
-check('an unknown ratio falls back to 2:1, never to something arbitrary', () => {
-  assert.strictEqual(feed.ratioOf('3:1'), feed.DEFAULT_RATIO);
+check('a custom ratio is kept only inside the band a sidebar can survive', () => {
+  // In band: kept exactly, so the operator's 3:2 is published as 3:2.
+  assert.strictEqual(feed.ratioOf('3:2'), '3:2');
+  assert.deepStrictEqual(feed.parseRatio('3:2'), [3, 2]);
+  assert.strictEqual(feed.ratioOf('9:16'), '9:16');
+  // Too tall, too wide, or nonsense: back to 2:1, never something arbitrary.
+  assert.strictEqual(feed.ratioOf('1:20'), feed.DEFAULT_RATIO);
+  assert.strictEqual(feed.ratioOf('20:1'), feed.DEFAULT_RATIO);
+  assert.strictEqual(feed.ratioOf('0:5'), feed.DEFAULT_RATIO);
+  assert.strictEqual(feed.ratioOf('abc'), feed.DEFAULT_RATIO);
   assert.strictEqual(feed.ratioOf(''), feed.DEFAULT_RATIO);
   assert.strictEqual(feed.ratioOf(undefined), feed.DEFAULT_RATIO);
-  assert.strictEqual(feed.ratioOf('1:1'), '1:1');
-  // Prototype keys must not sneak through `in`-style lookups.
+  // Prototype keys must not sneak through an `in`-style lookup.
   assert.strictEqual(feed.ratioOf('toString'), feed.DEFAULT_RATIO);
+  assert.strictEqual(feed.parseRatio('__proto__'), null);
+});
+
+check('ratioFromSides round-trips two typed numbers', () => {
+  assert.strictEqual(feed.ratioFromSides(3, 2), '3:2');
+  assert.strictEqual(feed.ratioFromSides('16', '9'), '16:9');
+  assert.strictEqual(feed.ratioFromSides(1, 20), null);
+  assert.strictEqual(feed.ratioFromSides(0, 5), null);
+  assert.strictEqual(feed.ratioFromSides('a', 2), null);
 });
 
 check('every frame keeps its shape and its long edge', () => {
@@ -175,6 +191,7 @@ check('every frame keeps its shape and its long edge', () => {
     '16:9': [1072, 603],
     '1:1': [1072, 1072],
     '4:5': [858, 1072],
+    '9:16': [603, 1072],
   };
   for (const [name, [w, h]] of Object.entries(expected)) {
     const size = feed.mediaSize(name);

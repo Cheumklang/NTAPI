@@ -5,12 +5,16 @@
  *
  * Two rules shape this file:
  *
- * 1. Nothing is validated here that could be validated in `media.js` — the caps
- *    and the crop maths come across the bridge. This file only decides *when*
- *    to ask.
- * 2. A slot is never re-rendered while the operator is typing in it. Every text
- *    field writes straight into the slot object and repaints only the preview,
- *    because rebuilding the list on each keystroke steals the caret mid-word.
+ * 1. Nothing is validated here that could be validated in `media.js`/`feed.js` —
+ *    the caps, the crop maths and the ratio bounds come across the bridge. This
+ *    file only decides *when* to ask.
+ * 2. The board is only rebuilt when the list changes. Typing in the editor
+ *    writes straight into the slot object and repaints the preview and that one
+ *    card's title, because rebuilding the board on each keystroke would steal
+ *    the caret mid-word — the bug this rewrite exists to remove.
+ *
+ * The board is the list of creatives (four to a row); the drawer on the right is
+ * one creative's detail. They are separate views of the same `state.slots`.
  */
 
 const api = window.ads;
@@ -22,8 +26,9 @@ const $ = (id) => document.getElementById(id);
 const state = {
   cfg: null,
   rotateSeconds: LIMITS.defaultRotate,
+  mutePreview: true,
   slots: [],
-  selectedId: '',
+  openId: '',
   busy: false,
 };
 
@@ -34,7 +39,6 @@ function el(tag, props = {}, children = []) {
   for (const [key, value] of Object.entries(props)) {
     if (key === 'class') node.className = value;
     else if (key === 'text') node.textContent = value;
-    else if (key === 'html') node.innerHTML = value;
     else if (key.startsWith('on') && typeof value === 'function') {
       node.addEventListener(key.slice(2).toLowerCase(), value);
     } else if (value !== null && value !== undefined && value !== false) {
@@ -55,12 +59,12 @@ function bytesLabel(n) {
   return `${value} B`;
 }
 
+/** One status line in the tools column; `detail` is appended, never replaced. */
 function setStatus(kind, text, detail = '') {
-  const bar = document.querySelector('.statusbar');
+  const bar = $('status');
   bar.classList.remove('busy', 'ok', 'bad');
   if (kind) bar.classList.add(kind);
-  $('status').textContent = text;
-  $('statusDetail').textContent = detail;
+  bar.textContent = detail ? `${text} · ${detail}` : text;
 }
 
 const REASONS = {
@@ -70,7 +74,7 @@ const REASONS = {
   'video-too-big': `วิดีโอใหญ่เกิน ${bytesLabel(LIMITS.maxVideoBytes)}`,
   'video-too-long': `วิดีโอยาวเกิน ${LIMITS.maxVideoSeconds} วินาที`,
   'video-unreadable': 'เปิดวิดีโอไม่ได้',
-  'poster-too-big': 'ภาพปกวิดีโอใหญ่เกินกำหนด',
+  'poster-too-big': 'ภาพปกวิดีโอใหญ่เกินกําหนด',
 };
 
 function reasonText(reason) {
@@ -79,18 +83,23 @@ function reasonText(reason) {
 
 /* --------------------------------- model ---------------------------------- */
 
-/** The month is in the default id because NTAPI counts clicks per id. */
-function defaultId(offset = 0) {
+/**
+ * The month is in the default id because NTAPI counts clicks per id: reusing an
+ * id for a different sponsor would carry the old count over to them.
+ */
+function uniqueId() {
   const now = new Date();
   const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const base = `sponsor-${stamp}`;
   if (!state.slots.some((s) => s.id === base)) return base;
-  return `${base}-${state.slots.length + offset + 1}`;
+  let n = state.slots.length + 1;
+  while (state.slots.some((s) => s.id === `${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
 }
 
 function newSlot() {
   return {
-    id: defaultId(),
+    id: uniqueId(),
     enabled: true,
     url: '',
     alt: '',
@@ -104,6 +113,7 @@ function newSlot() {
       sourceBase64: '',
       sourceName: '',
       posterBase64: '',
+      poster: '',
       previewUrl: '',
       bytes: 0,
       width: 0,
@@ -128,25 +138,23 @@ function slotFromFeed(raw) {
   slot.media.file = raw.media.file;
   slot.media.poster = raw.media.poster || '';
   // The frame is part of the published creative, not a view preference: the file
-  // in the repo is already cropped to it. Dropping it here reset the dropdown to
-  // 2:1 the moment the feed was reloaded after a publish, so a 1:1 upload came
-  // back as a 2:1 band and the next publish would claim a square file was wide.
-  // Missing or unknown (older feeds) falls back to 2:1, same as the readers.
+  // in the repo is already cropped to it. Missing or unknown (older feeds) falls
+  // back to 2:1, same rule the reader uses.
   slot.media.ratio = R.ratioOf(raw.media && raw.media.ratio);
-  // `file` is a repo-relative path, so the preview renders from the CDN — the
-  // same bytes an installed NTAPI would fetch.
+  // `file` is repo-relative, so the preview renders from the CDN — the same bytes
+  // an installed NTAPI would fetch.
   slot.media.previewUrl = `${R.readBase[0]}${raw.media.file}`;
   slot.media.note = 'เผยแพร่อยู่ใน repo แล้ว';
   slot.media.noteKind = 'ok';
   return slot;
 }
 
-function selectedSlot() {
-  return state.slots.find((s) => s.id === state.selectedId) || null;
+function openSlot() {
+  return state.slots.find((s) => s.id === state.openId) || null;
 }
 
-function previewableSlots() {
-  return state.slots.filter((s) => s.enabled && (s.media.previewUrl || s.media.base64 || s.media.sourceBase64 || s.media.file));
+function usableSlots() {
+  return state.slots.filter((s) => s.enabled);
 }
 
 /* ------------------------------- media reading ---------------------------- */
@@ -208,8 +216,6 @@ function encodeFrame(draw, srcW, srcH, qualitySteps, ratio) {
     const dataUrl = canvas.toDataURL('image/webp', quality);
     const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
     last = { dataUrl, base64, bytes: R.base64Bytes(base64) };
-    // WebP at 0.62 on a 1024x512 banner is still sharp; below ~1.2MB is the
-    // point where a sponsor banner stops being fair to the user's bandwidth.
     if (last.bytes <= LIMITS.maxImageBytes) return last;
   }
   return last;
@@ -249,6 +255,7 @@ async function ingestImage(slot, name, base64) {
     sourceBase64: base64,
     sourceName: name,
     posterBase64: '',
+    poster: '',
     previewUrl: encoded.dataUrl,
     bytes: encoded.bytes,
     width: size.w,
@@ -283,6 +290,7 @@ async function ingestVideo(slot, name, base64, filePath) {
       sourceBase64: base64,
       sourceName: name,
       posterBase64: poster.base64,
+      poster: '',
       previewUrl: blobUrl,
       bytes: R.base64Bytes(base64),
       width: video.videoWidth,
@@ -311,9 +319,7 @@ async function capturePoster(video, ratio) {
     [0.9, 0.8, 0.7, 0.6],
     ratio,
   );
-  if (encoded.bytes > LIMITS.maxPosterBytes) {
-    throw new Error(reasonText('poster-too-big'));
-  }
+  if (encoded.bytes > LIMITS.maxPosterBytes) throw new Error(reasonText('poster-too-big'));
   return encoded;
 }
 
@@ -337,46 +343,97 @@ function fileToBase64(file) {
   });
 }
 
+/** After any ingest the media is new: repaint exactly the parts that show it. */
+function afterIngest(slot, statusText, statusKind, detail) {
+  paintCard(slot);
+  paintPreview();
+  setStatus(statusKind, statusText, detail);
+}
+
 async function takeFile(slot, file) {
-  setStatus('busy', 'กำลังอ่านไฟล์…', file.name);
+  setStatus('busy', 'กําลังอ่านไฟล์...', file.name);
   try {
     const base64 = await fileToBase64(file);
     // A dropped file has no path we may trust, so the bytes travel with the slot
     // instead of being re-read by main later.
     await ingest(slot, { name: file.name, base64 });
-    render();
-    setStatus('ok', 'พร้อมเผยแพร่', slot.media.note);
+    afterIngest(slot, 'พร้อมเผยแพร่', 'ok', slot.media.note);
   } catch (err) {
     slot.media.note = err instanceof Error ? err.message : String(err);
     slot.media.noteKind = 'bad';
-    render();
-    setStatus('bad', 'ไฟล์นี้ใช้ไม่ได้', slot.media.note);
+    afterIngest(slot, 'ไฟล์นี้ใช้ไม่ได้', 'bad', slot.media.note);
   }
 }
 
 async function takeUrl(slot, url) {
-  setStatus('busy', 'กำลังดาวน์โหลด…', url);
+  setStatus('busy', 'กําลังดาวน์โหลด...', url);
   try {
     const res = await api.fetchMedia(url);
-    if (!res || !res.ok) throw new Error((res && res.error) || 'ดาวน์โหลดไม่สำเร็จ');
+    if (!res || !res.ok) throw new Error((res && res.error) || 'ดาวน์โหลดไม่สําเร็จ');
     await ingest(slot, { name: res.name, base64: res.base64 });
-    render();
-    setStatus('ok', 'พร้อมเผยแพร่', slot.media.note);
+    afterIngest(slot, 'พร้อมเผยแพร่', 'ok', slot.media.note);
   } catch (err) {
     slot.media.note = err instanceof Error ? err.message : String(err);
     slot.media.noteKind = 'bad';
-    render();
-    setStatus('bad', 'ลิงก์นี้ใช้ไม่ได้', slot.media.note);
+    afterIngest(slot, 'ลิงก์นี้ใช้ไม่ได้', 'bad', slot.media.note);
+  }
+}
+
+async function pickFile(slot) {
+  setStatus('busy', 'กําลังเปิดไฟล์...');
+  const res = await api.pickMedia();
+  if (!res || !res.ok) {
+    if (!(res && res.canceled)) setStatus('bad', 'เลือกไฟล์ไม่สําเร็จ', res && res.error);
+    else setStatus('', 'พร้อม');
+    return;
+  }
+  setStatus('busy', 'กําลังประมวลผล...', res.name);
+  try {
+    await ingest(slot, { name: res.name, base64: res.base64, path: res.path });
+    afterIngest(slot, 'พร้อมเผยแพร่', 'ok', slot.media.note);
+  } catch (err) {
+    slot.media.note = err instanceof Error ? err.message : String(err);
+    slot.media.noteKind = 'bad';
+    afterIngest(slot, 'ไฟล์นี้ใช้ไม่ได้', 'bad', slot.media.note);
+  }
+}
+
+/**
+ * Switching the frame re-crops from the bytes the operator gave us, never from
+ * the previous crop: cropping a crop would shave the edges off every switch.
+ */
+async function applyRatio(slot, ratio) {
+  slot.media.ratio = R.ratioOf(ratio);
+  paintRatioRow(slot);
+  paintPreview();
+  paintCard(slot);
+  if (!slot.media.previewUrl) return;
+  if (!slot.media.sourceBase64) {
+    slot.media.note = 'ต้องเลือกไฟล์ใหม่เพื่อครอปอัตราส่วนนี้';
+    slot.media.noteKind = 'bad';
+    paintPreview();
+    return;
+  }
+  setStatus('busy', 'กําลังครอปใหม่...', slot.media.ratio);
+  try {
+    if (slot.media.type === 'video') {
+      await ingestVideo(slot, slot.media.sourceName, slot.media.sourceBase64, slot.media.sourcePath);
+    } else {
+      await ingestImage(slot, slot.media.sourceName, slot.media.sourceBase64);
+    }
+    afterIngest(slot, 'ครอปใหม่แล้ว', 'ok', slot.media.note);
+  } catch (err) {
+    slot.media.note = err instanceof Error ? err.message : String(err);
+    slot.media.noteKind = 'bad';
+    afterIngest(slot, 'ครอปใหม่ไม่สําเร็จ', 'bad', slot.media.note);
   }
 }
 
 /* --------------------------------- painting ------------------------------- */
 
-function mediaNode(slot, opts = {}) {
+function mediaNode(slot) {
   const media = slot.media || {};
-  if (!media.previewUrl) {
-    return el('div', { class: 'drop-empty', text: 'ลากรูป/วิดีโอมาวาง\nหรือคลิกเพื่อเลือกไฟล์' });
-  }
+  if (!media.previewUrl) return null;
   if (media.type === 'video') {
     return el('video', {
       src: media.previewUrl,
@@ -391,262 +448,471 @@ function mediaNode(slot, opts = {}) {
   return el('img', { src: media.previewUrl, alt: media.alt || slot.alt || '' });
 }
 
-function field(labelText, input) {
-  return el('div', { class: 'field' }, [el('label', { text: labelText }), input]);
+/** The card's picture: the same bytes the editor previews, object-fit: cover. */
+function paintCardThumb(card, slot) {
+  const thumb = card.querySelector('.card-thumb');
+  if (!thumb) return;
+  releaseVideos(thumb);
+  thumb.replaceChildren();
+  const node = mediaNode(slot);
+  if (node) thumb.appendChild(node);
+  else thumb.appendChild(el('span', { class: 'thumb-empty', text: 'ยังไม่มีรูป/วิดีโอ' }));
+  // A thumbnail is decoration: it never carries sound, whatever the attribute
+  // parser decided.
+  if (node && node.tagName === 'VIDEO') node.muted = true;
+  thumb.appendChild(
+    el('span', { class: 'card-index', text: String(state.slots.indexOf(slot) + 1) }),
+  );
+  thumb.appendChild(
+    el('span', { class: 'card-kind', text: slot.media.type === 'video' ? 'วิดีโอ' : 'รูป' }),
+  );
+  const size = R.frameSize(slot.media.ratio);
+  thumb.style.aspectRatio = `${size.w} / ${size.h}`;
 }
 
-function textInput(value, onInput, placeholder = '') {
-  const input = el('input', { type: 'text', value: value || '', spellcheck: 'false', placeholder });
+/** Cheap repaint: only the parts of one card that change while typing. */
+function paintCard(slot) {
+  const card = $('slots').querySelector(`.card[data-id="${CSS.escape(slot.id)}"]`);
+  if (!card) return;
+  card.classList.toggle('is-open', slot.id === state.openId);
+  card.classList.toggle('is-off', !slot.enabled);
+  card.querySelector('.card-name').textContent = slot.text.th.title || '(ยังไม่มีชื่อสปอนเซอร์)';
+  const meta = card.querySelector('.card-meta');
+  meta.replaceChildren();
+  meta.appendChild(el('span', { class: 'badge muted', text: R.ratioOf(slot.media.ratio) }));
+  if (!slot.media.previewUrl) meta.appendChild(el('span', { class: 'badge warn', text: 'ยังไม่มีไฟล์' }));
+  if (!slot.url) meta.appendChild(el('span', { class: 'badge warn', text: 'ยังไม่มีลิงก์' }));
+  paintCardThumb(card, slot);
+}
+
+function cardNode(slot) {
+  const card = el('button', { type: 'button', class: 'card', 'data-id': slot.id }, [
+    el('div', { class: 'card-thumb' }),
+    el('div', { class: 'card-body' }, [
+      el('span', { class: 'card-name' }),
+      el('div', { class: 'card-meta' }),
+    ]),
+  ]);
+  card.addEventListener('click', () => openEditor(slot.id));
+  return card;
+}
+
+function renderBoard() {
+  const host = $('slots');
+  host.replaceChildren();
+  for (const slot of state.slots) host.appendChild(cardNode(slot));
+  for (const slot of state.slots) paintCard(slot);
+  const empty = !state.slots.length;
+  $('emptyBoard').hidden = !empty;
+  host.hidden = empty;
+  const usable = usableSlots().length;
+  $('boardSub').textContent = state.slots.length
+    ? `ใช้ได้ ${usable} / ${state.slots.length} ใบ · หมุนเวียนทุก ${state.rotateSeconds} วินาที`
+    : 'ยังไม่มีโฆษณา — กด “เพิ่มโฆษณา” เพื่อเริ่ม';
+}
+
+/**
+ * A <video> removed from the document keeps playing. Every repaint used to
+ * abandon the previous clip mid-audio, so pressing mute appeared to do nothing:
+ * the sound came from an element that was no longer on screen. Stop it first.
+ */
+function releaseVideos(root) {
+  if (!root) return;
+  for (const video of root.querySelectorAll('video')) {
+    try {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    } catch {}
+  }
+}
+
+function paintPreview() {
+  const host = $('frameMedia');
+  const slot = openSlot();
+  releaseVideos(host);
+  host.replaceChildren();
+  if (!slot) return;
+
+  const ratio = R.ratioOf(slot.media.ratio);
+  const frame = R.frameSize(ratio);
+  const full = R.mediaSize(ratio);
+  host.style.aspectRatio = `${frame.w} / ${frame.h}`;
+  $('frameSize').textContent = `${ratio} · ${frame.w} × ${frame.h} px (ไฟล์จริง ${full.w} × ${full.h})`;
+
+  const node = mediaNode(slot);
+  if (node) {
+    if (node.tagName === 'VIDEO') {
+      // Start silent and unmute only once it is really playing: setting
+      // `muted = false` before playback begins makes Chromium refuse the autoplay.
+      node.muted = true;
+      host.appendChild(node);
+      if (!state.mutePreview) {
+        node.addEventListener(
+          'playing',
+          () => {
+            node.muted = state.mutePreview;
+          },
+          { once: true },
+        );
+      }
+    } else {
+      host.appendChild(node);
+    }
+  } else {
+    host.appendChild(el('div', { class: 'preview-empty', text: 'ยังไม่มีรูป/วิดีโอ' }));
+  }
+
+  $('previewSound').hidden = !(slot.media.type === 'video' && Boolean(slot.media.previewUrl));
+  paintPreviewText();
+  paintSoundControls();
+
+  const note = $('mediaNote');
+  if (note) note.textContent = slot.media.note || 'ลากไฟล์มาวางบนตัวอย่าง หรือกด “เลือกไฟล์”';
+  if (note) note.className = `field-hint${slot.media.noteKind === 'bad' ? ' bad' : ''}`;
+}
+
+/** The words only: typing a title must not restart the clip. */
+function paintPreviewText() {
+  const slot = openSlot();
+  if (!slot) return;
+  $('frameLabel').textContent = slot.text.th.label || 'ผู้สนับสนุน';
+  $('frameTitle').textContent = slot.text.th.title || '(ยังไม่มีชื่อสปอนเซอร์)';
+}
+
+/**
+ * The chip shows the action, not the state: while the clip is silent it offers
+ * "เปิดเสียง". The old label said "ปิดเสียง" while already silent, so pressing it
+ * turned the sound ON — the opposite of what the words promised.
+ */
+function paintSoundControls() {
+  $('muteSwitch').setAttribute('aria-checked', state.mutePreview ? 'true' : 'false');
+  $('soundText').textContent = state.mutePreview ? 'เปิดเสียง' : 'ปิดเสียง';
+  $('previewSound').setAttribute('aria-pressed', state.mutePreview ? 'false' : 'true');
+}
+
+/** Mute what is already on screen — rebuild-free, so no audio is orphaned. */
+function applyMuteNow() {
+  for (const video of $('frameMedia').querySelectorAll('video')) video.muted = state.mutePreview;
+  // "Silent" has to mean silent: nothing else in the window may keep singing,
+  // including a thumbnail the operator never asked to hear.
+  if (state.mutePreview) {
+    for (const video of document.querySelectorAll('video')) video.muted = true;
+  }
+  paintSoundControls();
+}
+
+/* ---------------------------------- editor -------------------------------- */
+
+function section(title, children, hint = '') {
+  return el('div', { class: 'field' }, [
+    el('div', { class: 'field-label', text: title }),
+    ...(hint ? [el('p', { class: 'field-hint', text: hint })] : []),
+    ...children,
+  ]);
+}
+
+function textInput(value, onInput, opts = {}) {
+  const input = el('input', {
+    type: 'text',
+    value: value || '',
+    spellcheck: 'false',
+    placeholder: opts.placeholder || '',
+    ...(opts.field ? { 'data-field': opts.field } : {}),
+  });
   input.addEventListener('input', () => onInput(input.value));
   return input;
 }
 
-/**
- * The frame shapes, with the exact pixels that will be uploaded. Showing the
- * size next to the name is the whole point: an operator picks 4:5 knowing it
- * will be a tall band in the sidebar, not a wide one.
- */
-function ratioSelect(value, onChange) {
-  const current = R.ratioOf(value);
-  const select = el('select', {});
+function ratioRow(slot) {
+  const row = el('div', { class: 'ratio-grid', 'data-role': 'ratio-row' });
+  const active = R.ratioOf(slot.media.ratio);
+  const isPreset = R.ratios.includes(active);
+
   for (const name of R.ratios) {
-    const size = R.mediaSize(name);
-    const option = el('option', { value: name, text: `${name} — ${size.w}×${size.h}` });
-    if (name === current) option.selected = true;
-    select.appendChild(option);
+    const [w, h] = R.parseRatio(name);
+    const shape = el('span', { class: 'ratio-shape' });
+    // Drawn to the real proportions, capped so a 9:16 does not blow the row up.
+    const longest = 26;
+    shape.style.width = `${Math.round((w >= h ? longest : (longest * w) / h))}px`;
+    shape.style.height = `${Math.round((h >= w ? longest : (longest * h) / w))}px`;
+    const btn = el('button', {
+      type: 'button',
+      class: `ratio-btn${name === active ? ' is-on' : ''}`,
+      'data-ratio': name,
+      title: `${name} — ${R.mediaSize(name).w}×${R.mediaSize(name).h}`,
+    }, [shape, el('span', { text: name })]);
+    btn.addEventListener('click', () => applyRatio(slot, name));
+    row.appendChild(btn);
   }
-  select.addEventListener('change', () => onChange(select.value));
-  return select;
+
+  const customBtn = el('button', {
+    type: 'button',
+    class: `ratio-btn${isPreset ? '' : ' is-on'}`,
+    'data-ratio': 'custom',
+    title: 'กำหนดสัดส่วนเอง',
+  }, [el('span', { class: 'ratio-shape' }), el('span', { text: 'กำหนดเอง' })]);
+  customBtn.querySelector('.ratio-shape').style.width = '20px';
+  customBtn.querySelector('.ratio-shape').style.height = '24px';
+  customBtn.addEventListener('click', () => openSizeDialog(slot, customBtn));
+  row.appendChild(customBtn);
+
+  return el('div', { class: 'field' }, [row]);
 }
+
+/* ---------------------------- custom frame dialog -------------------------- */
 
 /**
- * Switching the frame re-crops from the bytes the operator gave us, never from
- * the previous crop: cropping a crop would shave the edges off every switch.
+ * The custom frame is a dialog, not two boxes parked in the editor: the shape is
+ * typed once, and an always-visible row of bare number inputs made the panel look
+ * unfinished. The steppers are ours so they match the theme instead of
+ * Chromium's grey native arrows.
  */
-async function applyRatio(slot, ratio) {
-  slot.media.ratio = R.ratioOf(ratio);
-  render();
-  if (!slot.media.previewUrl) return;
-  if (!slot.media.sourceBase64) {
-    slot.media.note = 'ต้องเลือกไฟล์ใหม่เพื่อครอปอัตราส่วนนี้';
-    slot.media.noteKind = 'bad';
-    render();
-    return;
-  }
-  setStatus('busy', 'กำลังครอปใหม่…', slot.media.ratio);
-  try {
-    if (slot.media.type === 'video') {
-      await ingestVideo(slot, slot.media.sourceName, slot.media.sourceBase64, slot.media.sourcePath);
-    } else {
-      await ingestImage(slot, slot.media.sourceName, slot.media.sourceBase64);
-    }
-    render();
-    setStatus('ok', 'ครอปใหม่แล้ว', slot.media.note);
-  } catch (err) {
-    slot.media.note = err instanceof Error ? err.message : String(err);
-    slot.media.noteKind = 'bad';
-    render();
-    setStatus('bad', 'ครอปใหม่ไม่สำเร็จ', slot.media.note);
-  }
+let closeSizeDialog = null;
+
+function stepperRow(label, field, value, max, onEdit) {
+  const input = el('input', {
+    type: 'number',
+    min: '1',
+    max: String(max),
+    value: String(value),
+    'data-field': field,
+  });
+  const clamp = (n) => Math.min(max, Math.max(1, Math.round(Number(n) || 1)));
+  const minus = el('button', { type: 'button', class: 'step-btn', 'aria-label': `ลด${label}`, text: '−' });
+  const plus = el('button', { type: 'button', class: 'step-btn', 'aria-label': `เพิ่ม${label}`, text: '+' });
+  minus.addEventListener('click', () => {
+    input.value = String(clamp(Number(input.value) - 1));
+    onEdit();
+  });
+  plus.addEventListener('click', () => {
+    input.value = String(clamp(Number(input.value) + 1));
+    onEdit();
+  });
+  input.addEventListener('input', onEdit);
+  return {
+    input,
+    node: el('div', { class: 'field' }, [
+      el('div', { class: 'field-label', text: label }),
+      el('div', { class: 'stepper' }, [minus, input, plus]),
+    ]),
+  };
 }
 
-function renderSlot(slot, index) {
-  const card = el('div', { class: 'slot', 'data-id': slot.id });
+function openSizeDialog(slot, opener) {
+  if (closeSizeDialog) closeSizeDialog();
 
-  // ---- head
-  const titleLabel = el('span', { class: 'slot-title', text: slot.text.th.title || '(ยังไม่มีชื่อสปอนเซอร์)' });
-  const enabled = el('input', { type: 'checkbox', ...(slot.enabled ? { checked: true } : {}) });
-  enabled.addEventListener('change', () => {
-    slot.enabled = enabled.checked;
-    render();
-  });
-  const remove = el('button', { type: 'button', class: 'btn btn-small btn-danger', text: 'ลบ' });
-  remove.addEventListener('click', () => {
-    state.slots = state.slots.filter((s) => s !== slot);
-    if (state.selectedId === slot.id && state.slots.length) state.selectedId = state.slots[0].id;
-    render();
-  });
-  card.appendChild(
-    el('div', { class: 'slot-head' }, [
-      el('span', { class: 'slot-num', text: `#${index + 1}` }),
-      titleLabel,
-      el('span', { class: 'spacer' }),
-      el('label', { class: 'switch' }, [enabled, el('span', { text: 'ใช้สล็อตนี้' })]),
-      remove,
-    ]),
-  );
+  const active = R.ratioOf(slot.media.ratio);
+  const start = R.ratios.includes(active) ? [3, 2] : R.parseRatio(active);
+  const bounds = R.ratioBounds;
 
-  // ---- media
-  const drop = el('div', { class: 'drop', tabindex: '0', role: 'button' }, [mediaNode(slot)]);
-  // The drop target mirrors the chosen frame, so the crop is never a surprise.
-  const frameSize = R.frameSize(slot.media.ratio);
-  drop.style.aspectRatio = `${frameSize.w} / ${frameSize.h}`;
-  drop.style.width = '214px';
-  if (slot.media.previewUrl) {
-    drop.appendChild(el('span', { class: 'badge', text: slot.media.type === 'video' ? 'วิดีโอ' : 'รูป' }));
-  }
-  const pick = async () => {
-    setStatus('busy', 'กำลังเปิดไฟล์…');
-    const res = await api.pickMedia();
-    if (!res || !res.ok) {
-      setStatus(res && res.canceled ? '' : 'bad', res && res.canceled ? 'พร้อม' : 'เลือกไฟล์ไม่สำเร็จ', res && res.error);
+  const preview = el('p', { class: 'field-hint' });
+  const error = el('p', { class: 'dialog-error' });
+  const applyBtn = el('button', { type: 'button', class: 'btn primary', text: 'ใช้ขนาดนี้' });
+  const width = stepperRow('กว้าง', 'ratio-w', start[0], bounds.sidesMax, () => validate());
+  const height = stepperRow('สูง', 'ratio-h', start[1], bounds.sidesMax, () => validate());
+
+  function validate() {
+    const next = R.ratioFromSides(width.input.value, height.input.value);
+    if (!next) {
+      const w = Number(width.input.value) || 0;
+      const h = Number(height.input.value) || 0;
+      error.textContent = `สัดส่วน ${w}:${h} ใช้ไม่ได้ — ด้านละ 1–${bounds.sidesMax} และสูงไม่เกิน ${bounds.tallMax} เท่าของความกว้าง`;
+      preview.textContent = '';
+      applyBtn.disabled = true;
       return;
     }
-    setStatus('busy', 'กำลังประมวลผล…', res.name);
-    try {
-      await ingest(slot, { name: res.name, base64: res.base64, path: res.path });
-      render();
-      setStatus('ok', 'พร้อมเผยแพร่', slot.media.note);
-    } catch (err) {
-      slot.media.note = err instanceof Error ? err.message : String(err);
-      slot.media.noteKind = 'bad';
-      render();
-      setStatus('bad', 'ไฟล์นี้ใช้ไม่ได้', slot.media.note);
-    }
-  };
-  drop.addEventListener('click', pick);
-  drop.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      pick();
-    }
-  });
-  drop.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    drop.classList.add('over');
-  });
-  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
-  drop.addEventListener('drop', (e) => {
-    e.preventDefault();
-    drop.classList.remove('over');
-    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file) takeFile(slot, file);
-  });
+    const frame = R.frameSize(next);
+    const full = R.mediaSize(next);
+    error.textContent = '';
+    preview.textContent = `${next} · ${frame.w} × ${frame.h} px (ไฟล์จริง ${full.w} × ${full.h})`;
+    applyBtn.disabled = false;
+  }
 
-  const linkRow = el('div', { class: 'media-actions' });
-  const linkInput = textInput('', () => {}, 'https://…/poster.webp (ถ้าสปอนเซอร์ส่งมาเป็นลิงก์)');
-  linkInput.className = 'link-input';
-  linkInput.style.flex = '1 1 220px';
-  linkInput.style.minWidth = '0';
-  const linkBtn = el('button', { type: 'button', class: 'btn btn-small', text: 'ดึงจากลิงก์' });
+  const dialog = el('div', { class: 'dialog', 'data-role': 'size-dialog' }, [
+    el('div', { class: 'dialog-scrim' }),
+    el('div', {
+      class: 'dialog-panel',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-labelledby': 'sizeDialogTitle',
+    }, [
+      el('div', { class: 'dialog-head' }, [
+        el('h2', { id: 'sizeDialogTitle', text: 'ขนาดกำหนดเอง' }),
+        el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'ปิด', onclick: close }, [
+          el('span', { text: '✕' }),
+        ]),
+      ]),
+      el('div', { class: 'dialog-body' }, [
+        el('div', { class: 'field-row' }, [width.node, height.node]),
+        preview,
+        error,
+      ]),
+      el('div', { class: 'dialog-foot' }, [
+        el('button', { type: 'button', class: 'btn', text: 'ยกเลิก', onclick: close }),
+        applyBtn,
+      ]),
+    ]),
+  ]);
+
+  function close() {
+    dialog.remove();
+    closeSizeDialog = null;
+    if (opener) opener.focus();
+  }
+
+  applyBtn.addEventListener('click', () => {
+    const next = R.ratioFromSides(width.input.value, height.input.value);
+    if (!next) return;
+    close();
+    applyRatio(slot, next);
+  });
+  dialog.querySelector('.dialog-scrim').addEventListener('click', close);
+
+  document.body.appendChild(dialog);
+  closeSizeDialog = close;
+  validate();
+  width.input.focus();
+  width.input.select();
+}
+
+/** Re-marks the ratio buttons without rebuilding the input the operator types in. */
+function paintRatioRow(slot) {
+  const row = $('fields').querySelector('[data-role="ratio-row"]');
+  if (!row) return;
+  const active = R.ratioOf(slot.media.ratio);
+  const isPreset = R.ratios.includes(active);
+  for (const btn of row.querySelectorAll('.ratio-btn')) {
+    const key = btn.dataset.ratio;
+    btn.classList.toggle('is-on', key === active || (key === 'custom' && !isPreset));
+  }
+}
+
+function buildFields(slot) {
+  const fields = $('fields');
+  fields.replaceChildren();
+  const cardName = () => paintCard(slot);
+
+  // --- 1 · the creative itself. The preview above is the drop target; this row
+  // is the second way in (a link from the sponsor) plus the running result.
+  const linkInput = textInput('', () => {}, { field: 'link', placeholder: 'https://.../poster.webp' });
+  const linkBtn = el('button', { type: 'button', class: 'btn', text: 'ดึงจากลิงก์' });
   linkBtn.addEventListener('click', () => {
     const value = linkInput.value.trim();
     if (!value) return setStatus('bad', 'ยังไม่ได้วางลิงก์');
     if (!R.mediaUrlAllowed(value)) return setStatus('bad', 'ลิงก์ต้องเป็น https และเป็นไฟล์รูป/วิดีโอ');
     takeUrl(slot, value);
   });
-  linkRow.append(linkInput, linkBtn);
-
-  const note = el('div', {
-    class: `media-note ${slot.media.noteKind === 'bad' ? 'bad' : slot.media.noteKind === 'ok' ? 'ok' : ''}`,
-    text: slot.media.note || '',
-  });
-
-  const fields = el('div', { class: 'slot-fields' }, [
-    el('div', { class: 'field-row' }, [
-      field('อัตราส่วนกรอบ (กล่องใน NTAPI จะสูง-เตี้ยตามนี้)', ratioSelect(slot.media.ratio, (v) => applyRatio(slot, v))),
-      field(
-        'id (ใช้ตั้งชื่อไฟล์และนับคลิก)',
-        textInput(slot.id, (v) => {
-          slot.id = R.slug(v);
-          render();
-        }),
-      ),
+  fields.appendChild(
+    section('1 · ไฟล์โฆษณา', [
+      el('div', { class: 'input-row' }, [linkInput, linkBtn]),
+      el('p', { class: 'field-hint', id: 'mediaNote', text: slot.media.note || 'ลากไฟล์มาวางบนตัวอย่าง หรือกด “เลือกไฟล์”' }),
     ]),
-    el('div', { class: 'field-row' }, [
-      field(
-        'ลิงก์ปลายทาง (เปิดในเบราว์เซอร์จริง)',
-        textInput(slot.url, (v) => {
-          slot.url = v.trim();
-        }, 'https://…'),
-      ),
-    ]),
-    el('div', { class: 'field-row' }, [
-      field(
-        'ข้อความ TH (ผู้สนับสนุนเห็น)',
-        textInput(slot.text.th.title, (v) => {
-          slot.text.th.title = R.clampText(v, LIMITS.maxTitle);
-          titleLabel.textContent = slot.text.th.title || '(ยังไม่มีชื่อสปอนเซอร์)';
-          paintPreview();
-        }),
-      ),
-      field(
-        'ข้อความ EN',
-        textInput(slot.text.en.title, (v) => {
-          slot.text.en.title = R.clampText(v, LIMITS.maxTitle);
-          paintPreview();
-        }),
-      ),
-    ]),
-    linkRow,
-    note,
-  ]);
-
-  card.appendChild(el('div', { class: 'slot-media' }, [drop, fields]));
-  card.addEventListener('click', () => {
-    if (state.selectedId !== slot.id) {
-      state.selectedId = slot.id;
-      paintPreview();
-    }
-  });
-  return card;
-}
-
-function paintPreview() {
-  const slot = selectedSlot() || previewableSlots()[0] || null;
-  const label = slot ? slot.text.th.label || 'ผู้สนับสนุน' : 'ผู้สนับสนุน';
-  const title = slot ? slot.text.th.title || '(ยังไม่มีชื่อสปอนเซอร์)' : 'ชื่อสปอนเซอร์';
-  $('frameLabel').textContent = label;
-  $('frameTitle').textContent = title;
-
-  const host = $('frameMedia');
-  host.replaceChildren();
-  const frameSize = R.frameSize(slot && slot.media ? slot.media.ratio : R.defaultRatio);
-  host.style.aspectRatio = `${frameSize.w} / ${frameSize.h}`;
-  const sizeNote = $('frameSize');
-  if (sizeNote) {
-    const ratio = slot && slot.media ? R.ratioOf(slot.media.ratio) : R.defaultRatio;
-    const full = R.mediaSize(ratio);
-    sizeNote.textContent = `${ratio} · ${frameSize.w} × ${frameSize.h} px (ไฟล์จริง ${full.w} × ${full.h})`;
-  }
-  if (slot && slot.media.previewUrl) host.appendChild(mediaNode(slot));
-  else host.appendChild(el('div', { class: 'none', text: 'ยังไม่มีรูป/วิดีโอ' }));
-
-  const notes = $('previewNotes');
-  notes.replaceChildren();
-  const usable = previewableSlots().length;
-  notes.appendChild(
-    el('div', {
-      text: `ใช้ได้ ${usable} / ${state.slots.length} สล็อต · หมุนเวียนทุก ${state.rotateSeconds} วินาที`,
-    }),
   );
-  if (slot && slot.media.seconds) {
-    notes.appendChild(el('div', { text: `วิดีโอ ${slot.media.seconds.toFixed(1)} วิ (เล่นวน, หยุดเมื่อหน้าต่างไม่ focus)` }));
-  }
-  if (slot && slot.media.note) {
-    notes.appendChild(
-      el('div', {
-        class: slot.media.noteKind === 'bad' ? 'note-bad' : 'note-ok',
-        text: slot.media.note,
-      }),
-    );
+
+  // --- 2 · where a click goes. Cannot be published without it.
+  const urlInput = textInput(slot.url, (v) => {
+    slot.url = v.trim();
+    paintCard(slot);
+  }, { field: 'url', placeholder: 'https://...' });
+  fields.appendChild(section('2 · ลิงก์ปลายทาง', [urlInput], 'ต้องเป็น https เท่านั้น'));
+
+  // --- 3 · the frame. Height in the sidebar follows from this.
+  fields.appendChild(section('อัตราส่วนกรอบ', [ratioRow(slot)], 'NTAPI สูงตามกรอบที่สูงที่สุดในชุดนี้'));
+
+  // --- 4 · wording, one line per language.
+  const labelTh = textInput(slot.text.th.label, (v) => {
+    slot.text.th.label = R.clampText(v, LIMITS.maxLabel);
+    paintPreviewText();
+  }, { field: 'label-th' });
+  const titleTh = textInput(slot.text.th.title, (v) => {
+    slot.text.th.title = R.clampText(v, LIMITS.maxTitle);
+    paintPreviewText();
+    cardName();
+  }, { field: 'title-th' });
+  const labelEn = textInput(slot.text.en.label, (v) => {
+    slot.text.en.label = R.clampText(v, LIMITS.maxLabel);
+  }, { field: 'label-en' });
+  const titleEn = textInput(slot.text.en.title, (v) => {
+    slot.text.en.title = R.clampText(v, LIMITS.maxTitle);
+  }, { field: 'title-en' });
+  fields.appendChild(
+    section('ข้อความ', [
+      el('div', { class: 'field-row' }, [
+        el('div', { class: 'field' }, [el('div', { class: 'field-label', text: 'ป้าย TH' }), labelTh]),
+        el('div', { class: 'field' }, [el('div', { class: 'field-label', text: 'ป้าย EN' }), labelEn]),
+      ]),
+      el('div', { class: 'field' }, [el('div', { class: 'field-label', text: 'ชื่อ TH' }), titleTh]),
+      el('div', { class: 'field' }, [el('div', { class: 'field-label', text: 'ชื่อ EN' }), titleEn]),
+    ]),
+    `ชื่อ TH ไม่เกิน ${LIMITS.maxTitle} ตัวอักษร · เว้นว่างชื่อ EN ได้`,
+  );
+
+  // --- 5 · the plumbing: the id names the uploaded file and counts the clicks.
+  const idInput = textInput(slot.id, (v) => {
+    slot.id = R.slug(v) || slot.id;
+    paintCard(slot);
+  }, { field: 'id' });
+  const altInput = textInput(slot.alt, (v) => {
+    slot.alt = R.clampText(v, LIMITS.maxAlt);
+  }, { field: 'alt', placeholder: 'อธิบายภาพสั้น ๆ' });
+  const enabled = el('button', {
+    type: 'button',
+    class: 'switch',
+    role: 'switch',
+    'aria-checked': slot.enabled ? 'true' : 'false',
+  }, [el('span', { class: 'switch-knob' })]);
+  enabled.addEventListener('click', () => {
+    slot.enabled = !slot.enabled;
+    enabled.setAttribute('aria-checked', slot.enabled ? 'true' : 'false');
+    paintCard(slot);
+    renderBoardSub();
+  });
+  fields.appendChild(
+    section('ขั้นสูง', [
+      el('div', { class: 'field' }, [el('div', { class: 'field-label', text: 'id (ใช้ตั้งชื่อไฟล์)' }), idInput]),
+      el('div', { class: 'field' }, [el('div', { class: 'field-label', text: 'คำอธิบายภาพ (alt)' }), altInput]),
+      el('div', { class: 'switch-row' }, [
+        el('div', { class: 'switch-copy' }, [
+          el('span', { class: 'switch-title', text: 'ใช้โฆษณานี้' }),
+          el('span', { class: 'switch-hint', text: 'ปิดไว้เพื่อเก็บการ์ดไว้แต่ไม่เผยแพร่' }),
+        ]),
+        enabled,
+      ]),
+    ]),
+  );
+}
+
+/** The board summary counts `enabled`, so the toggle has to refresh it. */
+function renderBoardSub() {
+  const usable = usableSlots().length;
+  $('boardSub').textContent = state.slots.length
+    ? `ใช้ได้ ${usable} / ${state.slots.length} ใบ · หมุนเวียนทุก ${state.rotateSeconds} วินาที`
+    : 'ยังไม่มีโฆษณา — กด “เพิ่มโฆษณา” เพื่อเริ่ม';
+}
+
+function openEditor(id) {
+  const slot = state.slots.find((s) => s.id === id);
+  if (!slot) return;
+  state.openId = id;
+  $('drawer').hidden = false;
+  $('editorTitle').textContent = slot.text.th.title || 'โฆษณาใหม่';
+  buildFields(slot);
+  paintPreview();
+  for (const card of document.querySelectorAll('.card')) {
+    card.classList.toggle('is-open', card.dataset.id === id);
   }
 }
 
-function render() {
-  const host = $('slots');
-  host.replaceChildren();
-  if (!state.slots.length) {
-    host.appendChild(
-      el('div', { class: 'empty-slots', text: 'ยังไม่มีสล็อต — กด "+ เพิ่มสล็อต" เพื่อเริ่ม' }),
-    );
-  } else {
-    state.slots.forEach((slot, index) => host.appendChild(renderSlot(slot, index)));
-  }
-  if (!state.slots.some((s) => s.id === state.selectedId)) {
-    state.selectedId = state.slots.length ? state.slots[0].id : '';
-  }
-  paintPreview();
+function closeEditor() {
+  state.openId = '';
+  // Hiding the drawer is not stopping it: a media element keeps playing while its
+  // ancestor is `display:none`, and the sound chip leaves with the panel — so
+  // closing a card left audio nobody could turn off. Take the clip down with it.
+  releaseVideos($('frameMedia'));
+  $('frameMedia').replaceChildren();
+  $('drawer').hidden = true;
+  for (const card of document.querySelectorAll('.card')) card.classList.remove('is-open');
 }
 
 /* --------------------------------- actions -------------------------------- */
@@ -660,8 +926,7 @@ async function loadConfig() {
   $('tokenHint').textContent = state.cfg.hasToken
     ? `บันทึก token ไว้แล้ว (${state.cfg.tokenHint}) — เว้นว่างถ้าไม่เปลี่ยน`
     : 'ยังไม่มี token';
-  $('repoName').textContent = `${state.cfg.owner}/${state.cfg.repo}`;
-  $('repoBranch').textContent = state.cfg.branch;
+  $('repoSummary').textContent = `${state.cfg.owner}/${state.cfg.repo} · ${state.cfg.branch}`;
 }
 
 async function saveConfig() {
@@ -676,33 +941,33 @@ async function saveConfig() {
   $('tokenHint').textContent = masked.hasToken
     ? `บันทึก token ไว้แล้ว (${masked.tokenHint}) — เว้นว่างถ้าไม่เปลี่ยน`
     : 'ยังไม่มี token';
-  $('repoName').textContent = `${masked.owner}/${masked.repo}`;
-  $('repoBranch').textContent = masked.branch;
+  $('repoSummary').textContent = `${masked.owner}/${masked.repo} · ${masked.branch}`;
   setStatus('ok', 'บันทึกการตั้งค่าแล้ว');
 }
 
 async function checkRepo() {
-  $('repoCheck').textContent = 'กำลังตรวจ…';
-  $('repoCheck').className = 'check-result';
+  const out = $('repoCheck');
+  out.textContent = 'กําลังตรวจ...';
+  out.className = 'check-result';
   const res = await api.repoCheck();
   if (!res.ok) {
-    $('repoCheck').textContent = res.error;
-    $('repoCheck').className = 'check-result bad';
+    out.textContent = res.error;
+    out.className = 'check-result bad';
     return;
   }
   if (!res.canPush) {
-    $('repoCheck').textContent = `เข้าถึง ${res.fullName} ได้ แต่มอบสิทธิ์เขียนไม่ได้ (token ต้องมี Contents: Read and write)`;
-    $('repoCheck').className = 'check-result bad';
+    out.textContent = `เข้าถึง ${res.fullName} ได้ แต่มอบสิทธิ์เขียนไม่ได้ (token ต้องมี Contents: Read and write)`;
+    out.className = 'check-result bad';
     return;
   }
-  $('repoCheck').textContent = res.private
+  out.textContent = res.private
     ? `⚠ ${res.fullName} เป็น private — NTAPI จะดึงไม่ได้ ต้องเปลี่ยนเป็น public`
     : `✓ ${res.fullName} พร้อมเขียน`;
-  $('repoCheck').className = res.private ? 'check-result bad' : 'check-result ok';
+  out.className = res.private ? 'check-result bad' : 'check-result ok';
 }
 
 async function loadFeed() {
-  setStatus('busy', 'กำลังโหลดจาก repo…');
+  setStatus('busy', 'กําลังโหลดจาก repo...');
   const res = await api.feedLoad();
   if (!res.ok) {
     setStatus('bad', 'โหลดไม่ได้', res.error);
@@ -715,21 +980,27 @@ async function loadFeed() {
   state.rotateSeconds = res.feed.rotateSeconds;
   $('rotateSeconds').value = state.rotateSeconds;
   state.slots = res.feed.slots.map(slotFromFeed);
-  state.selectedId = state.slots.length ? state.slots[0].id : '';
-  render();
-  setStatus('ok', `โหลดแล้ว ${state.slots.length} สล็อต`, res.feed.updated ? `แก้ล่าสุด ${res.feed.updated}` : '');
+  if (!state.slots.some((s) => s.id === state.openId)) closeEditor();
+  renderBoard();
+  if (openSlot()) {
+    $('editorTitle').textContent = openSlot().text.th.title || 'โฆษณา';
+    buildFields(openSlot());
+    paintPreview();
+  }
+  $('repoSummary').textContent = `${state.cfg.owner}/${state.cfg.repo} · ${state.cfg.branch} · ${state.slots.length} ใบ`;
+  setStatus('ok', `โหลดแล้ว ${state.slots.length} ใบ`, res.feed.updated ? `แก้ล่าสุด ${res.feed.updated}` : '');
 }
 
 function publishPayload() {
-  const usable = state.slots.filter((s) => s.enabled);
-  if (!usable.length) throw new Error('ยังไม่มีสล็อตที่เปิดใช้');
+  const usable = usableSlots();
+  if (!usable.length) throw new Error('ยังไม่มีโฆษณาที่เปิดใช้');
   for (const slot of usable) {
-    if (!slot.id) throw new Error('ทุกสล็อตต้องมี id');
+    if (!slot.id) throw new Error('ทุกใบต้องมี id');
     if (!/^https:\/\/[^\s]+\.[^\s]+/i.test(slot.url)) throw new Error(`ลิงก์ของ "${slot.id}" ต้องเป็น https`);
-    if (!slot.text.th.title) throw new Error(`สล็อต "${slot.id}" ยังไม่มีข้อความ`);
+    if (!slot.text.th.title) throw new Error(`"${slot.id}" ยังไม่มีชื่อ TH`);
     const m = slot.media;
     if (!m.file && !m.base64 && !m.sourcePath && !m.sourceBase64) {
-      throw new Error(`สล็อต "${slot.id}" ยังไม่มีรูป/วิดีโอ`);
+      throw new Error(`"${slot.id}" ยังไม่มีรูป/วิดีโอ`);
     }
   }
   return {
@@ -741,8 +1012,7 @@ function publishPayload() {
       media: {
         type: slot.media.type,
         // The frame the operator picked. Without it the feed says nothing about
-        // the shape and every reader falls back to 2:1, so a 1:1 creative was
-        // published inside a 2:1 band no matter what the dropdown showed.
+        // the shape and every reader falls back to 2:1.
         ratio: slot.media.ratio,
         alt: slot.alt || slot.text.th.title,
         ...(slot.media.base64 ? { base64: slot.media.base64 } : {}),
@@ -768,19 +1038,19 @@ async function publish() {
 
   state.busy = true;
   $('btnPublish').disabled = true;
-  setStatus('busy', 'กำลังอัปโหลด…', 'อย่าปิดหน้าต่างนี้');
+  setStatus('busy', 'กําลังอัปโหลด...', 'อย่าปิดหน้าต่างนี้');
   try {
     const res = await api.publish(payload);
     if (!res.ok) {
-      setStatus('bad', 'อัปโหลดไม่สำเร็จ', `${res.error}${res.done && res.done.length ? ` (สำเร็จ ${res.done.length} ไฟล์)` : ''}`);
+      setStatus('bad', 'อัปโหลดไม่สําเร็จ', `${res.error}${res.done && res.done.length ? ` (สําเร็จ ${res.done.length} ไฟล์)` : ''}`);
       return;
     }
-    setStatus('ok', `เผยแพร่แล้ว ${res.slots} สล็อต`, `NTAPI จะเห็นภายในไม่กี่นาที (CDN cache) · ${res.done.join(', ')}`);
+    setStatus('ok', `เผยแพร่แล้ว ${res.slots} ใบ`, `NTAPI จะเห็นภายในไม่กี่นาที · ${res.done.join(', ')}`);
     // The published media is now the source of truth; reload so the previews
     // point at the CDN copy instead of the bytes in this window's memory.
     await loadFeed();
   } catch (err) {
-    setStatus('bad', 'อัปโหลดไม่สำเร็จ', err instanceof Error ? err.message : String(err));
+    setStatus('bad', 'อัปโหลดไม่สําเร็จ', err instanceof Error ? err.message : String(err));
   } finally {
     state.busy = false;
     $('btnPublish').disabled = false;
@@ -789,9 +1059,17 @@ async function publish() {
 
 /* ---------------------------------- wiring -------------------------------- */
 
-$('btnSettings').addEventListener('click', () => {
-  const panel = $('settings');
-  panel.hidden = !panel.hidden;
+$('winMin').addEventListener('click', () => api.winMinimize());
+$('winMax').addEventListener('click', () => api.winToggleMaximize());
+$('winClose').addEventListener('click', () => api.winClose());
+
+$('tokenReveal').addEventListener('click', () => {
+  const input = $('cfgToken');
+  input.type = input.type === 'password' ? 'text' : 'password';
+});
+
+$('tokenLink').addEventListener('click', () => {
+  api.openExternal('https://github.com/settings/personal-access-tokens/new');
 });
 
 $('btnSaveCfg').addEventListener('click', saveConfig);
@@ -799,36 +1077,98 @@ $('btnCheckRepo').addEventListener('click', checkRepo);
 $('btnLoad').addEventListener('click', loadFeed);
 $('btnPublish').addEventListener('click', publish);
 
-$('btnAddSlot').addEventListener('click', () => {
+$('muteSwitch').addEventListener('click', () => {
+  state.mutePreview = !state.mutePreview;
+  applyMuteNow();
+});
+
+$('rotateSeconds').addEventListener('change', applyRotate);
+$('rotateMinus').addEventListener('click', () => {
+  $('rotateSeconds').value = Number($('rotateSeconds').value) - 1;
+  applyRotate();
+});
+$('rotatePlus').addEventListener('click', () => {
+  $('rotateSeconds').value = Number($('rotateSeconds').value) + 1;
+  applyRotate();
+});
+function applyRotate() {
+  state.rotateSeconds = R.clampRotate($('rotateSeconds').value);
+  $('rotateSeconds').value = state.rotateSeconds;
+  renderBoardSub();
+}
+
+function addSlot() {
   if (state.slots.length >= LIMITS.maxSlots) {
-    setStatus('bad', `เพิ่มได้สูงสุด ${LIMITS.maxSlots} สล็อต`);
+    setStatus('bad', `เพิ่มได้สูงสุด ${LIMITS.maxSlots} ใบ`);
     return;
   }
   const slot = newSlot();
   state.slots.push(slot);
-  state.selectedId = slot.id;
-  render();
-  setStatus('', 'เพิ่มสล็อตใหม่');
+  renderBoard();
+  openEditor(slot.id);
+  setStatus('', 'เพิ่มโฆษณาใหม่แล้ว', 'ใส่ไฟล์กับลิงก์ก่อนกดเผยแพร่');
+}
+
+$('btnAddSlot').addEventListener('click', addSlot);
+$('btnAddFirst').addEventListener('click', addSlot);
+$('drawerClose').addEventListener('click', closeEditor);
+$('drawerScrim').addEventListener('click', closeEditor);
+$('btnDone').addEventListener('click', closeEditor);
+$('btnDelete').addEventListener('click', () => {
+  const slot = openSlot();
+  if (!slot) return;
+  state.slots = state.slots.filter((s) => s !== slot);
+  closeEditor();
+  renderBoard();
+  setStatus('', 'ลบโฆษณาแล้ว');
 });
 
-$('rotateSeconds').addEventListener('change', () => {
-  state.rotateSeconds = R.clampRotate($('rotateSeconds').value);
-  $('rotateSeconds').value = state.rotateSeconds;
-  paintPreview();
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  // The size dialog sits above the drawer, so it closes first.
+  if (closeSizeDialog) {
+    closeSizeDialog();
+    return;
+  }
+  if (!$('drawer').hidden) closeEditor();
+});
+
+/* The preview frame is the drop target, and clicking it opens the file picker. */
+$('frameMedia').addEventListener('click', () => {
+  const slot = openSlot();
+  if (slot) pickFile(slot);
+});
+$('frameMedia').addEventListener('dragover', (e) => {
+  e.preventDefault();
+  $('frameMedia').classList.add('is-over');
+});
+$('frameMedia').addEventListener('dragleave', () => $('frameMedia').classList.remove('is-over'));
+$('frameMedia').addEventListener('drop', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  $('frameMedia').classList.remove('is-over');
+  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  const slot = openSlot();
+  if (file && slot) takeFile(slot, file);
+});
+
+$('previewSound').addEventListener('click', () => {
+  state.mutePreview = !state.mutePreview;
+  applyMuteNow();
 });
 
 /**
- * Dropping on the window anywhere is the fastest path for an operator holding a
- * poster, so the window itself accepts a drop when there is a selected slot.
+ * Dropping anywhere on the window is the fastest path for an operator holding a
+ * poster, so the window itself accepts a drop while a card is open.
  */
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => {
   const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if (!file) return;
   e.preventDefault();
-  const slot = selectedSlot();
+  const slot = openSlot();
   if (!slot) {
-    setStatus('bad', 'เพิ่มสล็อตก่อนแล้วลากไฟล์มาวาง');
+    setStatus('bad', 'เปิดการ์ดก่อนแล้วลากไฟล์มาวาง');
     return;
   }
   takeFile(slot, file);
@@ -836,9 +1176,9 @@ window.addEventListener('drop', (e) => {
 
 async function boot() {
   await loadConfig();
-  render();
+  renderBoard();
   if (state.cfg.hasToken) await loadFeed();
-  else setStatus('', 'ยังไม่ได้ตั้งค่า token', 'กด "ตั้งค่า" เพื่อเริ่ม');
+  else setStatus('', 'ยังไม่ได้ตั้งค่า token', 'วาง token แล้วกด “บันทึก” เพื่อเริ่ม');
 }
 
 boot();

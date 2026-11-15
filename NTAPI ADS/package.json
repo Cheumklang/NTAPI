@@ -1,7 +1,7 @@
 {
   "name": "ntapi-ads",
   "productName": "NTAPI ADS",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "เครื่องมือเผยแพร่สปอนเซอร์ของ NTAPI (รูป/วิดีโอ + ลิงก์ ขึ้น GitHub)",
   "main": "src/main.js",

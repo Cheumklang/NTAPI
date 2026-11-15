@@ -1,111 +1,216 @@
 <!doctype html>
 <html lang="th">
-  <head>
-    <meta charset="utf-8" />
+<head>
+  <meta charset="utf-8" />
+  <!--
+    NTAPI ADS publishes sponsor creatives into the feed NTAPI reads. Nothing here
+    talks to GitHub directly: the token never enters this document, every call
+    goes through the preload bridge.
+  -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self';" />
+  <title>NTAPI ADS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!--
+    The window is frameless, so this bar is the only thing that moves it and the
+    only way to minimise or close. `app-region: drag` is what makes the bar
+    behave like a caption; every button inside it has to opt back out.
+  -->
+  <header class="titlebar">
+    <div class="titlebar-brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 7a3 3 0 013-3h10a3 3 0 013 3v6a3 3 0 01-3 3h-6.6l-3.9 3.1A.7.7 0 015.2 19V16H7a3 3 0 01-3-3z" /><path d="M8 9h8M8 12h4.5" /></svg>
+      </span>
+      <span class="brand-name">NTAPI <b>ADS</b></span>
+      <span class="brand-tag">สปอนเซอร์</span>
+    </div>
+    <div class="titlebar-actions">
+      <button type="button" class="win-btn" id="winMin" title="ย่อหน้าต่าง" aria-label="ย่อหน้าต่าง">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 5h6" /></svg>
+      </button>
+      <button type="button" class="win-btn" id="winMax" title="ขยายหน้าต่าง" aria-label="ขยายหน้าต่าง">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><rect x="2.2" y="2.2" width="5.6" height="5.6" rx="1" /></svg>
+      </button>
+      <button type="button" class="win-btn danger" id="winClose" title="ปิด" aria-label="ปิด">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" /></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="shell">
     <!--
-      `data:` and `blob:` carry the media the operator just dropped in, and
-      `https:` is needed only to preview a slot that is already published (it
-      renders straight from the CDN). This window is one operator's own machine;
-      the NTAPI client keeps its stricter policy, because there it is a user's
-      privacy at stake rather than a preview.
+      The tools column. Everything here is machine-level: the credential, the
+      repo it writes to, and the two switches that apply to every creative.
     -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
-    />
-    <title>NTAPI ADS</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-name">NTAPI ADS</span>
-        <span class="brand-sub">เผยแพร่สปอนเซอร์เข้าแถบ sidebar ของ NTAPI</span>
-      </div>
-      <div class="repo-pill" id="repoPill" title="ปลายทางที่เผยแพร่">
-        <span id="repoName">Cheumklang/NTAPI-sponsor</span>
-        <span class="branch" id="repoBranch">main</span>
-      </div>
-      <div class="topbar-actions">
-        <button type="button" class="btn" id="btnSettings">ตั้งค่า</button>
-        <button type="button" class="btn" id="btnLoad">โหลดจาก repo</button>
-        <button type="button" class="btn btn-primary" id="btnPublish">เผยแพร่</button>
-      </div>
-    </header>
+    <aside class="tools" aria-label="เครื่องมือ">
+      <section class="tools-group">
+        <h2 class="tools-head">การเผยแพร่</h2>
 
-    <section class="settings" id="settings" hidden>
-      <!--
-        The token can rewrite the banner for every installed copy of NTAPI, so it
-        is typed here and stored in this machine's userData — never in a file that
-        ships, and never sent back to this window once saved (only a hint shows).
-      -->
-      <div class="field">
-        <label for="cfgToken">GitHub token (สิทธิ์เขียน repo สปอนเซอร์)</label>
-        <input id="cfgToken" type="password" autocomplete="off" spellcheck="false" placeholder="ghp_… หรือ github_pat_…" />
-        <p class="hint" id="tokenHint"></p>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="cfgOwner">เจ้าของ</label>
-          <input id="cfgOwner" type="text" spellcheck="false" />
-        </div>
-        <div class="field">
-          <label for="cfgRepo">repo</label>
-          <input id="cfgRepo" type="text" spellcheck="false" />
-        </div>
-        <div class="field">
-          <label for="cfgBranch">branch</label>
-          <input id="cfgBranch" type="text" spellcheck="false" />
-        </div>
-      </div>
-      <div class="settings-actions">
-        <button type="button" class="btn" id="btnSaveCfg">บันทึก</button>
-        <button type="button" class="btn" id="btnCheckRepo">ตรวจว่าเขียนได้</button>
-        <span class="check-result" id="repoCheck"></span>
-      </div>
-      <p class="hint">
-        ต้องเป็น repo <strong>public</strong> เพราะ NTAPI ดึงไฟล์จาก CDN โดยไม่ใช้ token
-        (repo private จะดึงไม่ได้เลย)
-      </p>
-    </section>
-
-    <main class="layout">
-      <section class="slots-col">
-        <div class="slots-head">
-          <h2>สล็อตสปอนเซอร์</h2>
-          <div class="rotate">
-            <label for="rotateSeconds">หมุนเวียนทุก</label>
-            <input id="rotateSeconds" type="number" min="5" max="120" step="1" value="15" />
-            <span>วินาที</span>
+        <label class="tools-field">
+          <span class="tools-label">GitHub token</span>
+          <div class="input-row">
+            <input id="cfgToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" />
+            <button type="button" class="icon-btn" id="tokenReveal" title="ดู/ซ่อน token" aria-label="ดูหรือซ่อน token">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" /><circle cx="8" cy="8" r="1.9" /></svg>
+            </button>
           </div>
-          <button type="button" class="btn btn-small" id="btnAddSlot">+ เพิ่มสล็อต</button>
+          <span class="tools-hint" id="tokenHint">ยังไม่มี token</span>
+        </label>
+
+        <!--
+          The link is here so a forgotten token is one click from being replaced
+          instead of a hunt through GitHub's menus.
+        -->
+        <button type="button" class="link-btn" id="tokenLink" title="เปิดหน้า token ของ GitHub ในเบราว์เซอร์">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5a3 3 0 004.2 0l1.8-1.8a3 3 0 00-4.2-4.2L7 4.8" /><path d="M9.5 6.5a3 3 0 00-4.2 0L3.5 8.3a3 3 0 004.2 4.2L9 11.2" /></svg>
+          <span>สร้าง / ดู token ของ GitHub</span>
+          <svg class="link-btn-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.5h7v7" /><path d="M12.5 3.5L5 11" /></svg>
+        </button>
+
+        <div class="tools-row">
+          <label class="tools-field small">
+            <span class="tools-label">เจ้าของ</span>
+            <input id="cfgOwner" type="text" spellcheck="false" />
+          </label>
+          <label class="tools-field small">
+            <span class="tools-label">branch</span>
+            <input id="cfgBranch" type="text" spellcheck="false" />
+          </label>
         </div>
-        <div class="slots" id="slots"></div>
+
+        <label class="tools-field">
+          <span class="tools-label">repo</span>
+          <input id="cfgRepo" type="text" spellcheck="false" />
+        </label>
+
+        <div class="tools-buttons">
+          <button type="button" class="btn primary" id="btnSaveCfg">บันทึก</button>
+          <button type="button" class="btn" id="btnCheckRepo">ตรวจสอบ</button>
+        </div>
+        <p class="check-result" id="repoCheck" role="status"></p>
       </section>
 
-      <aside class="preview-col">
-        <h2>ตัวอย่างจริง</h2>
-        <p class="hint">
-          เลือกอัตราส่วนได้ 4 แบบ — NTAPI จะสูง-เตี้ยตามนี้ รูปทรงไหนมาก็ถูกครอปให้เต็มกรอบเสมอ
-          ไม่ยืด ไม่บีบ
-        </p>
-        <div class="frame" id="frame">
-          <div class="frame-media" id="frameMedia"></div>
-          <div class="frame-text">
-            <span class="frame-label" id="frameLabel">ผู้สนับสนุน</span>
-            <span class="frame-title" id="frameTitle">ชื่อสปอนเซอร์</span>
+      <section class="tools-group">
+        <h2 class="tools-head">ค่าเริ่มต้นของโฆษณา</h2>
+
+        <!--
+          Two switches with different jobs: one decides whether a clip makes any
+          sound on a stranger's screen, the other how long each creative stays up
+          before the strip rotates.
+        -->
+        <div class="switch-row">
+          <div class="switch-copy">
+            <span class="switch-title">ปิดเสียงตัวอย่างวิดีโอ</span>
+            <span class="switch-hint">เฉพาะตัวอย่างในหน้าต่างนี้</span>
+          </div>
+          <button type="button" class="switch" id="muteSwitch" role="switch" aria-checked="true">
+            <span class="switch-knob"></span>
+          </button>
+        </div>
+
+        <label class="tools-field">
+          <span class="tools-label">หมุนเวียนทุก (วินาที)</span>
+          <div class="stepper">
+            <button type="button" class="step-btn" id="rotateMinus" aria-label="ลด">−</button>
+            <input id="rotateSeconds" type="number" min="5" max="120" step="1" />
+            <button type="button" class="step-btn" id="rotatePlus" aria-label="เพิ่ม">+</button>
+          </div>
+        </label>
+      </section>
+
+      <section class="tools-group grow">
+        <h2 class="tools-head">คลังบน GitHub</h2>
+        <button type="button" class="btn wide" id="btnLoad">ดึงโฆษณาที่เผยแพร่แล้ว</button>
+        <p class="tools-hint" id="repoSummary">—</p>
+      </section>
+
+      <div class="tools-foot">
+        <p class="status" id="status" role="status"></p>
+        <button type="button" class="btn publish" id="btnPublish">เผยแพร่ขึ้น GitHub</button>
+      </div>
+    </aside>
+
+    <!--
+      The creatives. Four to a row, in the order they rotate; the numbered badge
+      is the rotation index, so the page reads left to right in the same order a
+      viewer sees it.
+    -->
+    <main class="board">
+      <header class="board-head">
+        <div class="board-title">
+          <h1>โฆษณา</h1>
+          <p class="board-sub" id="boardSub">ยังไม่มีโฆษณา — กด “เพิ่มโฆษณา” เพื่อเริ่ม</p>
+        </div>
+        <button type="button" class="btn add" id="btnAddSlot">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
+          เพิ่มโฆษณา
+        </button>
+      </header>
+
+      <div class="grid" id="slots"></div>
+
+      <!--
+        The empty board is a page of its own: it says what a card is and what to
+        do next, rather than leaving a blank panel with a stray button.
+      -->
+      <section class="empty" id="emptyBoard">
+        <div class="empty-art" aria-hidden="true">
+          <span class="empty-card"></span>
+          <span class="empty-card"></span>
+          <span class="empty-card"></span>
+        </div>
+        <h2>ยังไม่มีโฆษณา</h2>
+        <p>การ์ดหนึ่งใบคือโฆษณาหนึ่งชิ้น — รูปหรือวิดีโอ พร้อมข้อความสองภาษา<br />คลิกการ์ดเพื่อตั้งค่า ทุกอย่างเห็นได้ก่อนกดเผยแพร่</p>
+        <button type="button" class="btn primary" id="btnAddFirst">สร้างโฆษณาใบแรก</button>
+      </section>
+    </main>
+  </div>
+
+  <!--
+    The editor. A right-hand drawer rather than a dialog, so the board stays
+    visible: an operator comparing two creatives should not have to close one to
+    look at the other.
+  -->
+  <div class="drawer" id="drawer" hidden>
+    <div class="drawer-scrim" id="drawerScrim"></div>
+    <section class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+      <header class="drawer-head">
+        <h2 id="editorTitle">โฆษณา</h2>
+        <button type="button" class="icon-btn" id="drawerClose" title="ปิด" aria-label="ปิด">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+        </button>
+      </header>
+
+      <div class="drawer-body" id="editorBody">
+        <!-- Real preview, built to the frame NTAPI will draw. -->
+        <div class="preview">
+          <div class="preview-frame" id="frameMedia">
+            <div class="preview-empty" id="frameEmpty">ยังไม่มีรูป/วิดีโอ</div>
+          </div>
+          <button type="button" class="sound-chip" id="previewSound" hidden>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6.5h2.5L9 3.8v8.4L5.5 9.5H3z" /><path d="M11.5 5.5a3.5 3.5 0 010 5" /></svg>
+            <span id="soundText">เปิดเสียง</span>
+          </button>
+          <div class="preview-strip" id="frameStrip">
+            <span class="p-label" id="frameLabel">ผู้สนับสนุน</span>
+            <span class="p-text" id="frameTitle">ชื่อสปอนเซอร์</span>
           </div>
         </div>
-        <p class="frame-size" id="frameSize">536 × 268 px (ไฟล์จริง 1072 × 536)</p>
-        <div class="preview-notes" id="previewNotes"></div>
-      </aside>
-    </main>
+        <p class="preview-note" id="frameSize"></p>
 
-    <footer class="statusbar">
-      <span id="status">พร้อม</span>
-      <span class="status-detail" id="statusDetail"></span>
-    </footer>
+        <!-- Fields are built once per open; typing never rebuilds them. -->
+        <div class="fields" id="fields"></div>
+      </div>
 
-    <script src="app.js"></script>
-  </body>
+      <footer class="drawer-foot">
+        <button type="button" class="btn ghost danger-text" id="btnDelete">ลบโฆษณานี้</button>
+        <button type="button" class="btn primary" id="btnDone">เสร็จสิ้น</button>
+      </footer>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>

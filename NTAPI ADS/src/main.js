@@ -187,7 +187,11 @@ function createWindow() {
     minWidth: 900,
     minHeight: 680,
     show: false,
-    backgroundColor: '#12141a',
+    // Frameless: the window draws its own caption bar, so it reads as part of
+    // NTAPI rather than as a stock dialog. The bar is `-webkit-app-region: drag`
+    // in CSS, which is the only thing that still moves the window.
+    frame: false,
+    backgroundColor: '#12161f',
     title: 'NTAPI ADS',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -210,6 +214,28 @@ function createWindow() {
 }
 
 /* ---------------------------------- IPC ---------------------------------- */
+
+/**
+ * The window is frameless, so minimise/maximise/close come from the renderer's
+ * own caption buttons. Each one targets the window that asked — `win` is only
+ * the last-created window, which is wrong the moment a second one exists.
+ */
+ipcMain.on('win:minimize', (event) => {
+  const target = BrowserWindow.fromWebContents(event.sender);
+  if (target) target.minimize();
+});
+
+ipcMain.on('win:toggle-maximize', (event) => {
+  const target = BrowserWindow.fromWebContents(event.sender);
+  if (!target) return;
+  if (target.isMaximized()) target.unmaximize();
+  else target.maximize();
+});
+
+ipcMain.on('win:close', (event) => {
+  const target = BrowserWindow.fromWebContents(event.sender);
+  if (target) target.close();
+});
 
 ipcMain.handle('cfg:get', () => cfgLib.maskConfig(readConfig()));
 
