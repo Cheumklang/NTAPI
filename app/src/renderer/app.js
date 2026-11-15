@@ -29,7 +29,6 @@ const sessionTitle = el('sessionTitle');
 const emptyState = el('emptyState');
 const attachBar = el('attachments');
 const adSlot = el('adSlot');
-const adRefresh = el('adRefresh');
 const slashMenu = el('slashMenu');
 const loginOverlay = el('loginOverlay');
 const loginCodeEl = el('loginCode');
@@ -126,8 +125,8 @@ const STRINGS = {
     sessionMenuHint: 'Right-click to rename or delete',
     settings: 'Settings',
     settingsSub: 'Where this app keeps its files. Everything lives in one folder you can copy or back up.',
-    changeAd: 'Change ad',
-    adBusy: 'Wait for the current message to finish before changing the ad.',
+    adFrom: 'Ad from FREEPI.AI',
+    sidebarReset: 'Sidebar width reset',
     provider: 'Provider',
     coarenaSection: 'Coarena',
     coarenaKeyLabel: 'API key',
@@ -478,8 +477,8 @@ const STRINGS = {
     sessionMenuHint: 'คลิกขวาเพื่อเปลี่ยนชื่อหรือลบ',
     settings: 'ตั้งค่า',
     settingsSub: 'ที่เก็บไฟล์ของแอปนี้ — ทุกอย่างอยู่ในโฟลเดอร์เดียว ก๊อปหรือแบ็กอัปได้ทั้งก้อน',
-    changeAd: 'เปลี่ยนโฆษณา',
-    adBusy: 'รอให้ข้อความนี้ทำงานเสร็จก่อนเปลี่ยนโฆษณา',
+    adFrom: 'โฆษณาจาก FREEPI.AI',
+    sidebarReset: 'คืนความกว้างเริ่มต้นแล้ว',
     provider: 'ผู้ให้บริการ',
     coarenaSection: 'Coarena',
     coarenaKeyLabel: 'API key',
@@ -2165,9 +2164,16 @@ function renderActiveTab() {
   transcript.appendChild(emptyState);
   const messages = view.messages || [];
   emptyState.hidden = messages.length > 0;
+  const generation = ++renderGeneration;
 
   let currentAssistant = null;
-  for (const m of messages) {
+  // Drawing is per entry and it must stay that way: one entry the renderer cannot
+  // handle used to end the repaint where it threw, so the chat showed a prefix of
+  // itself — and the next repaint failed at the same entry and cut it again. The
+  // messages were never lost (a restart proved it); only the drawing stopped.
+  let drawn = 0;
+  const gaps = [];
+  const draw = (m) => {
     if (m.kind === 'user') {
       renderUserMessage(m.text, m.images);
       currentAssistant = null;
@@ -2212,7 +2218,7 @@ function renderActiveTab() {
       currentAssistant = null;
     } else if (m.kind === 'tool') {
       const target = currentAssistant?.querySelector('.tools');
-      if (!target) continue;
+      if (!target) return;
       // A tool call ends the prose before it, exactly as it does live, so a
       // reopened chat shows the same folded narration it showed while running.
       if (currentAssistant) sealBody(currentAssistant);
@@ -2230,13 +2236,118 @@ function renderActiveTab() {
         view.cwd
       );
     }
-  }
+  };
+  const total = messages.length;
+  const drawRange = (from, to) => {
+    // Grouping walks forward and needs a clean start: a chunk that began on a tool
+    // step would paint a second bubble header for the same turn.
+    currentAssistant = null;
+    for (let i = from; i < to; i += 1) {
+      const m = messages[i];
+      try {
+        draw(m);
+        drawn += 1;
+      } catch (err) {
+        gaps.push({ index: i, kind: m && m.kind, detail: err instanceof Error ? err.message : String(err) });
+        currentAssistant = null;
+      }
+    }
+  };
+
+  // A long conversation is a megabyte of markdown — code blocks, the highlighter,
+  // the lot — and drawing all of it before the window can do anything is what made
+  // opening a chat, and coming back to its tab, feel stuck for seconds. Draw the
+  // end of the chat first, because that is the part the reader is looking at, and
+  // fill the history in above it once the window is already answering.
+  const tailFrom = total > RENDER_TAIL_MESSAGES * 2 ? alignChunk(messages, total - RENDER_TAIL_MESSAGES) : 0;
+  drawRange(tailFrom, total);
 
   setBusy(Boolean(view.busy));
   scrollToBottom(true);
   renderAttachments();
   renderQueue();
   syncProviderChrome(view);
+
+  // Ranges still to draw, nearest to the tail first: reading upward, the history
+  // arrives in the order it is being looked at.
+  const pending = [];
+  for (let at = tailFrom; at > 0; ) {
+    const from = at > RENDER_CHUNK_MESSAGES ? alignChunk(messages, at - RENDER_CHUNK_MESSAGES) : 0;
+    pending.push([from, at]);
+    at = from;
+  }
+  if (!pending.length) {
+    if (gaps.length) reportTranscriptGaps(view, gaps, total, drawn);
+    return;
+  }
+
+  let topAnchor = null;
+  const paintNext = () => {
+    // Another repaint (a new message, a tab switch) owns the transcript now.
+    if (generation !== renderGeneration) return;
+    const [from, to] = pending.shift();
+    const wasAtBottom = pinnedToBottom;
+    const heightBefore = transcript.scrollHeight;
+    const before = new Set(transcript.childNodes);
+
+    drawRange(from, to);
+
+    const added = [...transcript.childNodes].filter((node) => !before.has(node));
+    const anchor = topAnchor || emptyState.nextSibling;
+    for (const node of added) transcript.insertBefore(node, anchor);
+    if (added.length) topAnchor = added[0];
+
+    // Inserting above the viewport pushes the visible text down. Put the reader
+    // back where they were, unless they were following the bottom of the chat.
+    if (wasAtBottom) scrollToBottom();
+    else transcript.scrollTop += Math.max(0, transcript.scrollHeight - heightBefore);
+
+    if (pending.length) setTimeout(paintNext, 0);
+    else if (gaps.length) reportTranscriptGaps(view, gaps, total, drawn);
+  };
+  setTimeout(paintNext, 0);
+}
+
+/** How much of a conversation has to be on screen before the window is usable. */
+const RENDER_TAIL_MESSAGES = 24;
+/** How much history each follow-up pass draws; roughly a long scroll of text. */
+const RENDER_CHUNK_MESSAGES = 30;
+/** Bumped by every repaint so a half-finished fill stops when a newer one starts. */
+let renderGeneration = 0;
+
+/**
+ * Move a chunk edge back to a user message, so a chunk never starts mid-turn.
+ * Tool steps are stored as separate assistant messages and are grouped into the
+ * bubble above them; starting a chunk on one would show a stray second header.
+ */
+function alignChunk(messages, index) {
+  let at = Math.max(0, Math.min(index, messages.length));
+  while (at > 0 && at < messages.length && messages[at] && messages[at].kind !== 'user') at -= 1;
+  return at;
+}
+
+/**
+ * Say that a repaint could not draw everything, and keep a line on disk.
+ *
+ * The console alone is not enough: the failure is invisible after the fact — the
+ * chat is short, the session file is complete, and the app looks fine once it has
+ * been restarted. One report per repaint, capped, so a broken entry cannot fill
+ * the log.
+ */
+let transcriptGapReports = 0;
+function reportTranscriptGaps(view, gaps, total, drawn) {
+  if (transcriptGapReports > 40) return;
+  transcriptGapReports += 1;
+  const summary = gaps
+    .slice(0, 5)
+    .map((g) => `#${g.index} ${g.kind}: ${g.detail}`)
+    .join(' | ');
+  console.error(`[transcript] drew ${drawn}/${total} — ${summary}`);
+  try {
+    api.uiLog?.(
+      `transcript gap tab=${view?.tabId || '?'} drew=${drawn}/${total} gaps=${gaps.length} :: ${summary}`,
+    );
+  } catch {}
 }
 
 /* ------------------------- provider chrome ------------------------- */
@@ -3591,6 +3702,22 @@ function applySidebarWidth(px) {
   return w;
 }
 
+/**
+ * Put the sidebar back to the width it ships with.
+ *
+ * Dragging is easy to overshoot by a hundred pixels and there was no way back
+ * except dragging again by eye, so the divider answers a double-click. The width
+ * is saved, not just applied: a reset that came back wrong on the next launch
+ * would look like the double-click never happened.
+ */
+function resetSidebarWidth() {
+  const w = applySidebarWidth(SIDEBAR_DEFAULT);
+  appPrefs.sidebarWidth = w;
+  api.setPrefs({ sidebarWidth: w });
+  showNotice(t('sidebarReset'), 1600);
+  return w;
+}
+
 (function initSidebarResize() {
   const bar = el('sidebarResizer');
   if (!bar) return;
@@ -3623,8 +3750,27 @@ function applySidebarWidth(px) {
     window.addEventListener('mouseup', onUp);
   });
 
-  // Keyboard support: arrow keys nudge, Shift jumps further.
+  bar.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    resetSidebarWidth();
+  });
+
+  // The divider is a 5px target. The sidebar's own empty space is the generous
+  // one, so a double-click anywhere on it resets too — except on a session row or
+  // a control, where a double-click already means open / press.
+  document.querySelector('#sidebar')?.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.session-item, button, input, select, textarea, a, [contenteditable]')) return;
+    e.preventDefault();
+    resetSidebarWidth();
+  });
+
+  // Keyboard support: arrow keys nudge, Shift jumps further, Home resets.
   bar.addEventListener('keydown', (e) => {
+    if (e.key === 'Home') {
+      e.preventDefault();
+      resetSidebarWidth();
+      return;
+    }
     const step = e.shiftKey ? 40 : 8;
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
@@ -5329,6 +5475,15 @@ function renderQueue() {
 
   items.forEach((item, index) => {
     const row = document.createElement('div');
+    // One line, always. The number, the handle, the controls and the words used to
+    // be direct children of a wrapping flex row: a message long enough to fill the
+    // width pushed the words onto a line of their own, so a queue of long messages
+    // was twice as tall and read as ragged. They now sit in a single row that does
+    // not wrap — the words give way (ellipsis) instead of the row — and only the
+    // countdown below is allowed onto its own line.
+    const line = document.createElement('div');
+    line.className = 'queue-line';
+    row.appendChild(line);
     row.className = 'queue-item';
     row.dataset.queueId = item.queueId || '';
     // The item's own position, resolved at click time by queueId rather than by
@@ -5344,7 +5499,7 @@ function renderQueue() {
     num.className = 'queue-num';
     num.textContent = String(index + 1);
     num.setAttribute('aria-label', t('queuePosition', { n: index + 1 }));
-    row.appendChild(num);
+    line.appendChild(num);
 
     if (item.kind !== 'action') {
       const grip = document.createElement('button');
@@ -5357,7 +5512,7 @@ function renderQueue() {
       // The handle and the row both begin a drag.
       enableQueueDrag(row, grip);
       enableQueueDrag(row, row);
-      row.appendChild(grip);
+      line.appendChild(grip);
     }
 
     if (item.editing) {
@@ -5382,21 +5537,21 @@ function renderQueue() {
           cancelQueueEdit(view, item);
         }
       });
-      row.appendChild(field);
+      line.appendChild(field);
 
       const save = document.createElement('button');
       save.type = 'button';
       save.className = 'queue-save';
       save.textContent = t('queueSave');
       save.addEventListener('click', () => saveQueueEdit(view, item));
-      row.appendChild(save);
+      line.appendChild(save);
 
       const stop = document.createElement('button');
       stop.type = 'button';
       stop.className = 'queue-cancel';
       stop.textContent = t('queueCancelEdit');
       stop.addEventListener('click', () => cancelQueueEdit(view, item));
-      row.appendChild(stop);
+      line.appendChild(stop);
 
       bar.appendChild(row);
       updateKeepButton(item, row);
@@ -5449,7 +5604,7 @@ function renderQueue() {
         v.queue[at].draft = v.queue[at].text || '';
         renderQueue();
       });
-      row.appendChild(edit);
+      line.appendChild(edit);
     }
 
     const rm = document.createElement('button');
@@ -5468,8 +5623,8 @@ function renderQueue() {
       // Removing the head may unblock the queue.
       if (v === activeView()) drainQueue(v);
     });
-    row.appendChild(rm);
-    row.appendChild(label);
+    line.appendChild(rm);
+    line.appendChild(label);
 
     bar.appendChild(row);
   });
@@ -5963,11 +6118,20 @@ el('refreshUsage').addEventListener('click', () => refreshUsage());
 
 /*
  * The pill carries the three numbers worth a glance; this popover carries the
- * rest. It is a disclosure, not a dialog: opened by a click or Enter on the pill,
- * closed by a second click, Escape, or a click anywhere outside the strip — which
- * is what a popover is expected to do, and the reason the outside listener is on
- * `pointerdown` (it runs before the click that would otherwise re-open it).
+ * rest. It is a read-out first and a control second, so the pointer opens it:
+ * hovering after a short delay (a pointer crossing the topbar on its way
+ * somewhere else must not flash a panel), closing after a longer one, which is
+ * the gap between the pill and the panel itself.
+ *
+ * A click pins it. Without that, the button inside could not be pressed — the
+ * panel would close the moment the pointer left the pill. Escape and a click
+ * outside always close, pinned or not.
  */
+const STATUS_OPEN_DELAY_MS = 110;
+const STATUS_CLOSE_DELAY_MS = 260;
+let statusHoverTimer = null;
+let statusPinned = false;
+
 function statusPopoverOpen() {
   const pop = el('statusPopover');
   return Boolean(pop && !pop.hidden);
@@ -5979,9 +6143,40 @@ function setStatusPopover(open) {
   if (!pop || !pill) return;
   pop.hidden = !open;
   pill.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (!open) statusPinned = false;
 }
 
-el('statusPill').addEventListener('click', () => setStatusPopover(!statusPopoverOpen()));
+function cancelStatusHover() {
+  if (!statusHoverTimer) return;
+  clearTimeout(statusHoverTimer);
+  statusHoverTimer = null;
+}
+
+function queueStatusPopover(open, delay) {
+  cancelStatusHover();
+  statusHoverTimer = setTimeout(() => {
+    statusHoverTimer = null;
+    // A pinned panel ignores the pointer leaving; only an explicit close unpins.
+    if (!open && statusPinned) return;
+    setStatusPopover(open);
+  }, delay);
+}
+
+el('statusPill').addEventListener('click', () => {
+  if (statusPopoverOpen() && statusPinned) {
+    setStatusPopover(false);
+    return;
+  }
+  statusPinned = true;
+  cancelStatusHover();
+  setStatusPopover(true);
+});
+
+const statusStripEl = el('statusStrip');
+statusStripEl.addEventListener('pointerenter', () => queueStatusPopover(true, STATUS_OPEN_DELAY_MS));
+// `pointerleave` on the strip, not the pill: moving from the pill into the panel
+// is not leaving, which is what lets someone reach the refresh button.
+statusStripEl.addEventListener('pointerleave', () => queueStatusPopover(false, STATUS_CLOSE_DELAY_MS));
 
 el('statusPopover').addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
@@ -5995,11 +6190,15 @@ el('statusPopover').addEventListener('keydown', (e) => {
 document.addEventListener('pointerdown', (e) => {
   if (!statusPopoverOpen()) return;
   if (e.target && e.target.closest && e.target.closest('#statusStrip')) return;
+  cancelStatusHover();
   setStatusPopover(false);
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && statusPopoverOpen()) setStatusPopover(false);
+  if (e.key === 'Escape' && statusPopoverOpen()) {
+    cancelStatusHover();
+    setStatusPopover(false);
+  }
 });
 
 
@@ -6814,11 +7013,7 @@ function renderAd(ad) {
   body.textContent = ad.creative.body || '';
   body.hidden = !ad.creative.body;
   adSlot.querySelector('.ad-cta').textContent = ad.creative.cta || 'Open';
-  adSlot.title = 'Ads keep NTAPI free — click to open in your browser';
-  if (adRefresh) {
-    adRefresh.title = t('changeAd');
-    adRefresh.setAttribute('aria-label', t('changeAd'));
-  }
+  adSlot.title = t('adFrom');
   adSlot.hidden = false;
 }
 
@@ -6839,25 +7034,6 @@ if (adSlot) {
   adSlot.querySelector('.ad-cta')?.addEventListener('click', (e) => {
     e.stopPropagation();
     openCurrentAd();
-  });
-}
-
-if (adRefresh) {
-  adRefresh.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    if (adRefresh.disabled) return;
-    if (activeView()?.busy) {
-      showNotice(t('adBusy'));
-      return;
-    }
-    adRefresh.disabled = true;
-    adRefresh.classList.add('busy');
-    try {
-      const res = await api.rotateAd({ tabId: activeTabId, auto: false });
-      if (res?.reason === 'busy') showNotice(t('adBusy'));
-    } catch {}
-    adRefresh.classList.remove('busy');
-    adRefresh.disabled = false;
   });
 }
 
@@ -7049,7 +7225,28 @@ window.addEventListener('keydown', (e) => {
 
 api.onLog((p) => console.log(`[${p.tabId}]`, p.text));
 
-boot();
+/**
+ * Tell main the window is worth looking at.
+ *
+ * The update splash is a separate process that covers the gap while the new build
+ * installs itself. It used to be closed when the document finished loading — which
+ * is before this window has drawn anything: boot() is still talking to the main
+ * process, so the splash vanished onto a blank window. Two frames after the first
+ * render is the earliest honest moment to say "ready".
+ */
+function signalUiReady() {
+  const done = () => {
+    try {
+      api.uiReady?.();
+    } catch {}
+  };
+  requestAnimationFrame(() => requestAnimationFrame(done));
+}
+
+boot()
+  // A boot that throws must not leave the window blank with the splash gone.
+  .catch((err) => console.error('[boot]', err && err.stack ? err.stack : err))
+  .then(signalUiReady);
 startUsagePolling();
 window.addEventListener('beforeunload', stopUsagePolling);
 

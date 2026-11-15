@@ -157,8 +157,11 @@
             The pill carries the three numbers that change what you do next: how
             much daily credit is left, how full the context window is, and a bar
             that turns amber then red before either runs out. Everything the old
-            sidebar panel showed is one click away in the popover, so the sidebar
-            column is left to the session list.
+            sidebar panel showed is one hover away in the popover.
+
+            There is no dropdown arrow: it sat on top of the last percentage and
+            pointed at a menu nobody needed to be told about — the panel opens
+            when the pointer arrives. A click pins it open for the buttons inside.
           -->
           <div class="status-strip" id="statusStrip">
             <button
@@ -191,7 +194,6 @@
                 <span class="status-label" id="statusProviderName">—</span>
                 <span class="status-num mono" id="statusProviderMeter">—</span>
               </span>
-              <span class="status-caret" aria-hidden="true">▾</span>
             </button>
 
             <div
@@ -299,14 +301,16 @@
           </div>
         </header>
 
-        <!-- Ads pay for the free completions, so they stay visible while a session is open. -->
+        <!-- Ads pay for the free completions, so they stay visible while a session is open.
+             Plain text and a caption, no refresh control: the creative rotates on its
+             own, and a button in the middle of the conversation read as part of the
+             interface rather than as an ad. -->
         <div id="adSlot" class="ad-slot" hidden role="complementary" aria-label="Sponsored">
-          <span class="ad-tag">AD</span>
+          <span class="ad-tag" data-i18n="adFrom">โฆษณาจาก FREEPI.AI</span>
           <div class="ad-copy">
             <span class="ad-headline"></span>
             <span class="ad-text"></span>
           </div>
-          <button type="button" class="ad-refresh" id="adRefresh" aria-label="Change ad" title="Change ad">↻</button>
           <button type="button" class="ad-cta"></button>
         </div>
 

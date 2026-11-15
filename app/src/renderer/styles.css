@@ -692,7 +692,9 @@ button { font-family: inherit; }
   min-width: 0;
   max-width: 100%;
   height: 30px;
-  padding: 0 9px;
+  /* Symmetric padding: without the caret on the right there is nothing to make
+   * room for, and the last percent sign stops touching the edge. */
+  padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--bg-2);
@@ -713,28 +715,24 @@ button { font-family: inherit; }
 .status-num { color: var(--text); font-variant-numeric: tabular-nums; }
 .status-num.mono { font-family: var(--mono); }
 .status-sep { color: #3a4356; }
-.status-caret { color: var(--muted); font-size: 9px; line-height: 1; }
 
 /* The bar carried by the pill. Same colours as the panel's bar, a third of the
  * height: at 30px tall a 6px bar reads as a stripe, not a meter. */
 .status-bar { width: 46px; height: 5px; flex: none; }
 .status-bar .usage-bar-fill { height: 100%; }
 
-/* Under 1080px the words go first, the numbers stay. The labels are also on the
- * popover rows, so nothing is lost — the bar already carries "how full". */
+/* Narrow windows drop the pill's parts in order of usefulness, never the
+ * session name's room: the words first (they are also on the popover rows), then
+ * the credit numbers (the bar already answers "how full"), then the percentage,
+ * leaving just the bar. */
 @media (max-width: 1080px) {
   .status-pill .status-label { display: none; }
   .status-bar { width: 32px; }
+  .status-pill .status-credits { display: none; }
 }
 @media (max-width: 860px) {
   .status-group#statusFree .status-sep,
   .status-group#statusFree #usagePct { display: none; }
-}/* At 1080px the row is genuinely tight: the model picker is ~265px and the name
- * is the thing being edited, so the pill gives up its widest part (the credit
- * numbers) rather than squeezing the name to nothing. The numbers stay in the
- * popover, one click away. */
-@media (max-width: 1080px) {
-  .status-pill .status-credits { display: none; }
 }
 
 .status-popover {
@@ -1317,9 +1315,8 @@ button { font-family: inherit; }
   min-width: 15ch;
   font-variant-numeric: tabular-nums;
 }
-/* Inside a queue row the countdown stacks under the text. */
+/* Inside a queue row the countdown stacks under the line. */
 .queue-item .hold-row {
-  flex-basis: 100%;
   margin-top: 1px;
   font-size: 11px;
 }
@@ -1562,15 +1559,21 @@ button { font-family: inherit; }
 .ad-slot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ad-slot[hidden] { display: none; }
 
+/* The caption names the source instead of shouting "AD": two words and a domain
+ * say who is paying, which is the part a reader actually wants to know. It is a
+ * label, not a chip — no border, no letterspacing, or it starts competing with
+ * the headline next to it. */
 .ad-tag {
   flex: 0 0 auto;
-  font-size: 12px;
+  max-width: 132px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: .8px;
+  letter-spacing: .2px;
+  text-transform: uppercase;
   color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 1px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ad-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -1589,22 +1592,6 @@ button { font-family: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.ad-refresh {
-  flex: 0 0 auto;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 13.5px;
-  line-height: 1;
-  padding: 4px 7px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.ad-refresh:hover { color: var(--text); border-color: #3b4257; background: rgba(255, 255, 255, .05); }
-.ad-refresh:disabled { opacity: .45; cursor: default; }
-.ad-refresh.busy { animation: sspin .7s linear infinite; }
 
 .ad-cta {
   flex: 0 0 auto;
@@ -2134,9 +2121,19 @@ button { font-family: inherit; }
   line-height: 1.45;
   color: var(--muted);
 }
+/*
+ * Two parts, stacked: the line, and — only while a countdown is running — the
+ * countdown under it. The line itself never wraps.
+ */
 .queue-item {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+}
+.queue-line {
+  display: flex;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 4px;
   min-width: 0;
@@ -2168,7 +2165,7 @@ button { font-family: inherit; }
  * does not move while you type — that is the point of editing a queued message
  * instead of deleting it and queuing it again.
  */
-.queue-item.editing { align-items: center; }
+.queue-item.editing .queue-line { align-items: center; }
 .queue-edit {
   flex: 1 1 auto;
   min-width: 0;
@@ -2209,14 +2206,13 @@ button { font-family: inherit; }
 }
 .queue-text {
   /* Sized to its text, so short messages keep the buttons right next to them,
-   * but capped so a long one truncates instead of growing under the controls.
-   * `flex-basis: 0` with `grow: 0` would collapse it to nothing; `auto` alone
-   * lets a nowrap line claim the whole row because `flex-wrap` on the row breaks
-   * to a new line instead of shrinking. The fix is to allow shrinking *and* keep
-   * the row from wrapping this item onto its own line. */
+   * and it is the only part that gives way when the message is long: the line
+   * does not wrap, so the words shrink to an ellipsis instead of dropping onto
+   * a second row. `min-width: 0` is what allows that shrink — without it a flex
+   * item refuses to go below its content width. */
   flex: 0 1 auto;
   min-width: 0;
-  max-width: calc(100% - 50px);
+  max-width: 100%;
   font-size: 11.5px;
   line-height: 1.45;
   color: var(--muted);
