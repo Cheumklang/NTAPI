@@ -33,6 +33,13 @@ contextBridge.exposeInMainWorld('freepi', {
   mcpSet: (payload) => ipcRenderer.invoke('mcp:set', payload),
   // Version/runtime/OS, for the "copy system info" button and crash reports.
   systemInfo: () => ipcRenderer.invoke('app:systemInfo'),
+  // One line kept on disk by the main process. Used by the transcript when a
+  // repaint could not draw a message: the visible chat would otherwise just be
+  // short, with nothing to point at afterwards.
+  uiLog: (line) => ipcRenderer.send('ui:log', String(line || '')),
+  // "The window has painted something." The update splash stays up until this
+  // arrives, so closing it early would uncover an empty window.
+  uiReady: () => ipcRenderer.send('ui:ready'),
   // Browser control: the chip in the toolbar owns enable/disable.
   browserStatus: () => ipcRenderer.invoke('browser:status'),
   browserToggle: (enabled) => ipcRenderer.invoke('browser:toggle', { enabled: Boolean(enabled) }),

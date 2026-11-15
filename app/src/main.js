@@ -74,6 +74,18 @@ function logCrash(kind, detail) {
     fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'), line);
   } catch {}
 }
+
+/**
+ * A line the renderer asked us to keep.
+ *
+ * The transcript has one failure mode that is invisible from here: a repaint that
+ * stops halfway leaves the DOM showing a prefix of the chat, and the next launch
+ * looks fine again. Without a line on disk there is nothing to debug afterwards,
+ * so the renderer reports the gap and this writes it next to the real crashes.
+ */
+function logUi(line) {
+  logCrash('ui', line);
+}
 process.on('uncaughtException', (err) => logCrash('uncaughtException', safeErrorMessage(err)));
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', safeErrorMessage(reason)));
 app.on('render-process-gone', (_event, _contents, details) =>
@@ -226,6 +238,14 @@ let sdk;
 let win = null;
 /** Resolves when the main window has painted its first frame. */
 let winUiReady = null;
+/** Set while the window is loading; the renderer calls it through `ui:ready`. */
+let uiReadyResolver = null;
+/**
+ * How long to keep the update splash up waiting for the first painted frame.
+ * Generous — a cold start with a large session can take a few seconds — but short
+ * enough that a stuck renderer does not leave a box floating over the desktop.
+ */
+const UI_READY_TIMEOUT_MS = 15_000;
 
 /**
  * After the data folder is renamed, any absolute path saved inside it still
@@ -1267,6 +1287,43 @@ function dropFailedAssistant(tab) {
  *   - a route that exhausted pi's own retries on the same dead model.
  * Both continue the interrupted turn on the next free route.
  */
+/**
+ * Pick the interrupted turn back up on the new route.
+ *
+ * `agent.continue()` has two ways of saying no that both used to end a turn in
+ * silence: it refuses while it still believes a run is active ("Agent is already
+ * processing"), and it refuses when the transcript ends on an assistant message.
+ * The first happens right after the abort that skipped a spent route's retry — the
+ * run has settled but pi has not let go yet — and the second is what the pop above
+ * is for. Rather than trusting the timing, make sure the agent is idle and try
+ * once more before telling the user anything.
+ */
+async function resumeAgentTurn(tab) {
+  const session = tab.handle.session;
+  const agent = session.agent;
+
+  if (session.isStreaming) {
+    try {
+      await session.abort();
+    } catch {}
+    for (let i = 0; i < 20 && session.isStreaming; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  try {
+    await agent.continue();
+  } catch (err) {
+    const text = err instanceof Error ? err.message : String(err);
+    if (!/already processing/i.test(text)) throw err;
+    try {
+      await session.abort();
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    await agent.continue();
+  }
+}
+
 async function runModelFallback(tabId, tab) {
   const state = tab.fallback;
   if (!state || state.exhausted) return;
@@ -1275,8 +1332,13 @@ async function runModelFallback(tabId, tab) {
 
   const messages = tab.handle?.session?.agent?.state?.messages || [];
   const last = messages[messages.length - 1];
-  if (!last || last.role !== 'assistant' || last.stopReason !== 'error') return;
-  if (!isLimitError({ text: last.errorMessage })) return;
+  if (!last || last.role !== 'assistant') return;
+  if (last.stopReason !== 'error' && last.stopReason !== 'aborted') return;
+  // Either the turn ends on the limit error itself, or on the abort this process
+  // sent to stop pi retrying that error. Both mean the same thing: the route is
+  // spent and the work it was doing has to finish somewhere else.
+  const limit = tab.limitFailure && tab.limitFailure.seq === (tab.promptSeq || 0);
+  if (!limit && !isLimitError({ text: last.errorMessage })) return;
 
   // Blame the route recorded on the failed message, not whatever is selected
   // now: pi may have retried elsewhere before giving up.
@@ -1300,13 +1362,12 @@ async function runModelFallback(tabId, tab) {
   tab.busy = true;
   sendTab(tabId, 'agent:busy', { busy: true });
   try {
-    await tab.handle.session.agent.continue();
+    await resumeAgentTurn(tab);
   } catch (err) {
     tab.busy = false;
     sendTab(tabId, 'agent:busy', { busy: false });
     reportTabError(tabId, err instanceof Error ? err.message : String(err));
-  }
-}
+  }}
 
 async function runEmptyAnswerRetry(tabId, tab) {
   const pending = tab.emptyAnswer;
@@ -1482,7 +1543,13 @@ function subscribeTab(tabId) {
         tab.busy = false;
         sendTab(tabId, 'agent:busy', { busy: false });
         sendTab(tabId, 'agent:settled', { aborted: Boolean(event.aborted) });
-        if (!event.aborted) {
+        // An abort is normally the user pressing Stop, and re-asking another model
+        // after that would answer a question they no longer want answered. The
+        // exception is the abort *this* process sends to stop pi retrying a spent
+        // free route — that turn still has to be finished, on a route that can.
+        const ownAbort =
+          Boolean(event.aborted) && tab.limitFailure && tab.limitFailure.seq === (tab.promptSeq || 0);
+        if (!event.aborted || ownAbort) {
           // A spent allowance is handled first: the empty-answer retry would
           // only re-send the prompt to a model that has nothing left.
           runModelFallback(tabId, tab)
@@ -1592,6 +1659,13 @@ function subscribeTab(tabId) {
       case 'message_end': {
         const m = event.message;
         if (m?.role === 'assistant' && m.stopReason === 'error') {
+          // A spent allowance is worth remembering even when the sentence pi ends
+          // up reporting is not the one it started with: the abort below rewrites
+          // the failure to "aborted", and "aborted" is on the list of errors that
+          // must never trigger a switch. The turn would then end in silence.
+          if (isLimitError({ text: m.errorMessage })) {
+            tab.limitFailure = { seq: tab.promptSeq || 0, text: m.errorMessage || '' };
+          }
           reportTabError(tabId, m.errorMessage);
         } else if (m?.role === 'assistant' && m.stopReason === 'length') {
           // A reasoning model can spend the whole output cap thinking and return
@@ -1614,6 +1688,10 @@ function subscribeTab(tabId) {
         // abort controller, so the abort has to land on the next microtask.
         if (isLimitError({ text: event.errorMessage })) {
           const session = tab.handle.session;
+          // Record the reason before aborting: the abort is ours, and it hides the
+          // 429 that caused it. `runModelFallback` reads this instead of the last
+          // error sentence, which is all it would otherwise have left.
+          tab.limitFailure = { seq: tab.promptSeq || 0, text: event.errorMessage || '' };
           const stop = () => {
             try {
               session?.abortRetry?.();
@@ -1880,10 +1958,23 @@ function createWindow() {
     },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  // Resolves once the UI has painted, so the update splash can stay up until
-  // there is something to look at behind it.
+  // Resolves once the UI has painted, so the update splash stays up until there is
+  // something to look at behind it. `did-finish-load` is too early — the document
+  // is loaded but the window is still empty while boot() talks to this process, so
+  // the splash used to vanish onto a blank frame. The renderer says when it is
+  // ready; the timeout keeps a broken renderer from pinning the splash forever.
   winUiReady = new Promise((resolve) => {
-    win.webContents.once('did-finish-load', () => resolve());
+    let settled = false;
+    const finish = (why) => {
+      if (settled) return;
+      settled = true;
+      uiReadyResolver = null;
+      if (why) console.log(`[update] splash closed: ${why}`);
+      resolve();
+    };
+    uiReadyResolver = () => finish('ui ready');
+    win.webContents.once('did-finish-load', () => setTimeout(() => finish('timeout'), UI_READY_TIMEOUT_MS));
+    win.once('closed', () => finish('window closed'));
   });
   win.on('closed', () => {
     win = null;
@@ -2514,6 +2605,13 @@ function winState() {
   };
 }
 
+ipcMain.on('ui:log', (_e, line) => logUi(String(line || '').slice(0, 2000)));
+ipcMain.on('ui:ready', () => {
+  const resolve = uiReadyResolver;
+  uiReadyResolver = null;
+  if (resolve) resolve();
+});
+
 ipcMain.on('win:minimize', () => win?.minimize());
 ipcMain.on('win:toggleMaximize', () => {
   if (!win) return;
@@ -2938,6 +3036,7 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
   tab.emptyRetryCount = 0;
   // A new message starts a fresh pool of free routes to fall back through.
   tab.fallback = null;
+  tab.limitFailure = null;
 
   // A second prompt while the agent is running must say how to queue itself:
   // 'steer' joins this turn, 'followUp' waits for the run to finish. Idle
@@ -2966,6 +3065,9 @@ ipcMain.handle('prompt:abort', async (_e, tabId) => {
     await tab.handle.session.abort();
   } catch {}
   tab.busy = false;
+  // The user asked for this stop; it is not a spent allowance and must not send
+  // the turn to another model behind their back.
+  tab.limitFailure = null;
   sendTab(id, 'agent:busy', { busy: false });
   return { ok: true };
 });
@@ -3976,8 +4078,22 @@ ipcMain.handle('update:install', () => {
   updateState = { ...updateState, status: 'installing', progress: 100, error: null };
   sendUpdateState();
   openUpdateSplash();
-  // 4.5 s is long enough to read the overlay; the splash covers the rest.
-  setTimeout(() => updater.quitAndInstall(true, true), 4500);
+  // 4.5 s is long enough to read the overlay; the splash covers the rest. But the
+  // splash is a second Electron process and takes a moment to draw, so quitting on
+  // a timer alone could quit into empty desktop before it appeared. It writes its
+  // pid once its window exists — wait for that, and give up waiting after a while
+  // so a splash that never starts cannot block the update.
+  const quitAt = Date.now() + 4500;
+  const quitWhenCovered = () => {
+    const covered = fs.existsSync(splashPidFile());
+    const late = Date.now() - quitAt > 6000;
+    if (covered || late) {
+      updater.quitAndInstall(true, true);
+      return;
+    }
+    setTimeout(quitWhenCovered, 120);
+  };
+  setTimeout(quitWhenCovered, 4500);
   return { ok: true };
 });
 
