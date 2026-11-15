@@ -27,6 +27,18 @@ const modelList = el('modelList');
 const modelMenuEmpty = el('modelMenuEmpty');
 const sessionTitle = el('sessionTitle');
 const emptyState = el('emptyState');
+/**
+ * The placeholder that fills the reading area until the first transcript paints.
+ * It lives beside `#transcript`, not inside it, because that element is rebuilt
+ * wholesale on every tab switch.
+ */
+const txSkeleton = el('txSkeleton');
+function hideSkeleton() {
+  if (txSkeleton) txSkeleton.hidden = true;
+}
+// If the first paint never comes (no tab, a load that failed), the placeholder must
+// not sit there forever pretending to still be loading.
+setTimeout(hideSkeleton, 2500);
 const attachBar = el('attachments');
 const adSlot = el('adSlot');
 const slashMenu = el('slashMenu');
@@ -875,6 +887,17 @@ const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const activeView = () => (activeTabId ? views.get(activeTabId) : null);
+
+/**
+ * Repaint the session rows so the running spinner tracks the turn.
+ *
+ * `renderSessions()` is otherwise rebuilt only when the list itself changes, so a
+ * turn that had already finished left the spinner turning on that row until
+ * something else happened to redraw the sidebar.
+ */
+function refreshSessionBusy() {
+  if (state.cwd) renderSessions(state.cwd);
+}
 
 function createView(tabId) {
   const view = {
@@ -2161,6 +2184,7 @@ function renderActiveTab() {
     transcript.innerHTML = '';
     transcript.appendChild(emptyState);
     emptyState.hidden = false;
+    hideSkeleton();
     sessionTitle.value = '';
     el('sessionDot').hidden = true;
     closeModelMenu();
@@ -2183,6 +2207,7 @@ function renderActiveTab() {
   transcript.appendChild(emptyState);
   const messages = view.messages || [];
   emptyState.hidden = messages.length > 0;
+  hideSkeleton();
   const generation = ++renderGeneration;
 
   let currentAssistant = null;
@@ -2915,10 +2940,15 @@ async function renderSessions(cwd) {
 
     const busy = open?.[1]?.busy;
     const title = s.name || s.firstMessage || t('untitled');
+    // While this row is the one on screen, the border breathes and no dot is drawn:
+    // two "working" marks on the same row read as noise. A background tab keeps the
+    // dot, in the reserved left slot, so the chat name never shifts sideways.
+    if (busy) btn.classList.add('busy');
+    const marker = busy && !isActive ? '<span class="s-spin"></span>' : s.pinned ? '\u{1F4CC}' : '';
     btn.innerHTML = `
       <span class="s-row">
-        <span class="s-pin-slot" aria-hidden="true">${s.pinned ? '\u{1F4CC}' : ''}</span>
-        <span class="s-title">${busy ? '<span class="s-spin"></span>' : ''}${escapeHtml(title)}</span>
+        <span class="s-pin-slot" aria-hidden="true">${marker}</span>
+        <span class="s-title">${escapeHtml(title)}</span>
         ${isActive ? `<span class="s-current">${t('currentBadge')}</span>` : ''}
       </span>
       <span class="s-meta">${escapeHtml(new Date(s.created || s.modified).toLocaleString())}${
@@ -6941,6 +6971,7 @@ api.onBusy((p) => {
   const view = viewFor(p);
   if (!view) return;
   view.busy = p.busy;
+  refreshSessionBusy();
   if (payloadTabIsActive(view)) {
     setBusy(p.busy);
     if (p.busy) ensureLive(view);
@@ -6979,6 +7010,7 @@ api.onSettled((p) => {
   // deserves the "finished" ping.
   const hadQueue = Boolean(view.queue?.length);
   view.busy = false;
+  refreshSessionBusy();
   view.steerPending = false;
   if (view.liveAssistant) view.liveAssistant.classList.remove('streaming');
   view.liveAssistant = null;
@@ -7019,6 +7051,7 @@ api.onError((p) => {
   if (!view) return;
   view.busy = false;
   view.steerPending = false;
+  refreshSessionBusy();
   if (!payloadTabIsActive(view)) return;
   showNotice(null);
   // `key` is the same failure in the user's language; `status`/`code` stay

@@ -2631,19 +2631,135 @@ button { font-family: inherit; }
   padding: 5px 7px;
 }
 .s-rename:focus { outline: none; box-shadow: 0 0 0 2px rgba(124, 92, 255, .45); }
+/*
+ * The running marker, drawn inside the row's reserved left slot (see
+ * `.s-pin-slot`) rather than in front of the title: a glyph inside the title
+ * pushed the chat name sideways for the length of every turn.
+ */
 .s-spin {
   display: inline-block;
   width: 7px;
   height: 7px;
-  margin-right: 6px;
   border-radius: 50%;
   border: 1.5px solid rgba(124, 92, 255, .35);
   border-top-color: var(--accent);
   animation: sspin .7s linear infinite;
-  vertical-align: middle;
 }
 @keyframes sspin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .s-spin { animation: none; } }
+
+/* ------------------------------- polish (batch 1a) ------------------------------ */
+/*
+ * One motion language for everything pressable. Nothing in this block changes a
+ * box: only colour, shadow and a 1px transform, so the layouts that are measured
+ * in the checks (sidebar 305px, sponsor band, queue rows) keep their geometry.
+ */
+.chip-btn,
+.path-btn,
+.ghost,
+.model-picker-btn,
+.model-option,
+.model-star,
+.ctx-menu button {
+  transition: background .16s ease, border-color .16s ease, color .16s ease,
+    box-shadow .18s ease, transform .12s cubic-bezier(.2, .8, .3, 1);
+}
+.chip-btn:hover,
+.path-btn:hover,
+.ghost:hover { transform: translateY(-1px); }
+.chip-btn:active,
+.path-btn:active,
+.ghost:active { transform: translateY(1px); }
+/* The row under the pointer thickens a touch, so the target reads before it is read. */
+.model-option:hover { transform: scale(1.012); }
+
+/* A visible focus ring everywhere, not only where a rule happened to exist. */
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Dialogs and menus arrive instead of snapping into place. */
+.settings-dialog { animation: ui-arrive .18s ease-out; }
+.model-menu { animation: ui-arrive .16s ease-out; }
+.ctx-menu { animation: ui-arrive .14s ease-out; }
+@keyframes ui-arrive {
+  from { opacity: 0; transform: translateY(4px) scale(.995); }
+}
+
+/*
+ * The selected chat pulses while its turn runs. Brightness only, through
+ * `box-shadow`: touching `border-color` would paint over the colour stripe the
+ * user chose, and a transform would move a box that is measured elsewhere.
+ *
+ * The shape matters as much as the speed. A symmetric rise and fall reads as one
+ * flat, slightly-heavier card — the eye has nothing to catch, so it looks darker
+ * rather than alive. Here the peak lands at 22% of the cycle and takes the rest
+ * of it to fade: a pulse, at 1.2s, with the brightness the user signed off on.
+ */
+.session-item.active.busy { animation: session-breathe 1.2s cubic-bezier(.35, 0, .6, 1) infinite; }
+@keyframes session-breathe {
+  0%, 100% {
+    box-shadow: 0 3px 14px rgba(124, 92, 255, .12);
+  }
+  22% {
+    box-shadow: 0 3px 14px rgba(124, 92, 255, .36),
+      0 0 0 1px rgba(186, 164, 255, .95),
+      0 0 20px 4px rgba(124, 92, 255, .6);
+  }
+}
+
+/*
+ * First-paint placeholder for the reading area. It sits over the transcript, not
+ * inside it: `renderActiveTab()` does `transcript.innerHTML = ''` and re-appends
+ * its children, which would take the placeholder with it.
+ */
+.transcript-wrap { position: relative; }
+.tx-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: 22px 18px;
+  pointer-events: none;
+  background: var(--bg);
+}
+.tx-skeleton[hidden] { display: none; }
+.tx-sk-row {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  max-width: var(--read-width, 760px);
+  margin: 0 auto;
+}
+.tx-sk-bar {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #1a2030 0%, #252d40 42%, #1a2030 84%);
+  background-size: 240% 100%;
+  animation: tx-shimmer 1.35s ease-in-out infinite;
+}
+@keyframes tx-shimmer {
+  from { background-position: 130% 0; }
+  to { background-position: -70% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip-btn, .path-btn, .ghost, .model-picker-btn, .model-option, .model-star,
+  .ctx-menu button { transition: none; }
+  .chip-btn:hover, .path-btn:hover, .ghost:hover, .model-option:hover { transform: none; }
+  .settings-dialog, .model-menu, .ctx-menu { animation: none; }
+  /* Still says "working", without anything moving: frozen on the bright side
+     rather than the dim one, so the meaning survives. */
+  .session-item.active.busy {
+    animation: none;
+    box-shadow: 0 3px 14px rgba(124, 92, 255, .36), 0 0 0 1px rgba(186, 164, 255, .95);
+  }
+  /* A loading placeholder that shimmers is exactly the motion this setting is
+     asking us not to make. */
+  .tx-sk-bar { animation: none; background: #1a2030; }
+}
 
 /* ---------------- tool diff (+8 −7) ---------------- */
 

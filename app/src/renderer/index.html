@@ -340,6 +340,23 @@
           </div>
         </section>
         <!--
+          Shown until the first transcript paints. It is a SIBLING of #transcript:
+          that element is rebuilt wholesale (`innerHTML = ''`) on every tab switch,
+          so anything placed inside it would be thrown away — including this.
+        -->
+        <div class="tx-skeleton" id="txSkeleton" aria-hidden="true">
+          <div class="tx-sk-row"><span class="tx-sk-bar" style="width: 34%"></span></div>
+          <div class="tx-sk-row">
+            <span class="tx-sk-bar" style="width: 76%"></span>
+            <span class="tx-sk-bar" style="width: 58%"></span>
+            <span class="tx-sk-bar" style="width: 27%"></span>
+          </div>
+          <div class="tx-sk-row">
+            <span class="tx-sk-bar" style="width: 62%"></span>
+            <span class="tx-sk-bar" style="width: 45%"></span>
+          </div>
+        </div>
+        <!--
           Appears only once you scroll up out of the newest messages. Being pulled
           to the bottom mid-read is the thing this replaces: new output leaves your
           place alone and offers a way back down instead.

@@ -119,6 +119,87 @@ check('every row reserves the pin slot, so titles line up', () => {
   must(css, 'width: 14px', 'the reserved slot has no fixed width');
 });
 
+check('the running spinner does not push the title aside', () => {
+  // It has to share the reserved left slot: a marker in front of the title shifted
+  // every chat name to the right for the length of the turn.
+  if (!/<span class="s-pin-slot" aria-hidden="true">\$\{marker\}/.test(renderer)) {
+    throw new Error('the reserved slot does not carry the running marker');
+  }
+  if (/<span class="s-title">\$\{busy/.test(renderer)) {
+    throw new Error('the spinner is back in front of the title');
+  }
+  const spin = /\.s-spin \{[\s\S]*?\n\}/.exec(css);
+  if (!spin) throw new Error('no .s-spin rule');
+  if (/margin-right/.test(spin[0])) throw new Error('.s-spin still reserves space beside the title');
+});
+
+check('the row is repainted when a turn starts and when it ends', () => {
+  if (!/function refreshSessionBusy\(\)/.test(renderer)) throw new Error('no refreshSessionBusy()');
+  const expected = [
+    ['onBusy', /view\.busy = p\.busy;\s*\n\s*refreshSessionBusy\(\);/],
+    ['onSettled', /const hadQueue = Boolean\(view\.queue\?\.length\);\s*\n\s*view\.busy = false;\s*\n\s*refreshSessionBusy\(\);/],
+    ['onError', /view\.busy = false;\s*\n\s*view\.steerPending = false;\s*\n\s*refreshSessionBusy\(\);/],
+  ];
+  for (const [hook, re] of expected) {
+    if (!re.test(renderer)) throw new Error(`${hook} leaves the row spinner stale`);
+  }
+});
+
+check('the busy mark stays off the row that is already on screen', () => {
+  // Two "working" marks on one row read as noise: the selected row breathes instead.
+  must(renderer, "if (busy) btn.classList.add('busy')");
+  must(renderer, 'busy && !isActive');
+  if (/<span class="s-title">\$\{busy/.test(renderer)) throw new Error('the spinner is back in front of the title');
+});
+
+check('the selected chat breathes through its shadow, not its border', () => {
+  const at = css.indexOf('@keyframes session-breathe');
+  if (at === -1) throw new Error('no session-breathe keyframes');
+  const block = css.slice(at, at + 520);
+  must(block, 'box-shadow');
+  if (/border-color/.test(block)) {
+    throw new Error('the animation repaints border-color, which would paint over the colour stripe');
+  }
+  must(css, '.session-item.active.busy { animation: session-breathe');
+});
+
+check('the pulse keeps its shape: quick peak, slow fade', () => {
+  // A symmetric rise and fall gives the eye nothing to catch: the card just reads
+  // as slightly heavier. The user sent back exactly that from the real window.
+  const at = css.indexOf('@keyframes session-breathe');
+  if (at === -1) throw new Error('no session-breathe keyframes');
+  if (!/22%/.test(css.slice(at, at + 400))) {
+    throw new Error('the peak moved off 22% — a symmetric rise and fall reads as a flat, heavier card');
+  }
+  const rule = css.slice(css.indexOf('.session-item.active.busy {'), at);
+  if (!/1\.2s/.test(rule)) throw new Error('the pulse is back to a slow cycle');
+});
+
+check('every new animation stops for reduced motion', () => {
+  // The file has several reduced-motion blocks; only one of them is this layer,
+  // so look in all of them instead of assuming the last one.
+  const headers = [];
+  let at = css.indexOf('@media (prefers-reduced-motion: reduce)');
+  while (at !== -1) {
+    headers.push(at);
+    at = css.indexOf('@media (prefers-reduced-motion: reduce)', at + 1);
+  }
+  if (!headers.length) throw new Error('no reduced-motion block at all');
+  const blocks = headers.map((start, n) => css.slice(start, headers[n + 1] ?? css.length));
+  for (const needle of ['session-item.active.busy', 'settings-dialog', 'model-menu', 'ctx-menu']) {
+    if (!blocks.some((block) => block.includes(needle))) {
+      throw new Error(`${needle} keeps animating for reduced motion`);
+    }
+  }
+});
+
+check('pressable things share one motion language', () => {
+  must(css, '.chip-btn:hover', 'no chip hover motion');
+  must(css, '.ghost:hover', 'no ghost hover motion');
+  must(css, 'button:focus-visible', 'no global focus ring');
+  must(css, '.model-option:hover { transform: scale(1.012); }', 'model rows do not thicken on hover');
+});
+
 check('the sidebar draws a colour stripe cell', () => {
   must(renderer, 'btn.dataset.color', 'the colour never reaches the row');
 });
