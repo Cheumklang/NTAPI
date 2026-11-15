@@ -177,6 +177,12 @@ const MEASURE = (sponsorCode, longTitle) => `(async () => {
     mediaWidth: Math.round(mediaRect.width),
     mediaHeight: Math.round(mediaRect.height),
     mediaHidden: mediaEl.hidden,
+    // The creative must sit dead centre of the column. The card carries padding
+    // and a border while also pulling itself out with a negative margin, so an
+    // off-by-a-few-pixels mistake there slides the band sideways and the only
+    // way to see it is to measure both insets against the column's content box.
+    mediaInsetLeft: Math.round(mediaRect.left - (sideRect.left + parseFloat(getComputedStyle(side).paddingLeft))),
+    mediaInsetRight: Math.round((sideRect.right - parseFloat(getComputedStyle(side).paddingRight)) - mediaRect.right),
   };
 })()`;
 
@@ -220,6 +226,13 @@ async function atSize(win, label, width, height) {
     media: on.mediaWidth,
     column: on.sideWidth,
   });
+  // Centred, not merely wide. A left inset that differs from the right one is
+  // what makes a banner look shoved against the edge of the column.
+  check(`${label}: the creative band is centred in the column`,
+    Math.abs(on.mediaInsetLeft - on.mediaInsetRight) <= 1 && on.mediaInsetLeft <= 1, {
+      left: on.mediaInsetLeft,
+      right: on.mediaInsetRight,
+    });
   check(`${label}: the copy stays on one line`, on.textHeight <= 20, { textHeight: on.textHeight });
   // Adding the strip must nestle it into the column (content grows), never
   // throw anything out of reach — that is covered by the scroll checks below.

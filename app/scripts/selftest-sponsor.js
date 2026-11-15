@@ -156,6 +156,8 @@ const sponsorRule = (() => {
   return css.slice(at, css.indexOf('}', at));
 })();
 check('the slot has a style', sponsorRule !== '');
+check('the sponsor copy remains left aligned', /align-items:\s*flex-start/.test(css.slice(css.indexOf('.sponsor-card {'), css.indexOf('}', css.indexOf('.sponsor-card {')))));
+check('the media frame is centered independently of the copy', /align-self:\s*center/.test(css.slice(css.indexOf('.sponsor-media {'), css.indexOf('}', css.indexOf('.sponsor-media {')))));
 check('the slot never grows', /flex:\s*0 0 auto/.test(sponsorRule));
 check('the slot is separated from the status panel', /border-top:\s*1px/.test(sponsorRule));
 
@@ -180,7 +182,13 @@ const mediaRule = (() => {
   return css.slice(at, css.indexOf('}', at));
 })();
 check('the media band is a 2:1 frame', /aspect-ratio:\s*2\s*\/\s*1/.test(mediaRule));
-check('the media never squashes', /object-fit:\s*cover/.test(css));
+const mediaContentRule = (() => {
+  const at = css.indexOf('.sponsor-media img,');
+  return at === -1 ? '' : css.slice(at, css.indexOf('}', at));
+})();
+check('media fills the frame width', /width:\s*100%/.test(mediaContentRule));
+check('media fills the frame height', /height:\s*100%/.test(mediaContentRule));
+check('the media is cropped to cover its frame', /object-fit:\s*cover/.test(mediaContentRule));
 // Height comes from the ratio the feed asks for and the sidebar width, never
 // from a number that would fight the resizer. A cap is allowed and wanted: it is
 // what stops a tall 4:5 banner from eating the session list in a short window.
