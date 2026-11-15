@@ -1515,3 +1515,9 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
     → แถวสูง 17px ทุกกรณี (ทดสอบกว้าง 890px และ 270px) · countdown ยังขึ้นบรรทัดล่างได้ตามเดิม
   · `check-queue-single-line.js` 6/6 × 2 ความกว้าง · `check-queue-placement` 21/21 · controls 27 · number 18 · edit 25 · ghost 10 · cancel 22
 - ผลรวม: `npm test` **61/61** · `check:transcript` 6/6 · `check:speed` 6/6 · `check:pill` / `check:sidebar` / sponsor ผ่านหมด
+
+**กฎใหม่: รันคำสั่งเป็นชุดเดียว (ผู้ใช้สั่ง 2026-11-17)**
+- ผู้ใช้เห็นว่าผมยิง bash command ถี่เกินไป (เปลือง token + round-trip) → สั่งเพิ่มกฎ 3 ข้อ
+- ลงใน `AGENTS.md` + `.AGENT/HANDOFF.md`: ห้ามแยก tool call ทีละอัน · รวมเป็นสคริปต์ Python /
+  ชุดคำสั่งเดียว · ในชุดนั้นต้องพิมพ์ `[PASS]`/`[ERROR]` แยกขั้น + บอกรายละเอียด error
+- ผลข้างเคียงที่ต้องระวัง: ยังต้องมี `timeout` ครอบ และยังต้องหยุดถามเมื่อถึงจุดที่ผู้ใช้ต้องเลือก
