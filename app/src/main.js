@@ -105,6 +105,26 @@ const { friendlyProviderError } = require('./provider-errors');
 const { isUpgradeRequired: isUpgradeRequiredText, resolveClientVersionFloor } = require('./client-version');
 const { normalize: normalizeSponsor } = require('./sponsor');
 const sponsorFeed = require('./sponsor-feed');
+
+/*
+ * Creatives are read from disk through their own scheme.
+ *
+ * This has to be registered before the app is ready, which is why it sits at the
+ * top level rather than inside a handler: Electron decides what a scheme is
+ * allowed to do (stream, be fetched, be shown by an <img>/<video>) during startup
+ * and ignores registrations made after that.
+ */
+const { protocol, net } = require('electron');
+const { pathToFileURL } = require('node:url');
+
+try {
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: sponsorFeed.MEDIA_SCHEME,
+      privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true },
+    },
+  ]);
+} catch {}
 const { createProviderKeyStore } = require('./provider-key');
 const { installSseErrorGuard } = require('./sse-error-guard');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
@@ -440,6 +460,38 @@ const SPONSOR_PATH = path.join(__dirname, 'sponsor.json');
 const SPONSOR_CACHE_DIR = path.join(DATA_ROOT, 'sponsor');
 
 /**
+ * Serve one cached creative, by base name only.
+ *
+ * The name is re-sanitised here rather than trusted from the renderer: this
+ * handler is the boundary between a file name and `fs`, so `mediaKey` (which
+ * strips any path and accepts only image/video extensions) is the only thing
+ * that may turn a request into a read. A miss answers 404 and nothing else
+ * happens — a banner that cannot load is decoration, not an error dialog.
+ */
+function registerSponsorMedia() {
+  try {
+    protocol.handle(sponsorFeed.MEDIA_SCHEME, async (request) => {
+      try {
+        const url = new URL(request.url);
+        const key = sponsorFeed.mediaKey(decodeURIComponent(url.pathname.split('/').pop() || ''));
+        if (!key) return new Response('', { status: 400 });
+        const folder = sponsorFeed.mediaDir(SPONSOR_CACHE_DIR);
+        const target = path.join(folder, key);
+        if (!target.startsWith(folder + path.sep)) return new Response('', { status: 400 });
+        if (!fs.existsSync(target)) return new Response('', { status: 404 });
+        // `net.fetch` on a file URL streams from disk, so a 100MB clip never
+        // becomes one string in this process.
+        return await net.fetch(pathToFileURL(target).toString());
+      } catch {
+        return new Response('', { status: 404 });
+      }
+    });
+  } catch {
+    // A scheme that fails to register costs the banner, never the app.
+  }
+}
+
+/**
  * The feed as last understood, plus the host it came from. Media is resolved
  * against that same host, so the feed cannot point a creative at somewhere else.
  */
@@ -448,6 +500,8 @@ const sponsorState = {
   base: '',
   checkedAt: 0,
   source: '',
+  etag: '',
+  fingerprint: '',
 };
 
 let sponsorRefreshTimer = null;
@@ -470,29 +524,57 @@ function primeSponsorCache() {
   if (cached) {
     sponsorState.feed = cached.feed;
     sponsorState.checkedAt = cached.fetchedAt;
+    sponsorState.etag = cached.etag;
+    sponsorState.fingerprint = sponsorFeed.feedFingerprint(cached.feed);
     sponsorState.base = sponsorFeed.FEED_URLS[0];
     sponsorState.base = sponsorBaseOf(sponsorState.base);
   }
 }
 
+/**
+ * Ask the feed whether anything moved.
+ *
+ * Runs every 30 seconds while the window is open (and again when the window
+ * comes back to the front), because a sponsor published in NTAPI ADS has to
+ * appear without the user closing and reopening the app. The request carries
+ * the validator from the last body, so an unchanged feed costs a 304 and
+ * nothing else — no bytes, no parsing, no repaint.
+ *
+ * `force` skips the freshness gate and is used at startup only.
+ */
 async function refreshSponsorFeed({ force = false } = {}) {
-  const cached = { feed: sponsorState.feed, fetchedAt: sponsorState.checkedAt };
-  if (!force && sponsorFeed.isFresh(cached)) return sponsorState.feed;
-  const fetched = await sponsorFeed.fetchFeed();
+  const now = Date.now();
+  // Focus events can arrive in bursts; there is no reason to ask twice within
+  // a few seconds, and no reason for the first ask to be older than the poll.
+  const floorMs = Math.min(sponsorFeed.REVALIDATE_MS, 5000);
+  if (!force && sponsorState.checkedAt && now - sponsorState.checkedAt < floorMs) return sponsorState.feed;
+
+  const fetched = await sponsorFeed.fetchFeed({ etag: sponsorState.etag });
   if (!fetched) return sponsorState.feed;
 
-  const changed = !sponsorState.feed || sponsorState.feed.updated !== fetched.feed.updated;
+  if (fetched.unchanged) {
+    // 304: exactly the feed we already drew. Remember when we last heard that,
+    // so the burst floor also applies to empty answers.
+    sponsorState.checkedAt = fetched.fetchedAt;
+    if (fetched.etag) sponsorState.etag = fetched.etag;
+    return sponsorState.feed;
+  }
+
+  const fingerprint = sponsorFeed.feedFingerprint(fetched.feed);
+  const changed = !sponsorState.feed || fingerprint !== sponsorState.fingerprint;
   sponsorState.feed = fetched.feed;
   sponsorState.base = sponsorBaseOf(fetched.source);
   sponsorState.checkedAt = fetched.fetchedAt;
   sponsorState.source = fetched.source;
-  sponsorFeed.writeCache(SPONSOR_CACHE_DIR, fetched.feed, fetched.fetchedAt);
+  sponsorState.etag = fetched.etag;
+  sponsorState.fingerprint = fingerprint;
+  sponsorFeed.writeCache(SPONSOR_CACHE_DIR, fetched.feed, fetched.fetchedAt, fetched.etag);
   // New creatives make the old files dead weight; they are re-downloaded on
   // demand, and only the slot being shown is ever fetched.
   if (changed) {
     sponsorFeed.clearMedia(SPONSOR_CACHE_DIR);
-    // The window was drawn from the cache a moment ago, so a publish would
-    // otherwise only show up on the *next* launch. Tell it to repaint now.
+    // The window is already showing the previous feed, so tell it to repaint.
+    // Without this a publish would only show up on the *next* launch.
     send('sponsor:changed', { updated: fetched.feed.updated });
   }
   return sponsorState.feed;
@@ -517,6 +599,9 @@ function sponsorPayload() {
       text: slot.text,
       media: {
         type: slot.media.type,
+        // The published frame has to reach the renderer or every creative is
+        // drawn in the 2:1 default and the shape chosen in NTAPI ADS is lost.
+        ratio: slot.media.ratio,
         alt: slot.media.alt,
         ...(slot.media.poster ? { hasPoster: true } : {}),
       },
@@ -3829,7 +3914,7 @@ ipcMain.handle('sponsor:media', async (_e, rawId) => {
   try {
     const out = await sponsorFeed.ensureMedia({ dir: SPONSOR_CACHE_DIR, base: sponsorState.base, slot });
     if (!out.ok) return { ok: false, reason: out.reason };
-    return { ok: true, type: out.type, dataUrl: out.dataUrl, poster: out.poster || '' };
+    return { ok: true, type: out.type, url: out.url, poster: out.poster || '' };
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) };
   }
@@ -4334,14 +4419,23 @@ app.whenReady().then(async () => {
   try {
     primeSponsorCache();
   } catch {}
+  registerSponsorMedia();
   refreshSponsorFeed({ force: true }).catch(() => {});
-  // Six-hourly while the app is left open: one timer, unrefed, so it can never
-  // hold the process alive on quit. Forced as well — landing a millisecond short
-  // of the TTL would otherwise skip a tick silently.
+  // While the app is left open, the feed is revalidated every 30 seconds (one
+  // 304 when nothing changed) so a sponsor published in NTAPI ADS appears
+  // without a restart. One unrefed timer, so it can never hold the process
+  // alive on quit.
   sponsorRefreshTimer = setInterval(() => {
-    refreshSponsorFeed({ force: true }).catch(() => {});
-  }, sponsorFeed.TTL_MS);
+    refreshSponsorFeed().catch(() => {});
+  }, sponsorFeed.REVALIDATE_MS);
   if (sponsorRefreshTimer.unref) sponsorRefreshTimer.unref();
+
+  // Coming back to the window is the most likely moment to be looking at the
+  // strip, so it also triggers a check — the burst floor in the refresh itself
+  // keeps a tab-switching loop from turning into a request loop.
+  app.on('browser-window-focus', () => {
+    refreshSponsorFeed().catch(() => {});
+  });
 
   if (winUiReady) {
     winUiReady.then(() => closeLeftoverSplash()).catch(() => closeLeftoverSplash());

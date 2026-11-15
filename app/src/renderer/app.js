@@ -397,10 +397,14 @@ const STRINGS = {
     notifyDone: 'Session finished',
     updateDev: 'Auto-update works in the installed build only.',
     updateError: 'Update check failed: {e}',
+    sponsorSoundOn: 'Play ad sound',
+    sponsorSoundOff: 'Mute ad',
   },
   th: {
     // Browser control (chip next to the language button).
     errorPrefix: 'ข้อผิดพลาด',
+    sponsorSoundOn: 'เปิดเสียงโฆษณา',
+    sponsorSoundOff: 'ปิดเสียงโฆษณา',
     updateOverlayTitle: 'กำลังอัปเดต NTAPI…',
     updateOverlayLine: 'โปรแกรมจะปิดตัวเองเพื่อติดตั้งอัปเดต แล้วเปิดกลับมาเอง',
     updateOverlayHint: 'ไม่ต้องกดเปิดใหม่ ปล่อยไว้ได้เลย หน้าต่างนี้จะหายไปเอง',
@@ -802,6 +806,14 @@ function applyLanguage() {
     online.textContent = onlineLabel(n);
     online.title =
       lang === 'th' ? `ออนไลน์ตอนนี้ ${n.toLocaleString()} คน` : `${n.toLocaleString()} online now`;
+  }
+  // The narrowest the column may be depends on how long the longest single line
+  // is, and that line is translated: switching Thai/English has to move the floor
+  // with it, or one language ends up with a sentence clipped to one line.
+  if (typeof applySidebarWidth === 'function') {
+    try {
+      applySidebarWidth(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || SIDEBAR_DEFAULT);
+    } catch {}
   }
   // Placeholders and dialog titles are not plain text nodes.
   el('sessionTitle').placeholder = t('untitled');
@@ -3677,22 +3689,45 @@ const SIDEBAR_MAX = 520;
 const SIDEBAR_DEFAULT = 268;
 
 /**
- * How wide the top row (icon, name, badges, chips) needs to be.
+ * How narrow the sidebar may become: wide enough for its widest single line.
  *
- * A fixed 200px floor let the sidebar shrink below its own header, so the
- * language / browser / settings chips slid under each other. Measure the row's
- * natural width instead: each child reports its own content width through
- * scrollWidth even while flex is squeezing it.
+ * Two things set the floor. The top row (icon, name, badges, chips) used to slide
+ * under itself at a fixed 200px, so its natural width is measured — every child
+ * reports its own content width through `scrollWidth` even while flex squeezes
+ * it. The approval note is the other: it is the longest fixed sentence in the
+ * column, it is never allowed to wrap to a second line (that is what turns a
+ * three-word explanation into a paragraph), so the column may not be dragged
+ * narrower than the line it has to show.
  */
 function sidebarMinWidth() {
   const brand = document.querySelector('#sidebar .brand');
+  const note = document.querySelector('#sidebar .approval-note');
+  // 12px padding each side, 1px border, and a little breathing room.
+  const chrome = 24 + 2 + 6;
   if (!brand) return SIDEBAR_MIN;
-  const gap = parseFloat(getComputedStyle(brand).columnGap) || 0;
-  const kids = [...brand.children].filter((n) => !n.hidden);
-  if (!kids.length) return SIDEBAR_MIN;
-  const row = kids.reduce((sum, n) => sum + Math.max(n.scrollWidth, n.offsetWidth), 0) + gap * (kids.length - 1);
-  // #sidebar: 12px padding each side, 1px border, and a little breathing room.
-  return Math.max(SIDEBAR_MIN, Math.ceil(row) + 24 + 2 + 6);
+  const root = document.documentElement;
+  // Measure while the column is as narrow as it can be. A wide column stretches
+  // its flex children, and a stretched child reports the stretched size through
+  // scrollWidth just as happily as its content width — measuring there made the
+  // floor climb a little on every reset that started from a wide sidebar.
+  const prev = root.style.getPropertyValue('--sidebar-w');
+  root.style.setProperty('--sidebar-w', `${SIDEBAR_MIN}px`);
+  let row = 0;
+  let sentence = 0;
+  try {
+    const gap = parseFloat(getComputedStyle(brand).columnGap) || 0;
+    const kids = [...brand.children].filter((n) => !n.hidden);
+    row = kids.length
+      ? kids.reduce((sum, n) => sum + Math.max(n.scrollWidth, n.offsetWidth), 0) + gap * (kids.length - 1)
+      : 0;
+    // `scrollWidth` is the unwrapped width even with `white-space: nowrap` and
+    // `overflow: hidden`, which is exactly the number this needs.
+    sentence = note ? note.scrollWidth : 0;
+  } finally {
+    if (prev) root.style.setProperty('--sidebar-w', prev);
+    else root.style.removeProperty('--sidebar-w');
+  }
+  return Math.max(SIDEBAR_MIN, Math.ceil(Math.max(row, sentence)) + chrome);
 }
 
 function applySidebarWidth(px) {
@@ -4615,8 +4650,20 @@ window.addEventListener('resize', syncJumpToBottom);
  */
 let sponsorTimer = null;
 let sponsorSlotIndex = 0;
-// id -> { type, dataUrl, poster }. Bytes are kept once fetched: rotating back to
-// a slot that was already shown must not hit the network again.
+
+/*
+ * Sound is off until the reader asks for it.
+ *
+ * A clip that starts talking by itself is the fastest way to be uninstalled, and
+ * Chromium refuses to autoplay with audio anyway — so the default has to be
+ * muted, and unmuting has to be a click. The choice is remembered for the
+ * session and re-applied on every rotation, because each slot builds a fresh
+ * <video> element.
+ */
+let sponsorSoundOn = false;
+// id -> { type, url, poster }. The address is kept once fetched: rotating back to
+// a slot that was already shown must not hit the network again. The bytes stay on
+// disk — a creative is streamed over `ntapi-sponsor://`, never held as base64.
 const sponsorMediaCache = new Map();
 const sponsorMediaPending = new Map();
 
@@ -4659,7 +4706,7 @@ function sponsorMediaFor(id) {
   const pending = api
     .sponsorMedia(id)
     .then((res) => {
-      const value = res && res.ok ? { type: res.type, dataUrl: res.dataUrl, poster: res.poster || '' } : null;
+      const value = res && res.ok ? { type: res.type, url: res.url, poster: res.poster || '' } : null;
       if (value) sponsorMediaCache.set(id, value);
       return value;
     })
@@ -4688,20 +4735,22 @@ function sponsorMediaNode(slot, value) {
       return still;
     }
     const video = document.createElement('video');
-    video.src = value.dataUrl;
+    video.src = value.url;
     if (value.poster) video.poster = value.poster;
-    video.muted = true;
+    // Muted unless the reader turned sound on: an unmuted clip cannot autoplay,
+    // and a banner that talks to a room is not decoration.
+    video.muted = !sponsorSoundOn;
     video.loop = true;
     video.autoplay = !reduced;
     video.playsInline = true;
-    video.setAttribute('muted', '');
+    if (!sponsorSoundOn) video.setAttribute('muted', '');
     video.setAttribute('playsinline', '');
     video.setAttribute('aria-label', alt);
     return video;
   }
 
   const img = document.createElement('img');
-  img.src = value.dataUrl;
+  img.src = value.url;
   img.alt = alt;
   img.loading = 'lazy';
   img.decoding = 'async';
@@ -4793,6 +4842,46 @@ function paintSponsor() {
   card.title = slot.url;
   wrap.hidden = false;
   paintSponsorMedia(slot);
+  updateSponsorSoundButton(slot);
+}
+
+/**
+ * The sound switch is only meaningful for a clip, so it is not drawn at all for
+ * an image. `aria-pressed` carries the state, because a speaker glyph alone reads
+ * as "sound is on" whichever way it points.
+ */
+function updateSponsorSoundButton(slot) {
+  const btn = el('sponsorSound');
+  if (!btn) return;
+  const isVideo = Boolean(slot && slot.media && slot.media.type === 'video');
+  btn.hidden = !isVideo;
+  if (!isVideo) return;
+  const label = sponsorSoundOn ? t('sponsorSoundOff') : t('sponsorSoundOn');
+  btn.setAttribute('aria-pressed', sponsorSoundOn ? 'true' : 'false');
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+  btn.textContent = sponsorSoundOn ? '\u{1F50A}' : '\u{1F507}';
+}
+
+/**
+ * Pushes the current choice into whatever clip is on screen, and into the button.
+ * Called by the switch itself and, indirectly, by every repaint.
+ */
+function applySponsorSound() {
+  const host = el('sponsorMedia');
+  const video = host && host.querySelector('video');
+  if (video) {
+    video.muted = !sponsorSoundOn;
+    if (sponsorSoundOn) {
+      video.removeAttribute('muted');
+      // The click is the user gesture Chromium wants before audio may play.
+      video.play().catch(() => {});
+    } else {
+      video.setAttribute('muted', '');
+    }
+  }
+  const slot = sponsor && sponsor.slots ? sponsor.slots[sponsorSlotIndex] : null;
+  updateSponsorSoundButton(slot);
 }
 
 /**
@@ -4818,6 +4907,15 @@ el('sponsorCard').addEventListener('click', () => {
   const slot = sponsor && sponsor.slots ? sponsor.slots[sponsorSlotIndex] : null;
   if (!slot) return;
   api.sponsorClick(slot.id).catch(() => {});
+});
+
+el('sponsorSound').addEventListener('click', (event) => {
+  // The card underneath is the link to the sponsor: a click on the switch must
+  // not also open a browser window.
+  event.preventDefault();
+  event.stopPropagation();
+  sponsorSoundOn = !sponsorSoundOn;
+  applySponsorSound();
 });
 
 document.addEventListener('visibilitychange', syncSponsorPlayback);

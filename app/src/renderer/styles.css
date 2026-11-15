@@ -414,6 +414,34 @@ body.resizing #sidebar { pointer-events: none; }
   and `hidden` would look like it worked only because nothing is drawn.
 */
 .section.sponsor[hidden] { display: none; }
+
+/*
+  The sound switch sits over the top-right corner of the creative, which is the
+  one patch of the card that never carries text. It has to be positioned against
+  the strip rather than inside the card, because the card is a <button>.
+*/
+.section.sponsor { position: relative; }
+.sponsor-sound {
+  position: absolute;
+  top: 7px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: .8;
+}
+.sponsor-sound:hover { opacity: 1; background: var(--bg-3); }
+.sponsor-sound:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sponsor-sound[hidden] { display: none; }
 .sponsor-card {
   display: flex;
   flex-direction: column;
@@ -729,18 +757,34 @@ button { font-family: inherit; }
   .status-pill .status-label { display: none; }
   .status-bar { width: 32px; }
   .status-pill .status-credits { display: none; }
+  /* The sidebar's floor is set by its longest line, so the row this pill lives in
+   * has less room than it used to at small windows: tighten the pill rather than
+   * let two pixels of overflow appear in the topbar. */
+  .status-pill { gap: 5px; padding: 0 8px; }
 }
 @media (max-width: 860px) {
   .status-group#statusFree .status-sep,
   .status-group#statusFree #usagePct { display: none; }
 }
 
+/*
+ * The panel is exactly as wide as the pill that opened it.
+ *
+ * It used to be a fixed 262px, so the panel and its tab had two different widths
+ * and the panel stuck out past both edges of the thing it belonged to. Tying the
+ * geometry to the strip (`left: 0; right: 0` on a full-width child of the strip,
+ * whose only in-flow child is the pill) means it tracks the tab through resizes,
+ * a language switch, and the pill's own narrow-window trimming — always equal,
+ * never a number that has to be kept in sync by hand.
+ */
 .status-popover {
   position: absolute;
   top: calc(100% + 8px);
+  left: 0;
   right: 0;
   z-index: 60;
-  width: 262px;
+  width: auto;
+  min-width: 0;
   padding: 11px 12px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -748,8 +792,13 @@ button { font-family: inherit; }
   box-shadow: 0 18px 44px rgba(0, 0, 0, .5);
 }
 .status-popover[hidden] { display: none; }
+/* At an exact pill width the rows can be a hundred pixels wide on a narrow window:
+ * let the value wrap under its label rather than push the panel wider than its
+ * tab, which is the one thing this panel must not do. */
+.status-popover .usage-row { flex-wrap: wrap; overflow-wrap: anywhere; }
 .status-pop-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -3410,6 +3459,14 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
   font-size: 11.5px;
   line-height: 1.35;
   color: var(--muted);
+  /*
+    One line, always. This is the longest fixed sentence in the column, so it is
+    what decides how narrow the sidebar may become: `sidebarMinWidth()` measures
+    it and refuses to go below, which is why clipping here is only a backstop and
+    should never be visible.
+  */
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /*
@@ -3748,6 +3805,104 @@ button.ghost.danger:hover { background: rgba(255, 95, 109, .12); }
   background: var(--line);
   margin: 10px 0;
 }
+
+/*
+ * The seam between "about the person" and "about the program".
+ *
+ * The developer's details and the update controls used to sit in one column with
+ * nothing between them, so the update row read as one more personal fact. A ruled
+ * line that fades out to the right separates them without drawing a box around
+ * either half, and the card below gives the update block a surface of its own.
+ */
+.about-sep {
+  height: 1px;
+  margin: 18px 0 16px;
+  background: linear-gradient(90deg, var(--line), rgba(255, 255, 255, .02));
+}
+
+.update-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 0;
+  padding: 13px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .012));
+}
+
+.update-card-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.update-card-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-3);
+  color: var(--accent);
+}
+
+.update-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  color: var(--text);
+}
+
+/* The version sits at the far end of the head row, where it reads as the fact the
+ * card is about rather than another label in the list. */
+.update-chip-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.update-chip-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.update-chip {
+  flex: none;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* `.settings-hint` carries a bottom margin for the lists it usually closes; here
+ * the card's own gap does that job. */
+.update-status {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.update-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.update-card .update-progress { margin: 2px 0 0; }
 
 .about-fields {
   display: grid;

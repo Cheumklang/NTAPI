@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: ntapi-sponsor:; media-src 'self' data: ntapi-sponsor:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
     <title>NTAPI | DeepSeek v4.1 Flash</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -140,6 +140,19 @@
             <span class="sponsor-label" id="sponsorLabel"></span>
             <span class="sponsor-text" id="sponsorText"></span>
           </button>
+          <!--
+            The sound switch. It is a sibling of the card, never a child: the card
+            is a <button> that opens the sponsor, and a button inside a button is
+            invalid markup that browsers refuse to paint reliably. Shown only for
+            a clip (an image has no sound to silence), and always off at first.
+          -->
+          <button
+            type="button"
+            class="sponsor-sound"
+            id="sponsorSound"
+            hidden
+            aria-pressed="false"
+          ></button>
         </div>
       </aside>
       <div id="sidebarResizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize sidebar"></div>
@@ -770,23 +783,39 @@
                 </div>
               </div>
 
-              <!-- Updates live on the About tab: people look for the version here,
-                   and it keeps the coffee QR and the update button together. -->
-              <div class="settings-group">
-                <div class="settings-head" data-i18n="updatesSection">Updates</div>
-                <div class="settings-row compact">
-                  <span class="settings-label" data-i18n="updateCurrent">Current version</span>
-                  <div class="settings-resolved"><span id="updateVersion" class="mono">—</span></div>
-                  <div class="settings-actions">
-                    <button id="updateCheckBtn" class="ghost small" data-i18n="checkUpdates">Check for updates</button>
-                  </div>
+              <!--
+                Updates sit on the About tab because that is where people look for
+                a version number — but they are a different kind of thing from the
+                developer's details. One is information about the person, the other
+                is an action on the program. A rule across the panel and a card of
+                its own keep the two from reading as one long list.
+              -->
+              <div class="about-sep" role="separator" aria-hidden="true"></div>
+
+              <div class="settings-group update-card">
+                <div class="update-card-head">
+                  <span class="update-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                      <path d="M21 3v6h-6" />
+                    </svg>
+                  </span>
+                  <span class="update-card-title" data-i18n="updatesSection">Updates</span>
+                  <span class="update-chip-group">
+                    <span class="update-chip-label" data-i18n="updateCurrent">Current version</span>
+                    <span id="updateVersion" class="update-chip mono">—</span>
+                  </span>
                 </div>
-                <p id="updateStatus" class="settings-hint" data-i18n="updateIdle">Updates are only checked when you ask.</p>
+                <p id="updateStatus" class="settings-hint update-status" data-i18n="updateIdle">Updates are only checked when you ask.</p>
                 <div id="updateProgressWrap" class="update-progress" hidden>
                   <div class="update-bar"><span id="updateBar"></span></div>
                   <span id="updatePct" class="update-pct mono">0%</span>
                 </div>
-                <button id="updateActionBtn" class="primary-btn small" hidden></button>
+                <div class="update-card-actions">
+                  <button id="updateCheckBtn" class="ghost small" data-i18n="checkUpdates">Check for updates</button>
+                  <button id="updateActionBtn" class="primary-btn small" hidden></button>
+                </div>
               </div>
             </section>
           </div>
