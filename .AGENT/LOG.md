@@ -1371,3 +1371,25 @@ strip คืน appendChild → FAIL 3
 **เทสต์:** `app/scripts/selftest-prune-releases.js` (18 checks) + จำลอง loop ด้วยข้อมูลปลอม
 `v0.4.6/v0.5.0/v0.9.0/v0.10.0/v0.1.1` → ลบแค่ 0.4.6 กับ 0.1.1 ถูกต้อง · `npm test` 54/54
 **วิธีใช้:** Actions → "Prune old releases" → Run workflow (ใส่ `keep=v0.5.0`, dry_run=true ก่อนเสมอ)
+
+## 2026-11-16 · prune releases: ปุ่ม Run workflow ใช้ไม่ได้ → สั่งผ่าน marker ใน commit
+
+**ปัญหา:** กด Run workflow บนหน้า Actions แล้ว GitHub ตอบ "You can't perform that action at this time."
+ลองซ้ำ 3 รอบ (reload หน้าใหม่, รอ, กรอกค่าใหม่) ยังโดนปฏิเสธ — ไม่มี run ถูกสร้างเลย
+
+**ทางออก:** เพิ่ม trigger `push` ที่มีเงื่อนไขต้องมี marker ในข้อความ commit
+| marker | ผล |
+|---|---|
+| `[prune-releases keep=v0.5.0 dry-run]` | ลิสต์อย่างเดียว |
+| `[prune-releases keep=v0.5.0 apply]` | ลบจริง |
+| `... apply tags` | ลบ tag ใน repo ต้นทางด้วย |
+
+- job-level `if:` → commit ปกติทุกตัวจะ "skipped" ทันที (1s) ไม่มีอะไรเกิดขึ้น
+- marker ที่ไม่ระบุ apply/dry-run → job error ทิ้ง ไม่เดาเจตนา
+- `workflow_dispatch` ยังคงอยู่ เผื่อ GitHub หายดี (เพิ่ม `default: v0.5.0` แล้ว)
+
+**ทดสอบจริง:** commit `db3caae` (marker dry-run) → run #3 สำเร็จ 11s
+summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
+
+**ของแถมที่พลาด:** เผลอ `git add -A` แล้ว commit ไฟล์ `shot.png` ขึ้นไป — ลบใน commit ถัดมา (`b9e9a8f`)
+บทเรียน: ก่อน commit ใน repo นี้ให้ `git status --short` ดูรายชื่อไฟล์จริง
