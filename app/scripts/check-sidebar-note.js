@@ -49,8 +49,9 @@ const measure = (language) => `(async () => {
     whiteSpace: getComputedStyle(note).whiteSpace,
   };
 
-  // Drag the divider as far left as it will go. It must clamp, not obey.
-  const forced = applySidebarWidth(40);
+  // The column is locked to its floor, so asking for a silly width must have no
+  // effect at all — this is the check that used to prove the drag clamp.
+  const forced = applySidebarWidth();
   await frame();
   const after = {
     width: forced,
@@ -62,10 +63,7 @@ const measure = (language) => `(async () => {
     cssVar: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10),
   };
 
-  // And a reset must come back inside the allowed range too.
-  const reset = resetSidebarWidth();
-  await frame();
-  return { before, after, reset, resetHeight: Math.round(note.getBoundingClientRect().height) };
+  return { before, after, resetHeight: Math.round(note.getBoundingClientRect().height) };
 })()`;
 
 app
@@ -111,7 +109,10 @@ app
         cssVar: out.after.cssVar,
         applied: out.after.width,
       });
-      check(`${language}: a reset lands inside the range`, out.reset >= out.after.width && out.reset <= 520, out.reset);
+      check(`${language}: the column is locked to that width`, out.after.cssVar === out.after.width, {
+        applied: out.after.cssVar,
+        expected: out.after.width,
+      });
       check(`${language}: the reset keeps one line`, out.resetHeight <= Math.ceil(out.before.oneLine * 1.4), out.resetHeight);
     }
 

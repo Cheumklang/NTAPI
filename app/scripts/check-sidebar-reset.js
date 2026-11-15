@@ -1,12 +1,13 @@
 'use strict';
 
 /**
- * Double-clicking the sidebar puts its width back.
+ * Prove the sidebar cannot be resized any more.
  *
- * The static half guards the wiring; the geometry half is what the user actually
- * asked for and only a real window can prove it — the width has to come back to
- * the shipped 268px, survive the minimum-width floor, and be *saved*, because a
- * reset that reverted on the next launch would read as a broken double-click.
+ * The column is fixed at the width its own longest line needs, because the
+ * sponsor creative is cropped to it: a user who dragged the sidebar was choosing
+ * a different crop of the same ad. The static half is
+ * scripts/selftest-sidebar-reset.js; this is the geometry a real window can show —
+ * no handle, no drag, no double-click, no keyboard, and the note still fits.
  *
  * Run from app/:  node_modules/electron/dist/electron.exe scripts/check-sidebar-reset.js
  */
@@ -29,73 +30,44 @@ function check(name, ok, extra) {
 const SETUP = `(async () => {
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const width = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10);
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // This harness runs the page without the app's main process, so the prefs:set channel has
-  // no handler behind it and the call rejects. That is expected here: whether the
-  // reset *persists* is a source-level fact, checked in
-  // scripts/selftest-sidebar-reset.js. This check is only about geometry.
+  // This harness runs the page without the app's main process, so prefs:set has
+  // no handler behind it. Nothing here depends on saving: the width is not saved
+  // at all any more.
   window.addEventListener('unhandledrejection', (e) => e.preventDefault());
 
-  // Pretend the user dragged the divider wide open, and that the drag was saved.
-  const wide = window.applySidebarWidth ? window.applySidebarWidth(480) : null;
-  await frame();
-  const before = width();
-
+  const initial = width();
+  const floor = Math.round(sidebarMinWidth());
   const bar = document.getElementById('sidebarResizer');
   const sidebar = document.getElementById('sidebar');
-  if (!bar || !sidebar) return { error: 'no divider in the page' };
 
-  // 1. The divider itself.
-  bar.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+  // A leftover caller from an older build must not be able to widen the column.
+  const returned = applySidebarWidth(480);
   await frame();
-  const afterDivider = width();
+  const afterCall = width();
 
-  // 2. The sidebar's empty space — the generous target. Widen it again first so a
-  //    reset that silently did nothing cannot pass.
-  bar.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 300 }));
+  // Every gesture that used to resize it.
+  sidebar.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 300 }));
   window.dispatchEvent(new MouseEvent('mousemove', { clientX: 500 }));
   window.dispatchEvent(new MouseEvent('mouseup', { clientX: 500 }));
-  await frame();
-  const rewidened = width();
   sidebar.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+  sidebar.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
   await frame();
-  const afterSidebar = width();
+  const afterGestures = width();
 
-  // 3. A double-click on a session row must not resize anything — a row already
-  //    means "open this chat".
-  let afterRow = null;
-  const row = document.querySelector('.session-item');
-  if (row) {
-    bar.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 300 }));
-    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 480 }));
-    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 480 }));
-    await frame();
-    const beforeRow = width();
-    row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
-    await frame();
-    afterRow = { before: beforeRow, after: width() };
-  }
-
-  // 4. Home on the focused divider is the keyboard equivalent.
-  let afterHome = null;
-  if (bar) {
-    bar.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 300 }));
-    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 400 }));
-    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 400 }));
-    await frame();
-    bar.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
-    await frame();
-    afterHome = width();
-  }
-  await wait(60);
-
-  // The width a reset is allowed to land on: the shipped default, unless the
-  // column's longest single line needs more than that (see sidebarMinWidth()).
-  const floor = Math.round(sidebarMinWidth());
-  const expected = Math.max(268, floor);
-
-  return { before, afterDivider, rewidened, afterSidebar, afterRow, afterHome, defaultWidth: 268, floor, expected };
+  const note = document.querySelector('#sidebar .approval-note');
+  return {
+    initial,
+    floor,
+    returned,
+    afterCall,
+    afterGestures,
+    hasHandle: Boolean(bar),
+    resizingClass: document.body.classList.contains('resizing'),
+    sidebarBox: Math.round(sidebar.getBoundingClientRect().width),
+    noteFits: note ? note.scrollWidth <= note.clientWidth + 1 : true,
+  };
 })()`;
 
 app.whenReady()
@@ -128,27 +100,27 @@ async function main() {
   const m = await win.webContents.executeJavaScript(SETUP);
   console.log(JSON.stringify(m));
 
-  check('the divider and sidebar are in the page', !m.error, m.error);
-  if (!m.error) {
-    check('a dragged width is honoured first', m.before > m.expected, { before: m.before, expected: m.expected });
-    check('double-clicking the divider restores the default width',
-      Math.abs(m.afterDivider - m.expected) <= 1, { after: m.afterDivider, expected: m.expected });
-    check('the reset happens again after widening to the sidebar edge', m.rewidened > m.expected, { rewidened: m.rewidened });
-    check('double-clicking the sidebar background restores it too',
-      Math.abs(m.afterSidebar - m.expected) <= 1, { after: m.afterSidebar, expected: m.expected });
-    if (m.afterRow) {
-      check('a double-click on a session row does not resize', m.afterRow.after === m.afterRow.before, m.afterRow);
-    }
-    check('Home on the divider restores it as well', Math.abs(m.afterHome - m.expected) <= 1, { after: m.afterHome, expected: m.expected });
-    // The reset must not have crossed the minimum-width floor either: it lands on
-    // whichever is larger, the shipped default or the longest line in the column.
-    check('the reset never goes below the floor', m.afterDivider >= m.floor && m.afterDivider >= m.defaultWidth - 1, {
-      after: m.afterDivider,
-      floor: m.floor,
-    });
-  }
+  check('the drag handle is gone', m.hasHandle === false);
+  check('the column starts at the measured floor', Math.abs(m.initial - m.floor) <= 1, {
+    width: m.initial,
+    floor: m.floor,
+  });
+  check('the sidebar is drawn at that width', Math.abs(m.sidebarBox - m.initial) <= 1, {
+    sidebar: m.sidebarBox,
+    applied: m.initial,
+  });
+  check('a call with a pixel value cannot widen it', m.returned === m.initial && m.afterCall === m.initial, {
+    returned: m.returned,
+    after: m.afterCall,
+  });
+  check('no drag, double-click or key moves the column', m.afterGestures === m.initial, {
+    before: m.initial,
+    after: m.afterGestures,
+  });
+  check('nothing enters the dragging state', m.resizingClass === false);
+  check('the longest line still fits at that width', m.noteFits === true);
 
   win.destroy();
-  console.log(failures ? `\n${failures} check(s) failed` : '\nAll sidebar reset checks passed');
+  console.log(failures ? `\n${failures} check(s) failed` : '\nAll sidebar lock checks passed');
   app.exit(failures ? 1 : 0);
 }

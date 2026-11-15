@@ -219,12 +219,16 @@ check('rotation lands on the slot it would have reached', () => {
   assert.strictEqual(feed.slotIndexAt(0, 4, 5_000), 0);
 });
 
-check('the four published shapes are understood, anything else is 2:1', () => {
-  assert.deepStrictEqual(Object.keys(sponsor.RATIOS), ['2:1', '16:9', '1:1', '4:5']);
+check('the five published shapes are understood, plus a bounded custom frame', () => {
+  assert.deepStrictEqual(Object.keys(sponsor.RATIOS), ['2:1', '16:9', '1:1', '4:5', '9:16']);
   for (const name of Object.keys(sponsor.RATIOS)) {
     assert.strictEqual(sponsor.ratioOf(name), name);
   }
-  assert.strictEqual(sponsor.ratioOf('9:16'), '2:1');
+  // A custom frame inside the band survives; one outside it becomes 2:1.
+  assert.strictEqual(sponsor.ratioOf('3:2'), '3:2');
+  assert.deepStrictEqual(sponsor.parseRatio('3:2'), [3, 2]);
+  assert.strictEqual(sponsor.ratioOf('1:20'), '2:1');
+  assert.strictEqual(sponsor.ratioOf('20:1'), '2:1');
   assert.strictEqual(sponsor.ratioOf(undefined), '2:1');
   assert.strictEqual(sponsor.ratioOf('toString'), '2:1');
 });
@@ -234,6 +238,8 @@ check('ratioValue is height per width, so a bigger number is a shorter band', ()
   assert.strictEqual(sponsor.ratioValue('1:1'), 1);
   assert.strictEqual(sponsor.ratioValue('4:5'), 1.25);
   assert.ok(Math.abs(sponsor.ratioValue('16:9') - 9 / 16) < 1e-9);
+  assert.ok(Math.abs(sponsor.ratioValue('9:16') - 16 / 9) < 1e-9);
+  assert.ok(Math.abs(sponsor.ratioValue('3:2') - 2 / 3) < 1e-9);
   // Unknown → the default, never NaN: a NaN would reach CSS and blank the band.
   assert.strictEqual(sponsor.ratioValue('nope'), 0.5);
 });

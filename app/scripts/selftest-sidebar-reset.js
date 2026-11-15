@@ -1,20 +1,27 @@
 'use strict';
 
 /**
- * Double-clicking the sidebar restores its width — the parts a string can prove.
+ * The sidebar must not be resizeable — the parts a string can prove.
  *
- * The geometry check (scripts/check-sidebar-reset.js) runs the page without the
- * app's main process, so it can prove the width comes back but not that it is
- * written to prefs. That half lives here: a reset that is applied and never saved
- * looks perfect until the next launch, which is exactly the bug this test exists
- * to prevent.
+ * It used to be a drag handle with a double-click reset, and this file used to
+ * prove that the reset was *saved*. The column is now fixed: its width comes from
+ * the longest line it has to show, and nothing in the UI may move it. The reason
+ * is not taste — the sponsor creative is cropped to the column, so a resizable
+ * sidebar gave every user a different crop of the same ad.
+ *
+ * The geometry half lives in scripts/check-sidebar-reset.js, which runs a real
+ * window; this half guards the removal, where a leftover caller would be invisible
+ * until someone dragged something.
  */
 
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const app = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'app.js'), 'utf8');
+const root = path.join(__dirname, '..');
+const app = fs.readFileSync(path.join(root, 'src', 'renderer', 'app.js'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'src', 'renderer', 'styles.css'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'src', 'renderer', 'index.html'), 'utf8');
 
 let pass = 0;
 function check(name, fn) {
@@ -42,58 +49,50 @@ function bodyOf(name) {
   throw new Error(`${name}() has no closing brace`);
 }
 
-check('the reset function exists and applies the shipped default', () => {
-  const body = bodyOf('resetSidebarWidth');
-  assert.match(body, /applySidebarWidth\(SIDEBAR_DEFAULT\)/);
+check('there is no drag handle in the page', () => {
+  assert.ok(!/id="sidebarResizer"/.test(html), 'the resizer is still in index.html');
+  assert.ok(!/#sidebarResizer/.test(css), 'the resizer is still styled');
+  assert.ok(!/body\.resizing/.test(css), 'the drag cursor is still styled');
 });
 
-check('it saves the width, so the reset survives a restart', () => {
-  const body = bodyOf('resetSidebarWidth');
-  assert.match(body, /appPrefs\.sidebarWidth = w/);
-  assert.match(body, /api\.setPrefs\(\{ sidebarWidth: w \}\)/);
+check('the resize wiring is gone', () => {
+  assert.ok(!app.includes('initSidebarResize'), 'initSidebarResize still exists');
+  assert.ok(!app.includes('resetSidebarWidth'), 'resetSidebarWidth still exists');
+  assert.ok(!/sidebarResizer/.test(app), 'the renderer still looks up the handle');
+  assert.ok(!app.includes('sidebarReset'), 'the dead reset notice is still wired');
 });
 
-check('it says so on screen', () => {
-  assert.match(bodyOf('resetSidebarWidth'), /showNotice\(t\('sidebarReset'\)/);
+check('the width function takes no argument, so no caller can widen it', () => {
+  assert.match(app, /function applySidebarWidth\(\)/);
+  assert.ok(!/function applySidebarWidth\(\s*\w+\s*\)/.test(app), 'applySidebarWidth still accepts a value');
+  // A leftover call with a number must not survive anywhere.
+  assert.ok(!/applySidebarWidth\([^)]\S/.test(app), 'something still calls applySidebarWidth with an argument');
 });
 
-check('the divider answers a double-click', () => {
-  // The resize handle is the small, obvious target; a double-click on it must not
-  // also start a drag, which is why this listener sits next to the mousedown one.
-  const at = app.indexOf('function initSidebarResize');
-  assert.ok(at > 0, 'no initSidebarResize()');
-  const block = app.slice(at, at + 3000);
-  assert.match(block, /bar\.addEventListener\('dblclick'[\s\S]{0,120}?resetSidebarWidth\(\)/);
+check('the width is the measured floor, clamped to the allowed range', () => {
+  const body = bodyOf('applySidebarWidth');
+  assert.match(body, /sidebarMinWidth\(\)/);
+  assert.match(body, /Math\.max\(SIDEBAR_MIN/);
+  assert.match(body, /Math\.min\(SIDEBAR_MAX/);
 });
 
-check('the sidebar background answers one too', () => {
-  const at = app.indexOf('function initSidebarResize');
-  const block = app.slice(at, at + 3000);
-  assert.match(block, /querySelector\('#sidebar'\)\?\.addEventListener\('dblclick'/);
+check('the width is never saved to prefs', () => {
+  assert.ok(!/setPrefs\(\{ sidebarWidth/.test(app), 'the width is still written to prefs');
+  assert.ok(!/appPrefs\.sidebarWidth\s*=/.test(app), 'the width is still kept in memory');
 });
 
-check('but a double-click on a row or a control is left alone', () => {
-  const at = app.indexOf("querySelector('#sidebar')?.addEventListener('dblclick'");
-  const block = app.slice(at, at + 500);
-  // A row already means "open this chat"; a button already means "press me".
-  assert.match(block, /e\.target\.closest\('[^']*\.session-item/);
-  assert.match(block, /button, input, select, textarea, a/);
-  assert.match(block, /if \(e\.target\.closest\([\s\S]{0,160}?\)\s*\)\s*return;/);
+check('it re-measures after a resize and after the font loads', () => {
+  const at = app.indexOf('function lockSidebarWidth');
+  assert.ok(at > 0, 'no lockSidebarWidth()');
+  const body = app.slice(at, at + 800);
+  assert.match(body, /addEventListener\('resize', \(\) => applySidebarWidth\(\)\)/);
+  assert.match(body, /document\.fonts\?\.ready\.then\(\(\) => applySidebarWidth\(\)\)/);
 });
 
-check('Home on the focused divider does the same thing', () => {
-  assert.match(app, /e\.key === 'Home'[\s\S]{0,120}?resetSidebarWidth\(\)/);
-});
-
-check('the message is translated both ways', () => {
-  assert.match(app, /sidebarReset: 'Sidebar width reset'/);
-  assert.match(app, /sidebarReset: 'คืนความกว้างเริ่มต้นแล้ว'/);
-});
-
-check('dragging still saves the width it ends on', () => {
-  // The reset shares its save path with the drag; breaking that would make every
-  // width in the app forget itself.
-  assert.match(app, /const onUp = \(\) => \{[\s\S]{0,400}?api\.setPrefs\(\{ sidebarWidth: w \}\)/);
+check('a language switch re-measures the floor too', () => {
+  // applyLanguage() calls applySidebarWidth(); the floor moves with the sentence
+  // length, so the column has to follow the language without a drag.
+  assert.match(app, /if \(typeof applySidebarWidth === 'function'\)[\s\S]{0,200}applySidebarWidth\(\)/);
 });
 
 console.log(`${pass} checks passed`);

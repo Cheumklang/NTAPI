@@ -77,6 +77,24 @@ const MIXED_SPONSOR = `sponsor = {
   ],
 };`;
 
+/**
+ * The tallest shape the publisher offers, drawn on its own so the reserved ratio
+ * is the slot's own. This is the case that exposed the pixel cap: the band was
+ * 268x288 whatever the feed asked for, so a 9:16 clip never looked 9:16.
+ */
+const TALL_SPONSOR = `sponsor = {
+  enabled: true,
+  rotateSeconds: 15,
+  slots: [
+    {
+      id: 'tall-clip',
+      url: 'https://example.com/tall',
+      media: { type: 'video', ratio: '9:16', alt: 'Tall clip' },
+      text: { th: { label: 'ผู้สนับสนุน', title: 'คลิปแนวตั้ง' }, en: { label: 'Sponsor', title: 'Tall clip' } },
+    },
+  ],
+};`;
+
 const MEASURE_MIXED = `(async () => {
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   lang = 'th';
@@ -198,6 +216,7 @@ async function atSize(win, label, width, height) {
   const on = await measure(win, WITH_SPONSOR, false);
   const longCopy = await measure(win, WITH_SPONSOR, true);
   const back = await measure(win, 'sponsor = null;', false);
+  const tall = await measure(win, TALL_SPONSOR, false);
 
   console.log(`\n--- ${label} (${width}x${height}) ---`);
   console.log('without', JSON.stringify(off));
@@ -220,6 +239,18 @@ async function atSize(win, label, width, height) {
       w: on.mediaWidth,
       h: on.mediaHeight,
     });
+  // The tallest published shape has to survive the same measurement: the band is
+  // reserved for it, so a pixel cap on height squashes the one shape that needs
+  // the most room while pretending to honour the feed.
+  check(`${label}: a 9:16 clip is drawn taller than it is wide`,
+    tall.mediaHeight > tall.mediaWidth, { w: tall.mediaWidth, h: tall.mediaHeight });
+  check(`${label}: a 9:16 clip keeps its own height ratio`,
+    tall.mediaWidth > 0 && Math.abs(tall.mediaHeight / tall.mediaWidth - 16 / 9) < 0.06, {
+      w: tall.mediaWidth,
+      h: tall.mediaHeight,
+    });
+  check(`${label}: a 9:16 clip is not clamped to the old 288px cap`,
+    tall.mediaHeight > 400, tall.mediaHeight);
   // Inset by the column's own padding, the same as every other block: the band
   // is not full-bleed on purpose, it sits inside the card's padding.
   check(`${label}: the creative band spans the card`, on.mediaWidth >= on.sideWidth - 60, {
@@ -385,8 +416,13 @@ async function main() {
     heights: mixed.heights,
   });
   check('the reserved box is the 4:5 slot, not the 2:1 one', Number(String(mixed.reserved).split('/')[0]) < 1, mixed.reserved);
-  check('each creative keeps its own shape, fitted not cropped',
-    Math.abs(mixed.ratios[0] - 2) < 0.05 && Math.abs(mixed.ratios[1] - 0.8) < 0.05, {
+  // Cover, not contain. The user chose a full-bleed band over letterboxing, so a
+  // 2:1 creative inside a 4:5 reservation is cropped to the band on purpose; both
+  // boxes take the reserved shape, which is what stops the strip resizing as the
+  // rotation moves between them. This check used to demand the opposite and had
+  // been failing since cover was chosen — the assertion was wrong, not the layout.
+  check('every creative fills the reserved band, cropped on purpose',
+    Math.abs(mixed.ratios[0] - 0.8) < 0.05 && Math.abs(mixed.ratios[1] - 0.8) < 0.05, {
       ratios: mixed.ratios,
     });
 

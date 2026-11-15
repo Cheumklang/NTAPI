@@ -169,8 +169,27 @@ check('the user colour wins over the active row border', () => {
 
 check('a colour is drawn as a border, not a background tint', () => {
   const start = css.lastIndexOf('.session-item[data-color],');
-  const body = css.slice(start, start + 600);
+  const body = css.slice(start, start + 900);
   must(body, 'border-left: 4px solid var(--swatch)');
+});
+
+check('a coloured row does not also keep the purple active frame', () => {
+  // Two frames sharing an edge read as a doubled border: `.active` paints purple
+  // all the way round while the colour paints the left edge.
+  const start = css.lastIndexOf('.session-item[data-color],');
+  const body = css.slice(start, start + 900);
+  for (const side of ['top', 'right', 'bottom']) {
+    must(body, `border-${side}-color: transparent`);
+  }
+});
+
+check('the active coloured row draws no second ring inside the stripe', () => {
+  const at = css.lastIndexOf('.session-item[data-color].active');
+  if (at === -1) throw new Error('no .session-item[data-color].active rule');
+  const body = css.slice(at, at + 400);
+  if (body.includes('inset 0 0 0 1px var(--swatch)')) {
+    throw new Error('the active coloured row still draws an inset ring on top of its stripe');
+  }
 });
 
 /* -------------------------------- clearing ----------------------------- */

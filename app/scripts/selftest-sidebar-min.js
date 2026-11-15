@@ -35,16 +35,15 @@ check('the minimum is measured, not a flat constant', () => {
   assert.match(appJs, /scrollWidth/);
 });
 
-check('resizing clamps against that measurement', () => {
+check('the fixed width is that measurement, not a flat constant', () => {
   const fn = appJs.match(/function applySidebarWidth[\s\S]*?\n}/);
   assert.ok(fn, 'applySidebarWidth is missing');
-  assert.match(fn[0], /const min = sidebarMinWidth\(\)/);
-  assert.match(fn[0], /Math\.max\(min,/);
-  assert.doesNotMatch(fn[0], /Math\.max\(SIDEBAR_MIN,/, 'the old flat floor is still used');
+  assert.match(fn[0], /sidebarMinWidth\(\)/);
+  assert.match(fn[0], /Math\.max\(SIDEBAR_MIN,/);
 });
 
-check('a window resize re-clamps a stale saved width', () => {
-  assert.match(appJs, /addEventListener\('resize',[\s\S]{0,200}applySidebarWidth\(cur\)/);
+check('a window resize re-measures the floor', () => {
+  assert.match(appJs, /addEventListener\('resize',[\s\S]{0,200}applySidebarWidth\(\)/);
 });
 
 check('the brand row may not overflow its own box', () => {

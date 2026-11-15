@@ -126,7 +126,6 @@ const STRINGS = {
     settings: 'Settings',
     settingsSub: 'Where this app keeps its files. Everything lives in one folder you can copy or back up.',
     adFrom: 'Ad from FREEPI.AI',
-    sidebarReset: 'Sidebar width reset',
     provider: 'Provider',
     coarenaSection: 'Coarena',
     coarenaKeyLabel: 'API key',
@@ -482,7 +481,6 @@ const STRINGS = {
     settings: 'ตั้งค่า',
     settingsSub: 'ที่เก็บไฟล์ของแอปนี้ — ทุกอย่างอยู่ในโฟลเดอร์เดียว ก๊อปหรือแบ็กอัปได้ทั้งก้อน',
     adFrom: 'โฆษณาจาก FREEPI.AI',
-    sidebarReset: 'คืนความกว้างเริ่มต้นแล้ว',
     provider: 'ผู้ให้บริการ',
     coarenaSection: 'Coarena',
     coarenaKeyLabel: 'API key',
@@ -812,7 +810,8 @@ function applyLanguage() {
   // with it, or one language ends up with a sentence clipped to one line.
   if (typeof applySidebarWidth === 'function') {
     try {
-      applySidebarWidth(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || SIDEBAR_DEFAULT);
+      // The floor moves with the language, so the locked width is re-measured.
+      applySidebarWidth();
     } catch {}
   }
   // Placeholders and dialog titles are not plain text nodes.
@@ -981,6 +980,13 @@ function setBusy(value) {
 }
 
 let noticeTimer = null;
+/**
+ * True while the notice on screen is the "retrying" one. That notice is a passing
+ * state, not something the reader has to dismiss: a 503 that retried
+ * successfully used to leave "Retrying (1/3)..." above the composer until the
+ * window was closed. The end of the turn, or a ceiling on its age, takes it away.
+ */
+let noticeIsRetry = false;
 
 /**
  * A short note above the composer.
@@ -992,6 +998,7 @@ let noticeTimer = null;
 function showNotice(text, ms) {
   clearTimeout(noticeTimer);
   if (!text) {
+    noticeIsRetry = false;
     hideNotice();
     return;
   }
@@ -3730,104 +3737,28 @@ function sidebarMinWidth() {
   return Math.max(SIDEBAR_MIN, Math.ceil(Math.max(row, sentence)) + chrome);
 }
 
-function applySidebarWidth(px) {
-  const min = sidebarMinWidth();
-  const w = Math.round(Math.min(SIDEBAR_MAX, Math.max(min, Number(px) || SIDEBAR_DEFAULT)));
+/**
+ * The sidebar's width is fixed at the narrowest the column's own content allows.
+ *
+ * It used to be a drag handle, and that cost more than it looked: the sponsor
+ * creative is cropped to the column, so two people with two widths saw two
+ * different crops of the same ad. The width now comes from `sidebarMinWidth()` —
+ * the longest line the column must show — and nothing in the UI can move it. A
+ * saved `prefs.sidebarWidth` from an older build is ignored on purpose.
+ */
+function applySidebarWidth() {
+  const w = Math.round(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, sidebarMinWidth())));
   document.documentElement.style.setProperty('--sidebar-w', `${w}px`);
   return w;
 }
 
-/**
- * Put the sidebar back to the width it ships with.
- *
- * Dragging is easy to overshoot by a hundred pixels and there was no way back
- * except dragging again by eye, so the divider answers a double-click. The width
- * is saved, not just applied: a reset that came back wrong on the next launch
- * would look like the double-click never happened.
- */
-function resetSidebarWidth() {
-  const w = applySidebarWidth(SIDEBAR_DEFAULT);
-  appPrefs.sidebarWidth = w;
-  api.setPrefs({ sidebarWidth: w });
-  showNotice(t('sidebarReset'), 1600);
-  return w;
-}
+(function lockSidebarWidth() {
+  applySidebarWidth();
 
-(function initSidebarResize() {
-  const bar = el('sidebarResizer');
-  if (!bar) return;
-
-  applySidebarWidth(appPrefs.sidebarWidth || SIDEBAR_DEFAULT);
-
-  let dragging = false;
-
-  const onMove = (e) => {
-    if (!dragging) return;
-    applySidebarWidth(e.clientX);
-  };
-
-  const onUp = () => {
-    if (!dragging) return;
-    dragging = false;
-    document.body.classList.remove('resizing');
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', onUp);
-    const w = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10);
-    appPrefs.sidebarWidth = w;
-    api.setPrefs({ sidebarWidth: w });
-  };
-
-  bar.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    dragging = true;
-    document.body.classList.add('resizing');
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  });
-
-  bar.addEventListener('dblclick', (e) => {
-    e.preventDefault();
-    resetSidebarWidth();
-  });
-
-  // The divider is a 5px target. The sidebar's own empty space is the generous
-  // one, so a double-click anywhere on it resets too — except on a session row or
-  // a control, where a double-click already means open / press.
-  document.querySelector('#sidebar')?.addEventListener('dblclick', (e) => {
-    if (e.target.closest('.session-item, button, input, select, textarea, a, [contenteditable]')) return;
-    e.preventDefault();
-    resetSidebarWidth();
-  });
-
-  // Keyboard support: arrow keys nudge, Shift jumps further, Home resets.
-  bar.addEventListener('keydown', (e) => {
-    if (e.key === 'Home') {
-      e.preventDefault();
-      resetSidebarWidth();
-      return;
-    }
-    const step = e.shiftKey ? 40 : 8;
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    e.preventDefault();
-    const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || SIDEBAR_DEFAULT;
-    const w = applySidebarWidth(cur + (e.key === 'ArrowRight' ? step : -step));
-    appPrefs.sidebarWidth = w;
-    api.setPrefs({ sidebarWidth: w });
-  });
-
-  // A saved width from a build with a smaller floor, or a font/zoom change,
-  // must not leave the header cramped.
-  window.addEventListener('resize', () => {
-    const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || SIDEBAR_DEFAULT;
-    applySidebarWidth(cur);
-  });
-
-  // Text widths are only reliable once the font is in; the first paint can be
-  // narrower than the final glyphs.
-  document.fonts?.ready.then(() => {
-    const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || SIDEBAR_DEFAULT;
-    applySidebarWidth(cur);
-  });
+  // A late-loading font and a language switch both change the floor, so the
+  // column re-measures itself instead of keeping a number that no longer fits.
+  window.addEventListener('resize', () => applySidebarWidth());
+  document.fonts?.ready.then(() => applySidebarWidth());
 })();
 el('settingsClose').addEventListener('click', closeSettings);
 
@@ -4775,11 +4706,24 @@ function syncSponsorPlayback() {
  * Width per height for each published frame, mirrored from the publisher.
  * A slot without a ratio — an older feed, or the bundled fallback — is 2:1.
  */
-const SPONSOR_RATIOS = { '2:1': 2, '16:9': 16 / 9, '1:1': 1, '4:5': 4 / 5 };
+const SPONSOR_RATIOS = { '2:1': 2, '16:9': 16 / 9, '1:1': 1, '4:5': 4 / 5, '9:16': 9 / 16 };
 
+/**
+ * Width per height. A custom frame the publisher allowed is parsed from its
+ * own `w:h`; anything unreadable falls back to 2:1 so the band can never be
+ * sized by NaN.
+ */
 function sponsorRatio(slot) {
-  const value = slot && slot.media ? SPONSOR_RATIOS[slot.media.ratio] : 0;
-  return value > 0 ? value : 2;
+  const name = slot && slot.media ? slot.media.ratio : '';
+  const known = SPONSOR_RATIOS[name];
+  if (known > 0) return known;
+  const match = /^(\d{1,3}):(\d{1,3})$/.exec(String(name || ''));
+  if (match) {
+    const w = Number(match[1]);
+    const h = Number(match[2]);
+    if (w > 0 && h > 0) return w / h;
+  }
+  return 2;
 }
 
 /**
@@ -4799,7 +4743,11 @@ function paintSponsorMedia(slot) {
   if (!host) return;
   // Reserved before any byte arrives, so the band holds its height while the
   // creative downloads and never snaps the layout around.
-  host.style.aspectRatio = String(sponsorReservedRatio());
+  const reserved = sponsorReservedRatio();
+  host.style.aspectRatio = String(reserved);
+  // The stylesheet caps the band by width: without this number it cannot know how
+  // tall the frame wants to be, and a 9:16 clip was squashed into a 2:1 band.
+  host.style.setProperty('--sponsor-r', String(reserved));
   host.replaceChildren();
   const hasMedia = Boolean(slot && slot.media);
   host.hidden = !hasMedia;
@@ -4938,7 +4886,7 @@ async function boot() {
   refreshNvidiaStatus().catch(() => {});
   refreshTokenharborStatus().catch(() => {});
   refreshLlm7Status().catch(() => {});
-  applySidebarWidth(appPrefs.sidebarWidth || SIDEBAR_DEFAULT);
+  applySidebarWidth();
   if (info.lastCwd) {
     lastWorkspace = info.lastCwd;
     el('cwdLabel').textContent = info.lastCwd;
@@ -7036,6 +6984,7 @@ api.onSettled((p) => {
   view.liveAssistant = null;
   view.liveTools = null;
   if (payloadTabIsActive(view)) setBusy(false);
+  if (payloadTabIsActive(view) && noticeIsRetry) showNotice(null);
   // A message held back while this turn ran no longer has anything to wait for:
   // send it now rather than making the user watch a countdown for a turn that
   // already finished.
@@ -7048,7 +6997,9 @@ api.onSettled((p) => {
 });
 
 api.onNotice((p) => {
-  if (payloadTabIsActive(viewFor(p))) showNotice(p.key ? t(p.key, p.params || null) : p.text);
+  if (!payloadTabIsActive(viewFor(p))) return;
+  noticeIsRetry = p.key === 'notice.retrying';
+  showNotice(p.key ? t(p.key, p.params || null) : p.text, noticeIsRetry ? 10000 : undefined);
 });
 
 /** A failed turn is invisible otherwise: the assistant message has no text. */
@@ -7073,7 +7024,10 @@ api.onError((p) => {
   // `key` is the same failure in the user's language; `status`/`code` stay
   // attached because they are what support needs when the wording is not enough.
   const body = p.key ? t(p.key) : p.text;
-  const suffix = p.status ? ` (HTTP ${p.status}${p.code ? ` · ${p.code}` : ''})` : '';
+  // `p.text` already carries its "(HTTP 503 · service_busy)" suffix when the
+  // failure has no translated sentence. Appending it again printed it twice:
+  // "... service_busy) (HTTP 503 · service_busy)".
+  const suffix = p.key && p.status ? ` (HTTP ${p.status}${p.code ? ` · ${p.code}` : ''})` : '';
   appendErrorBanner(`${body}${suffix}`);
   setBusy(false);
 });

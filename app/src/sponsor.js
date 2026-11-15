@@ -98,25 +98,46 @@ const VIDEO_EXT = ['mp4', 'webm'];
  * A slot whose ratio is missing or unknown falls back to 2:1, so an old
  * feed — and the bundled one — keeps working untouched.
  *
- * Kept closed: an arbitrary ratio would let one creative claim a 400px band
- * and push the session list out of a short window.
+ * A custom frame is allowed too, but only inside the same band the publisher
+ * enforces: integers up to 64 a side, never taller than 2.5x its width nor
+ * wider than 5x its height. Outside that it is 2:1, so a hand-edited feed
+ * still cannot claim a 400px band and push the session list away.
  */
 const RATIOS = {
   '2:1': [2, 1],
   '16:9': [16, 9],
   '1:1': [1, 1],
   '4:5': [4, 5],
+  '9:16': [9, 16],
 };
 const DEFAULT_RATIO = '2:1';
+const RATIO_SIDES_MAX = 64;
+const RATIO_TALL_MAX = 2.5;
+const RATIO_WIDE_MAX = 5;
+
+/** `[w, h]` for a preset or a legal custom `"w:h"`; null when out of band. */
+function parseRatio(value) {
+  const key = typeof value === 'string' ? value.trim() : '';
+  if (Object.prototype.hasOwnProperty.call(RATIOS, key)) return RATIOS[key].slice();
+  const match = /^(\d{1,3}):(\d{1,3})$/.exec(key);
+  if (!match) return null;
+  const w = Number(match[1]);
+  const h = Number(match[2]);
+  if (!w || !h || w > RATIO_SIDES_MAX || h > RATIO_SIDES_MAX) return null;
+  const tall = h / w;
+  if (tall > RATIO_TALL_MAX || tall < 1 / RATIO_WIDE_MAX) return null;
+  return [w, h];
+}
 
 function ratioOf(value) {
   const key = typeof value === 'string' ? value.trim() : '';
-  return Object.prototype.hasOwnProperty.call(RATIOS, key) ? key : DEFAULT_RATIO;
+  if (Object.prototype.hasOwnProperty.call(RATIOS, key)) return key;
+  return parseRatio(key) ? key : DEFAULT_RATIO;
 }
 
-/** Height per unit of width — 1 for a square, 0.8 for 4:5, 2 for 2:1. */
+/** Height per unit of width — 0.5 for 2:1, 1 for a square, 16/9 for 9:16. */
 function ratioValue(name) {
-  const [w, h] = RATIOS[ratioOf(name)];
+  const [w, h] = parseRatio(ratioOf(name));
   return h / w;
 }
 
@@ -207,6 +228,10 @@ module.exports = {
   VIDEO_EXT,
   RATIOS,
   DEFAULT_RATIO,
+  RATIO_SIDES_MAX,
+  RATIO_TALL_MAX,
+  RATIO_WIDE_MAX,
+  parseRatio,
   ratioOf,
   ratioValue,
   normalizeSlot,

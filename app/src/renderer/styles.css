@@ -126,37 +126,9 @@ body { display: flex; flex-direction: column; }
   overflow-y: auto;
 }
 
-/* ---------------- sidebar resizer ---------------- */
-
-#sidebarResizer {
-  flex: 0 0 5px;
-  width: 5px;
-  cursor: col-resize;
-  background: transparent;
-  position: relative;
-  z-index: 5;
-  margin-left: -3px;
-  margin-right: -2px;
-}
-
-#sidebarResizer::after {
-  content: '';
-  position: absolute;
-  inset: 0 2px;
-  background: transparent;
-  transition: background .14s;
-}
-
-#sidebarResizer:hover::after,
-#sidebarResizer:focus-visible::after,
-body.resizing #sidebarResizer::after {
-  background: var(--accent);
-}
-
-#sidebarResizer:focus-visible { outline: none; }
-
-body.resizing { cursor: col-resize; user-select: none; }
-body.resizing #sidebar { pointer-events: none; }
+/* The sidebar is a fixed-width column now; see applySidebarWidth() in app.js.
+   There is deliberately no drag handle: the sponsor creative is cropped to this
+   column, so a resizable one changed the ad's framing for whoever dragged it. */
 
 .brand {
   display: flex;
@@ -481,16 +453,22 @@ body.resizing #sidebar { pointer-events: none; }
 /*
   The frame the creative is cropped into. `aspect-ratio` is written by the
   renderer from the feed — the tallest frame any slot asks for — so the band never
-  resizes while the rotation moves between a wide and a tall creative. The cap
-  keeps a 4:5 banner from eating the session list in a short window.
+  resizes while the rotation moves between a wide and a tall creative.
+
+  The cap is on *width*, not height. `max-height` alone squashed the frame: a
+  9:16 clip asked for 268x476 and got 268x288, which is no longer 9:16 at all.
+  A tall frame now narrows slightly to keep its shape, and the cap still stops it
+  from eating the session list.
 */
 .sponsor-media {
   display: grid;
   place-items: center;
   align-self: center;
-  width: 100%;
+  /* 480px is the tallest a frame may be: at a 268px column that is exactly a
+     9:16 clip, the tallest shape the publisher offers. */
+  width: min(100%, calc(var(--sponsor-cap, 480px) * var(--sponsor-r, 2)));
   aspect-ratio: 2 / 1;
-  max-height: 288px;
+  max-height: 480px;
   border-radius: 6px;
   overflow: hidden;
   background: var(--bg-3);
@@ -2599,6 +2577,16 @@ button { font-family: inherit; }
 .session-item[data-color].active {
   border-left: 4px solid var(--swatch);
   /*
+   * One edge per row. `.active` paints a purple border all the way round, and on
+   * a coloured row that sat directly against the 4px stripe — two frames sharing
+   * an edge, three once the inset ring below was counted. The colour the user
+   * chose owns the edge; the gradient background and the glow still say "this is
+   * the open chat".
+   */
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  /*
    * Text must land in one column on every row. With `box-sizing: border-box`
    * the text offset is border-left + padding-left, and a plain row is 1+9 = 10.
    * A 4px stripe therefore needs 6px here; `.open` and `.active` above were
@@ -2607,8 +2595,8 @@ button { font-family: inherit; }
   padding-left: 6px;
 }
 .session-item[data-color].active {
-  /* Keep the active glow, add the colour on top of it. */
-  box-shadow: inset 0 0 0 1px var(--swatch), 0 3px 14px rgba(124, 92, 255, .18);
+  /* The stripe is already the colour: the active state adds only its glow. */
+  box-shadow: 0 3px 14px rgba(124, 92, 255, .18);
 }
 
 /*

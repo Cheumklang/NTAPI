@@ -48,6 +48,7 @@ const TESTS = [
   'selftest-error-ux.js',
   'selftest-model-fallback.js',
   'selftest-error-messages.js',
+  'selftest-retry-notice.js',
   'selftest-installer-assets.js',
   'selftest-duration.js',
   'selftest-sidebar-min.js',

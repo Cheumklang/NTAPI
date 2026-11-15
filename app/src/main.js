@@ -1786,13 +1786,19 @@ function subscribeTab(tabId) {
           queueMicrotask(stop);
           break;
         }
+        // pi hands back the raw body (`503: {"message":...}`). Run it through the
+        // same wording the error banner uses, so the notice reads like a sentence
+        // instead of a crash dump — and the reader is not shown JSON twice.
+        const retryError = friendlyProviderError(event.errorMessage, {
+          provider: tab?.handle?.session?.model?.provider,
+        }).text;
         sendTab(tabId, 'agent:notice', {
-          text: `Retrying (${event.attempt}/${event.maxAttempts}): ${event.errorMessage || ''}`,
+          text: `Retrying (${event.attempt}/${event.maxAttempts}): ${retryError}`,
           key: 'notice.retrying',
           params: {
             attempt: event.attempt,
             max: event.maxAttempts,
-            error: event.errorMessage || '',
+            error: retryError,
           },
         });
         break;

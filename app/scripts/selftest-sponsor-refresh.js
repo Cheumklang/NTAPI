@@ -150,7 +150,8 @@ check('the payload carries each slot\'s published frame', () => {
   assert.ok(at > 0, 'no sponsorPayload()');
   const body = main.slice(at, at + 900);
   assert.match(body, /ratio: slot\.media\.ratio/);
-  assert.match(renderer, /const value = slot && slot\.media \? SPONSOR_RATIOS\[slot\.media\.ratio\] : 0;/);
+  assert.match(renderer, /'9:16': 9 \/ 16/);
+  assert.match(renderer, /function sponsorRatio\(slot\)/);
 });
 
 check('rotation needs more than one slot and the feed\'s own interval', () => {
