@@ -77,6 +77,32 @@ const MEASURE = `(async () => {
     pillOverflow: Math.round(pill.scrollWidth - pill.clientWidth),
   };
 
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const hover = (type) => strip.dispatchEvent(new PointerEvent(type, { bubbles: false }));
+
+  // The pointer is the primary way in now: no arrow to click.
+  const caret = document.querySelector('.status-caret');
+  hover('pointerenter');
+  await wait(200);
+  const hovered = { hidden: pop.hidden, expanded: pill.getAttribute('aria-expanded') };
+
+  // Leaving closes it again — after the longer delay, so the panel is reachable.
+  hover('pointerleave');
+  await wait(120);
+  const stillOpen = pop.hidden === false;
+  await wait(260);
+  const leftClosed = pop.hidden === true;
+
+  // A click pins it: otherwise the refresh button inside would be unreachable.
+  pill.click();
+  await wait(40);
+  hover('pointerleave');
+  await wait(400);
+  const pinnedStays = pop.hidden === false;
+  pill.click();
+  await wait(40);
+  const unpinnedClosed = pop.hidden === true;
+
   pill.click();
   await frame();
   const open = { hidden: pop.hidden, box: box(pop), expanded: pill.getAttribute('aria-expanded') };
@@ -109,7 +135,22 @@ const MEASURE = `(async () => {
   await frame();
   const back = box(pill);
 
-  return { baseline, before, open, escaped, outside, provider, back, viewport: { w: window.innerWidth, h: window.innerHeight } };
+  return {
+    baseline,
+    before,
+    caret: caret === null ? 'none' : 'present',
+    hovered,
+    stillOpen,
+    leftClosed,
+    pinnedStays,
+    unpinnedClosed,
+    open,
+    escaped,
+    outside,
+    provider,
+    back,
+    viewport: { w: window.innerWidth, h: window.innerHeight },
+  };
 })()`;
 
 async function atSize(win, label, width, height) {
@@ -141,6 +182,12 @@ async function atSize(win, label, width, height) {
   check(`${label}: the pill is 30px tall like the other controls`, b.pill.h >= 28 && b.pill.h <= 34, { h: b.pill.h });
   check(`${label}: the pill clips rather than pushing the row`, b.pillOverflow <= 1, { overflow: b.pillOverflow });
 
+  check(`${label}: the pill has no dropdown arrow`, m.caret === 'none');
+  check(`${label}: hovering opens the popover`, m.hovered.hidden === false && m.hovered.expanded === 'true');
+  check(`${label}: it stays open while the pointer is still inside`, m.stillOpen === true);
+  check(`${label}: moving away closes it`, m.leftClosed === true);
+  check(`${label}: a click pins it open`, m.pinnedStays === true);
+  check(`${label}: clicking again closes it`, m.unpinnedClosed === true);
   check(`${label}: clicking the pill opens the popover`, m.open.hidden === false);
   check(`${label}: the pill reports it is expanded`, m.open.expanded === 'true');
   check(`${label}: the popover opens inside the window`, m.open.box.x >= 0 && m.open.box.right <= m.viewport.w, {

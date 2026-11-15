@@ -114,7 +114,14 @@ check('the queue never exceeds the composer', /max-width:\s*100%/.test(bar));
 // The text is sized to its content so the buttons sit next to it, and capped so
 // a long message truncates rather than growing under them.
 check('the queue text is sized to its content', /flex:\s*0 1 auto/.test(text));
-check('the queue text is capped inside the row', /max-width:\s*calc\(100% - \d+px\)/.test(text));
+// Capped by shrinking, not by a hard max-width: the line never wraps, so a long
+// message truncates instead of pushing the controls onto a second row.
+const line = (() => {
+  const at = css.indexOf('.queue-line {');
+  return at === -1 ? '' : css.slice(at, css.indexOf('}', at));
+})();
+check('the row of a queued message is one line that never wraps', /flex-wrap:\s*nowrap/.test(line));
+check('the words are the part that gives way', /min-width:\s*0/.test(text));
 check('the queue text is always followed by its controls', /white-space:\s*nowrap/.test(text));
 check('the buttons keep their own row above it', /flex:\s*0 0 auto/.test(side));
 check('the textarea keeps a usable width', /#input\s*\{[^}]*min-width:\s*0/.test(css));

@@ -116,7 +116,7 @@ check('the grip is styled', /\.queue-grip\s*\{/.test(css));
 check('the grip is faint until hovered', /\.queue-grip\s*\{[^}]*opacity:\s*0/.test(css));
 check('the edit field is styled', /\.queue-edit\s*\{/.test(css));
 check('a dragged row looks lifted', /\.queue-item\.dragging\s*\{/.test(css));
-check('the editing row keeps its full width', /\.queue-item\.editing\s*\{/.test(css));
+check('the editing row keeps its full width', /\.queue-item\.editing \.queue-line\s*\{/.test(css));
 check('both new controls have a focus ring',
   /\.queue-grip:focus-visible/.test(css) && /\.queue-edit-btn:focus-visible/.test(css));
 

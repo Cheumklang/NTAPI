@@ -134,7 +134,10 @@ check('edit and cancel are translated', /holdEdit: 'แก้ไข'/.test(app) 
 check('the row is styled', /\.hold-row\s*\{/.test(css));
 check('the clock keeps a steady width', /\.hold-clock[\s\S]{0,200}min-width:\s*15ch/.test(css));
 check('the clock uses tabular figures so digits do not jump', /tabular-nums/.test(css));
-check('the queue row may wrap for the countdown', /\.queue-item\s*\{[^}]*flex-wrap:\s*wrap/.test(css));
+// The row stacks (line, then countdown) and the line itself never wraps, so a
+// long message cannot push the words down and the countdown still gets its own row.
+check('the queue row stacks its countdown under the line', /\.queue-item\s*\{[^}]*flex-direction:\s*column/.test(css));
+check('the line of the row never wraps', /\.queue-line\s*\{[^}]*flex-wrap:\s*nowrap/.test(css));
 check('the buttons are keyboard reachable', /\.hold-btn:focus-visible/.test(css));
 
 // --- a cancel handler set after the call still runs -----------------------

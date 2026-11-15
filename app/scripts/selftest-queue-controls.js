@@ -49,15 +49,20 @@ check('the queue is rendered', renderQueue !== '');
 // The elements are *declared* in any order — the label is built early so its text
 // can be read — but appendChild calls are what decide the row, so those are what
 // this checks. Left to right the row must read grip, pencil, ×, then the words.
-const atGrip = renderQueue.indexOf('row.appendChild(grip)');
-const atEdit = renderQueue.indexOf('row.appendChild(edit)');
-const atRemove = renderQueue.indexOf('row.appendChild(rm)');
-const atText = renderQueue.indexOf('row.appendChild(label)');
+// The parts live inside `.queue-line` — the one line of the row, which the
+// countdown may sit under — so these are the append calls that decide the order.
+const atGrip = renderQueue.indexOf('line.appendChild(grip)');
+const atEdit = renderQueue.indexOf('line.appendChild(edit)');
+const atRemove = renderQueue.indexOf('line.appendChild(rm)');
+const atText = renderQueue.indexOf('line.appendChild(label)');
 check('all four parts are appended', atGrip !== -1 && atEdit !== -1 && atRemove !== -1 && atText !== -1);
 check('the handle comes first', atGrip < atEdit);
 check('the pencil comes before the ×', atEdit < atRemove);
 check('the controls all come before the words', atRemove < atText);
-check('nothing is appended after the words', renderQueue.slice(atText).indexOf('row.appendChild(') === 0);
+check('nothing is appended after the words', renderQueue.slice(atText).indexOf('line.appendChild(') === 0);
+// The line is mounted on the row before any of its parts are added, so the
+// countdown under it lands after it rather than above.
+check('the line is mounted on the row first', renderQueue.indexOf("row.appendChild(line)") < atGrip);
 
 // --- the edit control is a pencil ---------------------------------------
 // A pencil, written as an escape so the source stays ASCII.

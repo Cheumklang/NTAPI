@@ -107,7 +107,12 @@ const applyState = app.slice(app.indexOf('function applyTabState'), app.indexOf(
 // that difference so a future rewrite does not copy the overwrite into replay.
 const replayStart = app.indexOf('let currentAssistant = null;');
 const replay = replayStart === -1 ? '' : app.slice(replayStart, replayStart + 4000);
-check('replay walks every stored message', /for \(const m of messages\)/.test(replay));
+// The loop draws through a guard so one unrenderable entry cannot cut the rest of
+// the chat off; it still walks every stored message.
+check(
+  'replay walks every stored message',
+  /for \(let i = from; i < to; i \+= 1\)/.test(replay) && /draw\(m\)/.test(replay),
+);
 check('replay appends step text instead of overwriting it',
   /body\.__fpText \? `\$\{body\.__fpText\}\$\{text\}` : text/.test(replay));
 

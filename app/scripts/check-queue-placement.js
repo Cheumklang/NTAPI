@@ -75,21 +75,24 @@ app.whenReady().then(async () => {
     const rows = [...bar.querySelectorAll('.queue-item')].map((r) => {
       const rb = r.getBoundingClientRect();
       const rm = r.querySelector('.queue-remove');
+      // The parts of a row live inside the queue-line element -- the one line of
+      // the row, which the countdown may sit under -- so that is the order to read.
+      const kids = [...r.firstElementChild.children];
       const tx = r.querySelector('.queue-text');
       const xb = rm.getBoundingClientRect();
       const tb = tx.getBoundingClientRect();
       return {
         // The grip leads (so it can be grabbed), then the remove button, then the
         // words: the × must be next to the message, not at the far right.
-        order: [...r.children].map((c) => c.className).join(','),
+        order: kids.map((c) => c.className).join(','),
         xBeforeText: !!(rm.compareDocumentPosition(tx) & Node.DOCUMENT_POSITION_FOLLOWING),
         // The grip still has to be the first *control*, but the row now opens with
         // its position number, so it is no longer the first child.
         gripFirst: (() => {
-          const kids = [...r.children].filter((c) => !c.classList.contains('queue-num'));
-          return kids.length > 0 && kids[0].classList.contains('queue-grip');
+          const controls = kids.filter((c) => !c.classList.contains('queue-num'));
+          return controls.length > 0 && controls[0].classList.contains('queue-grip');
         })(),
-        numFirst: !!r.firstElementChild && r.firstElementChild.classList.contains('queue-num'),
+        numFirst: !!kids[0] && kids[0].classList.contains('queue-num'),
         xFromLeft: Math.round(xb.left - rb.left),
         gap: Math.round(tb.left - xb.right),
         // Overlap means the text starts before the button ends. Comparing right

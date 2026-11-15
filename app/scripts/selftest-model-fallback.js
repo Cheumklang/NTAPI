@@ -181,7 +181,9 @@ const retryWindow = retryAt === -1 ? '' : main.slice(retryAt, retryAt + 900);
 check('a limit error switches before the generic retry', retryWindow.includes('isLimitError('));
 
 const dropAt = main.indexOf('dropFailedAssistant(tab);');
-const continueAt = main.indexOf('agent.continue()', dropAt);
+// Continuing moved into resumeAgentTurn(), which is where the "already processing"
+// recovery lives; the order that matters is drop first, then resume.
+const continueAt = main.indexOf('await resumeAgentTurn(tab);', dropAt);
 check(
   'the failed turn is dropped before continuing',
   dropAt !== -1 && continueAt !== -1 && continueAt > dropAt && continueAt - dropAt < 600
@@ -199,6 +201,42 @@ check('the abort is repeated after pi creates its controller', retryWindow2.incl
 check('the retry path leaves exhaustion to the settle path', !retryWindow2.includes('announceFallbackExhausted'));
 check('a selected route is not retired before it answers', !main.includes('state.tried.add(modelKey(next))'));
 check('a new user message resets the pool', main.includes('tab.fallback = null;'));
+
+/* ------------------- the turn must never end in silence -------------------- */
+
+// The abort this process sends to skip a pointless backoff makes pi report the
+// turn as aborted, and "aborted" is deliberately not a limit error — so the rule
+// "only continue an un-aborted turn" dropped exactly the turn it had to rescue.
+check(
+  'an aborted settle still finishes a turn we aborted ourselves',
+  /const ownAbort =[\s\S]{0,200}?limitFailure[\s\S]{0,200}?if \(!event\.aborted \|\| ownAbort\)/.test(main),
+);
+check(
+  'the limit is remembered when the retry is cancelled',
+  /case 'auto_retry_start'[\s\S]{0,1200}?tab\.limitFailure = \{ seq: tab\.promptSeq \|\| 0/.test(main),
+);
+check(
+  'the limit is remembered when the turn ends on it',
+  /case 'message_end'[\s\S]{0,900}?tab\.limitFailure = \{ seq: tab\.promptSeq \|\| 0/.test(main),
+);
+check('a user Stop is not a spent allowance', /prompt:abort[\s\S]{0,600}?tab\.limitFailure = null;/.test(main));
+check(
+  'the settle path accepts an aborted turn when the limit was ours',
+  /if \(last\.stopReason !== 'error' && last\.stopReason !== 'aborted'\) return;/.test(main) &&
+    /const limit = tab\.limitFailure && tab\.limitFailure\.seq === \(tab\.promptSeq \|\| 0\);/.test(settleWindow) &&
+    /if \(!limit && !isLimitError\(\{ text: last\.errorMessage \}\)\) return;/.test(settleWindow),
+);
+check(
+  'continuing the turn survives "agent is already processing"',
+  /async function resumeAgentTurn\(tab\)/.test(main) &&
+    /already processing/.test(main) &&
+    /await resumeAgentTurn\(tab\);/.test(settleWindow) &&
+    !/await tab\.handle\.session\.agent\.continue\(\);/.test(main),
+);
+check(
+  'the resumed turn waits for the aborted run to let go first',
+  /async function resumeAgentTurn\(tab\)[\s\S]{0,700}?session\.isStreaming[\s\S]{0,300}?await session\.abort\(\)/.test(main),
+);
 
 if (failures) {
   console.log(`\n${failures} failure(s)`);

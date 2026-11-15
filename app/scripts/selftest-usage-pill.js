@@ -96,6 +96,17 @@ check('the popover carries everything else', () => {
   }
 });
 
+check('the pill carries no dropdown arrow', () => {
+  // The arrow sat on top of the last percentage and pointed at a menu nobody
+  // needed announced: the panel opens on hover instead.
+  assert.doesNotMatch(html, /status-caret/);
+  assert.doesNotMatch(css, /status-caret/);
+  // Only inside the pill itself — the model picker right after it has its own
+  // arrow, and that one stays.
+  const pillButton = pillMarkup.slice(0, pillMarkup.indexOf('id="statusPopover"'));
+  assert.doesNotMatch(pillButton, /▾/);
+});
+
 check('the popover starts closed and says so', () => {
   assert.match(pillMarkup, /id="statusPopover"[\s\S]{0,200}?hidden/);
   assert.match(pillMarkup, /aria-expanded="false"/);
@@ -169,6 +180,31 @@ check('the pill percentage is bare, the sentence moved to the popover', () => {
 
 check('toggling the popover updates aria-expanded', () => {
   assert.match(app, /function setStatusPopover\(open\)[\s\S]{0,400}?setAttribute\('aria-expanded', open \? 'true' : 'false'\)/);
+});
+
+check('hovering the pill opens the popover after a short delay', () => {
+  assert.match(app, /STATUS_OPEN_DELAY_MS = \d+/);
+  assert.match(
+    app,
+    /addEventListener\('pointerenter', \(\) => queueStatusPopover\(true, STATUS_OPEN_DELAY_MS\)\)/,
+  );
+});
+
+check('leaving waits longer than arriving, so the panel is reachable', () => {
+  const open = Number((app.match(/STATUS_OPEN_DELAY_MS = (\d+)/) || [])[1]);
+  const close = Number((app.match(/STATUS_CLOSE_DELAY_MS = (\d+)/) || [])[1]);
+  assert.ok(open > 0 && close > open, { open, close });
+});
+
+check('the leave handler listens on the whole strip, not the pill', () => {
+  // Moving from the pill into the panel is not "leaving" — otherwise the refresh
+  // button inside could never be clicked.
+  assert.match(app, /statusStripEl\.addEventListener\('pointerleave'/);
+});
+
+check('a click pins the panel open so its buttons are usable', () => {
+  assert.match(app, /statusPinned = true;[\s\S]{0,40}?cancelStatusHover\(\);/);
+  assert.match(app, /if \(!open && statusPinned\) return;/);
 });
 
 check('Escape closes it and puts focus back on the pill', () => {

@@ -1490,3 +1490,28 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   · **PATCH `/releases/<id>` ได้ 200** แต่ `PATCH /releases/tags/<tag>` ตอบ **404** → ต้อง GET id ก่อนแล้วค่อย PATCH
   · ตัว token ไม่ถูกพิมพ์ลง log/คำตอบเลย (อ่านจากไฟล์ชั่วคราวแล้วลบทิ้ง)
 - body ใหม่ + หน้า v0.5.0 ตรวจแล้วสะอาดทั้งคู่
+
+**บั๊กที่ผู้ใช้แจ้งรอบที่ 2 (2026-11-17) — แชทขาดกลาง / AI หยุดเงียบ / หน่วง**
+- **แชทขาดกลาง:** `renderActiveTab()` วาดทุกข้อความใหม่ทั้งหน้าจอ ถ้าข้อความใดข้อความหนึ่ง throw
+  ลูปก็จบตรงนั้น → DOM เหลือแค่ส่วนหัว และพังซ้ำทุกครั้งที่วาดใหม่ (ไฟล์ session ครบ 543 entries)
+  → วัดได้: replay ของจริง 548 messages เข้า renderer ได้แค่ 36 bubbles, `error: null` (เงียบ)
+  · แก้: `try/catch` ต่อ entry + `reportTranscriptGaps()` (console + `ui:log` → `crash.log`)
+  · `check-transcript-resilience.js` 6/6 (poison `MD.renderInto`) · reverse test = FAIL 5
+- **AI หยุดเงียบตอน token หมด:** `auto_retry_start` เห็น 429 → เราสั่ง `abortRetry()` เอง
+  → pi ปิด turn ด้วย `aborted: true` → กฎเดิม `if (!event.aborted)` + "aborted ไม่ใช่ limit"
+  ทำให้ **ไม่สลับโมเดลเลย** → ไม่มีอะไรขึ้นหลังกด Send
+  · แก้: จำ `tab.limitFailure` ก่อน abort · `ownAbort` ให้ settle ที่ aborted เดินต่อได้
+  · `resumeAgentTurn()` กัน `Agent is already processing` + transcript ที่ลงท้ายด้วย assistant
+  · Stop ของผู้ใช้เคลียร์ `limitFailure` (ไม่สลับโมเดลให้)
+- **หน่วงเปิดแชท/สลับแท็บ:** วัดด้วย `scripts/bench-transcript.js` (ข้อความจริง 758 msgs / 1MB)
+  = **3358 ms** ต่อการวาดหนึ่งครั้ง → แก้เป็นวาด **ท้ายแชทก่อน** (24 msgs) แล้วเติมประวัติด้านบน
+  ทีละ 30 ข้อความผ่าน `setTimeout` · มี `renderGeneration` ยกเลิกงานเก่า · `alignChunk()` กันตัดกลาง turn
+  · ผลหลังแก้: เห็นท้ายแชท **34 ms** / ครบทั้งแชท 2.4 s (พื้นหลัง) · `check-transcript-speed.js` 6/6
+- ทดลอง cache ผล `parse()` ของ markdown แล้ว **ไม่ช่วย** (คอขวดคือ DOM/layout ไม่ใช่ parser) → revert
+- **คิวข้อความขึ้นบรรทัดใหม่ (ผู้ใช้แจ้งต่อ):** วัดใน Electron แล้ว row สูง 36px จาก lineHeight 17px
+  = ข้อความถูกดันไปบรรทัดที่สอง เพราะ `.queue-item` เป็น `flex-wrap: wrap` และ text มี `max-width: calc(100% - 50px)`
+  กว้างจนControls (ลำดับ/ grip / ดินสอ / ×) ไม่พอที่ → ขึ้นบรรทัดใหม่
+  · แก้: ห่อส่วนของแถวด้วย `.queue-line` (`flex-wrap: nowrap`) แล้ว `.queue-item` เป็น column
+    → แถวสูง 17px ทุกกรณี (ทดสอบกว้าง 890px และ 270px) · countdown ยังขึ้นบรรทัดล่างได้ตามเดิม
+  · `check-queue-single-line.js` 6/6 × 2 ความกว้าง · `check-queue-placement` 21/21 · controls 27 · number 18 · edit 25 · ghost 10 · cancel 22
+- ผลรวม: `npm test` **61/61** · `check:transcript` 6/6 · `check:speed` 6/6 · `check:pill` / `check:sidebar` / sponsor ผ่านหมด

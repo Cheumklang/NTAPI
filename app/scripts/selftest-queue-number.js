@@ -51,9 +51,9 @@ check('a number element is built', /queue-num/.test(renderQueue));
 check('it shows the position, one-based', /String\(index \+ 1\)/.test(renderQueue));
 // It goes before everything else: an index read after the controls is a label
 // for the controls, not for the message.
-const atNum = renderQueue.indexOf('row.appendChild(num)');
-const atGrip = renderQueue.indexOf('row.appendChild(grip)');
-const atEdit = renderQueue.indexOf('row.appendChild(edit)');
+const atNum = renderQueue.indexOf('line.appendChild(num)');
+const atGrip = renderQueue.indexOf('line.appendChild(grip)');
+const atEdit = renderQueue.indexOf('line.appendChild(edit)');
 check('the number is the first thing in the row',
   atNum !== -1 && atNum < atGrip && atNum < atEdit, { atNum, atGrip, atEdit });
 check('the number is not announced as bare text', /setAttribute\('aria-label', t\('queuePosition'/.test(renderQueue));
