@@ -1703,3 +1703,11 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   · **แยกเป็นสอง rule block** — รวม selector list เดียวแล้ว regex เทสต์เข้าใจผิดว่าซ่อนทั้งคู่
 - เทสต์ใหม่ `selftest-about-name.js` (8 checks) + ลงทะเบียนใน run-unit-tests · RED 5 → GREEN
 - ผล: `npm test` ผ่าน 62 scripts · ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit
+
+**ปล่อยอัปเดต v0.5.4 (ผู้ใช้สั่ง "ส่งอัปเดต" 2026-11-17)**
+- bump `app/package.json` 0.5.3 → 0.5.4 (เจอ `package-lock.json` ค้างที่ 0.3.1 มานาน → ตั้งเป็น 0.5.4 ตาม)
+- commit `internal: เตรียมเวอร์ชัน 0.5.4` → push master → tag `v0.5.4` → push tag
+- CI `Release` (windows-latest) **success** · assets: `NTAPI-Setup-0.5.4.exe` (118 MB), `latest.yml`, blockmap
+- release body (สร้างจาก git log อัตโนมัติ): "โฆษณาเต็มกรอบและอยู่กึ่งกลาง sidebar" + "ชื่อผู้พัฒนาในหน้าตั้งค่าแสดงตามภาษาที่เลือก"
+  (commit ที่ขึ้นต้น `internal:` ถูกกรองออกตามกฎ)
+- หมายเหตุ: ไม่มี `gh` ในเครื่อง → poll CI ด้วย GitHub API จาก `git credential fill`
