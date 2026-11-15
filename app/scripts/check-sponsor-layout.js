@@ -133,7 +133,10 @@ const MEASURE = (sponsorCode, longTitle) => `(async () => {
   const slot = document.getElementById('sponsorSlot');
   const card = document.getElementById('sponsorCard');
   const text = document.getElementById('sponsorText');
-  const usage = document.querySelector('.section.usage');
+  // The block the strip sits under is simply whatever came before it — the
+  // sidebar has no "status panel" any more (it moved to the topbar pill), so the
+  // anchor is the previous sibling rather than a class name.
+  const above = slot.previousElementSibling;
 
   const slotRect = slot.getBoundingClientRect();
   const sideRect = side.getBoundingClientRect();
@@ -144,7 +147,7 @@ const MEASURE = (sponsorCode, longTitle) => `(async () => {
   return {
     hidden: slot.hidden,
     lastChild: side.lastElementChild === slot,
-    slotAboveUsage: usage.getBoundingClientRect().bottom <= slotRect.top + 1,
+    slotBelowPrevious: !above || above.getBoundingClientRect().bottom <= slotRect.top + 1,
     // How far the strip's bottom sits from the bottom of the scrollable
     // content — computed against scrollHeight so it stays correct when the
     // column is taller than the window and has to scroll.
@@ -162,9 +165,9 @@ const MEASURE = (sponsorCode, longTitle) => `(async () => {
       14 * (side.children.length - 1),
     ),
     sideWidth: Math.round(sideRect.width),
-    // The status panel is the last block above the strip, so its bottom edge is
-    // the anchor for "nothing above the sponsor moved".
-    usageBottom: Math.round(usage.getBoundingClientRect().bottom),
+    // The block above the strip (the session list) is the anchor for "nothing
+    // above the sponsor was pushed out of the column".
+    aboveBottom: above ? Math.round(above.getBoundingClientRect().bottom) : Math.round(sideRect.top),
     // The session list is flex: 1 on purpose — it is the block that gives up
     // room when the column changes, so it may shrink but nothing may be pushed
     // out of the sidebar.
@@ -198,7 +201,7 @@ async function atSize(win, label, width, height) {
   check(`${label}: the strip is hidden when there is none`, off.hidden === true);
   check(`${label}: removing it again hides it`, back.hidden === true);
   check(`${label}: it is the last block in the sidebar`, on.lastChild === true);
-  check(`${label}: it sits below the status panel`, on.slotAboveUsage === true);
+  check(`${label}: it sits below the block above it`, on.slotBelowPrevious === true);
   check(`${label}: it is the floor of the column`, on.gapToFloor >= 0 && on.gapToFloor <= 20, {
     gapToFloor: on.gapToFloor,
   });
@@ -229,8 +232,8 @@ async function atSize(win, label, width, height) {
     after: on.sideWidth,
   });
   // Not "nothing moves": the strip is anchored to the floor of a column that is
-  // already full at the minimum size, so the status panel above it has to give up
-  // the strip's height. What must hold is that the height is then *reachable* —
+  // already full at the minimum size, so the list above it has to give up the
+  // strip's height. What must hold is that the height is then *reachable* —
   // the column scrolls instead of clipping the panel off the bottom.
   check(`${label}: the column scrolls rather than clipping`, on.overflowY === 'auto', {
     overflowY: on.overflowY,
@@ -239,9 +242,9 @@ async function atSize(win, label, width, height) {
     scroll: on.sideScroll,
     content: on.contentHeight,
   });
-  check(`${label}: the status panel is never pushed out of the column`,
-    on.usageBottom <= on.sideTop + on.sideScroll, {
-      usageBottom: on.usageBottom,
+  check(`${label}: the block above the strip is never pushed out of the column`,
+    on.aboveBottom <= on.sideTop + on.sideScroll, {
+      aboveBottom: on.aboveBottom,
       columnBottom: on.sideTop + on.sideScroll,
     });
   // The session list is the block that is meant to absorb a change in height, so

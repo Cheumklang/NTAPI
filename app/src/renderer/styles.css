@@ -649,7 +649,9 @@ button { font-family: inherit; }
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
-#titleWrap { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+/* The name may shrink, but never below a readable stub: it is the thing the user
+ * edits, so when the row is tight it is the pill that gives up width, not this. */
+#titleWrap { flex: 1 1 auto; min-width: 140px; display: flex; align-items: center; gap: 8px; }
 .session-dot {
   flex: none;
   width: 8px;
@@ -672,6 +674,97 @@ button { font-family: inherit; }
 }
 .title-input:hover { border-color: var(--line); }
 .title-input:focus { outline: none; border-color: var(--accent); background: var(--bg-2); }
+
+/* ---------------- status pill (topbar) ---------------- */
+
+/*
+ * Status as one pill in the row that already holds the session name and the
+ * model, instead of a six-row block in the sidebar. The pill is `flex: 0 1 auto`
+ * with a min-width of 0 so that at narrow widths it is the *pill* that gives up
+ * text, never the session name: the name is the thing being edited.
+ */
+.status-strip { position: relative; flex: 0 1 auto; min-width: 0; display: flex; }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.status-pill:hover { border-color: #333c4e; color: var(--text); }
+.status-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.status-pill[aria-expanded="true"] { border-color: var(--accent); color: var(--text); }
+
+.status-group { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+.status-group[hidden] { display: none; }
+.status-num { color: var(--text); font-variant-numeric: tabular-nums; }
+.status-num.mono { font-family: var(--mono); }
+.status-sep { color: #3a4356; }
+.status-caret { color: var(--muted); font-size: 9px; line-height: 1; }
+
+/* The bar carried by the pill. Same colours as the panel's bar, a third of the
+ * height: at 30px tall a 6px bar reads as a stripe, not a meter. */
+.status-bar { width: 46px; height: 5px; flex: none; }
+.status-bar .usage-bar-fill { height: 100%; }
+
+/* Under 1080px the words go first, the numbers stay. The labels are also on the
+ * popover rows, so nothing is lost — the bar already carries "how full". */
+@media (max-width: 1080px) {
+  .status-pill .status-label { display: none; }
+  .status-bar { width: 32px; }
+}
+@media (max-width: 860px) {
+  .status-group#statusFree .status-sep,
+  .status-group#statusFree #usagePct { display: none; }
+}/* At 1080px the row is genuinely tight: the model picker is ~265px and the name
+ * is the thing being edited, so the pill gives up its widest part (the credit
+ * numbers) rather than squeezing the name to nothing. The numbers stay in the
+ * popover, one click away. */
+@media (max-width: 1080px) {
+  .status-pill .status-credits { display: none; }
+}
+
+.status-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 262px;
+  padding: 11px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-2);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .5);
+}
+.status-popover[hidden] { display: none; }
+.status-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.status-pop-head .ghost { font-size: 11.5px; padding: 3px 8px; }
+.status-pop-note { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
+.status-popover .usage-row { font-size: 12px; }
+.status-popover .usage-row .mono { font-size: 12px; }
+.status-popover .ctx-bar { margin: 6px 0 0; }
+
 
 .controls {
   display: flex;

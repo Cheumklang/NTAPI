@@ -105,37 +105,15 @@
           <div id="sessionList" class="session-list"></div>
         </div>
 
-        <div class="section usage">
-          <div class="usage-title"><span class="live-dot"></span><span data-i18n="status">Status</span></div>
-          <div id="freePiUsage">
-            <div class="usage-bar-wrap">
-              <div class="usage-bar"><div id="usageBarFill" class="usage-bar-fill"></div></div>
-              <div class="usage-bar-legend">
-                <span id="usagePct">—</span>
-                <span id="usageUsed"></span>
-              </div>
-            </div>
-            <div class="usage-row"><span data-i18n="credits">Credits</span><span id="usageCost" class="mono">—</span></div>
-            <div class="usage-row"><span data-i18n="bonus">Bonus</span><span id="usageTokens" class="mono">—</span></div>
-            <div class="usage-row"><span data-i18n="lane">Lane</span><span id="usageContext" class="mono">—</span></div>
-            <div class="usage-row"><span data-i18n="resets">Resets</span><span id="usageResets" class="mono">—</span></div>
-            <div class="usage-row"><span data-i18n="context">Context</span><span id="contextPct" class="mono">—</span></div>
-            <div class="ctx-bar"><div id="contextFill" class="ctx-bar-fill"></div></div>
-          </div>
-          <div id="providerUsage" hidden>
-            <div class="usage-row"><span data-i18n="provider">Provider</span><span id="providerName" class="mono">—</span></div>
-            <div class="usage-row"><span id="providerMeterLabel" data-i18n="coarenaLimits">Limits</span><span id="providerMeterText" class="mono">—</span></div>
-            <div class="usage-bar-wrap" id="providerBarWrap" hidden>
-              <div class="usage-bar"><div id="providerBarFill" class="usage-bar-fill"></div></div>
-              <div class="usage-bar-legend">
-                <span id="providerPct">—</span>
-                <span id="providerUsed"></span>
-              </div>
-            </div>
-            <div class="usage-row" id="providerResetsRow" hidden><span data-i18n="resets">Resets</span><span id="providerResets" class="mono">—</span></div>
-          </div>
-          <button id="refreshUsage" class="ghost small full" data-i18n="refreshStatus">Refresh status</button>
-        </div>
+        <!--
+          The status panel used to live here, a six-row block under the session
+          list. It cost the list a chunk of the column to repeat numbers nobody
+          reads while working, and pushed the sponsor strip off the bottom.
+
+          The three values worth a glance (how much is left, how much of the
+          context window is gone) now sit in the topbar next to the session name,
+          and everything else moved into the popover on that pill.
+        -->
 
         <!--
           Sponsor strip. It is the last block in the sidebar and the only one with
@@ -171,6 +149,82 @@
           <div id="titleWrap">
             <span id="sessionDot" class="session-dot" hidden aria-hidden="true"></span>
             <input id="sessionTitle" class="title-input" placeholder="Untitled session" />
+          </div>
+
+          <!--
+            Status, inline with the session name and the model.
+
+            The pill carries the three numbers that change what you do next: how
+            much daily credit is left, how full the context window is, and a bar
+            that turns amber then red before either runs out. Everything the old
+            sidebar panel showed is one click away in the popover, so the sidebar
+            column is left to the session list.
+          -->
+          <div class="status-strip" id="statusStrip">
+            <button
+              type="button"
+              class="status-pill"
+              id="statusPill"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="statusPopover"
+            >
+              <span class="live-dot" aria-hidden="true"></span>
+              <span class="status-group" id="statusFree">
+                <span class="usage-bar status-bar" aria-hidden="true"
+                  ><span id="usageBarFill" class="usage-bar-fill"></span></span
+                >
+                <span class="status-num" id="usagePct">—</span>
+                <!-- The cost pair is the first thing to go when the row is tight:
+                     the bar and the two percentages still answer "how much is left". -->
+                <span class="status-credits">
+                  <span class="status-sep" aria-hidden="true">·</span>
+                  <span class="status-label" data-i18n="credits">Credits</span>
+                  <span class="status-num mono" id="usageCost">—</span>
+                </span>
+                <span class="status-sep" aria-hidden="true">·</span>
+                <span class="status-label status-ctx" data-i18n="context">Context</span>
+                <span class="status-num mono" id="contextPct">—</span>
+              </span>
+              <!-- Which provider is paying, when it is not FreePi. -->
+              <span class="status-group" id="statusProvider" hidden>
+                <span class="status-label" id="statusProviderName">—</span>
+                <span class="status-num mono" id="statusProviderMeter">—</span>
+              </span>
+              <span class="status-caret" aria-hidden="true">▾</span>
+            </button>
+
+            <div
+              class="status-popover"
+              id="statusPopover"
+              role="dialog"
+              aria-label="Status"
+              hidden
+            >
+              <div class="status-pop-head">
+                <span class="usage-title"><span class="live-dot"></span><span data-i18n="status">Status</span></span>
+                <button id="refreshUsage" class="ghost small" data-i18n="refreshStatus">Refresh status</button>
+              </div>
+              <div id="freePiUsage">
+                <p class="status-pop-note" id="usageUsed"></p>
+                <div class="usage-row"><span data-i18n="bonus">Bonus</span><span id="usageTokens" class="mono">—</span></div>
+                <div class="usage-row"><span data-i18n="lane">Lane</span><span id="usageContext" class="mono">—</span></div>
+                <div class="usage-row"><span data-i18n="resets">Resets</span><span id="usageResets" class="mono">—</span></div>
+                <div class="ctx-bar"><div id="contextFill" class="ctx-bar-fill"></div></div>
+              </div>
+              <div id="providerUsage" hidden>
+                <div class="usage-row"><span data-i18n="provider">Provider</span><span id="providerName" class="mono">—</span></div>
+                <div class="usage-row"><span id="providerMeterLabel" data-i18n="coarenaLimits">Limits</span><span id="providerMeterText" class="mono">—</span></div>
+                <div class="usage-bar-wrap" id="providerBarWrap" hidden>
+                  <div class="usage-bar"><div id="providerBarFill" class="usage-bar-fill"></div></div>
+                  <div class="usage-bar-legend">
+                    <span id="providerPct">—</span>
+                    <span id="providerUsed"></span>
+                  </div>
+                </div>
+                <div class="usage-row" id="providerResetsRow" hidden><span data-i18n="resets">Resets</span><span id="providerResets" class="mono">—</span></div>
+              </div>
+            </div>
           </div>
           <div class="controls">
             <!--

@@ -137,8 +137,10 @@ check('the hidden attribute truly hides the strip', /\.section\.sponsor\[hidden\
 check('the slot is the last thing in the sidebar', (() => {
   if (slotAt === -1) return false;
   const asideEnd = html.indexOf('</aside>');
-  const usageEnd = html.indexOf('id="refreshUsage"');
-  return asideEnd > slotAt && slotAt > usageEnd;
+  if (asideEnd < slotAt) return false;
+  // Nothing but the closing tags may follow it: the status panel that used to sit
+  // above it is now a pill in the topbar, so the strip really is the last block.
+  return !/class="section (usage|grow)"/.test(html.slice(slotAt, asideEnd));
 })());
 check('the slot is a button, so it is reachable by keyboard', /class="sponsor-card" id="sponsorCard"/.test(html));
 // The creative is a real element now, but it is filled from a data URL by the
