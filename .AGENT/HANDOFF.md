@@ -14,6 +14,12 @@
 > - **กฎใหม่: หน้า release ใส่เฉพาะ "มีอะไรใหม่ในรุ่นนี้" ที่ผู้ใช้เห็น** — workflow สร้างจาก `git log` เอง
 >   ห้ามมีไฟล์ `RELEASE_NOTES.md` · ห้ามใส่คำอธิบายโปรแกรม/SmartScreen · **ห้ามเปิดเผยงานหลังบ้าน**
 >   (ADS, repo, workflow, token, cache, ชื่อไฟล์โค้ด) → commit พวกนั้นขึ้นต้นด้วย `internal:` เพื่อถูกกรองออก
+> - **ก่อน tag ทุกครั้ง:** รัน `git log <แท็กเก่า>..HEAD --oneline` แล้วเช็คว่ามีบรรทัดไหนไม่ควรขึ้นหน้า release
+>   — commit งานบ้าน/HANDOFF/LOG/workflow ต้องขึ้นต้น `internal:` **ตั้งแต่ตอน commit**
+>   (เคยพลาด v0.5.1: หลุดงานหลังบ้าน 5 commit เพราะ commit ก่อนตั้งกฎ)
+> - **แก้หน้า release ด้วย API ได้** (token ของ ADS ไม่มีสิทธิ์ Releases):
+>   `git credential fill` → scopes `gist, repo, workflow` · **ต้อง GET `id` แล้ว PATCH `/releases/<id>`**
+>   (PATCH `/releases/tags/<tag>` ตอบ 404) · อย่าพิมพ์ token ลง log
 > - **ค้าง: ยังไม่ได้ลบ release เก่า 23 รุ่น (< 0.5.0)** — ~~รอผู้ใช้ยืนยัน “ลบเลย”~~
 >   **เสร็จแล้ว 2026-11-17: ผู้ใช้ลบเองด้วยมือ เหลือ `v0.5.0` เดียว** (dry-run ไม่ต้องใช้แล้ว)
 > - `NTAPI ADS` launcher แก้แล้ว (`NTAPI ADS.bat` / `.vbs` ไม่มี cmd ค้าง) — ยังไม่ bump เวอร์ชัน ADS
