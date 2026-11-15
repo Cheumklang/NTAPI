@@ -1945,3 +1945,19 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   → commit `internal:` ถูกกรองออก → หน้า v0.5.5 จะขึ้น 1 บรรทัดเท่านั้น (ข้อความจาก commit 2)
 - **ยังไม่ push / ยังไม่ tag / ยังไม่ release** — ผู้ใช้จัดการเองตามกฎ
 - working tree สะอาดหลัง commit แล้วทั้ง 4 ตัว
+
+**ปล่อย v0.5.5 + ลบรุ่นเก่าออกจาก GitHub (ผู้ใช้สั่ง 2026-11-17)**
+- ผู้ใช้: "ส่งอัปเดตก่อนนะคับ ให้มี 0.5.5 ก่อน" แล้วต่อด้วย "ลบเวอร์ชั่นเก่าๆ tag ที่ไม่ได้ใช้ ... เอาทุกเวอร์ชั่นยกเว้นล่าสุด"
+- **ขั้นตอนที่ทํา:** push master → tag `v0.5.5` → push tag → poll CI → ตรวจ asset → ลบของเก่า
+  · CI `Release` **success** (run 43703513191) · assets: `NTAPI-Setup-0.5.5.exe` + `latest.yml` + blockmap
+  · release body อัตโนมัติ = 1 บรรทัด (commit ที่ขึ้นต้น `internal:` ถูกกรองทั้งหมด)
+- **ลบของเก่า — ตรวจก่อนลบ:** ยืนยันว่า release ใหม่สุดคือ `v0.5.5` และมี `latest.yml`
+  (ถ้าไม่ใช่ → abort ไม่ลบอะไรเลย เพราะลบ `latest.yml` = ตัดทางอัปเดตของผู้ใช้ทุกคน)
+  · ลบ releases `v0.5.4…v0.5.0` (HTTP 204 ทั้งหมด) + tags ใน `NTAPI-releases`
+  · ลบ tags เก่าใน source `NTAPI` 28 ตัว (เหลือ `v0.5.5`) + tags ในเครื่อง
+- **ผลสุดท้าย:** releases = `v0.5.5` · tags (rel) = `v0.5.5` · tags (src) = `v0.5.5` · local tags = `v0.5.5`
+- **ทําไมคง tag `v0.5.5` ไว้:** workflow หาแท็กก่อนหน้าด้วย `git describe --tags --abbrev=0 "$tag^"`
+  → ถ้าลบตัวล่าสุด รอบถัดไปจะหาจุดตั้งต้นของ release notes ไม่ได้
+- **ใช้ API ไม่ใช่เบราว์เซอร์:** token จาก `git credential fill` (scope `repo`) ลบได้ 204 ทุกตัว
+  · `git credential fill` อ่านจาก credential manager ของ GitHub Desktop · ไม่พิมพ์ token ลง log
+- **รอบปล่อยครั้งถัดไป = `0.5.6`**
