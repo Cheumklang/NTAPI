@@ -10,6 +10,9 @@ name: Prune old releases
 # Manual on purpose. Deleting a release cannot be undone, so nothing here runs
 # on a push or a schedule: a person opens Actions, types which version must
 # survive, and presses Run.
+# Manual on purpose. Deleting a release cannot be undone, so nothing here runs
+# on its own: a person either presses Run in the Actions tab or writes a commit
+# message that asks for it in so many words (see the marker below).
 on:
   workflow_dispatch:
     inputs:
@@ -17,6 +20,7 @@ on:
         description: 'Keep this version and everything newer (e.g. v0.5.0)'
         required: true
         type: string
+        default: 'v0.5.0'
       dry_run:
         description: 'List what would be deleted, delete nothing'
         required: true
@@ -27,6 +31,15 @@ on:
         required: true
         type: boolean
         default: false
+  # GitHub refuses the Run workflow button on this repo ("You can't perform that
+  # action at this time"), so the same job can be asked for by pushing any commit
+  # whose message carries the marker. Two spellings, on purpose:
+  #   [prune-releases keep=v0.5.0 dry-run]   lists only
+  #   [prune-releases keep=v0.5.0 apply]     deletes
+  # A commit message is not something anyone types by accident, and the job does
+  # nothing at all when the marker is absent.
+  push:
+    branches: [master]
 
 permissions:
   contents: write
@@ -37,6 +50,9 @@ concurrency:
 
 jobs:
   prune:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[prune-releases')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,11 +64,38 @@ jobs:
           # Same token the release job uses: the assets live in a different repo.
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           TARGET_REPO: Cheumklang/NTAPI-releases
-          KEEP: ${{ inputs.keep }}
-          DRY_RUN: ${{ inputs.dry_run }}
-          DELETE_TAGS: ${{ inputs.delete_tags }}
+          KEEP_INPUT: ${{ inputs.keep }}
+          DRY_INPUT: ${{ inputs.dry_run }}
+          TAGS_INPUT: ${{ inputs.delete_tags }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
+
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            # The marker spells out both halves; a missing half means a typo, and
+            # a typo here deletes releases.
+            KEEP=$(printf '%s\n' "$COMMIT_MSG" | grep -o 'keep=[^ ]*' | head -n1 | cut -d= -f2 || true)
+            if printf '%s\n' "$COMMIT_MSG" | grep -q 'apply'; then
+              DRY_RUN=false
+            elif printf '%s\n' "$COMMIT_MSG" | grep -q 'dry-run'; then
+              DRY_RUN=true
+            else
+              echo "::error::marker needs 'apply' or 'dry-run' in it"
+              exit 1
+            fi
+            # Tags are separate history; only touched when asked for by name.
+            if printf '%s\n' "$COMMIT_MSG" | grep -q 'tags'; then TAGS=true; else TAGS=false; fi
+          else
+            KEEP="$KEEP_INPUT"
+            DRY_RUN="$DRY_INPUT"
+            TAGS="$TAGS_INPUT"
+          fi
+          echo "keep=$KEEP dry_run=$DRY_RUN tags=$TAGS (event: $GITHUB_EVENT_NAME)"
+          {
+            echo "KEEP=$KEEP"
+            echo "DRY_RUN=$DRY_RUN"
+            echo "DELETE_TAGS=$TAGS"
+          } >> "$GITHUB_ENV"
 
           keep="${KEEP#v}"
           keep="${keep#V}"
@@ -120,9 +163,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Delete the same tags in this repo
-        if: ${{ inputs.delete_tags && !inputs.dry_run }}
-        env:
-          DELETE_TAGS: ${{ inputs.delete_tags }}
+        if: env.DELETE_TAGS == 'true' && env.DRY_RUN != 'true'
         run: |
           set -euo pipefail
           [ -s pruned.txt ] || { echo "nothing to tag-delete"; exit 0; }

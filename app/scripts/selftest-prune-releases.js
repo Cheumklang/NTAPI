@@ -38,8 +38,10 @@ check('it is not empty', yml.trim().length > 0, { length: yml.length });
 
 // --- when it runs --------------------------------------------------------
 check('it only runs when a person asks', /^on:\s*\n\s+workflow_dispatch:/m.test(yml));
-// A push trigger would delete releases as a side effect of shipping one.
-check('it does not run on push', !/^ {2}push:/m.test(yml));
+// A bare push trigger would delete releases as a side effect of shipping one,
+// so the push path is gated on a marker nobody types by accident.
+check('a push only counts when its message asks for it', /contains\(github\.event\.head_commit\.message, '\[prune-releases'\)/.test(yml));
+check('the marker must say apply or dry-run', /marker needs 'apply' or 'dry-run'/.test(yml));
 check('it does not run on a schedule', !/^ {2}schedule:/m.test(yml));
 
 // --- what it protects ----------------------------------------------------
@@ -60,6 +62,7 @@ check('the token is the release token', /GH_TOKEN:\s*\$\{\{\s*secrets\.RELEASE_T
 check('it deletes releases through the API', /gh api -X DELETE "repos\/\$TARGET_REPO\/releases\/\$id"/.test(yml));
 // Tags are optional and off by default: the changelog compares against them.
 check('tag deletion is opt-in', /delete_tags:[\s\S]{0,160}?default:\s*false/.test(yml));
+check('the marker only touches tags when asked', /grep -q 'tags'; then TAGS=true; else TAGS=false/.test(yml));
 check('tag deletion still leaves the kept tag', /refs\/tags\/\$tag/.test(yml) && !/--delete v\$keep/.test(yml));
 
 // --- it is wired into the suite -----------------------------------------
