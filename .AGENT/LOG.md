@@ -1318,3 +1318,22 @@ strip คืน appendChild → FAIL 3
 - **บทเรียน:** ไฟล์ `.bat` ต้อง ASCII ล้วน — ข้อความไทยทำให้ `cmd` อ่านไบต์ไปชนตัวคั่นคำสั่ง
   แล้วพังด้วย "was unexpected at this time" (ย้ายคำอธิบายไทยไป `README.md`)
 - เทสต์ใหม่ `scripts/selftest-launcher.js` (6 checks) ลงทะเบียนใน `run-unit-tests.js` → ADS `npm test` 5/5 ไฟล์
+
+## 2026-11-16 · Release notes บอกว่าแต่ละรุ่นอัปเดตอะไร
+
+**ปัญหา (ผู้ใช้ทัก):** body ของทุก release เหมือนกันหมด และขึ้นต้นด้วยคำอธิบายสำหรับผู้ดูแล
+("ไฟล์นี้คือข้อความที่ขึ้นในหน้า … แก้ที่นี่ที่เดียว") → ผู้ใช้ที่กลับมาดาวน์โหลดใหม่ไม่รู้ว่ารุ่นนี้เปลี่ยนอะไร
+
+**แก้**
+- `RELEASE_NOTES.md` — ตัดบล็อกคำอธิบายผู้ดูแลออก เปลี่ยนหัวเป็น "NTAPI — โปรแกรมรวม AI หลายเจ้าไว้ในที่เดียว"
+- `.github/workflows/release.yml`
+  - `actions/checkout` เพิ่ม `fetch-depth: 0` (ต้องมี tag/ประวัติเพื่อเทียบรุ่นก่อน)
+  - step ใหม่ **Build release notes**: `git describe --tags --abbrev=0 <tag>^` → `git log prev..tag --no-merges`
+    → กรอง `ci:|chore:|test:|docs:|style:` ออก → ตัด prefix `vX.Y.Z:` → ประกอบเป็น
+    `## มีอะไรใหม่ใน vX.Y.Z` ไว้บนสุด แล้วต่อด้วยเนื้อถาวร → เขียนทับ `RELEASE_NOTES.md` ก่อน `body_path`
+- `app/scripts/selftest-release-notes.js` — เพิ่ม 7 checks (section มีอยู่, ใช้ describe, fetch-depth 0,
+  กรอง housekeeping, ตัด prefix, section อยู่ก่อน body_path, notes ไม่มีข้อความสำหรับผู้ดูแล) → รวม 27 checks
+
+**ผล:** `npm test` 53/53 · ทดสอบ logic ด้วย PowerShell กับ tag `v0.5.0` ได้ changelog 1 บรรทัดที่อ่านรู้เรื่อง
+(ของเดิมกรองแล้วเหลือ 3 บรรทัด โดย 2 บรรทัดเป็น docs/chore ที่ไม่เกี่ยวกับผู้ใช้)
+**ค้าง:** body ของ release เก่า (0.5.0 ลงไป) ยังเป็นข้อความเดิม — ต้องแก้ผ่านหน้าเว็บ/API

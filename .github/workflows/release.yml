@@ -22,6 +22,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The whole history and every tag: the "what's new" section is built
+          # from the commits between the previous tag and this one.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -43,6 +47,41 @@ jobs:
       - name: Show build output
         shell: pwsh
         run: Get-ChildItem dist | Select-Object Name, Length
+
+      - name: Build release notes
+        shell: pwsh
+        run: |
+          # What changed in THIS version, ahead of the standing description.
+          # For a long time every release carried the same body — a description
+          # of the program with nothing about the version, which told a returning
+          # user nothing about whether to update.
+          $tag = "${{ github.ref_name }}"
+          $prev = & git describe --tags --abbrev=0 "$tag^" 2>$null
+          if ($LASTEXITCODE -ne 0 -or -not $prev) {
+            $range = $tag
+          } else {
+            $range = "$prev..$tag"
+          }
+          Write-Host "changelog range: $range"
+
+          # Commits are the changelog, but not all of them are news: housekeeping
+          # (`ci:`/`chore:`/`test:`/`docs:`) says nothing to someone deciding
+          # whether to update. The version bump itself is dropped too — the
+          # heading already says which version this is.
+          $commits = @(& git log $range --no-merges --pretty=format:"%s") |
+            Where-Object { $_ -and $_ -notmatch '^(ci|chore|test|docs|style)\s*:' } |
+            ForEach-Object { $_ -replace "^$([regex]::Escape($tag))\s*:\s*", '' } |
+            ForEach-Object { "- $_" }
+
+          $lines = @("## มีอะไรใหม่ใน $tag", "")
+          if ($commits.Count -gt 0) { $lines += $commits }
+          else { $lines += "- ปรับปรุงความเรียบร้อยภายใน" }
+          $lines += @("", "---", "")
+          $lines += (Get-Content RELEASE_NOTES.md -Raw)
+
+          Set-Content -Path RELEASE_NOTES.md -Value ($lines -join "`n") -Encoding utf8
+          Write-Host "---- release body ----"
+          Get-Content RELEASE_NOTES.md -TotalCount 14
 
       - name: Publish release assets
         uses: softprops/action-gh-release@v2

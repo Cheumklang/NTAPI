@@ -42,6 +42,22 @@ check('it is not empty', notes.trim().length > 0, { length: notes.length });
 check('the release workflow exists', fs.existsSync(workflowPath));
 const workflow = fs.existsSync(workflowPath) ? fs.readFileSync(workflowPath, 'utf8') : '';
 
+// --- the per-version section ---------------------------------------------
+//
+// A release body that never mentions the version is a page a returning user
+// cannot act on: it says what the program is, not whether this download is worth
+// taking. The workflow now builds that part from the commits between the
+// previous tag and this one.
+check('the workflow builds a what-changed section', /มีอะไรใหม่ใน/.test(workflow));
+check('it walks the commits since the previous tag', /git describe --tags --abbrev=0/.test(workflow) && /\$prev\.\.\$tag|\$range/.test(workflow));
+check('it needs the full history to do that', /fetch-depth:\s*0/.test(workflow));
+// Housekeeping commits are noise on a download page; the version bump repeats
+// the heading.
+check('housekeeping commits are filtered out', /\^\(ci\|chore\|test\|docs\|style\)/.test(workflow));
+check('the version-bump prefix is stripped from the line', /regex\]::Escape\(\$tag\)/.test(workflow));
+check('the generated section comes first', workflow.indexOf('มีอะไรใหม่ใน') < workflow.indexOf('body_path'));
+
+
 check('the workflow publishes a body', /body_path:\s*RELEASE_NOTES\.md/.test(workflow));
 // `body_path` wins over `body`, but having both invites someone to edit the one
 // that does nothing.
@@ -78,6 +94,12 @@ for (const [name, re] of required) check(name, re.test(notes));
 // --- hygiene -------------------------------------------------------------
 // A stray non-Thai character slipped in while this was written; a visitor would
 // see it as a broken glyph.
+// The file is published verbatim, so anything written for the maintainer ends up
+// on the download page. The old body opened by explaining where the file lives
+// and how to edit it, which every visitor read as the first line.
+check('the notes are for the visitor, not for the maintainer',
+  !/ไฟล์นี้คือข้อความ|ไม่ต้องแตะ workflow|แก้ที่นี่ที่เดียว/.test(notes));
+
 check('the notes contain no stray CJK characters', !/[\u4e00-\u9fff]/.test(notes));
 check('the notes are plain markdown, no html', !/<[a-z]+[ >]/i.test(notes));
 
