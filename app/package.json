@@ -1,7 +1,7 @@
 {
   "name": "ntapi-desktop",
   "productName": "NTAPI",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "รวม AI ที่มีโควตาฟรีไว้ในที่เดียว ลองก่อนจ่ายรายเดือน",
   "main": "src/main.js",
   "scripts": {
@@ -32,6 +32,7 @@
     "check:notice": "electron scripts/check-notice-bubble.js",
     "check:pill": "electron scripts/check-status-pill.js",
     "check:sidebar": "electron scripts/check-sidebar-reset.js",
+    "check:media": "electron scripts/check-sponsor-media.js",
     "check:transcript": "electron scripts/check-transcript-resilience.js",
     "check:speed": "electron scripts/check-transcript-speed.js",
     "bench:transcript": "electron scripts/bench-transcript.js"
