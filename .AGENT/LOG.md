@@ -1931,3 +1931,17 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   · **บทเรียน:** check ที่ "แดงค้างเพราะผู้ใช้เลือกอย่างอื่น" ต้องอัปเดตให้ตรงการตัดสินใจ ไม่ใช่ปล่อยไว้
     — ไม่งั้น suite จะมี FAIL ถาวรและไม่มีใครเชื่อมันอีก
 - ผล: `check-sponsor-layout` **59 checks ผ่านหมด** · `npm test` 63 scripts
+
+**commit + bump เวอร์ชัน (ผู้ใช้สั่ง 2026-11-17)**
+- ผู้ใช้: "commit แล้วก็ขยับเวอร์ชั่นได้เลยคับ"
+- bump: NTAPI `0.5.4` → **`0.5.5`** · NTAPI ADS `0.1.0` → **`0.1.1`**
+  · แก้ทั้ง `package.json` และ `package-lock.json` (root + `packages[""].version`)
+- แบ่ง commit 4 ตัว (ตรวจการเข้ารหัสไทยใน `git log` แล้วถูกต้อง):
+  1. `1b09c79` `internal: NTAPI ADS หน้าใหม่แบบการ์ด พร้อมอัตราส่วนกำหนดเอง` (ADS ทั้งชุด + version)
+  2. `a79759d` `โฆษณาแนวตั้งแสดงเต็มสัดส่วน ล็อคความกว้าง sidebar และสีแชทไม่ซ้อนกรอบ` (NTAPI ที่ผู้ใช้เห็น)
+  3. `b927267` `internal: เตรียมเวอร์ชัน 0.5.5`
+  4. `8b4dbe7` `internal: บันทึก HANDOFF และ LOG`
+- **การกรองของ release workflow ตรวจแล้ว:** regex คือ `^(ci|chore|test|docs|style|internal)\s*:`
+  → commit `internal:` ถูกกรองออก → หน้า v0.5.5 จะขึ้น 1 บรรทัดเท่านั้น (ข้อความจาก commit 2)
+- **ยังไม่ push / ยังไม่ tag / ยังไม่ release** — ผู้ใช้จัดการเองตามกฎ
+- working tree สะอาดหลัง commit แล้วทั้ง 4 ตัว
