@@ -1961,3 +1961,44 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - **ใช้ API ไม่ใช่เบราว์เซอร์:** token จาก `git credential fill` (scope `repo`) ลบได้ 204 ทุกตัว
   · `git credential fill` อ่านจาก credential manager ของ GitHub Desktop · ไม่พิมพ์ token ลง log
 - **รอบปล่อยครั้งถัดไป = `0.5.6`**
+
+**NTAPI: ตัวหมุนในรายการแชทค้าง + เบียดชื่อไปขวา (ผู้ใช้แจ้ง 2026-11-17)**
+- ผู้ใช้: "AI ทํางานเสร็จแล้ว ... ยังมีตัวหมุน ๆ อยู่ เหมือน AI กําลังทํางาน แล้วมันควรจะขยับไปติดทางซ้าย
+  แต่ตัวหมุนกับชื่อมันออกมาขวานิดนึง"
+- **ต้นเหตุ 1:** `renderSessions()` ถูกเรียกเฉพาะตอนรายการเปลี่ยน · `onSettled` ตั้ง `view.busy = false`
+  แต่ไม่มีใครวาดใหม่ → `.s-spin` ค้างจนกว่าจะมีอย่างอื่นวาด sidebar
+- **ต้นเหตุ 2:** สปินเนอร์อยู่ใน `.s-title` หน้า 이름 → `margin-right: 6px` + กว้าง 7px ดันชื่อไปขวา 13px ทุกเทิร์น
+- แก้: ย้ายไปใน `.s-pin-slot` (ช่องซ้าย 14px ที่ทุกแถวจองไว้) · ตัด `margin-right` ของ `.s-spin`
+  · เพิ่ม `refreshSessionBusy()` → เรียกใน `onBusy`/`onSettled`/`onError`
+  · ระหว่างทํางาน แถวที่ปักหมุดจะเห็นสปินเนอร์แทนหมุด (ใช้ช่องเดียวกัน) แล้วหมุดกลับมาเอง
+- **เทสต์ใหม่ 2 checks** (`selftest-session-marks-ui.js`) · `npm test` **63 scripts** · `check-session-marks` ผ่านหมด
+- **FAIL รอบแรกเป็นความผิดผมเอง:** เทสต์ใช้ `renderer.indexOf('api.onSettled(')` → เจอตัวแรกที่บรรทัด 6607
+  (`refreshUsage`) ไม่ใช่ handler จริง จึงเปลี่ยนไปจับแบบ adjacency regex แทน — บันทึกเป็นบทเรียน:
+  **อย่าหาตําแหน่ง handler ด้วย `indexOf` ของชื่อที่ซ้ําได้**
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ควรออกเป็น `0.5.6` เมื่อผู้ใช้สั่ง
+
+**NTAPI: ชุดความสวย batch 1a + 1b (ผู้ใช้สั่ง 2026-11-17)**
+- โจทย์: "ทําให้โปรแกรมสวยขึ้น ดูน่าใช้ ทันสมัย — เหมือนเดิมแต่สวยขึ้น" + ตัวอย่าง: "ตัวหมุนหน้าชื่อ →
+  ขอเป็นวงหมุนรอบกรอบการ์ดแชทที่เลือกอยู่" + "fade ตอนกดปุ่ม/เปิดเมนู + รายการ model อ้วนขึ้นนุ่ม ๆ"
+- **ใช้ brainstorming + visual companion:** เปิดเซิร์ฟเวอร์ม็อกอัป (.superpowers/brainstorm/...)
+  เสนอ 3 แบบ (A วงหมุน · B กรอบหายใจ · C แถบซ้ายไหล) → **ผู้ใช้เลือก B** และสั่ง "เพิ่มความสว่าง"
+  · **ม็อกอัปรอบแรกพัง (ความผิดผม):** หมุนทั้งกล่องแทนการหมุนมุมของ gradient → ก้อนม่วงลอยพ้นการ์ด
+    แก้เป็น `@property --angle` + หมุนแค่มุมสี + inner element บังพื้นใน → ถูกต้อง
+- **spec:** `docs/superpowers/specs/2026-11-17-ui-polish-design.md` — แนวทาง A (ชั้น CSS ทับ) ได้รับอนุมัติ
+- **1a (รอบ 2 — หลังผู้ใช้ดูของจริง):** ผู้ใช้บอก "สีสวยอยู่ แต่ขอให้เร็วขึ้น พอช้ามากมันเหมือนเข้มขึ้นเฉย ๆ ไม่มีมิติ"
+  → วินิจฉัยว่าปัญหาคือ **ทรงจังหวะ** ไม่ใช่แค่ความเร็ว (สมมาตร = ค่ากลางค้าง ตาไม่มีจุดเกาะ)
+  → เสนอ 3 จังหวะในม็อกอัป (A 1.5 สมมาตร · B 1.2 ชีพจร · C 0.9 ชีพจร) · **ผู้ใช้เลือก B**
+  → ลงจริง: `animation: session-breathe 1.2s cubic-bezier(.35,0,.6,1)` ยอดอยู่ที่ 22% · ยอดสว่าง `#baa4ff` .95 + เรืองนอก 20px
+
+- **1a (รอบแรก):** `.session-item.active.busy` + `@keyframes session-breathe` (`box-shadow` เท่านั้น
+  เพราะ `border-color` จะทับแถบสีของผู้ใช้) · ยอดสว่าง `#b29bff` .85 + เรืองนอก 18px ·
+  ปุ่ม hover/active 1px · `button:focus-visible` ทุกปุ่ม · fade เข้า settings/model-menu/ctx-menu ·
+  `.model-option:hover { transform: scale(1.012) }`
+- **1b:** `#txSkeleton` เป็นพี่น้องของ `#transcript` (transcript ถูก `innerHTML=''` ทุกครั้งที่สลับแท็บ)
+  · `hideSkeleton()` ใน `renderActiveTab` + timeout 2500ms · shimmer 1.35s
+- **reduced-motion:** ทุก animation ใหม่หยุดหมด (กรอบหายใจค้างที่ความสว่างกลาง · shimmer เป็นแท่งนิ่ง)
+- **เทสต์:** 4 checks ใหม่ใน `selftest-session-marks-ui.js` + `selftest-boot-skeleton.js` (4 checks ใหม่)
+  · `npm test` **64 scripts ผ่าน** · geometry 8 ตัวผ่านหมด (sidebar 305 · ชื่อแชท [42,42,42] · pill · โฆษณา · transcript)
+- **FAIL 2 ครั้งจากเทสต์ของผมเอง:** `lastIndexOf('@media (prefers-reduced-motion…)')` เจอบล็อกอื่น
+  → เปลี่ยนเป็นค้นทุกบล็อก · **บทเรียนซ้ำ:** selector/ชื่อที่ซ้ําได้ ห้ามใช้ indexOf/lastIndexOf หาตําแหน่ง
+- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ควรเป็น `0.5.6`

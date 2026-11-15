@@ -25,3 +25,6 @@ dist-ads/
 
 # NTAPI ADS scratch renders.
 NTAPI ADS/shots/
+
+# Brainstorming mockups (visual companion) — scratch, never part of the app.
+.superpowers/
