@@ -1393,3 +1393,21 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 
 **ของแถมที่พลาด:** เผลอ `git add -A` แล้ว commit ไฟล์ `shot.png` ขึ้นไป — ลบใน commit ถัดมา (`b9e9a8f`)
 บทเรียน: ก่อน commit ใน repo นี้ให้ `git status --short` ดูรายชื่อไฟล์จริง
+
+## 2026-11-16 · หน้า release เอาแค่ "มีอะไรใหม่ในรุ่นนี้" (ตัด boilerplate ออกหมด)
+
+**ผู้ใช้สั่ง:** "เขียนแค่ว่าอัปเดตอะไรในเวอร์ชั่นนี้ก็พอ และอนาคตให้ทำแบบนี้"
+→ body ยาว ๆ (โปรแกรมคืออะไร/SmartScreen/แจ้งปัญหา/API) ไม่เอาแล้ว
+
+**แก้**
+- `release.yml` — "Build release notes" เขียน `dist/release-body.md` = `## มีอะไรใหม่ใน vX.Y.Z`
+  + bullet จาก `git log prev..tag` + บรรทัดดาวน์โหลด · `body_path` ชี้ไฟล์นั้น
+- **ลบ `RELEASE_NOTES.md` ออกจาก repo** — ไฟล์นี้คือต้นเหตุที่ body ค้างเหมือนกันทุก release
+- `app/scripts/selftest-release-notes.js` เขียนใหม่ (19 checks): body มาจาก git log,
+  ไฟล์ถูกสร้างก่อน publish, ไม่มี `RELEASE_NOTES.md`, ไม่มีคำสั่งถึงผู้ดูแล, แอสเซ็ตยังครบ
+- `AGENTS.md` + `.AGENT/HANDOFF.md` — เพิ่มกติกานี้ไว้ให้ session ถัดไป
+- **แก้ release `v0.5.0` ย้อนหลังแล้ว** ผ่านหน้าเว็บ (Releases → Edit) — ตรวจด้วย API แล้ว
+  body เหลือ 3 บรรทัด: สปอนเซอร์ 4 อัตราส่วน · NTAPI ADS · แก้ launcher
+
+**Learned:** อย่าเก็บ "ข้อความหน้า release" เป็นไฟล์ใน repo — มันจะเก่าและซ้ำทุกครั้ง
+ให้ generate จาก commit ตอนปล่อยเท่านั้น

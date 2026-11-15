@@ -51,10 +51,14 @@ jobs:
       - name: Build release notes
         shell: pwsh
         run: |
-          # What changed in THIS version, ahead of the standing description.
-          # For a long time every release carried the same body — a description
-          # of the program with nothing about the version, which told a returning
-          # user nothing about whether to update.
+          # The body is the changelog and nothing else.
+          #
+          # It used to be a standing description of the program, identical on
+          # every release, which told a returning user nothing about whether
+          # this download was worth taking - and opened with instructions to the
+          # maintainer ("edit this file only here"), which every visitor read as
+          # the first line. What a release page has to answer is one question:
+          # what changed in this version.
           $tag = "${{ github.ref_name }}"
           $prev = & git describe --tags --abbrev=0 "$tag^" 2>$null
           if ($LASTEXITCODE -ne 0 -or -not $prev) {
@@ -76,12 +80,12 @@ jobs:
           $lines = @("## มีอะไรใหม่ใน $tag", "")
           if ($commits.Count -gt 0) { $lines += $commits }
           else { $lines += "- ปรับปรุงความเรียบร้อยภายใน" }
-          $lines += @("", "---", "")
-          $lines += (Get-Content RELEASE_NOTES.md -Raw)
+          $lines += @("", "ดาวน์โหลด `NTAPI-Setup-$($tag -replace '^v','').exe` ด้านล่าง · Windows 10/11 (64-bit)")
 
-          Set-Content -Path RELEASE_NOTES.md -Value ($lines -join "`n") -Encoding utf8
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Set-Content -Path dist/release-body.md -Value ($lines -join "`n") -Encoding utf8
           Write-Host "---- release body ----"
-          Get-Content RELEASE_NOTES.md -TotalCount 14
+          Get-Content dist/release-body.md
 
       - name: Publish release assets
         uses: softprops/action-gh-release@v2
@@ -90,11 +94,8 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN }}
           tag_name: ${{ github.ref_name }}
           name: NTAPI ${{ github.ref_name }}
-          # The description lives in the source repo so it can be edited without
-          # touching this workflow. Without it the public release page showed a
-          # filename and nothing else, which tells a first-time visitor nothing
-          # about what they are downloading.
-          body_path: RELEASE_NOTES.md
+          # Written by the step above; the changelog is the whole body.
+          body_path: dist/release-body.md
           draft: false
           make_latest: 'true'
           overwrite_files: true

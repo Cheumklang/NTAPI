@@ -1,16 +1,19 @@
 /**
- * A published release must describe itself.
+ * A published release must say what changed in it.
  *
  * The public download page is generated entirely by `.github/workflows/release.yml`.
- * For several releases it carried no description at all, so a visitor arriving from
- * a Facebook post saw a file name and nothing about what the program is, what it
- * needs, or why Windows warns them. Nothing in the repo guaranteed a body, so
- * nothing caught it.
+ * It has been wrong in both directions. First it carried no description at all: a
+ * visitor from a Facebook post saw a file name and nothing else. Then it carried a
+ * standing description of the program, identical on every release, which told a
+ * returning user nothing about whether this download was worth taking — and it
+ * opened with instructions to the maintainer ("edit this file only here"), which
+ * every visitor read as the first line.
  *
- * This check runs offline: it asserts the workflow still points at a notes file,
- * that the file exists, and that it still says the things a first-time visitor
- * needs — in particular the SmartScreen warning, which is the question every
- * unsigned Windows installer gets asked.
+ * The answer chosen is the smallest one that works: the body is the changelog and
+ * nothing else, generated from the commits between the previous tag and this one.
+ * This check runs offline and asserts exactly that, plus the restraint that goes
+ * with it — housekeeping commits are filtered out, the version bump is not repeated,
+ * and no file in the repo can drift back into a hand-written body.
  *
  * Run: node scripts/selftest-release-notes.js
  */
@@ -20,7 +23,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repo = path.join(__dirname, '..', '..');
-const notesPath = path.join(repo, 'RELEASE_NOTES.md');
 const workflowPath = path.join(repo, '.github', 'workflows', 'release.yml');
 
 let failures = 0;
@@ -33,75 +35,48 @@ function check(name, ok, extra) {
   }
 }
 
-// --- the notes file ------------------------------------------------------
-check('the release notes file exists', fs.existsSync(notesPath));
-const notes = fs.existsSync(notesPath) ? fs.readFileSync(notesPath, 'utf8') : '';
-check('it is not empty', notes.trim().length > 0, { length: notes.length });
-
-// --- the workflow uses it ------------------------------------------------
 check('the release workflow exists', fs.existsSync(workflowPath));
 const workflow = fs.existsSync(workflowPath) ? fs.readFileSync(workflowPath, 'utf8') : '';
+check('it is not empty', workflow.trim().length > 0, { length: workflow.length });
 
-// --- the per-version section ---------------------------------------------
-//
-// A release body that never mentions the version is a page a returning user
-// cannot act on: it says what the program is, not whether this download is worth
-// taking. The workflow now builds that part from the commits between the
-// previous tag and this one.
-check('the workflow builds a what-changed section', /มีอะไรใหม่ใน/.test(workflow));
-check('it walks the commits since the previous tag', /git describe --tags --abbrev=0/.test(workflow) && /\$prev\.\.\$tag|\$range/.test(workflow));
+// --- the body is generated ----------------------------------------------
+check('the workflow publishes a body', /body_path:\s*dist\/release-body\.md/.test(workflow));
+// `body_path` wins over `body`, but having both invites someone to edit the one
+// that does nothing.
+check('the workflow does not also set an inline body', !/^\s{8,}body:/m.test(workflow));
+// The step that writes the file must run before the step that publishes it.
+check('the body is built before it is published',
+  workflow.indexOf('dist/release-body.md') < workflow.indexOf('- name: Publish release assets'));
+
+// The body comes from the commits between the previous tag and this one.
+check('it builds a what-changed section', /มีอะไรใหม่ใน/.test(workflow));
+check('it walks the commits since the previous tag', /git describe --tags --abbrev=0/.test(workflow));
 check('it needs the full history to do that', /fetch-depth:\s*0/.test(workflow));
 // Housekeeping commits are noise on a download page; the version bump repeats
 // the heading.
 check('housekeeping commits are filtered out', /\^\(ci\|chore\|test\|docs\|style\)/.test(workflow));
 check('the version-bump prefix is stripped from the line', /regex\]::Escape\(\$tag\)/.test(workflow));
-check('the generated section comes first', workflow.indexOf('มีอะไรใหม่ใน') < workflow.indexOf('body_path'));
+// One line of orientation is allowed: which file to grab and which Windows.
+check('it says which file to download', /NTAPI-Setup-\$\(\$tag -replace/.test(workflow));
+check('it says which Windows is needed', /Windows 10\/11 \(64-bit\)/.test(workflow));
 
+// --- nothing hand-written can come back ---------------------------------
+//
+// The failure mode was a standing description that drifted out of date and was
+// identical on every release. Keeping it as a repo file is what allowed that, so
+// the file is gone and the body is the only copy.
+check('there is no hand-written release body left in the repo',
+  !fs.existsSync(path.join(repo, 'RELEASE_NOTES.md')));
+check('the workflow no longer reads a notes file', !/Get-Content RELEASE_NOTES\.md/.test(workflow));
+// Wording aimed at the maintainer belongs in docs, not on the download page.
+check('no instructions to the maintainer in the workflow body', !/ไฟล์นี้คือข้อความ/.test(workflow));
 
-check('the workflow publishes a body', /body_path:\s*RELEASE_NOTES\.md/.test(workflow));
-// `body_path` wins over `body`, but having both invites someone to edit the one
-// that does nothing.
-check('the workflow does not also set an inline body', !/^\s{8,}body:/m.test(workflow.trimEnd()));
-// The workflow runs from the repo root, so the path must be root-relative.
-check('the path is root-relative, not app-relative', !/body_path:\s*app\//.test(workflow));
-
-// The release still has to be the public one, or the notes land in the private repo.
+// --- the release still ships -------------------------------------------
 check('it still publishes to the public repo', /repository:\s*Cheumklang\/NTAPI-releases/.test(workflow));
 check('the installer is still attached', /dist\/NTAPI-Setup-\*\.exe/.test(workflow));
 // electron-updater needs these two; losing them breaks every installed copy.
 check('latest.yml is still attached', /dist\/latest\.yml/.test(workflow));
 check('the blockmap is still attached', /dist\/\*\.blockmap/.test(workflow));
-
-// --- what a first-time visitor must be told -----------------------------
-//
-// Each of these is a question the download page has to answer on its own,
-// because the page is the first thing a new user sees.
-const required = [
-  ['says what the program is', /โควตาฟรี|ฟรีรายวัน/],
-  ['says how to install it', /ติดตั้ง|ดาวน์โหลด/],
-  ['says which Windows it needs', /Windows 10/],
-  // The single most common follow-up question about an unsigned installer.
-  ['explains the SmartScreen warning', /Windows protected your PC|SmartScreen/],
-  ['tells them to press Run anyway', /Run anyway/],
-  ['says it updates itself', /อัปเดต/],
-  ['says how to report a problem', /Issues|ทักมา/],
-  // The program leans on other people's APIs; saying so is honest and stops
-  // users blaming the app when a provider changes its rules.
-  ['mentions the third-party API terms', /เงื่อนไขของผู้ให้บริการ|กติกา/],
-];
-for (const [name, re] of required) check(name, re.test(notes));
-
-// --- hygiene -------------------------------------------------------------
-// A stray non-Thai character slipped in while this was written; a visitor would
-// see it as a broken glyph.
-// The file is published verbatim, so anything written for the maintainer ends up
-// on the download page. The old body opened by explaining where the file lives
-// and how to edit it, which every visitor read as the first line.
-check('the notes are for the visitor, not for the maintainer',
-  !/ไฟล์นี้คือข้อความ|ไม่ต้องแตะ workflow|แก้ที่นี่ที่เดียว/.test(notes));
-
-check('the notes contain no stray CJK characters', !/[\u4e00-\u9fff]/.test(notes));
-check('the notes are plain markdown, no html', !/<[a-z]+[ >]/i.test(notes));
 
 if (failures) {
   console.log(`\n${failures} check(s) failed`);
