@@ -2001,4 +2001,9 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   · `npm test` **64 scripts ผ่าน** · geometry 8 ตัวผ่านหมด (sidebar 305 · ชื่อแชท [42,42,42] · pill · โฆษณา · transcript)
 - **FAIL 2 ครั้งจากเทสต์ของผมเอง:** `lastIndexOf('@media (prefers-reduced-motion…)')` เจอบล็อกอื่น
   → เปลี่ยนเป็นค้นทุกบล็อก · **บทเรียนซ้ำ:** selector/ชื่อที่ซ้ําได้ ห้ามใช้ indexOf/lastIndexOf หาตําแหน่ง
-- ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ควรเป็น `0.5.6`
+- **ปล่อยแล้ว v0.5.6** (2026-11-15): commit `0ba9e0f` (UI polish + ตัวหมุน) · `c718bd2` · `5e92443` (bump)
+  · CI run `43712252312` success ทุก step (build 3 นาที) · asset 3 ไฟล์ใน `Cheumklang/NTAPI-releases`
+  · `latest.yml` → `version: 0.5.6` `path: NTAPI-Setup-0.5.6.exe` (118 MB) · แจ้งเตือนผู้ใช้ทาง `ntfy.sh/NTAPI`
+- **บทเรียนของเทิร์นนี้:** `gh` CLI ไม่มีใน shell นี้ — GitHub ใช้ **stored credential ของ `git credential fill`**
+  (40 ตัว · classic PAT) ยิง REST API แทนได้ · และ `/releases/tags/<tag>` ต้องถามที่ **`Cheumklang/NTAPI-releases`**
+  ไม่ใช่ repo ต้นทาง (ต้นทางมีแค่ tag)
