@@ -2255,6 +2255,12 @@ function syncProviderChrome(view) {
   const providerUsage = el('providerUsage');
   if (freePiUsage) freePiUsage.hidden = chrome.meter !== null;
   if (providerUsage) providerUsage.hidden = chrome.meter === null;
+  // The pill follows the same split: FreePi's credit bar, or whichever provider
+  // is paying and what it says about its own allowance.
+  const stripFree = el('statusFree');
+  const stripProvider = el('statusProvider');
+  if (stripFree) stripFree.hidden = chrome.meter !== null;
+  if (stripProvider) stripProvider.hidden = chrome.meter === null;
   if (!chrome.showAds) adSlot.hidden = true;
   paintProviderMeter(view);
   // The key can arrive while this tab is already open, so the meter fetches its
@@ -2279,6 +2285,14 @@ function paintProviderMeter(view) {
   const text = el('providerMeterText');
   const barWrap = el('providerBarWrap');
   const resetsRow = el('providerResetsRow');
+  // Mirrors of the two lines, in the topbar pill. Written here rather than from a
+  // second pass so the pill and the popover can never disagree.
+  const pillName = el('statusProviderName');
+  const pillMeter = el('statusProviderMeter');
+  const mirror = () => {
+    if (pillName) pillName.textContent = name.textContent;
+    if (pillMeter) pillMeter.textContent = text.textContent;
+  };
   if (!name || !text || !label) return;
   if (chrome.meter === null) return;
 
@@ -2326,6 +2340,7 @@ function paintProviderMeter(view) {
     label.textContent = t('model');
     text.textContent = view?.model?.name || '—';
   }
+  mirror();
 }
 
 /** Settings copy for the key: never the key itself, only what it is worth. */
@@ -4479,6 +4494,19 @@ async function initSponsor() {
   scheduleSponsorRotation();
 }
 
+/**
+ * A publish landed after the window had already drawn the cached strip.
+ *
+ * The bytes go too: the main process emptied its media folder on a change, and a
+ * slot keeps its id across publishes while the file behind it is replaced — so a
+ * kept data URL would be yesterday's picture under today's caption.
+ */
+function reloadSponsor() {
+  sponsorMediaCache.clear();
+  sponsorMediaPending.clear();
+  initSponsor();
+}
+
 function sponsorMediaFor(id) {
   if (sponsorMediaCache.has(id)) return Promise.resolve(sponsorMediaCache.get(id));
   if (sponsorMediaPending.has(id)) return sponsorMediaPending.get(id);
@@ -4673,6 +4701,7 @@ async function boot() {
   }
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});
   initSponsor();
+  if (typeof api.onSponsorChanged === 'function') api.onSponsorChanged(reloadSponsor);
 
   if (info.openTabs?.length) {
     // One tab per session file: the same conversation opened twice would be
@@ -5863,7 +5892,7 @@ function applyUsageLabels(d) {
     fill.style.width = `${usedPct}%`;
     // Green while comfortable, amber when getting low, red when nearly gone.
     fill.className = 'usage-bar-fill' + (usedPct >= 90 ? ' danger' : usedPct >= 70 ? ' warn' : '');
-    el('usagePct').textContent = t('pctUsed', { n: usedPct });
+    el('usagePct').textContent = `${usedPct}%`;
     el('usageUsed').textContent = t('spent', {
       n: (allowance - remaining).toLocaleString(),
       total: allowance.toLocaleString(),
@@ -5929,6 +5958,50 @@ function stopUsagePolling() {
 }
 
 el('refreshUsage').addEventListener('click', () => refreshUsage());
+
+/* ------------------------- status pill (topbar) ------------------------- */
+
+/*
+ * The pill carries the three numbers worth a glance; this popover carries the
+ * rest. It is a disclosure, not a dialog: opened by a click or Enter on the pill,
+ * closed by a second click, Escape, or a click anywhere outside the strip — which
+ * is what a popover is expected to do, and the reason the outside listener is on
+ * `pointerdown` (it runs before the click that would otherwise re-open it).
+ */
+function statusPopoverOpen() {
+  const pop = el('statusPopover');
+  return Boolean(pop && !pop.hidden);
+}
+
+function setStatusPopover(open) {
+  const pop = el('statusPopover');
+  const pill = el('statusPill');
+  if (!pop || !pill) return;
+  pop.hidden = !open;
+  pill.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+el('statusPill').addEventListener('click', () => setStatusPopover(!statusPopoverOpen()));
+
+el('statusPopover').addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  // Escape belongs to the popover while it is open, not to the dialog or the
+  // command palette behind it.
+  e.stopPropagation();
+  setStatusPopover(false);
+  el('statusPill').focus();
+});
+
+document.addEventListener('pointerdown', (e) => {
+  if (!statusPopoverOpen()) return;
+  if (e.target && e.target.closest && e.target.closest('#statusStrip')) return;
+  setStatusPopover(false);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && statusPopoverOpen()) setStatusPopover(false);
+});
+
 
 // Language toggle: saves the choice so it survives a restart.
 el('langBtn').addEventListener('click', () => setLanguage(lang === 'en' ? 'th' : 'en'));

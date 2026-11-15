@@ -469,7 +469,12 @@ async function refreshSponsorFeed({ force = false } = {}) {
   sponsorFeed.writeCache(SPONSOR_CACHE_DIR, fetched.feed, fetched.fetchedAt);
   // New creatives make the old files dead weight; they are re-downloaded on
   // demand, and only the slot being shown is ever fetched.
-  if (changed) sponsorFeed.clearMedia(SPONSOR_CACHE_DIR);
+  if (changed) {
+    sponsorFeed.clearMedia(SPONSOR_CACHE_DIR);
+    // The window was drawn from the cache a moment ago, so a publish would
+    // otherwise only show up on the *next* launch. Tell it to repaint now.
+    send('sponsor:changed', { updated: fetched.feed.updated });
+  }
   return sponsorState.feed;
 }
 
@@ -4200,17 +4205,25 @@ app.whenReady().then(async () => {
   /*
    * The sponsor strip draws from cache on the first frame, so the refresh is
    * deliberately after `createWindow()` and not awaited: a slow CDN must never
-   * add a second to the window appearing. The renderer asks for the strip once it
-   * boots, and gets whatever is cached; the next boot gets the fresh one.
+   * add a second to the window appearing.
+   *
+   * The startup refresh is forced. The TTL exists so a laptop opened five times a
+   * day makes one request, but applied to *startup* it meant a sponsor published
+   * this morning stayed invisible until the cache aged out — six hours of "I
+   * uploaded it and nothing happened". The feed is under a kilobyte on a host
+   * with no rate limit for this traffic, so boot always revalidates and the TTL
+   * is left to govern only the timer below. A change is pushed to the window
+   * (`sponsor:changed`), because by then it has already drawn the cached strip.
    */
   try {
     primeSponsorCache();
   } catch {}
-  refreshSponsorFeed().catch(() => {});
+  refreshSponsorFeed({ force: true }).catch(() => {});
   // Six-hourly while the app is left open: one timer, unrefed, so it can never
-  // hold the process alive on quit.
+  // hold the process alive on quit. Forced as well — landing a millisecond short
+  // of the TTL would otherwise skip a tick silently.
   sponsorRefreshTimer = setInterval(() => {
-    refreshSponsorFeed().catch(() => {});
+    refreshSponsorFeed({ force: true }).catch(() => {});
   }, sponsorFeed.TTL_MS);
   if (sponsorRefreshTimer.unref) sponsorRefreshTimer.unref();
 

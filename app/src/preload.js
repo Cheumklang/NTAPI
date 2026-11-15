@@ -112,6 +112,8 @@ contextBridge.exposeInMainWorld('freepi', {
   sponsorGet: () => ipcRenderer.invoke('sponsor:get'),
   sponsorMedia: (id) => ipcRenderer.invoke('sponsor:media', String(id || '')),
   sponsorClick: (id) => ipcRenderer.invoke('sponsor:click', String(id || '')),
+  // A publish landed after the window had already drawn the cached strip.
+  onSponsorChanged: on('sponsor:changed'),
   readImage: (cwd, p) => ipcRenderer.invoke('fs:readImage', { cwd, path: p }),
   openPath: (cwd, p) => ipcRenderer.invoke('fs:openPath', { cwd, path: p }),
 
