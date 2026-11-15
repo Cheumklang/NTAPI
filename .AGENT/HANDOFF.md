@@ -808,18 +808,32 @@ browser agent mode กับ Chrome จริงรอบยืนยัน
 
 ## 2) ขั้นถัดไปที่ตกลงไว้ (ทำต่อได้เลยเมื่อผู้ใช้สั่ง)
 
-**สถานะล่าสุด 2026-11-16:** งาน **สปอนเซอร์แบบสด + `NTAPI ADS`** โค้ดเสร็จ เทสต์ผ่านหมด
-แต่ **ยังไม่ commit** → งานค้างที่ต้องทำต่อก่อนทุกอย่าง:
-1. ให้ผู้ใช้สร้าง repo public `Cheumklang/NTAPI-sponsor` + token (Contents: R/W)
-2. ทดสอบด้วยตา: `cd "NTAPI ADS" && npm start` และ `cd app && npm start`
-3. ทดสอบปลายทางจริง 1 ครั้ง (เผยแพร่สล็อต → เปิด NTAPI → เห็นสปอนเซอร์)
-4. แล้วค่อยถามผู้ใช้ว่าจะ commit + bump เป็น **0.5.0** ไหม
-รายละเอียดทั้งหมด → **หัวข้อ 1zz**
+**สถานะล่าสุด 2026-11-16 (จบ session ที่ v0.5.0):** working tree สะอาด, `master` = `origin/master`
+ทุกอย่าง commit + push แล้ว — **ไม่มีงานค้างในเครื่อง**
+
+**ค้างรอผู้ใช้ตัดสินใจ 2 เรื่อง:**
+1. **ลบ release เก่า 23 รุ่น (< 0.5.0)** — dry run ผ่านแล้ว (`would delete: 23, untouched: 1`)
+   `workflow_dispatch` ใช้ไม่ได้ (GitHub ตอบ "You can't perform that action at this time")
+   → สั่งผ่าน marker:
+   ```bash
+   git commit --allow-empty -m "chore: [prune-releases keep=v0.5.0 apply]"
+   git push origin master     # รอ ~20 วิ แล้วดู Actions > Prune old releases
+   ```
+   (`dry-run` แทน `apply` = ลิสต์อย่างเดียว · เติมคำว่า `tags` = ลบ tag ต้นทางด้วย)
+2. **ผู้ใช้ยังไม่ได้ลอง v0.5.0 ที่ติดตั้งจริง** — ตรวจว่าแถบสปอนเซอร์ 3 ตัวอย่าง
+   (2:1 / 1:1 / 4:5 หมุนทุก 8 วิ) ไม่กระตุก และกดแล้วเปิดเบราว์เซอร์
+
+**งานที่ทำเสร็จในรอบนี้ (ทั้งหมด push แล้ว):** launcher ADS ไม่มี cmd ค้าง ·
+release notes = เฉพาะ "มีอะไรใหม่" ที่ผู้ใช้เห็น (ห้ามงานหลังบ้าน) · กฎเวอร์ชัน +0.0.1 ·
+workflow prune releases · แก้ body ของ v0.5.0 ย้อนหลังแล้ว
+
+**สถานะ 2026-11-15:** ไม่มีงานค้าง — `master` = `origin/master` = `81349d1`,
+tag `v0.4.2` push แล้ว รอผู้ใช้ลองติดตั้ง
 
 **สถานะ 2026-11-15:** ไม่มีงานค้าง — working tree สะอาด, `master` = `origin/master` = `81349d1`,
 tag `v0.4.2` push แล้ว รอผู้ใช้ลองติดตั้ง
 
-**รอบ build ถัดไป: v0.5.0** (ตามกติกาทุก 0.5.0) · v0.4.3 = patch ที่ผู้ใช้สั่งเอง (`ef5e1e1`)
+**รอบ build ถัดไป: v0.5.1** (กฎ 2026-11-16: +0.0.1 ต่อครั้งที่ผู้ใช้สั่ง)
 
 จากลำดับใน `docs/review-2026-11-13.md` ที่ยังเหลือ:
 - **P1:** MCP อ่าน `mcp.json` ได้แล้ว (`freepi-bridge.js` ~บรรทัด 1308 ผ่าน `sdk.createMcpExtension()`)
