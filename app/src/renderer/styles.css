@@ -115,7 +115,15 @@ body { display: flex; flex-direction: column; }
   flex-direction: column;
   padding: 14px 12px;
   gap: 14px;
-  overflow: hidden;
+  /*
+    Vertically scrollable rather than hidden. The column already fits at the
+    default window size; at the 560px minimum it is full to the pixel, and a
+    sponsor strip (or any future block) would then be clipped away with the
+    status panel above it. Scrolling keeps every control reachable at the cost of
+    a scrollbar that only ever appears on a deliberately tiny window.
+  */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ---------------- sidebar resizer ---------------- */
@@ -376,6 +384,108 @@ body.resizing #sidebar { pointer-events: none; }
 }
 .session-item .s-meta { font-size: 12px; color: var(--muted); }
 
+
+/* ---------------- sponsor strip (floor of the sidebar) ---------------- */
+/*
+  The last block in the sidebar. It sits below the status panel so that nothing
+  above it moves when the sponsor changes or disappears, and so it is as far from
+  the composer and the session list as the column allows.
+
+  The creative has its own band above the label, fixed at 2:1. That ratio is the
+  whole point of the strip being predictable: NTAPI ADS crops every banner to it
+  before publishing, so a sponsor cannot change how tall this block is, and the
+  session list above it never jumps when a new creative goes live.
+*/
+.section.sponsor {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  /*
+    `auto` rather than `0` on purpose. The column usually has slack at the bottom
+    and `margin-top: auto` spends it getting to the floor, so adding a sponsor
+    does not lift the status panel above it.
+  */
+  margin-top: auto;
+}
+/*
+  `.section` sets `display: flex`, and a class rule beats the browser's own
+  `[hidden] { display: none }`. Without this line the strip keeps its 44px of
+  padding and border while empty — an invisible block eating the session list —
+  and `hidden` would look like it worked only because nothing is drawn.
+*/
+.section.sponsor[hidden] { display: none; }
+.sponsor-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 7px;
+  margin: 0 -7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sponsor-card:hover { background: var(--bg-3); border-color: var(--line); }
+.sponsor-card:active { transform: translateY(1px); }
+.sponsor-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sponsor-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--muted);
+}
+
+/*
+  The frame the creative is cropped into. `aspect-ratio` is written by the
+  renderer from the feed — the tallest frame any slot asks for — so the band never
+  resizes while the rotation moves between a wide and a tall creative. The cap
+  keeps a 4:5 banner from eating the session list in a short window.
+*/
+.sponsor-media {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  max-height: 288px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-3);
+}
+.sponsor-media[hidden] { display: none; }
+/* Fitted, not cropped: the publisher already cropped the creative to its own
+   frame, so stretching it again here would undo that. */
+.sponsor-media img,
+.sponsor-media video {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+/* A quiet placeholder beats a jump: the band keeps its height while the bytes
+   are fetched, so the strip never grows into the list above it. */
+.sponsor-media.is-loading {
+  background: linear-gradient(90deg, var(--bg-3), var(--bg-2), var(--bg-3));
+  background-size: 200% 100%;
+}
+.sponsor-text {
+  max-width: 100%;
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The arrow is decoration: the whole card is one button, so a screen reader must
+   not read "greater than" as if it were part of the sponsor's name. */
+.sponsor-text::after { content: ' \2192'; color: var(--muted); }
 
 .usage { border-top: 1px solid var(--line); padding-top: 10px; gap: 4px; }
 .usage-title {
@@ -1549,7 +1659,6 @@ button { font-family: inherit; }
 }
 .crash-notice[hidden] { display: none; }
 .crash-notice .crash-text { flex: 1 1 auto; min-width: 0; }
-.about-copy { margin: 0 0 4px; }
 /* Working hint: three dots that rise and fade in sequence, so a long turn never
    looks like a frozen window. */
 .hint-dots {
@@ -2456,6 +2565,9 @@ button { font-family: inherit; }
   width: min(840px, 94vw);
   max-width: min(840px, 94vw);
   height: min(640px, 88vh);
+  /* The height is replaced per tab by fitSettingsDialog(); this is the ceiling
+     it is never allowed to pass, so the window stays inside the screen. */
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   padding: 0;

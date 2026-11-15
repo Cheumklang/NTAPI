@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "id": "term24hr",
+  "url": "https://www.term24hr.in.th/",
+  "text": {
+    "th": {
+      "label": "ผู้สนับสนุน",
+      "title": "เติมเกมราคาถูก รับของใน 1–5 นาที"
+    },
+    "en": {
+      "label": "Sponsor",
+      "title": "Game top-ups, delivered in 1–5 minutes"
+    }
+  }
+}

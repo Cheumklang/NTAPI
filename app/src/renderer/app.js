@@ -754,6 +754,8 @@ let appPrefs = {};
 let profile = {};
 // Last account snapshot shown in Settings.
 let accountData = null;
+// Sponsor strip config, as handed over by the main process. Null = no strip.
+let sponsor = null;
 
 /** Translate a key, substituting {placeholders}. */
 function t(key, vars) {
@@ -807,6 +809,9 @@ function applyLanguage() {
   // The effort switch's positions are translated and built in JS rather than
   // marked with data-i18n, so switching language has to repaint them.
   if (typeof paintThinking === 'function') paintThinking(activeView()?.thinking || null);
+  // The sponsor strip's wording comes from sponsor.json, not from STRINGS, so it
+  // has to be repainted by hand the same way.
+  if (typeof paintSponsor === 'function') paintSponsor();
   setBusy(Boolean(activeView()?.busy));
   renderAttachments();
   renderQueue();
@@ -3229,7 +3234,6 @@ function showCrashNotice(reason) {
 
 window.addEventListener('error', (e) => showCrashNotice(e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => showCrashNotice(e.reason));
-el('copySystemInfoBtn')?.addEventListener('click', (e) => copySystemInfo(e.currentTarget));
 el('crashCopy')?.addEventListener('click', (e) => copySystemInfo(e.currentTarget));
 el('crashClose')?.addEventListener('click', () => {
   el('crashNotice').hidden = true;
@@ -3274,7 +3278,72 @@ function showSettingsSection(name) {
   for (const panel of document.querySelectorAll('.settings-panel')) {
     panel.setAttribute('aria-hidden', String(panel.dataset.section !== target));
   }
+  fitSettingsDialog();
+  watchSettingsPanel();
 }
+
+/**
+ * Size the settings window to the tab that is open.
+ *
+ * One fixed height served every tab, which made a short tab leave a tall empty
+ * column and made the About tab — the longest page, and the one people read in
+ * full rather than scan — need a scrollbar. Sizing to the open panel shows the
+ * whole page at once and shrinks back when a shorter tab is chosen.
+ *
+ * Content height, not `scrollHeight`: the scroll container is currently taller
+ * than its content, and `scrollHeight` would report the container and never
+ * shrink the window.
+ */
+function fitSettingsDialog() {
+  const dlg = document.querySelector('.settings-dialog');
+  const panels = dlg?.querySelector('.settings-panels');
+  const panel = dlg?.querySelector('.settings-panel[aria-hidden="false"]');
+  if (!dlg || !panels || !panel) return;
+  // Closed (or not laid out yet): every measurement would be zero.
+  if (!panel.getBoundingClientRect().height) return;
+
+  const header = dlg.querySelector('.settings-header');
+  const footer = dlg.querySelector('.settings-footer');
+  const cs = getComputedStyle(panels);
+  const paddingY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const needed =
+    (header?.getBoundingClientRect().height || 0) +
+    (footer?.getBoundingClientRect().height || 0) +
+    panel.getBoundingClientRect().height +
+    paddingY;
+
+  // Never taller than the window, and never so short the header and footer
+  // collide.
+  const max = Math.round(window.innerHeight * 0.92);
+  // Floor so a short tab still looks like a window rather than a slip.
+  const height = Math.max(420, Math.min(Math.round(needed), max));
+  dlg.style.height = `${height}px`;
+
+  // One correction pass. `scrollHeight` reports a few pixels more than the sum of
+  // the parts (the leading of a trailing line), and those few pixels are exactly
+  // what raises a scrollbar — so grow by whatever the container still reports as
+  // overflowing instead of guessing a fixed slack.
+  const overflow = panels.scrollHeight - panels.clientHeight;
+  if (overflow > 0 && height < max) {
+    dlg.style.height = `${Math.min(height + overflow, max)}px`;
+  }
+
+  dlg.dataset.fitted = dlg.style.height;
+}
+
+/** Refit when the open panel grows or shrinks (a warning, an update row, …). */
+let settingsPanelObserver = null;
+function watchSettingsPanel() {
+  settingsPanelObserver?.disconnect();
+  const panel = document.querySelector('.settings-panel[aria-hidden="false"]');
+  if (!panel || typeof ResizeObserver !== 'function') return;
+  settingsPanelObserver = new ResizeObserver(() => fitSettingsDialog());
+  settingsPanelObserver.observe(panel);
+}
+
+window.addEventListener('resize', () => {
+  if (document.querySelector('.settings-dialog')) fitSettingsDialog();
+});
 
 // Call on first settings open
 let settingsSectionsInited = false;
@@ -4375,6 +4444,212 @@ window.addEventListener('resize', syncJumpToBottom);
 
 /* ------------------------------ actions ------------------------------ */
 
+/**
+ * The sponsor strip at the floor of the sidebar.
+ *
+ * Everything about it — who it is, where it goes, and which creative to show —
+ * belongs to the main process, which reads the live feed. The renderer paints
+ * what it is handed and asks for one creative at a time, so eight sponsors never
+ * mean eight downloads before the window is usable.
+ */
+let sponsorTimer = null;
+let sponsorSlotIndex = 0;
+// id -> { type, dataUrl, poster }. Bytes are kept once fetched: rotating back to
+// a slot that was already shown must not hit the network again.
+const sponsorMediaCache = new Map();
+const sponsorMediaPending = new Map();
+
+function sponsorPrefersReducedMotion() {
+  try {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+async function initSponsor() {
+  try {
+    const cfg = await api.sponsorGet();
+    sponsor = cfg && cfg.enabled ? cfg : null;
+  } catch {
+    sponsor = null;
+  }
+  sponsorSlotIndex = 0;
+  paintSponsor();
+  scheduleSponsorRotation();
+}
+
+function sponsorMediaFor(id) {
+  if (sponsorMediaCache.has(id)) return Promise.resolve(sponsorMediaCache.get(id));
+  if (sponsorMediaPending.has(id)) return sponsorMediaPending.get(id);
+  const pending = api
+    .sponsorMedia(id)
+    .then((res) => {
+      const value = res && res.ok ? { type: res.type, dataUrl: res.dataUrl, poster: res.poster || '' } : null;
+      if (value) sponsorMediaCache.set(id, value);
+      return value;
+    })
+    .catch(() => null)
+    .finally(() => sponsorMediaPending.delete(id));
+  sponsorMediaPending.set(id, pending);
+  return pending;
+}
+
+/**
+ * A sponsor's creative fills a 2:1 box whatever shape it arrives in — the frame
+ * is fixed, so a square logo and a wide banner read as the same size of ad.
+ */
+function sponsorMediaNode(slot, value) {
+  const alt = (slot.media && slot.media.alt) || (slot.text.th && slot.text.th.title) || 'Sponsor';
+  const reduced = sponsorPrefersReducedMotion();
+
+  if (value.type === 'video') {
+    // Reduced motion gets the still frame, never a loop. That also means a user
+    // who asked for less motion downloads 40KB of poster instead of a video.
+    if (reduced && value.poster) {
+      const still = document.createElement('img');
+      still.src = value.poster;
+      still.alt = alt;
+      still.decoding = 'async';
+      return still;
+    }
+    const video = document.createElement('video');
+    video.src = value.dataUrl;
+    if (value.poster) video.poster = value.poster;
+    video.muted = true;
+    video.loop = true;
+    video.autoplay = !reduced;
+    video.playsInline = true;
+    video.setAttribute('muted', '');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('aria-label', alt);
+    return video;
+  }
+
+  const img = document.createElement('img');
+  img.src = value.dataUrl;
+  img.alt = alt;
+  img.loading = 'lazy';
+  img.decoding = 'async';
+  return img;
+}
+
+/**
+ * A clip is paused whenever the strip cannot be seen or is not being read: a
+ * banner that keeps decoding frames behind a minimised window is a battery leak
+ * with no audience.
+ */
+function syncSponsorPlayback() {
+  const host = el('sponsorMedia');
+  const video = host && host.querySelector('video');
+  if (!video) return;
+  const visible = !document.hidden && document.hasFocus() && !sponsorPrefersReducedMotion();
+  if (visible) video.play().catch(() => {});
+  else video.pause();
+}
+
+/**
+ * Width per height for each published frame, mirrored from the publisher.
+ * A slot without a ratio — an older feed, or the bundled fallback — is 2:1.
+ */
+const SPONSOR_RATIOS = { '2:1': 2, '16:9': 16 / 9, '1:1': 1, '4:5': 4 / 5 };
+
+function sponsorRatio(slot) {
+  const value = slot && slot.media ? SPONSOR_RATIOS[slot.media.ratio] : 0;
+  return value > 0 ? value : 2;
+}
+
+/**
+ * The room the strip reserves: the widest-per-height slot in the feed, so the
+ * box is already the height the tallest creative needs. Without this the sidebar
+ * would grow and shrink every time the rotation moved between a 2:1 and a 4:5
+ * banner, dragging the whole session list up and down with it.
+ */
+function sponsorReservedRatio() {
+  const slots = sponsor && Array.isArray(sponsor.slots) ? sponsor.slots : [];
+  if (!slots.length) return 2;
+  return slots.reduce((min, slot) => Math.min(min, sponsorRatio(slot)), Infinity) || 2;
+}
+
+function paintSponsorMedia(slot) {
+  const host = el('sponsorMedia');
+  if (!host) return;
+  // Reserved before any byte arrives, so the band holds its height while the
+  // creative downloads and never snaps the layout around.
+  host.style.aspectRatio = String(sponsorReservedRatio());
+  host.replaceChildren();
+  const hasMedia = Boolean(slot && slot.media);
+  host.hidden = !hasMedia;
+  if (!hasMedia) return;
+
+  const known = sponsorMediaCache.get(slot.id);
+  if (known) {
+    host.appendChild(sponsorMediaNode(slot, known));
+    syncSponsorPlayback();
+    return;
+  }
+
+  host.classList.add('is-loading');
+  sponsorMediaFor(slot.id).then((value) => {
+    host.classList.remove('is-loading');
+    // The rotation may have moved on while this was in flight; painting now
+    // would put the previous sponsor over the current one's text.
+    const current = sponsor && sponsor.slots && sponsor.slots[sponsorSlotIndex];
+    if (!value || !current || current.id !== slot.id) return;
+    host.replaceChildren(sponsorMediaNode(slot, value));
+    syncSponsorPlayback();
+  });
+}
+
+function paintSponsor() {
+  const wrap = el('sponsorSlot');
+  if (!wrap) return;
+  const slot = sponsor && sponsor.slots ? sponsor.slots[sponsorSlotIndex] : null;
+  const text = slot && (slot.text?.[lang] || slot.text?.th);
+  if (!slot || !text) {
+    wrap.hidden = true;
+    return;
+  }
+  el('sponsorLabel').textContent = text.label;
+  el('sponsorText').textContent = text.title;
+  const card = el('sponsorCard');
+  // The arrow after the text is CSS decoration, so the accessible name has to be
+  // spelled out here or it would be announced as "greater than".
+  card.setAttribute('aria-label', `${text.label}: ${text.title}`);
+  card.title = slot.url;
+  wrap.hidden = false;
+  paintSponsorMedia(slot);
+}
+
+/**
+ * Rotation is a timer over the feed's own interval; one slot means no timer at
+ * all. It does not advance while the window is hidden — coming back to a window
+ * should show the sponsor that was on screen, not a random one.
+ */
+function scheduleSponsorRotation() {
+  if (sponsorTimer) {
+    clearInterval(sponsorTimer);
+    sponsorTimer = null;
+  }
+  if (!sponsor || !Array.isArray(sponsor.slots) || sponsor.slots.length < 2) return;
+  const seconds = Math.max(5, Number(sponsor.rotateSeconds) || 15);
+  sponsorTimer = setInterval(() => {
+    if (!sponsor || document.hidden) return;
+    sponsorSlotIndex = (sponsorSlotIndex + 1) % sponsor.slots.length;
+    paintSponsor();
+  }, seconds * 1000);
+}
+
+el('sponsorCard').addEventListener('click', () => {
+  const slot = sponsor && sponsor.slots ? sponsor.slots[sponsorSlotIndex] : null;
+  if (!slot) return;
+  api.sponsorClick(slot.id).catch(() => {});
+});
+
+document.addEventListener('visibilitychange', syncSponsorPlayback);
+window.addEventListener('focus', syncSponsorPlayback);
+window.addEventListener('blur', syncSponsorPlayback);
+
 async function boot() {
   const info = await api.boot();
   appPrefs = info.prefs || info;
@@ -4397,6 +4672,7 @@ async function boot() {
     el('cwdLabel').textContent = info.lastCwd;
   }
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});
+  initSponsor();
 
   if (info.openTabs?.length) {
     // One tab per session file: the same conversation opened twice would be

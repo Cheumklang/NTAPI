@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      `data:` and `blob:` carry the media the operator just dropped in, and
+      `https:` is needed only to preview a slot that is already published (it
+      renders straight from the CDN). This window is one operator's own machine;
+      the NTAPI client keeps its stricter policy, because there it is a user's
+      privacy at stake rather than a preview.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>NTAPI ADS</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-name">NTAPI ADS</span>
+        <span class="brand-sub">เผยแพร่สปอนเซอร์เข้าแถบ sidebar ของ NTAPI</span>
+      </div>
+      <div class="repo-pill" id="repoPill" title="ปลายทางที่เผยแพร่">
+        <span id="repoName">Cheumklang/NTAPI-sponsor</span>
+        <span class="branch" id="repoBranch">main</span>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="btn" id="btnSettings">ตั้งค่า</button>
+        <button type="button" class="btn" id="btnLoad">โหลดจาก repo</button>
+        <button type="button" class="btn btn-primary" id="btnPublish">เผยแพร่</button>
+      </div>
+    </header>
+
+    <section class="settings" id="settings" hidden>
+      <!--
+        The token can rewrite the banner for every installed copy of NTAPI, so it
+        is typed here and stored in this machine's userData — never in a file that
+        ships, and never sent back to this window once saved (only a hint shows).
+      -->
+      <div class="field">
+        <label for="cfgToken">GitHub token (สิทธิ์เขียน repo สปอนเซอร์)</label>
+        <input id="cfgToken" type="password" autocomplete="off" spellcheck="false" placeholder="ghp_… หรือ github_pat_…" />
+        <p class="hint" id="tokenHint"></p>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="cfgOwner">เจ้าของ</label>
+          <input id="cfgOwner" type="text" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label for="cfgRepo">repo</label>
+          <input id="cfgRepo" type="text" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label for="cfgBranch">branch</label>
+          <input id="cfgBranch" type="text" spellcheck="false" />
+        </div>
+      </div>
+      <div class="settings-actions">
+        <button type="button" class="btn" id="btnSaveCfg">บันทึก</button>
+        <button type="button" class="btn" id="btnCheckRepo">ตรวจว่าเขียนได้</button>
+        <span class="check-result" id="repoCheck"></span>
+      </div>
+      <p class="hint">
+        ต้องเป็น repo <strong>public</strong> เพราะ NTAPI ดึงไฟล์จาก CDN โดยไม่ใช้ token
+        (repo private จะดึงไม่ได้เลย)
+      </p>
+    </section>
+
+    <main class="layout">
+      <section class="slots-col">
+        <div class="slots-head">
+          <h2>สล็อตสปอนเซอร์</h2>
+          <div class="rotate">
+            <label for="rotateSeconds">หมุนเวียนทุก</label>
+            <input id="rotateSeconds" type="number" min="5" max="120" step="1" value="15" />
+            <span>วินาที</span>
+          </div>
+          <button type="button" class="btn btn-small" id="btnAddSlot">+ เพิ่มสล็อต</button>
+        </div>
+        <div class="slots" id="slots"></div>
+      </section>
+
+      <aside class="preview-col">
+        <h2>ตัวอย่างจริง</h2>
+        <p class="hint">
+          เลือกอัตราส่วนได้ 4 แบบ — NTAPI จะสูง-เตี้ยตามนี้ รูปทรงไหนมาก็ถูกครอปให้เต็มกรอบเสมอ
+          ไม่ยืด ไม่บีบ
+        </p>
+        <div class="frame" id="frame">
+          <div class="frame-media" id="frameMedia"></div>
+          <div class="frame-text">
+            <span class="frame-label" id="frameLabel">ผู้สนับสนุน</span>
+            <span class="frame-title" id="frameTitle">ชื่อสปอนเซอร์</span>
+          </div>
+        </div>
+        <p class="frame-size" id="frameSize">536 × 268 px (ไฟล์จริง 1072 × 536)</p>
+        <div class="preview-notes" id="previewNotes"></div>
+      </aside>
+    </main>
+
+    <footer class="statusbar">
+      <span id="status">พร้อม</span>
+      <span class="status-detail" id="statusDetail"></span>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

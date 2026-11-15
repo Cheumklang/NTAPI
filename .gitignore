@@ -19,3 +19,9 @@ app/tmp_img/
 .agent-tmp
 # One-off social/OG card render, not part of the app or its tests.
 app/scripts/og-card.html
+
+# NTAPI ADS — installer output of the second program in this repo.
+dist-ads/
+
+# NTAPI ADS scratch renders.
+NTAPI ADS/shots/

@@ -1,6 +1,15 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-15 · **v0.4.3** (`master` = `5a34a25`, tag `v0.4.3`)
+**อัปเดตล่าสุด:** 2026-11-16 · **v0.4.6** (`master` = `7953386`, tag `v0.4.6` ปล่อยแล้ว)
+
+> **สถานะ ณ 2026-11-16 (อ่านตรงนี้ก่อน):**
+> - ปล่อย **v0.4.6** ขึ้น release แล้ว (มี `NTAPI-Setup-0.4.6.exe`)
+> - **รอบปล่อยครั้งถัดไป = `0.5.0`** (กฎใหม่: ห่างกัน 0.3.0 → 0.5.0 → 0.8.0)
+> - **งานล่าสุดที่ยังไม่ commit = สปอนเซอร์แบบสด + โปรแกรมที่สอง `NTAPI ADS` → ดูหัวข้อ 1zz**
+>   (เทสต์ผ่านหมดทั้งสองโปรแกรม แต่ยังไม่ทดสอบด้วยตา และยังไม่มี repo ปลายทาง)
+> - ค้างในเครื่อง: 2 commit ยังไม่ push (`9b42c34` .gitignore · `7953386` AGENTS.md)
+>   + แก้หน้า "เกี่ยวกับ" 3 ไฟล์ที่ **ยังไม่ commit** (ผู้ใช้สั่งว่าอย่าเพิ่ง commit)
+> - งานที่เสร็จแต่ยังไม่ commit: ดูหัวข้อ **1zz** (สปอนเซอร์) และ **1x** (หน้าเกี่ยวกับ)
 
 > v0.4.3 รวมทุกอย่างตั้งแต่ v0.3.5: สวิตช์อนุมัติแบบสไลด์ · คิวในช่องพิมพ์
 > (แก้/ลาก/ดินสอ/ghost) · คำตอบหลายก้อนไม่หาย · scroll ติดล่างเสมอ
@@ -17,6 +26,12 @@
 ---
 
 ## 0) กติกาเหล็ก (ต้องทำก่อนแตะโค้ด)
+- **ทุกคำสั่ง shell ต้องมี `timeout` เสมอ** เริ่มที่ 120 วินาที
+  - รันจบในเวลาปกติ → ใช้ค่าเดิมได้
+  - งานยังรันอยู่แต่โดน timeout ตัด (งานจริงยังไม่เสร็จ) → รอบถัดไป **เพิ่มให้มากกว่าเดิมเสมอ**
+    เช่น 120 → 240 → 480 → … ตามขนาดงาน อย่าใช้ค่าเดิมซ้ำ
+  - เหตุผล: ป้องกันโปรแกรม/สคริปต์ค้างเงียบ ๆ นานเกินไป (เคยเจอเมื่อ 2026-11-15 — electron test
+    นิ่งไปหลายนาทีแล้วดูเหมือนค้าง) และมี log กลับมาวิเคราะห์ได้
 - **ตอบเป็นภาษาไทยเสมอ** — ผู้ใช้ถนัดภาษาไทย
   - ถ้าผู้ใช้ส่งข้อความสั้น ๆ ที่เป็น**แค่ชื่อโฟลเดอร์/พาธ/URL** หรือข้อความที่ยังไม่บอกงาน
     (เช่น `C:\Users\cheum\OneDrive\เดสก์ท็อป\NTAPI`) **ให้อ่านว่า "เข้าไปดูโปรเจกต์นี้แล้วรายงาน"**
@@ -37,12 +52,16 @@
   (โค้ด + เทสต์ + commit) แล้วจึงเริ่มเรื่องถัดไป · ห้ามข้ามหรือรวมเรื่อง · ติดอะไรให้ถามแล้วรอคําตอบ
 - **หลังแก้ปัญหาเสร็จทุกครั้ง:** ต้องสรุปให้ผู้ใช้ทราบว่ามีงานที่แก้แล้วค้างอยู่ (uncommitted)
   **กี่เรื่อง** และ **ถามว่าจะอัปเวอร์ชันเลยไหม** (ห้าม bump เอง)
-- **รอบการ build/ปล่อย installer: ทุก ๆ 0.5.0** (0.3.5 → 0.4.0 → 0.5.0)
+- **รอบการ build/ปล่อย installer: ห่างกัน 0.3.0 — `0.5.0` → `0.8.0` → `1.1.0`**
+  (ผู้ใช้แก้กฎ 2026-11-15 จากเดิมทุก 0.5.0 · ทำบ่อยเปลือง token ·
+  เช่นอยู่ 0.4.6 ให้รอ 0.5.0 · อยู่ 0.5.3 ให้รอ 0.8.0)
   - ระหว่าง patch **ไม่ต้อง build เอง** — ผู้ใช้กดอัปเดตในโปรแกรมได้เอง
-  - **ห้าม bump เวอร์ชันเพื่อจะได้ build** — bump เป็น 0.x.0 เมื่อผู้ใช้สั่งเท่านั้น
+  - **ห้าม bump เวอร์ชันเพื่อจะได้ build** — bump เมื่อผู้ใช้สั่งเท่านั้น
+  - คำสั่ง **"build"** = สร้าง/ปล่อยตัวติดตั้ง · **"ส่งอัปเดต"** = ให้ผู้ใช้กดอัปเดตได้
+    → ทั้งคู่ทำเมื่อผู้ใช้สั่งเท่านั้น ห้ามริเริ่มเอง
   - **ข้อยกเว้น:** แก้เรื่องสำคัญจริง ๆ (ข้อมูลเสียหาย, ความปลอดภัย, แอปใช้งานไม่ได้,
     อัปเดตพัง) → **เสนอผู้ใช้ก่อน** จะ build หรือไม่ ห้าม build เงียบ ๆ
-  - build/tag/release เมื่อถึงรอบ (0.5.0) หรือเมื่อผู้ใช้สั่งเท่านั้น
+  - build/tag/release เมื่อถึงรอบ (0.5.0 → 0.8.0) หรือเมื่อผู้ใช้สั่งเท่านั้น
 - **ห้ามอ่าน/ลิสต์ `C:\Program Files\NTAPI\`** — แม้แต่อ่านก็ไม่ต้อง
   ถ้าอยากรู้เวอร์ชันที่ติดตั้งจริง ให้ถามผู้ใช้ หรือดู `prefs.lastVersion` ใน `prefs.json`
 - **อย่าเดางานจากบริบทแวดล้อม:** ถ้าข้อความของผู้ใช้ไม่ระบุงานชัดเจน (ส่งมาแค่พาธ/รูป/คำสั้น ๆ)
@@ -50,6 +69,97 @@
   (ผู้ใช้สั่งไว้ 2026-11-15 หลัง AI เข้าใจผิดว่าพาธล้วน ๆ คือคำสั่งให้ไปทำงาน)
 
 ## 1) กําลังทํา / ค้างอยู่ตอนนี้ (สําคัญสุด — อ่านก่อน)
+
+### 1zz) สปอนเซอร์แบบสด + โปรแกรมที่สอง `NTAPI ADS` (2026-11-16) ⚠️ เสร็จ ยังไม่ commit
+
+**โจทย์ผู้ใช้:** อยากใส่รูปในแถบ sponsor และเปลี่ยนรูปได้เองแบบ real-time โดยผู้ใช้ไม่ต้องอัปเดต
+→ เลือกสร้าง **โปรแกรมเผยแพร่แยก** (`NTAPI ADS`) แล้วฝากไฟล์ที่ GitHub public
+
+**คำตอบที่ผู้ใช้เลือก:** A1 = สร้าง repo public ใหม่ `Cheumklang/NTAPI-sponsor` · B1 = GUI + ใส่ลิงก์ได้
+· C2 = รองรับทั้งรูปและวิดีโอ · 1a = หลายสปอนเซอร์หมุนเวียน · 2a = กรอบ 2:1 · 3c = ทำทั้งสองฝั่งรวดเดียว
+
+**รูปแบบ `sponsor.json` (สัญญาระหว่างสองโปรแกรม)**
+```json
+{ "version": 1, "updated": "...", "rotateSeconds": 15,
+  "slots": [{ "id": "term24hr-2026-11", "enabled": true, "url": "https://…",
+    "media": { "type": "image|video", "file": "media/x.webp", "poster": "media/x-poster.webp", "alt": "…" },
+    "text": { "th": { "label": "…", "title": "…" }, "en": { … } } }] }
+```
+- ผู้ผลิต: `NTAPI ADS/src/feed.js` · ผู้อ่าน: `app/src/sponsor.js` → `readFeed()`
+- **แก้ชื่อฟิลด์ที่หนึ่ง ต้องแก้อีกที่ใน commit เดียวกัน**
+
+**(ก) โปรแกรมใหม่ `NTAPI ADS/`** (อยู่ใน repo นี้ ไม่ได้แยก repo ตามที่ผู้ใช้สั่ง)
+- Electron GUI: ลากไฟล์/เลือกไฟล์/**ดึงจากลิงก์** → ครอปเป็น **1072×536 WebP** (2x ของกรอบ 536×268) → ตัวอย่างจริงที่ความกว้าง 268px → กด **เผยแพร่**
+- วิดีโอ: **ไม่แปลงไฟล์** (ไม่มี ffmpeg โดยตั้งใจ) · ดึงภาพปกจากเฟรม 0.4 วิ · เพดาน 8MB / 10 วิ
+- อัปโหลดผ่าน **GitHub Contents API** (ไม่ต้องมี git) · media ขึ้นก่อน `sponsor.json` เสมอ
+- token เก็บที่ userData (`%APPDATA%/ntapi-ads/ads-config.json`) · renderer เห็นแค่ hint (`maskConfig`)
+- เทสต์: `npm test` **42 checks / 4 ไฟล์** · `npm run check:render` **25/25** (Electron จริง + ลากวางจริง)
+
+**(ข) ฝั่ง NTAPI**
+- ไฟล์ใหม่ `app/src/sponsor-feed.js` — ดึง feed (jsDelivr → raw fallback), แคช `DATA_ROOT/sponsor/`,
+  TTL 6 ชม., เพดาน feed 256KB / creative 8MB, ล้าง media เมื่อ `updated` เปลี่ยน
+- `app/src/sponsor.js` — เพิ่ม `readFeed`/`normalizeSlot`/`clampRotate` (ของเดิม `normalize()` คงไว้ = fallback)
+- `main.js` — `primeSponsorCache()` ก่อน `createWindow()` + `refreshSponsorFeed()` แบบไม่ await
+  + `setInterval` 6 ชม. (unref) · IPC ใหม่ `sponsor:media` **(โหลดเฉพาะ slot ที่แสดง)**
+  · `sponsor:get` คืน slots ไม่มีไบต์ · `sponsor:click` หา slot จาก feed เท่านั้น
+- renderer — `paintSponsor` วาดรูป/วิดีโอ + หมุนเวียนตาม `rotateSeconds` + `syncSponsorPlayback`
+  (หยุดวิดีโอเมื่อหน้าต่างไม่ focus/ซ่อน, `prefers-reduced-motion` → ภาพนิ่ง)
+- CSS — `.sponsor-media` บังคับ **aspect-ratio 2:1 + object-fit: cover** → ทุกไฟล์ขนาดเท่ากันเสมอ
+- CSP — เพิ่ม `media-src 'self' data:` (วิดีโอ data URL) · **ไม่เปิด `https:`** ใน NTAPI
+  (รูป/วิดีโอมาเป็น data URL จาก main เท่านั้น = ไม่รั่ว IP ผู้ใช้ให้สปอนเซอร์)
+- เทสต์: `app/scripts/selftest-sponsor-feed.js` (**23 checks**) + อัปเดต `selftest-sponsor.js`
+  และ `check-sponsor-layout.js` (กรอบ 2:1 วัดพิกเซลจริง, `npm test` **53/53**, layout ผ่านหมด)
+
+**ค้าง / ต้องทำต่อ (ผู้ใช้ต้องทำเอง 1 ขั้น)**
+1. ~~สร้าง repo public `Cheumklang/NTAPI-sponsor`~~ **เสร็จแล้ว 2026-11-16** — มี `sponsor.json` + `media/example-2026-11.webp`
+   อยู่บน `main` แล้ว และ CDN ตอบ 200 ทั้ง jsDelivr/raw — **NTAPI เห็นสปอนเซอร์ตัวอย่งได้แล้วโดยไม่ต้องมี token**
+2. ยังต้องมี fine-grained token (Contents: R/W เฉพาะ repo นั้น) **เมื่อต้องการให้ ADS กดเผยแพร่เอง**
+   — ถ้าไม่อยากทำ token: ใช้วิธีก่อน commit/push ผ่าน git ธรรมดา (credential ของ GitHub Desktop ใช้ได้ ไม่ต้องมี token)
+3. **ยังไม่ทดสอบด้วยตา** ทั้งสองโปรแกรม (`npm start`) · `look_at_image` ยังใช้ไม่ได้ (นอกรากโปรเจกต์)
+4. ยังไม่ commit งาน NTAPI · ยังไม่ bump เวอร์ชัน (NTAPI 0.4.6 · ADS 0.1.0)
+
+**วิธี publish แบบไม่มี token (fallback ที่ใช้ได้จริง)**
+```bash
+cd /c/NTAPI/outputs/downloads && git clone https://github.com/Cheumklang/NTAPI-sponsor.git
+# วาง media/<slug>.webp + sponsor.json → commit → git push
+```
+- credential มาจาก GitHub Credential Manager ที่ GitHub Desktop ตั้งไว้ → `git push` ผ่านเลย
+- อย่าลืม: media ขึ้นก่อน `sponsor.json` เสมอ และ `updated` ต้องเปลี่ยนค่าทุกครั้งถึงจะล้าง cache
+
+### 1y) แถบผู้สนับสนุน (sponsor) ท้าย sidebar (2026-11-15) ✅ เสร็จ ยังไม่ commit
+
+**ผู้ใช้สั่ง:** เอาแบบ A (ท้าย sidebar ใต้ Status) ลงของตัวเองก่อน แล้วค่อยขายสล็อตให้คนอื่น (ไม่ใช้ ad network) · ต้องไม่รบกวนการใช้งาน · เว็บปัจจุบัน: https://www.term24hr.in.th/ (เติมเกม)
+
+- **ไฟล์ใหม่:** `src/sponsor.js` (pure: `normalize()` ตรวจ config) + `src/sponsor.json` (ข้อมูลสปอนเซอร์) — เปลี่ยนสปอนเซอร์ = แก้ไฟล์ ไม่ต้อง build ใหม่
+- IPC: `sponsor:get` / `sponsor:click` (นับคลิกก่อนเปิดเบราว์เซอร์ · เก็บใน `prefs.json.sponsorClicks` — เอาไปคุยกับสปอนเซอร์ได้) · **URL มาจาก config ใน main เท่านั้น** renderer เลือกเองไม่ได้
+- **ความปลอดภัย:** รับแต่ `https:` (`javascript:`/`http:`/`file:`/host ไม่มี dot ถูกปฏิเสธ) · ข้อความตัดที่ 80 ตัวอักษร (ตัด code point ไม่ใช่ UTF-16 เพื่อไม่ตัดวรรณยุกต์ไทย) · config พัง/แก้ผิด → แถบซ่อน ไม่พังแอป
+- UI: `.section.sponsor` ท้ายสุด sidebar เป็นปุ่ม ~50px สองบรรทัด ไม่มีรูป/แอนิเมชัน ติดป้าย "ผู้สนับสนุน" ชัดเจน เล่น i18n th/en
+- **บักที่เจอระหว่างทำ (วัดพิกเซล) + แก้:** (1) `[hidden]` ใช้ไม่ได้กับ `.section` (display:flex ทับ) → ต้อง `.section.sponsor[hidden]{display:none}` ไม่งั้นแถบเปล่า 44px กินที่ตลอด (2) `margin-top:auto` ให้แถบลอยอยู่พื้นโดยไม่เบียด Status (3) sidebar `overflow:hidden` → `overflow-y:auto` เพื่อไม่ให้เนื้อหาถูกตัดตอนหน้าต่างเล็กสุด 560px (แถบอยู่ล่างสุดถูกตัดก่อน)
+- **เทสต์:** `selftest-sponsor.js` (49 checks, offline อยู่ใน `npm test`) + `check-sponsor-layout.js` (Electron วัดพิกเซล 2 ขนาดหน้าต่าง) · ผล: `npm test` **52/52** + layout **ผ่านหมด** · ย้อนกลับที่พิสูจน์: http → FAIL 1 · renderer เปิด URL ตรง → FAIL 2 · สลับลำดับ writePrefs/open → FAIL · ลบ `[hidden]` rule → FAIL 1
+- **ยังไม่ commit / ยังไม่ bump / ยังไม่ทดสอบด้วยตาบนแอปจริง** (`npm start`) — รอกดแถบแล้วเบราว์เซอร์ต้องโผล่ + คลิกนับขึ้น (ดู `prefs.json.sponsorClicks`)
+- **วิธีลองสปอนเซอร์คนอื่น:** แก้ `sponsor.json` (change url + text) · ปิดชั่วคราว = `enabled:false` · เปลี่ยน id = นับคลิกใหม่ (เปลี่ยนผู้สนับสนุน)
+
+### 1x) หน้าเกี่ยวกับ: เอาปุ่มคัดลอกข้อมูลระบบออก · หน้าตั้งค่าขยายตามเนื้อหา (2026-11-15) ⚠️ แก้แล้ว ยังไม่ commit
+
+**ผู้ใช้สั่งว่าเรื่องเล็ก ไม่ต้อง commit/push** — เก็บไว้เป็นข้อมูลว่าทำอะไรไปแล้ว
+(อย่าเพิ่ง commit เว้นแต่ผู้ใช้สั่ง)
+
+1. **ลบปุ่ม "คัดลอกข้อมูลระบบ" ออกจาก Settings > About** — ลบ 3 จุด:
+   ปุ่มใน `index.html` · listener `copySystemInfoBtn` ใน `app.js` · CSS `.about-copy`
+   · **ปุ่ม `#crashCopy` ในแถบ crash ยังอยู่** (ตั้งใจ — ใช้ตอนโปรแกรมพัง)
+
+2. **หน้าตั้งค่าไม่ต้อง scroll บนหน้าเกี่ยวกับ** — เดิมทุกแท็บตรึง 640px
+   → ใส่ `fitSettingsDialog()` + `watchSettingsPanel()` (ResizeObserver) ใน `app.js`
+   - วัดความสูงจริงของแท็บที่เปิด → ตั้ง `dlg.style.height` · ต่ำสุด 420 · สูงสุด `92vh`
+   - **มี correction pass 1 รอบ** เก็บส่วนที่ `scrollHeight` รายงานเกินผลรวมชิ้นส่วน (~12px
+     จาก leading บรรทัดท้าย) — ตัวนี้คือสาเหตุที่ scrollbar โผล่ทั้งที่เนื้อหาพอดี
+   - `.settings-dialog` เพิ่ม `max-height: 92vh` (inline height ไม่ให้ทะลุจอ)
+   - **ผลวัด:** about 622px ล้น 0 · workspace/advanced 420 ล้น 0 · mcp 637 ล้น 0 ·
+     providers 695 (ชนเพดาน) ล้น 373 = scroll ตามปกติเพราะเป็นรายการยาว
+   - เรียกที่ `showSettingsSection()` + `window resize`
+
+**ยังไม่ commit** · `check:notice` / `check:chips` ยัง PASS · ไม่มีไฟล์เทสต์ใหม่
+(ผู้ใช้ไม่อยากให้มีไฟล์ค้างใน GitHub Desktop)
 
 ### 1w) ลากคิว · chip สถานะ · notice เป็นฟอง (2026-11-15) ✅ เสร็จ ยังไม่ commit
 
@@ -697,6 +807,14 @@ browser agent mode กับ Chrome จริงรอบยืนยัน
 
 ## 2) ขั้นถัดไปที่ตกลงไว้ (ทำต่อได้เลยเมื่อผู้ใช้สั่ง)
 
+**สถานะล่าสุด 2026-11-16:** งาน **สปอนเซอร์แบบสด + `NTAPI ADS`** โค้ดเสร็จ เทสต์ผ่านหมด
+แต่ **ยังไม่ commit** → งานค้างที่ต้องทำต่อก่อนทุกอย่าง:
+1. ให้ผู้ใช้สร้าง repo public `Cheumklang/NTAPI-sponsor` + token (Contents: R/W)
+2. ทดสอบด้วยตา: `cd "NTAPI ADS" && npm start` และ `cd app && npm start`
+3. ทดสอบปลายทางจริง 1 ครั้ง (เผยแพร่สล็อต → เปิด NTAPI → เห็นสปอนเซอร์)
+4. แล้วค่อยถามผู้ใช้ว่าจะ commit + bump เป็น **0.5.0** ไหม
+รายละเอียดทั้งหมด → **หัวข้อ 1zz**
+
 **สถานะ 2026-11-15:** ไม่มีงานค้าง — working tree สะอาด, `master` = `origin/master` = `81349d1`,
 tag `v0.4.2` push แล้ว รอผู้ใช้ลองติดตั้ง
 
@@ -725,7 +843,13 @@ tag `v0.4.2` push แล้ว รอผู้ใช้ลองติดตั�
 ```bash
 cd app && npm start                 # เปิดแอป
 cd app && npm run dist              # บิลด์ installer -> ../dist
-node scripts/selftest-<ชื่อ>.js     # เทส (ดูรายการใน PROJECT.md)
+cd app && npm test                  # เทสต์ออฟไลน์ทั้งชุด (53 ไฟล์)
+node scripts/selftest-<ชื่อ>.js     # เทสเดียว (ดูรายการใน PROJECT.md)
+
+cd "NTAPI ADS" && npm start            # เปิดโปรแกรมเผยแพร่สปอนเซอร์
+cd "NTAPI ADS" && npm test             # ออฟไลน์ (4 ไฟล์ 42 checks)
+cd "NTAPI ADS" && npm run check:render # เปิด Electron จริง 25 checks
+cd app && npx electron scripts/check-sponsor-layout.js  # วัดกรอบ 2:1 จริง
 ```
 
 ## ไฟล์อ้างอิง (เปิดเมื่อจำเป็น)
@@ -798,3 +922,24 @@ AI ขับ Chrome ของผู้ใช้เองได้ผ่านส
   - ปิดเองได้ด้วยคลิก/Esc และมีหมดอายุ 6 นาที (กันค้างกรณีติดตั้งล้มเหลว)
 - **หลังอัปเดตเสร็จ** ขึ้น toast "อัปเดตเป็น vX แล้ว" (เทียบ `prefs.lastVersion`)
 - splash พูดตามภาษาที่ตั้งไว้ (อ่าน `prefs.json`)
+
+**ทดสอบด้วยตาแล้ว (2026-11-16 08:01) — เห็นของจริงในแอป**
+- รันจากซอร์ส: `app\node_modules\electron\dist\electron.exe . --user-data-dir=C:\NTAPI\outputs\downloads\ntapi-test-profile`
+- **ต้องใส่ `--user-data-dir` แยก** เพราะแอปที่ติดตั้งจริง (`C:\Program Files\NTAPI\NTAPI.exe`) รันค้างอยู่
+  และถือ single-instance lock ไว้ → ซอร์สรันตรง ๆ จะ `app.quit()` ทิ้งทันทีแบบเงียบ ๆ (exit 0, ไม่มี log)
+  **ห้ามไปปิดตัวที่ติดตั้ง** (กติกาเหล็ก) → ใช้โปรไฟล์แยกแทน
+- หลักฐานว่าแถบทำงานจริง: `C:\NTAPI\sponsor\sponsor-feed.json` (833b) + `C:\NTAPI\sponsor\sponsor-media\example-2026-11.webp` (21874b)
+  ถูกสร้างเวลา 08:01 → main ดึง feed สำเร็จ **และ renderer ขอมีเดียจริง** (ไฟล์มีเดียถูกโหลดเพราะแถบวาดอยู่)
+- หมายเหตุ: `DATA_ROOT = C:\NTAPI` (ไม่ใช่ userData) → cache สปอนเซอร์ใช้ร่วมกับแอปที่ติดตั้ง
+
+**อัปเดต 2026-11-16 (รอบสอง): รองรับ 4 อัตราส่วน (ตัวเลือก A ที่ผู้ใช้เลือก)**
+- ผู้ใช้เลือก: **A** (ชุดกรอบตายตัว + จองความสูง) และเอา **4 แบบ**: `2:1` (default) · `16:9` · `1:1` · `4:5`
+- กลไก: NTAPI จองความสูง = กรอบที่ *สูงที่สุด* ใน feed → **ไม่กระโดดตอนหมุน** · แต่ละภาพ `object-fit: contain` จัดกลาง
+  · เพดาน `max-height: 288px` กัน 4:5 กินคอลัมน์ในหน้าต่างเตี้ย
+- ไฟล์: `NTAPI ADS/src/{feed,preload}.js` + `renderer/{app.js,index.html}` (dropdown อัตราส่วน + ครอปใหม่จากต้นฉบับ)
+  · `app/src/sponsor.js` (`RATIOS`/`ratioOf`/`ratioValue`) · `app/src/renderer/{app.js,styles.css}`
+  · เทสต์เพิ่ม: ADS `selftest-feed` 21 · NTAPI `selftest-sponsor-feed` 26 · `check-sponsor-layout` เพิ่มเคส feed ผสม
+  ผล: `npm test` ADS 4/4 · NTAPI **53/53** · layout ผ่าน (heights [271,271] ratios [2,0.8])
+- **เปลี่ยนลำดับ CDN**: ใช้ `raw.githubusercontent.com` ก่อน แล้ว jsDelivr เป็น fallback เพราะ jsDelivr แคช branch ได้ถึง 12 ชม.
+  (ทดสอบจริง: publish แล้ว jsDelivr ยังคืนไฟล์เก่า) — ของสดต้องมาก่อน
+- ปลายทางมี 3 สล็อตตัวอย่างแล้ว: 2:1 / 1:1 / 4:5 หมุนทุก 8 วิ (repo `Cheumklang/NTAPI-sponsor`)

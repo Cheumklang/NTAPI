@@ -106,6 +106,12 @@ contextBridge.exposeInMainWorld('freepi', {
   listFiles: (cwd, query) => ipcRenderer.invoke('fs:listFiles', { cwd, query }),
   respondQuestion: (id, answer) => ipcRenderer.invoke('question:respond', { id, answer }),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', String(url || '')),
+  // The sponsor strip at the bottom of the sidebar. `sponsor:click` counts the
+  // click as well as opening the link; the URL itself comes from the main
+  // process, so the renderer never chooses where to go.
+  sponsorGet: () => ipcRenderer.invoke('sponsor:get'),
+  sponsorMedia: (id) => ipcRenderer.invoke('sponsor:media', String(id || '')),
+  sponsorClick: (id) => ipcRenderer.invoke('sponsor:click', String(id || '')),
   readImage: (cwd, p) => ipcRenderer.invoke('fs:readImage', { cwd, path: p }),
   openPath: (cwd, p) => ipcRenderer.invoke('fs:openPath', { cwd, path: p }),
 

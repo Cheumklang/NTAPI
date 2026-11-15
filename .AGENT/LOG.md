@@ -1177,3 +1177,133 @@ strip คืน appendChild → FAIL 3
    ซึ่งก็คือตัวบั๊ก · ต้องแก้เทสต์ ไม่ใช่รักษาพฤติกรรมเดิม
 2. ตั้งชื่อฟังก์ชันใหม่ชนของเดิม (`clearActivity`) — `node --check` ไม่จับให้ ต้อง grep ชื่อก่อน
 3. วัด geometry ตอน element **hidden** ได้ 0 ทุกค่า → ต้องวัดตอนมองเห็น ไม่งั้น assertion หลอกตัวเอง
+
+---
+
+## 2026-11-15 (v0.4.6) — หน้าเกี่ยวกับ: เอาปุ่มคัดลอกข้อมูลระบบออก · หน้าตั้งค่าขยายตามเนื้อหา
+
+**(1) ปุ่ม "คัดลอกข้อมูลระบบ" ใน Settings > About ไม่น่าได้ใช้ → เอาออก**
+- ลบ 3 จุด: ปุ่มใน `index.html` · listener `copySystemInfoBtn` ใน `app.js` · CSS `.about-copy`
+- **คง `#crashCopy`** ในแถบ crash ไว้ — ตอนโปรแกรมพังคือตอนที่ต้องส่งข้อมูลระบบมาจริง ๆ
+- i18n `copySystemInfo` ยังอยู่ในพจนานุกรมเพราะ `#crashCopy` ใช้
+
+**(2) หน้าตั้งค่าต้องใหญ่พอดี หน้าเกี่ยวกับไม่ต้อง scroll**
+- เดิม `.settings-dialog { height: min(640px, 88vh) }` ใช้ร่วมทุกแท็บ
+  → แท็บสั้นเหลือที่ว่างค้าง · แท็บยาว (เกี่ยวกับ) ต้อง scroll
+- เพิ่ม `fitSettingsDialog()`: วัด `header + panel + padding + footer` → ตั้ง height
+  · ต่ำสุด 420 (แท็บสั้นไม่เป็นแถบ) · สูงสุด `92vh` · `.settings-dialog` ได้ `max-height: 92vh`
+- **`watchSettingsPanel()`** = `ResizeObserver` บนแท็บที่เปิดอยู่ → เนื้อหาเปลี่ยน (แถบเตือน/
+  มีอัปเดตใหม่) ก็ขยับขนาดตาม
+- **correction pass 1 รอบ:** `panels.scrollHeight - panels.clientHeight` แล้วบวกเพิ่ม
+  เพราะ `scrollHeight` รายงานเกินผลรวมชิ้นส่วนอยู่ **12px** (leading บรรทัดท้าย) —
+  เศษนี้เองที่ทำให้ scrollbar โผล่ทั้งที่เนื้อหาพอดี · ไม่ใช้ค่า slack ตายตัวเพราะเดาไม่ตรง
+- ผูกที่ `showSettingsSection()` และ `window resize`
+- วัดจริง (หน้าต่าง 820, TH): about 622 (ล้น 0) · workspace/advanced 420 (ล้น 0) ·
+  mcp 637 (ล้น 0) · providers 695 = ชนเพดาน ล้น 373 (scroll ปกติ เพราะรายการยาว)
+
+**ไม่ commit / ไม่ push** ตามที่ผู้ใช้สั่ง (เรื่องเล็ก เก็บเป็นข้อมูล)
+**Learned:**
+1. `scrollHeight` ของ flex container ≠ ผลรวมความสูงลูก — ต้องวัด `panel.getBoundingClientRect()`
+   ไม่งั้น container ที่สูงกว่าอยู่แล้วจะรายงานตัวเองกลับมา แล้วหน้าต่างไม่ยอมหด
+2. วัดตอน element ซ่อน (`display:none`) ได้ 0 ทุกค่า → ต้อง `if (!height) return` ก่อนคำนวณ
+3. ผู้ใช้ไม่ต้องการไฟล์เทสต์ใหม่ที่กลายเป็น `??` ใน GitHub Desktop → วัดแบบ ad-hoc แล้วลบสคริปต์ทิ้ง
+
+## 2026-11-15 — แถบผู้สนับสนุน (sponsor) ท้าย sidebar
+- ผู้ใช้จะหาเงินจากโปรแกรมโดยไม่ใช้ ad network (AdSense ทำในซอฟต์แวร์ไม่ได้) — เริ่มลงเว็บตัวเองก่อน
+  (https://www.term24hr.in.th/) แล้วค่อยขายสล็อตให้คนอื่น · ตัวเลือก A = ท้าย sidebar ใต้ Status
+- เพิ่ม `src/sponsor.js` (pure normalize) + `src/sponsor.json` + IPC `sponsor:get/click`
+  (นับคลิกใน `prefs.json.sponsorClicks`) · renderer เปิด URL ที่ main ยืนยันจาก config เท่านั้น
+- ความปลอดภัย: รับแต่ https · ตัดข้อความ 80 หน่วย (code point) · config พัง = ซ่อนแถบ ไม่พังแอป
+- ไฟล์ที่แตะ: app/src/{sponsor.js,sponsor.json,main.js,preload.js,renderer/{app.js,index.html,styles.css}}
+  + scripts/{selftest-sponsor.js,check-sponsor-layout.js} + run-unit-tests.js
+- เทสต์: `npm test` 52/52 · `check-sponsor-layout.js` (Electron วัดพิกเซล) ผ่าน
+- **Learned:**
+  1. `[hidden]` attribute ชนะด้วย `display:none` ของ browser UA แต่ class ที่ตั้ง `display:flex`
+     มี specificity สูงกว่า → ต้องเผื่อ `.classelement[hidden]{display:none}` ไม่งั้นแถบ "ซ่อน" ยังกินที่
+  2. element เกาะพื้นใน flex column = Status ขยับขึ้นเสมอถ้าคอลัมน์เต็มพอดี → ใช้ `margin-top:auto`
+     ดูดที่ว่าง + `overflow-y:auto` ไม่ให้เนื้อหาถูกตัด ดีกว่าอ้างว่า "ไม่ขยับเลย" ที่พิสูจน์ไม่ได้
+  3. เทสต์ Electron ที่ error กลางทาง (loadFile/SyntaxError) แล้วไม่มี `app.exit()` = เปิดค้างเงียบหลาย
+     นาที ดูเหมือนน้ำแข็ง → ห่อ `try/catch` + watchdog `setTimeout(app.exit)` เสมอ
+- กฎใหม่ที่ผู้ใช้สั่งวันนี้: ทุกคำสั่ง shell ต้องมี `timeout` (เริ่ม 120 วิ, งานไม่จบให้เพิ่มเสมอ
+  120→240→480…) — เขียนเข้า AGENTS.md + HANDOFF หัวข้อ 0 แล้ว
+- สถานะ: ยังไม่ commit (ผู้ใช้ commit เอง) · ยังไม่ bump (รอบถัดไป 0.5.0)
+
+---
+
+## 2026-11-16 · สปอนเซอร์แบบสด (รูป/วิดีโอ) + โปรแกรมที่สอง NTAPI ADS
+
+**คำสั่งผู้ใช้:** อยากใส่รูปในแถบ sponsor และเปลี่ยนได้เองแบบ real-time โดยผู้ใช้ไม่ต้องอัปเดต
+→ "ทำโปรแกรมเล็ก ๆ มารองรับ" ฝากไฟล์ที่ GitHub · ทุกรูป/คลิปต้องแสดงขนาดเท่ากันเสมอ
+**ผู้ใช้เลือก:** A1 (repo public ใหม่) · B1 (GUI + ใส่ลิงก์) · C2 (รูป+วิดีโอ) · 1a (หลายสล็อตหมุนเวียน) · 2a (2:1) · 3c (ทำรวดเดียว)
+**ตำแหน่งโปรเจกต์:** `NTAPI/NTAPI ADS` (ใน repo เดียวกัน เพื่อใช้กติกาชุดเดียว)
+
+**สร้างใหม่**
+- `NTAPI ADS/` — Electron app: `src/{main,preload,feed,media,github,config}.js` + `renderer/*`
+- `NTAPI ADS/scripts/` — `run-unit-tests.js`, `selftest-{feed,media,github,config}.js`, `check-render.js`
+- `NTAPI ADS/{README,AGENTS}.md` + `.AGENT/{README,PROJECT}.md` + `NTAPI ADS.bat`
+- `app/src/sponsor-feed.js` — feed ระยะไกล + แคช + ดาวน์โหลดมีเดีย
+- `app/scripts/selftest-sponsor-feed.js` (23 checks)
+
+**แก้**
+- `app/src/sponsor.js` — เพิ่ม `readFeed`/`normalizeSlot`/`clampRotate` (ของเดิมไม่เสีย)
+- `app/src/main.js` — prime/refresh feed, IPC `sponsor:media`, `sponsor:get`/`sponsor:click` คืน slots
+- `app/src/preload.js` — `sponsorMedia`
+- `app/src/renderer/{app.js,index.html,styles.css}` — รูป/วิดีโอ, กรอบ 2:1, หมุนเวียน, CSP `media-src`
+- `app/scripts/{selftest-sponsor.js,check-sponsor-layout.js}` — อัปเดตให้ตรงของใหม่
+- `app/scripts/run-unit-tests.js` — ลงทะเบียนเทสต์ใหม่
+- `.gitignore` — `dist-ads/`, `NTAPI ADS/shots/`
+
+**บั๊กที่เจอระหว่างทาง (แก้แล้ว)**
+1. `contentsUrl()` ไม่ encode path → ไฟล์ชื่อมีช่องว่างพัง (เจอจากเทสต์)
+2. `.frame` 268px + padding/border → พรีวิวเหลือ 246px ไม่ตรง sidebar จริง (แก้เป็น 290px)
+3. ภาพปกวิดีโอไม่เคยถูกดาวน์โหลด (ensureMedia อ่านแต่ดิสก์) → เพิ่ม `fetchToFile()` ใช้ร่วมกัน
+4. เทสต์ใหม่จิ้ม input ผิด index (ช่อง EN ไม่ใช่ TH) และไม่ได้ใส่ลิงก์ก่อน publish
+5. ตัวเลขในเอกสารเขียน 1024×512 แต่ของจริง 1072×536 → แก้เอกสารให้ตรง
+
+**ผลเทสต์:** `NTAPI ADS` → `npm test` ผ่าน 4/4 ไฟล์ (42 checks), `check:render` 25/25
+· NTAPI → `npm test` **53/53**, `check-sponsor-layout` ผ่านหมด (วัดกรอบ 2:1 จริง)
+
+**สถานะ:** ยังไม่ commit · ยังไม่ bump เวอร์ชัน · ยังไม่ทดสอบด้วยตา (`npm start`)
+**ต้องให้ผู้ใช้ทำ:** สร้าง repo public `Cheumklang/NTAPI-sponsor` + fine-grained token
+
+## 2026-11-16 · ขึ้นสปอนเซอร์ชุดแรกขึ้น GitHub จริง (ไม่มี token)
+
+**ทำอะไร:** สร้าง repo public `Cheumklang/NTAPI-sponsor` ผ่านหน้าเว็บ GitHub ใน Chrome ของผู้ใช้
+(ผู้ใช้ส่งแท็บมาให้) แล้ว push ไฟล์ชุดแรกด้วย git ธรรมดา — **ไม่ต้องสร้าง PAT เลย**
+เพราะ `credential.helper=manager` ที่ GitHub Desktop ตั้งไว้ใช้ push ได้อยู่แล้ว
+
+**ไฟล์ที่ขึ้น:** `sponsor.json` (1 slot) + `media/example-2026-11.webp` (1072×536 WebP, 21.8KB)
+- รูปสร้างจากสคริปต์ชั่วคราว `C:\NTAPI\outputs\downloads\make-banner.js`
+  (Electron canvas → WebP, ฟอนต์ Leelawadee UI) — ตั้งใจให้เป็น **ตัวอย่ง** ให้เห็นก่อน
+- clone งานไว้ที่ `C:\NTAPI\outputs\downloads\NTAPI-sponsor` (ที่ push ครั้งถัดไปได้เลย)
+
+**พิสูจน์ปลายทาง (ของจริง ไม่ใช่ mock)**
+- jsDelivr + raw ตอบ **200** ทั้ง `sponsor.json` (738b) และ media (21874b)
+- รัน `sponsor-feed.fetchFeed()` จริง → `source = cdn.jsdelivr.net/…@main/sponsor.json`
+  → `ensureMedia()` คืน `data:image/webp;base64,…` 21893b → **NTAPI อ่าน feed สดได้แล้ว**
+- ตรวจ header WebP: `VP8X 1072x536` ตรงตามกรอบ 2:1
+
+**ข้อจำกัดที่เหลือ:** ADS ต้องมี token จึงจะกดเผยแพร่เองได้ — ถ้าไม่มี ใช้วิธี git ตามข้างบน
+**สถานะ:** ยังไม่ commit งานใน repo NTAPI · ยังไม่ bump เวอร์ชัน
+
+## 2026-11-16 · v0.5.0 — สปอนเซอร์แบบสด + NTAPI ADS + 4 อัตราส่วน
+
+**ผู้ใช้เลือก:** ทางเลือก A (จองความสูง = กรอบที่สูงสุด) + 4 อัตราส่วน `2:1` `16:9` `1:1` `4:5`
+
+**แก้**
+- `NTAPI ADS/src/feed.js` — `RATIO_ORDER`/`RATIOS`/`ratioOf`/`frameSize`/`mediaSize`, `media.ratio` ในสล็อต
+- `NTAPI ADS/src/preload.js` — bridge `ratios`/`ratioOf`/`frameSize`/`mediaSize`
+- `NTAPI ADS/src/renderer/app.js` — dropdown อัตราส่วนต่อสล็อต, `applyRatio()` ครอปใหม่จากไบต์ต้นฉบับ (ไม่ครอปซ้ำ),
+  `encodeFrame` รับ ratio, drop target + preview frame เปลี่ยนรูปตามอัตราส่วน
+- `NTAPI ADS/src/renderer/index.html` — คำอธิบาย 4 กรอบ
+- `app/src/sponsor.js` — `RATIOS`/`RATIO_OF`/`ratioValue` (ค่าเริ่มต้น 2:1)
+- `app/src/renderer/app.js` — `sponsorReservedRatio()` จองความสูง + `host.style.aspectRatio`
+- `app/src/renderer/styles.css` — `.sponsor-media` เป็น grid/contain + `max-height: 288px`
+- `app/src/sponsor-feed.js` + `NTAPI ADS/src/feed.js` — สลับลำดับ CDN: raw ก่อน, jsDelivr fallback
+- เทสต์: `selftest-feed.js` (21) · `selftest-sponsor-feed.js` (26) · `selftest-sponsor.js` · `check-sponsor-layout.js` (+เคส feed ผสม)
+- `.AGENT/HANDOFF.md`, `NTAPI ADS/README.md`, `app/package.json` 0.4.6 → **0.5.0**
+
+**ผลเทสต์:** NTAPI `npm test` 53/53 · ADS `npm test` 4/4 ไฟล์ · `check:render` 25/25
+· `check-sponsor-layout` ผ่าน (mixed ratios heights `[271,271]` ratios `[2,0.8]` reserved `0.8 / 1`)
+
+**ปลายทาง:** `Cheumklang/NTAPI-sponsor` มี 3 สล็อต (2:1 / 1:1 / 4:5) หมุน 8 วิ · ตรวจแล้ว `fetchFeed()` อ่านได้จริงจาก raw

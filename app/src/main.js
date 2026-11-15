@@ -91,6 +91,8 @@ const {
 } = require('./session-marks');
 const { friendlyProviderError } = require('./provider-errors');
 const { isUpgradeRequired: isUpgradeRequiredText, resolveClientVersionFloor } = require('./client-version');
+const { normalize: normalizeSponsor } = require('./sponsor');
+const sponsorFeed = require('./sponsor-feed');
 const { createProviderKeyStore } = require('./provider-key');
 const { installSseErrorGuard } = require('./sse-error-guard');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
@@ -399,6 +401,110 @@ function ensureWorkspaceFolders(cwd) {
  * what the app remembers, instead of hunting through %APPDATA%.
  */
 const prefsPath = () => path.join(DATA_ROOT, 'prefs.json');
+
+/**
+ * The sponsor config that ships with the build.
+ *
+ * It is the fallback, not the source of truth: the live list comes from the feed
+ * published by NTAPI ADS (see `sponsor-feed.js`). This file answers only "what do
+ * we show a machine that has never been online", and a build with no sponsor at
+ * all is a perfectly normal state.
+ */
+const SPONSOR_PATH = path.join(__dirname, 'sponsor.json');
+
+/*
+ * Where the live feed is cached. Under DATA_ROOT so it travels with the rest of
+ * this install's state, and because a read-only install directory must not stop
+ * a banner from being remembered.
+ */
+const SPONSOR_CACHE_DIR = path.join(DATA_ROOT, 'sponsor');
+
+/**
+ * The feed as last understood, plus the host it came from. Media is resolved
+ * against that same host, so the feed cannot point a creative at somewhere else.
+ */
+const sponsorState = {
+  feed: null,
+  base: '',
+  checkedAt: 0,
+  source: '',
+};
+
+let sponsorRefreshTimer = null;
+
+function sponsorBaseOf(url) {
+  const value = String(url || '');
+  const cut = value.lastIndexOf('/');
+  return cut > 0 ? value.slice(0, cut + 1) : '';
+}
+
+/**
+ * Loads whatever we already know, then refreshes in the background.
+ *
+ * The order matters: the sidebar is drawn from cache on the very first frame, so
+ * a slow or missing network never delays the window. Nothing here throws — a
+ * sponsor is decoration, and decoration must not be able to stop the app.
+ */
+function primeSponsorCache() {
+  const cached = sponsorFeed.readCache(SPONSOR_CACHE_DIR);
+  if (cached) {
+    sponsorState.feed = cached.feed;
+    sponsorState.checkedAt = cached.fetchedAt;
+    sponsorState.base = sponsorFeed.FEED_URLS[0];
+    sponsorState.base = sponsorBaseOf(sponsorState.base);
+  }
+}
+
+async function refreshSponsorFeed({ force = false } = {}) {
+  const cached = { feed: sponsorState.feed, fetchedAt: sponsorState.checkedAt };
+  if (!force && sponsorFeed.isFresh(cached)) return sponsorState.feed;
+  const fetched = await sponsorFeed.fetchFeed();
+  if (!fetched) return sponsorState.feed;
+
+  const changed = !sponsorState.feed || sponsorState.feed.updated !== fetched.feed.updated;
+  sponsorState.feed = fetched.feed;
+  sponsorState.base = sponsorBaseOf(fetched.source);
+  sponsorState.checkedAt = fetched.fetchedAt;
+  sponsorState.source = fetched.source;
+  sponsorFeed.writeCache(SPONSOR_CACHE_DIR, fetched.feed, fetched.fetchedAt);
+  // New creatives make the old files dead weight; they are re-downloaded on
+  // demand, and only the slot being shown is ever fetched.
+  if (changed) sponsorFeed.clearMedia(SPONSOR_CACHE_DIR);
+  return sponsorState.feed;
+}
+
+/**
+ * What the sidebar draws: the feed, without any bytes.
+ *
+ * Media travels separately (`sponsor:media`) because eight videos would be 60MB
+ * of base64 through IPC on every start. Only the slot on screen is ever loaded.
+ */
+function sponsorPayload() {
+  const feed = sponsorState.feed;
+  if (!feed || !feed.slots.length) return { enabled: false };
+  return {
+    enabled: true,
+    rotateSeconds: feed.rotateSeconds,
+    updated: feed.updated,
+    slots: feed.slots.map((slot) => ({
+      id: slot.id,
+      url: slot.url,
+      text: slot.text,
+      media: {
+        type: slot.media.type,
+        alt: slot.media.alt,
+        ...(slot.media.poster ? { hasPoster: true } : {}),
+      },
+      clicks: sponsorClicks(slot.id),
+    })),
+  };
+}
+
+function findSlot(rawId) {
+  if (!sponsorState.feed) return null;
+  const id = String(rawId || '');
+  return sponsorState.feed.slots.find((slot) => slot.id === id) || null;
+}
 
 /**
  * Older builds kept prefs in %APPDATA%/freepi. Copy them across once so
@@ -3546,6 +3652,115 @@ ipcMain.handle('auth:copyCode', async () => {
 });
 
 /** Open a link from a reply in the user's browser. http(s) and mailto only. */
+/**
+ * Read the bundled `sponsor.json`, or null if anything about it is wrong.
+ *
+ * A broken file must cost a link, never the sidebar: every failure path here
+ * collapses to "nothing" so the window starts looking exactly as it did before
+ * the sponsor existed.
+ */
+function readBundledSponsor() {
+  let raw;
+  try {
+    raw = JSON.parse(fs.readFileSync(SPONSOR_PATH, 'utf8'));
+  } catch {
+    return null;
+  }
+  return normalizeSponsor(raw) || null;
+}
+
+/**
+ * The bundled sponsor, expressed in the feed's shape.
+ *
+ * Only used when there is no cache and no network: a fresh install offline still
+ * shows the sponsor that shipped with the build, exactly as before the feed
+ * existed. It has no creative, so the strip is text-only — which is what a build
+ * from before this feature looked like anyway.
+ */
+function bundledPayload() {
+  const bundled = readBundledSponsor();
+  if (!bundled) return null;
+  return {
+    enabled: true,
+    rotateSeconds: 0,
+    updated: '',
+    slots: [
+      {
+        id: bundled.id,
+        url: bundled.url,
+        text: bundled.text,
+        media: null,
+        clicks: sponsorClicks(bundled.id),
+      },
+    ],
+  };
+}
+
+function sponsorClicks(id) {
+  const all = readPrefs().sponsorClicks;
+  if (!all || typeof all !== 'object') return 0;
+  const n = Number(all[id]);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+ipcMain.handle('sponsor:get', () => {
+  const payload = sponsorPayload();
+  if (payload.enabled) return payload;
+  return bundledPayload() || { enabled: false };
+});
+
+/**
+ * The bytes for one slot, fetched on demand.
+ *
+ * A data URL rather than a file path keeps the renderer's CSP at `img-src 'self'
+ * data:` and keeps the app from ever pointing a media element at a remote host —
+ * which would leak the user's IP to whoever serves the banner, on every start.
+ */
+ipcMain.handle('sponsor:media', async (_e, rawId) => {
+  const slot = findSlot(rawId);
+  if (!slot || !sponsorState.base) return { ok: false, reason: 'unknown-slot' };
+  try {
+    const out = await sponsorFeed.ensureMedia({ dir: SPONSOR_CACHE_DIR, base: sponsorState.base, slot });
+    if (!out.ok) return { ok: false, reason: out.reason };
+    return { ok: true, type: out.type, dataUrl: out.dataUrl, poster: out.poster || '' };
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+});
+
+/**
+ * Count the click, then open the link.
+ *
+ * The count is written first on purpose: it is the number a sponsor is paying
+ * for, and a browser that refuses to open does not un-click anything. A failed
+ * prefs write is swallowed — the link must still work.
+ *
+ * The URL opened is always the one that was validated on read of the feed, never
+ * anything the renderer sends, so a compromised or buggy window cannot turn this
+ * into "open any URL".
+ */
+ipcMain.handle('sponsor:click', async (_e, rawId) => {
+  const slot =
+    findSlot(rawId) || (() => {
+      const bundled = readBundledSponsor();
+      return bundled && bundled.id === String(rawId || '') ? bundled : null;
+    })();
+  if (!slot) return { ok: false };
+
+  const clicks = sponsorClicks(slot.id) + 1;
+  try {
+    const all = readPrefs().sponsorClicks;
+    writePrefs({ sponsorClicks: { ...(all && typeof all === 'object' ? all : {}), [slot.id]: clicks } });
+  } catch {}
+
+  try {
+    await shell.openExternal(slot.url);
+  } catch {
+    return { ok: false, clicks };
+  }
+  return { ok: true, clicks };
+});
+
 ipcMain.handle('app:openExternal', async (_e, url) => {
   const u = String(url || '');
   if (!/^(https?:\/\/|mailto:)/i.test(u)) return { ok: false };
@@ -3981,6 +4196,24 @@ app.whenReady().then(async () => {
   // left a stretch of empty desktop while Electron started and the renderer
   // loaded — the gap looked like the app had failed to come back.
   createWindow();
+
+  /*
+   * The sponsor strip draws from cache on the first frame, so the refresh is
+   * deliberately after `createWindow()` and not awaited: a slow CDN must never
+   * add a second to the window appearing. The renderer asks for the strip once it
+   * boots, and gets whatever is cached; the next boot gets the fresh one.
+   */
+  try {
+    primeSponsorCache();
+  } catch {}
+  refreshSponsorFeed().catch(() => {});
+  // Six-hourly while the app is left open: one timer, unrefed, so it can never
+  // hold the process alive on quit.
+  sponsorRefreshTimer = setInterval(() => {
+    refreshSponsorFeed().catch(() => {});
+  }, sponsorFeed.TTL_MS);
+  if (sponsorRefreshTimer.unref) sponsorRefreshTimer.unref();
+
   if (winUiReady) {
     winUiReady.then(() => closeLeftoverSplash()).catch(() => closeLeftoverSplash());
   } else {
@@ -4009,6 +4242,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  if (sponsorRefreshTimer) clearInterval(sponsorRefreshTimer);
   for (const tab of tabs.values()) {
     try {
       tab.handle.dispose();

@@ -1,0 +1,426 @@
+/*
+  NTAPI ADS — one operator, one job, so the layout is a form on the left and the
+  real thing on the right. The preview is deliberately the exact sidebar width
+  (268px) rather than a scaled-up mock: the question this window answers is
+  "does this look right at the size a user actually sees", and a bigger preview
+  answers a question nobody asked.
+*/
+
+:root {
+  --bg-0: #101218;
+  --bg-1: #161922;
+  --bg-2: #1d212b;
+  --bg-3: #252a36;
+  --line: #2e3442;
+  --text: #e7ebf3;
+  --muted: #8d96a8;
+  --accent: #4f8cff;
+  --accent-ink: #06122b;
+  --ok: #3ecf8e;
+  --warn: #f0b429;
+  --bad: #f2635f;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-0);
+  color: var(--text);
+  font: 13.5px/1.5 "Segoe UI", "Noto Sans Thai", system-ui, sans-serif;
+  overflow: hidden;
+}
+
+h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ------------------------------- topbar -------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.brand { display: flex; flex-direction: column; min-width: 0; }
+.brand-name { font-weight: 650; letter-spacing: .4px; }
+.brand-sub { font-size: 11.5px; color: var(--muted); }
+
+.repo-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-2);
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+}
+.repo-pill .branch {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ------------------------------- buttons -------------------------------- */
+
+.btn {
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.btn:hover { background: var(--bg-3); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn:disabled { opacity: .5; cursor: default; transform: none; }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.btn-primary:hover { background: #6a9dff; }
+
+.btn-small { padding: 4px 9px; font-size: 12px; }
+.btn-danger { color: var(--bad); border-color: #3a2a2f; }
+.btn-danger:hover { background: #2a1f24; }
+
+/* ------------------------------ settings -------------------------------- */
+
+.settings {
+  flex: 0 0 auto;
+  padding: 12px 14px 14px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings[hidden] { display: none; }
+
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field-row { display: flex; gap: 10px; }
+.field-row .field { flex: 1; }
+
+.field label {
+  font-size: 11.5px;
+  letter-spacing: .3px;
+  color: var(--muted);
+}
+
+.field input,
+.rotate input {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg-2);
+  color: var(--text);
+  font: inherit;
+}
+.field input:focus-visible,
+.rotate input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.settings-actions { display: flex; align-items: center; gap: 10px; }
+.check-result { font-size: 12px; color: var(--muted); }
+.check-result.ok { color: var(--ok); }
+.check-result.bad { color: var(--bad); }
+
+/* ------------------------------- layout --------------------------------- */
+
+.layout {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+
+.slots-col {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+}
+
+.slots-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.slots-head .rotate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.slots-head .rotate input { width: 62px; text-align: center; }
+
+.slots {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 12px 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* -------------------------------- slot ---------------------------------- */
+
+.slot {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.slot-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.slot-num {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.slot-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slot-head .spacer { margin-left: auto; }
+
+.slot-media {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/*
+  The drop target is drawn at the same 2:1 ratio as the real frame, so an
+  operator never has to imagine what the crop will do to their poster.
+*/
+.drop {
+  position: relative;
+  flex: 0 0 auto;
+  width: 214px;
+  aspect-ratio: 2 / 1;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--bg-2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  cursor: pointer;
+}
+.drop:hover, .drop:focus-visible { border-color: var(--accent); }
+.drop.over { border-color: var(--accent); background: #1a2436; }
+.drop-empty { font-size: 11.5px; color: var(--muted); text-align: center; padding: 0 10px; }
+.drop img, .drop video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.drop .badge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(6, 10, 18, .78);
+  font-size: 10.5px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.slot-fields {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.slot-fields .field-row { gap: 8px; }
+
+.media-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.media-note { font-size: 11.5px; color: var(--muted); }
+.media-note.bad { color: var(--bad); }
+.media-note.ok { color: var(--ok); }
+
+.slot-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.slot-foot .spacer { margin-left: auto; }
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.empty-slots {
+  padding: 26px 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* ------------------------------- preview -------------------------------- */
+
+.preview-col {
+  flex: 0 0 auto;
+  width: 316px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+/*
+  The sidebar is 268px wide in NTAPI, and this is that column, at that width,
+  with the same stacked layout: media on top, label above the sponsor's line.
+  The box is 290 so the 10px padding and the 1px border leave the media itself
+  at exactly 268.
+*/
+.frame {
+  width: 290px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.frame-media {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: 6px;
+  background: var(--bg-2);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.frame-media img, .frame-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.frame-media .none {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.frame-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.frame-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--muted);
+}
+.frame-title {
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.frame-title::after { content: ' \2192'; color: var(--muted); }
+
+.frame-size { margin: 0; font-size: 11.5px; color: var(--muted); }
+
+.preview-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.preview-notes .note-bad { color: var(--bad); }
+.preview-notes .note-ok { color: var(--ok); }
+
+/* ------------------------------ statusbar ------------------------------- */
+
+.statusbar {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 14px;
+  background: var(--bg-1);
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+.statusbar .status-detail { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.statusbar.busy #status { color: var(--warn); }
+.statusbar.ok #status { color: var(--ok); }
+.statusbar.bad #status { color: var(--bad); }

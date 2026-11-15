@@ -42,6 +42,9 @@ NTAPI/
 │  ├─ review-2026-11-13.md        review เทียบ opencode (P0/P1/P2)
 │  └─ superpowers/specs|plans     สเปกและแผนรายฟีเจอร์
 ├─ presence/            เซิร์ฟเวอร์นับผู้ใช้ออนไลน์
+├─ NTAPI ADS/           ← โปรแกรมที่สอง: เครื่องมือเผยแพร่สปอนเซอร์
+│  ├─ src/           main · preload · feed · media · github · config · renderer/
+│  └─ scripts/       run-unit-tests.js · selftest-*.js · check-render.js
 ├─ dist/                ผลลัพธ์ installer (gitignored)
 └─ shots/               ภาพหน้าจอตอนพัฒนา
 ```
@@ -56,6 +59,10 @@ cd app && npm run dist
 
 # เผยแพร่ผ่าน electron-builder (ปกติใช้ GitHub Actions แทน)
 cd app && npm run release
+
+# เผยแพร่สปอนเซอร์ (โปรแกรมที่สอง)
+cd "NTAPI ADS" && npm start
+cd "NTAPI ADS" && npm test && npm run check:render
 ```
 การปล่อยเวอร์ชันจริง: push tag เช่น `v0.2.2` → GitHub Actions (`.github/workflows/release.yml`)
 บิลด์ installer แล้วอัปโหลดขึ้น repo `NTAPI-releases` อัตโนมัติ

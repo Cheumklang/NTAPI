@@ -50,6 +50,8 @@ const TESTS = [
   'selftest-installer-assets.js',
   'selftest-duration.js',
   'selftest-sidebar-min.js',
+  'selftest-sponsor.js',
+  'selftest-sponsor-feed.js',
   'selftest-empty-answer.js',
   'selftest-image-history.js',
   'selftest-image-review.js',

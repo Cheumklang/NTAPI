@@ -1,0 +1,41 @@
+{
+  "name": "ntapi-ads",
+  "productName": "NTAPI ADS",
+  "version": "0.1.0",
+  "private": true,
+  "description": "เครื่องมือเผยแพร่สปอนเซอร์ของ NTAPI (รูป/วิดีโอ + ลิงก์ ขึ้น GitHub)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node scripts/run-unit-tests.js",
+    "dist": "electron-builder --win --x64",
+    "check:render": "electron scripts/check-render.js"
+  },
+  "author": "Chanathip Cheumklang",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ai.ntapi.ads",
+    "productName": "NTAPI ADS",
+    "directories": {
+      "output": "../dist-ads"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
