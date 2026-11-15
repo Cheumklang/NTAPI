@@ -56,6 +56,7 @@ const TESTS = [
   'selftest-sponsor-refresh.js',
   'selftest-usage-pill.js',
   'selftest-ad-label.js',
+  'selftest-about-name.js',
   'selftest-sidebar-reset.js',
   'selftest-transcript-resilience.js',
   'selftest-transcript-speed.js',

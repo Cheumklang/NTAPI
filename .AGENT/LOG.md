@@ -1693,3 +1693,13 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - ค้าง: `check-sponsor-layout` FAIL 1 (`fitted not cropped`) เพราะเลือก `cover` — ผู้ใช้บอกยังไม่ต้องแก้
 - บทเรียนกฎ: เทิร์นนั้นยิง `bash` หลาย call (ผิด "1 เทิร์น = 1 bash call") และลืมบันทึก HANDOFF/LOG
   ตั้งแต่ปิดงาน → ต้องเขียนบันทึกทันทีที่ commit ไม่รอผู้ใช้เตือน
+
+**ชื่อผู้พัฒนาใน "เกี่ยวกับ" ซ้อนกัน (ผู้ใช้สั่ง 2026-11-17)**
+- อาการ: "ชนาธิป เชื่อมกลาง / Chanathip Cheumklang , นนท์ / Nont" ขึ้นซ้อนกัน
+- ต้องการ: ภาษาไทย → ชื่อไทย · ภาษาอังกฤษ → ชื่ออังกฤษ
+- ต้นเหตุ: index.html มีทั้ง `.about-name-en` และ `.about-name-th` (+ nick) และ CSS แสดงทั้งคู่เสมอ
+- แก้: CSS keyed บน `html[lang="th"]` (applyLanguage เขียนค่านี้ทุกครั้งที่สลับภาษา)
+  · ซ่อน en เมื่อไทย · ซ่อน th เมื่อไม่ใช่ไทย (ทั้งชื่อเต็ม+ชื่อเล่น) · ชื่อไทยได้ 15px/600/var(--text)
+  · **แยกเป็นสอง rule block** — รวม selector list เดียวแล้ว regex เทสต์เข้าใจผิดว่าซ่อนทั้งคู่
+- เทสต์ใหม่ `selftest-about-name.js` (8 checks) + ลงทะเบียนใน run-unit-tests · RED 5 → GREEN
+- ผล: `npm test` ผ่าน 62 scripts · ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit

@@ -3971,6 +3971,33 @@ button.ghost.danger:hover { background: rgba(255, 95, 109, .12); }
   font-weight: 500;
 }
 
+/*
+  One spelling, not two. Both spellings sit in the markup so the name never has to
+  be duplicated in JS, but drawing both at once made the line collide with itself:
+  "Chanathip Cheumklang" printed straight over "ชนาธิป เชื่อมกลาง", and the nickname
+  repeated the same mistake one row below it. `applyLanguage()` writes the interface
+  language onto <html>, so the pair that does not match it is simply not drawn.
+
+The rules stay separate on purpose: a test reads each scope on its own, and one
+combined selector list would make every name look hidden in both languages.
+*/
+html[lang="th"] .about-name-en,
+html[lang="th"] .about-nick-en { display: none; }
+
+html:not([lang="th"]) .about-name-th,
+html:not([lang="th"]) .about-nick-th { display: none; }
+
+/*
+  The surviving name takes the primary weight. Without this the Thai interface
+  would keep the muted 13.5px treatment that only existed to make it the second
+  line of a pair — a name demoted on its own page.
+*/
+html[lang="th"] .about-name-th {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .about-value {
   font-size: 13.5px;
   color: var(--text);
