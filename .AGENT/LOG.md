@@ -1429,3 +1429,49 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 
 **Learned:** "อัปเดตอะไรในรุ่นนี้" ≠ "เราแก้อะไรในโค้ด" — ต้องผ่านตัวกรอง "ผู้ใช้เห็นไหม"
 ก่อนเขียนทุกบรรทัด
+
+---
+
+## 2026-11-17 · สปอนเซอร์ใหม่ไม่ขึ้น + ย้ายกล่องสถานะขึ้นแถวบน (v0.5.0 → รอ bump)
+
+**เรื่องที่ 1 — เผยแพร่สปอนเซอร์แล้วไม่ขึ้น (ผู้ใช้เห็นหน้าเป็น "ตัวอย่าง" อยู่)**
+- ตรวจก่อนแก้: token ในเครื่องรูปแบบถูก (93 ตัวอักษร `github_pat_`) แต่เดิมได้ `HTTP 401 Bad credentials`
+  → ยิง `/user` กับ `/repos/...` ตรง ๆ = 401 ทั้งคู่ = **token ตาย ไม่ใช่โค้ดผิด** (ผู้ใช้สร้างใหม่แล้วผ่าน 200)
+- หลังผู้ใช้เผยแพร่ใหม่: repo มี `sponsor.json` (`updated 2026-11-15T02:24Z`, `rotateSeconds 5`, slot `term24hr`)
+  + `media/term24hr.webp` 78KB ครบ → **อัปโหลดสำเร็จตั้งแต่แรก**
+- รากของ "ไม่ขึ้น": `refreshSponsorFeed()` ตอนบูตเคารพ TTL 6 ชม. ด้วย
+  → แคช `C:\NTAPI\sponsor\sponsor-feed.json` (fetchedAt 08:01, ยังเป็นตัวอย่าง) ถูกใช้ต่อจนถึง 14:01
+- แก้: บูตเรียก `refreshSponsorFeed({ force: true })` · timer 6 ชม. ก็ force
+  · เมื่อ feed เปลี่ยน → `send('sponsor:changed')` (เพราะ window วาดแคชไปแล้วก่อน fetch เสร็จ)
+  · preload `onSponsorChanged` · renderer `reloadSponsor()` ล้าง `sponsorMediaCache` ด้วย
+    (slot id เดิมแต่ไฟล์ถูกแทน = รูปเก่าค้างใต้คำบรรยายใหม่) · `scheduleSponsorRotation` clearInterval กัน timer ซ้อน
+- เทสต์ใหม่ `selftest-sponsor-refresh.js` (11 checks, อยู่ใน `npm test`)
+  · **reverse test:** คืน `refreshSponsorFeed()` → FAIL 1 · เอา `send` ออกนอก `if (changed)` → FAIL
+
+**เรื่องที่ 2 — ย้าย "สถานะ" จาก sidebar ไปแถวบน (ผู้ใช้เลือกแบบ A)**
+- เดิม `.section.usage` = 6 แถวใน sidebar กินที่ของ session list และดันสปอนเซอร์ลง
+- ใหม่ `.status-strip` ใน `#topbar` ระหว่าง `#titleWrap` และ `.controls` = **แถวเดียว**: จุดเขียว + หลอด + `6%` + `14,155 / 15,000` + `Ctx 14%` + ▾
+- ที่เหลือ (`Bonus` `Lane` `Resets` ยอดใช้/provider block ปุ่มรีเฟรช) อยู่ใน **popover** ใต้ pill
+  · เปิดด้วย click, ปิดด้วย click ซ้ำ/Escape (คืน focus ที่ pill)/คลิกนอก (ฟัง `pointerdown` ไม่ใช่ `click` กันเปิดซ้ำ)
+- **ห้ามทำซ้ำ:** `usagePct`/`usageCost`/`contextPct`/`usageBarFill` อยู่ใน **pill เท่านั้น**
+  popover ใช้ id ที่ไม่ซ้ำ (`usageUsed` `usageTokens` `usageContext` `usageResets` `contextFill`) — เทสต์สแกน duplicate id ทั้งไฟล์
+- โหมด provider อื่น (Coarena ฯลฯ): ซ่อน `#statusFree` โชว์ `#statusProvider`
+  · ข้อความใน pill เป็น **mirror** ที่เขียนใน `paintProviderMeter()` เอง (ไม่ให้ pill กับ popover ขัดกัน)
+- `usagePct` ใน pill เป็นเลขล้วน (`6%`) — ประโยค "ใช้ไป x%" ย้ายไป `usageUsed` ใน popover
+- **วัดจริง (Electron `check:pill`)**: 1240×840 และ 900×560
+  · topbar สูงเท่าเดิมเป๊ะเมื่อไม่มี pill (57 = 57) · ไม่ล้น (overflow 0) · pill 30px สูงเท่า control อื่น
+  · popover 262×123 เปิดในกรอบจอทั้งสองขนาด · ชื่อแชทเหลือ 303px / 195px
+  · **แก้ระหว่างทาง:** ตอน 900px ชื่อแชทเหลือ 62px → เพิ่ม `@media (max-width: 1080px)` ซ่อน `.status-credits`
+    + `#titleWrap { min-width: 140px }` → ชื่อได้ 195px
+- เทสต์: `selftest-usage-pill.js` (19 checks) · `check:pill` (Electron 33 checks ต่อขนาด)
+- เทสต์เดิมที่ต้องแก้: `check-sponsor-layout.js` เลิกอ้าง `.section.usage` → ใช้ `slot.previousElementSibling`
+  · `selftest-sponsor.js` เลิกอ้าง `id="refreshUsage"` ใน sidebar
+- ผลรวม: `npm test` **56/56** · `check-sponsor-layout` ผ่านทุกข้อ · `check:pill` ผ่านทุกข้อ
+
+**Learned:** TTL ที่ตั้งไว้กันการยิง network ถี่ เอามาใช้กับ "ตอนเปิดแอป" = งานที่ publish ไว้ไม่ขึ้น
+จนกว่าจะพ้น TTL — ของที่ผู้ใช้เพิ่งทำต้องเห็นตอนเปิดครั้งถัดไป ไม่ใช่บ่ายโมง
+
+**ปล่อยรอบนี้ (2026-11-17)**
+- bump `0.5.0` → `0.5.1` ตามคำสั่งผู้ใช้ (+0.0.1) · commit + push + tag `v0.5.1` (ผู้ใช้อนุญาตให้ผมทำเองรอบนี้)
+- ตรวจก่อนปล่อย: repo `NTAPI-releases` เหลือ release `v0.5.0` รุ่นเดียว — **ผู้ใช้ลบ 23 รุ่นเก่าด้วยมือแล้ว**
+  → marker `[prune-releases …]` ไม่ต้องใช้ เก็บไว้เฉย ๆ ได้ (ห้ามรันซ้ำตอนนี้)
