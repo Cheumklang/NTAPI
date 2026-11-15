@@ -53,8 +53,9 @@ check('it builds a what-changed section', /มีอะไรใหม่ใน/
 check('it walks the commits since the previous tag', /git describe --tags --abbrev=0/.test(workflow));
 check('it needs the full history to do that', /fetch-depth:\s*0/.test(workflow));
 // Housekeeping commits are noise on a download page; the version bump repeats
-// the heading.
-check('housekeeping commits are filtered out', /\^\(ci\|chore\|test\|docs\|style\)/.test(workflow));
+// the heading. `internal:` is the escape hatch for work behind the scenes -
+// tooling, publishing, backend plumbing - which a user must never read about.
+check('housekeeping commits are filtered out', /\^\(ci\|chore\|test\|docs\|style\|internal\)/.test(workflow));
 check('the version-bump prefix is stripped from the line', /regex\]::Escape\(\$tag\)/.test(workflow));
 // One line of orientation is allowed: which file to grab and which Windows.
 check('it says which file to download', /NTAPI-Setup-\$\(\$tag -replace/.test(workflow));

@@ -70,10 +70,12 @@ jobs:
 
           # Commits are the changelog, but not all of them are news: housekeeping
           # (`ci:`/`chore:`/`test:`/`docs:`) says nothing to someone deciding
-          # whether to update. The version bump itself is dropped too — the
-          # heading already says which version this is.
+          # whether to update, and `internal:` marks work behind the scenes —
+          # tooling, publishing, backend plumbing — that a user must never be
+          # told about. The version bump itself is dropped too: the heading
+          # already says which version this is.
           $commits = @(& git log $range --no-merges --pretty=format:"%s") |
-            Where-Object { $_ -and $_ -notmatch '^(ci|chore|test|docs|style)\s*:' } |
+            Where-Object { $_ -and $_ -notmatch '^(ci|chore|test|docs|style|internal)\s*:' } |
             ForEach-Object { $_ -replace "^$([regex]::Escape($tag))\s*:\s*", '' } |
             ForEach-Object { "- $_" }
 
