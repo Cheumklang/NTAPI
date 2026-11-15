@@ -1,0 +1,139 @@
+name: Prune old releases
+
+# Older installers stay on the public download page forever. Anyone who lands on
+# an old one and installs it gets a build from before sponsor banners existed —
+# and then never sees a paid placement, however many are published afterwards.
+# The updater does pull those users forward on its own, so a stale download is
+# not a broken app, only a stale one; the point of this job is to stop handing
+# those builds out.
+#
+# Manual on purpose. Deleting a release cannot be undone, so nothing here runs
+# on a push or a schedule: a person opens Actions, types which version must
+# survive, and presses Run.
+on:
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: 'Keep this version and everything newer (e.g. v0.5.0)'
+        required: true
+        type: string
+      dry_run:
+        description: 'List what would be deleted, delete nothing'
+        required: true
+        type: boolean
+        default: true
+      delete_tags:
+        description: 'Also delete those tags in this repo (keeps tag history clean)'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prune-releases
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete releases older than the kept version
+        env:
+          # Same token the release job uses: the assets live in a different repo.
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          TARGET_REPO: Cheumklang/NTAPI-releases
+          KEEP: ${{ inputs.keep }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          DELETE_TAGS: ${{ inputs.delete_tags }}
+        run: |
+          set -euo pipefail
+
+          keep="${KEEP#v}"
+          keep="${keep#V}"
+          if ! printf '%s' "$keep" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::'$KEEP' is not a version like v0.5.0"
+            exit 1
+          fi
+
+          # tag<TAB>id for every release, newest first.
+          gh api "repos/$TARGET_REPO/releases?per_page=100" --paginate \
+            --jq '.[] | select(.draft == false) | "\(.tag_name)\t\(.id)"' > releases.tsv
+
+          total=$(wc -l < releases.tsv)
+          echo "releases found: $total"
+          if ! cut -f1 releases.tsv | grep -qx "v$keep"; then
+            # A typo here would either delete nothing or delete everything,
+            # depending on which way the comparison leans. Refuse instead.
+            echo "::error::v$keep has no published release — check the input"
+            exit 1
+          fi
+
+          deleted=0
+          skipped=0
+          : > pruned.txt
+          while IFS=$'\t' read -r tag id; do
+            ver="${tag#v}"
+            ver="${ver#V}"
+            # sort -V orders by version, so "lower than keep" is a real version
+            # comparison and not a string one (0.10.0 must beat 0.9.0).
+            lowest=$(printf '%s\n%s\n' "$ver" "$keep" | sort -V | head -n1)
+            if [ "$ver" = "$keep" ] || [ "$lowest" != "$ver" ]; then
+              skipped=$((skipped + 1))
+              continue
+            fi
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "would delete: $tag ($id)"
+            else
+              gh api -X DELETE "repos/$TARGET_REPO/releases/$id"
+              echo "deleted: $tag ($id)"
+            fi
+            printf '%s\n' "$tag" >> pruned.txt
+            deleted=$((deleted + 1))
+          done < releases.tsv
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::dry run — $deleted release(s) below v$keep would be deleted, $skipped kept"
+          else
+            echo "::notice::deleted $deleted release(s) below v$keep, $skipped kept"
+          fi
+
+          {
+            echo "### Prune old releases"
+            echo ""
+            echo "- kept: v$keep and newer"
+            echo "- $([ "$DRY_RUN" = "true" ] && echo "would delete" || echo "deleted"): $deleted"
+            echo "- untouched: $skipped"
+            if [ -s pruned.txt ] && [ "$DRY_RUN" != "true" ]; then
+              echo ""
+              echo "<details><summary>tags</summary>"
+              echo ""
+              sed 's/^/- /' pruned.txt
+              echo ""
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete the same tags in this repo
+        if: ${{ inputs.delete_tags && !inputs.dry_run }}
+        env:
+          DELETE_TAGS: ${{ inputs.delete_tags }}
+        run: |
+          set -euo pipefail
+          [ -s pruned.txt ] || { echo "nothing to tag-delete"; exit 0; }
+          while read -r tag; do
+            # A tag whose release is gone is dead history here too. The kept
+            # version stays, so the changelog for the next release still has a
+            # previous tag to compare against.
+            if git rev-parse -q --verify "refs/tags/$tag" > /dev/null; then
+              git push origin --delete "$tag"
+              echo "deleted tag: $tag"
+            else
+              echo "tag already gone: $tag"
+            fi
+          done < pruned.txt

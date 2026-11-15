@@ -36,6 +36,7 @@ const TESTS = [
   'selftest-queue-edit-hold.js',
   'selftest-queue-number.js',
   'selftest-release-notes.js',
+  'selftest-prune-releases.js',
   'selftest-browser-autopilot.js',
   'selftest-browser-bridge.js',
   'selftest-browser-claims.js',
