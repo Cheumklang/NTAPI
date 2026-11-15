@@ -172,6 +172,42 @@ check('freshness is a window, not a flag', () => {
   assert.strictEqual(feed.isFresh({ fetchedAt: 0 }), false);
 });
 
+check('the live revalidate tick is 30 seconds, not the 6-hour cache lifetime', () => {
+  // A sponsor published while the app is open has to appear without a restart,
+  // and the user picked 30 seconds over five minutes. Guard both ends: a tick
+  // that fell back to TTL_MS is the bug this exists to prevent.
+  assert.strictEqual(feed.REVALIDATE_MS, 30 * 1000);
+  assert.ok(feed.REVALIDATE_MS < feed.TTL_MS);
+});
+
+check('two different feeds never share a fingerprint', () => {
+  // The published `updated` stamp is not enough on its own: two publishes inside
+  // the same second, or a hand-edited file, reuse it. A republished slot with
+  // the same stamp still has to register as a change, or the app keeps showing
+  // yesterday's picture under today's caption.
+  const a = sponsor.readFeed({ updated: 'same', slots: [slot({ id: 'a' })] });
+  const b = sponsor.readFeed({ updated: 'same', slots: [slot({ id: 'b' })] });
+  assert.strictEqual(a.updated, b.updated);
+  assert.notStrictEqual(feed.feedFingerprint(a), feed.feedFingerprint(b));
+  assert.strictEqual(feed.feedFingerprint(a), feed.feedFingerprint(sponsor.readFeed({ updated: 'same', slots: [slot({ id: 'a' })] })));
+  assert.strictEqual(feed.feedFingerprint(null), '');
+});
+
+check('the cache remembers the validator across a restart', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ntapi-sponsor-etag-'));
+  const built = sponsor.readFeed({ updated: 'v9', slots: [slot()] });
+  feed.writeCache(dir, built, 42, 'W/"abc123"');
+  const back = feed.readCache(dir);
+  assert.strictEqual(back.etag, 'W/"abc123"');
+  // An old cache file with no validator must still load — every installed copy
+  // has one on disk already.
+  fs.writeFileSync(path.join(dir, 'sponsor-feed.json'), JSON.stringify({ fetchedAt: 7, feed: built }));
+  const legacy = feed.readCache(dir);
+  assert.strictEqual(legacy.etag, '');
+  assert.strictEqual(legacy.fetchedAt, 7);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 check('rotation lands on the slot it would have reached', () => {
   assert.strictEqual(feed.slotIndexAt(15, 1, 0), 0);
   assert.strictEqual(feed.slotIndexAt(15, 3, 0), 0);
@@ -278,13 +314,16 @@ check('a feed keeps the shape each slot was published in', () => {
     const first = await feed.ensureMedia({ dir, base: 'https://cdn.test/gh/x@main/', slot: built.slots[0], fetchImpl });
     assert.strictEqual(first.ok, true);
     assert.strictEqual(first.type, 'image');
-    assert.ok(first.dataUrl.startsWith('data:image/webp;base64,'));
+    // A creative is handed over as an address on our own scheme, not as base64:
+    // a 100MB clip as a data URL would be three copies of itself in memory.
+    assert.strictEqual(first.url, `${feed.MEDIA_SCHEME}://media/${first.file}`);
+    assert.strictEqual(first.dataUrl, undefined);
     assert.strictEqual(downloads, 1);
 
     const second = await feed.ensureMedia({ dir, base: 'https://cdn.test/gh/x@main/', slot: built.slots[0], fetchImpl });
     assert.strictEqual(second.ok, true);
     assert.strictEqual(downloads, 1, 'second read hit the network');
-    assert.strictEqual(first.dataUrl, second.dataUrl);
+    assert.strictEqual(first.url, second.url);
   });
 
   await checkAsync('ensureMedia refuses a non-https host', async () => {
@@ -302,12 +341,46 @@ check('a feed keeps the shape each slot was published in', () => {
 
   await checkAsync('ensureMedia refuses an oversized creative', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ntapi-sponsor-media-'));
-    const built = sponsor.readFeed({ slots: [slot({ media: { type: 'video', file: 'media/a.mp4' } })] });
+    // Images keep the small ceiling; the video ceiling is the GitHub limit and is
+    // checked separately below (allocating 100MB here would just slow the suite).
+    const built = sponsor.readFeed({ slots: [slot({ media: { type: 'image', file: 'media/a.webp' } })] });
     const out = await feed.ensureMedia({
       dir,
       base: 'https://cdn.test/',
       slot: built.slots[0],
       fetchImpl: async () => response(Buffer.alloc(feed.MAX_MEDIA_BYTES + 32)),
+    });
+    assert.strictEqual(out.ok, false);
+    assert.strictEqual(out.reason, 'too-big');
+  });
+
+  await checkAsync('a video may be as big as GitHub allows, and no bigger', async () => {
+    // 100MB is not a preference: GitHub refuses a larger single file, so the app
+    // and the publisher have to agree on the same number or one of them lies.
+    assert.strictEqual(feed.MAX_VIDEO_BYTES, 100 * 1000 * 1000);
+    assert.ok(feed.MAX_VIDEO_BYTES > feed.MAX_MEDIA_BYTES * 10);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ntapi-sponsor-media-'));
+    const built = sponsor.readFeed({ slots: [slot({ media: { type: 'video', file: 'media/a.mp4' } })] });
+    // One byte over the ceiling, refused without ever holding 100MB.
+    const out = await feed.ensureMedia({
+      dir,
+      base: 'https://cdn.test/',
+      slot: built.slots[0],
+      fetchImpl: async () => {
+        const chunk = Buffer.alloc(1024 * 1024);
+        let sent = 0;
+        return {
+          ok: true,
+          status: 200,
+          body: (async function* iterate() {
+            // 101 chunks of 1MB: past the ceiling, but only one chunk in memory.
+            while (sent <= 100) {
+              sent += 1;
+              yield chunk;
+            }
+          })(),
+        };
+      },
     });
     assert.strictEqual(out.ok, false);
     assert.strictEqual(out.reason, 'too-big');
@@ -330,7 +403,7 @@ check('a feed keeps the shape each slot was published in', () => {
     });
     assert.strictEqual(out.ok, true);
     assert.strictEqual(out.type, 'video');
-    assert.ok(out.poster.startsWith('data:image/webp;base64,'));
+    assert.strictEqual(out.poster, `${feed.MEDIA_SCHEME}://media/a-poster.webp`);
   });
 
   await checkAsync('a new feed clears the old creatives', async () => {
@@ -339,6 +412,65 @@ check('a feed keeps the shape each slot was published in', () => {
     fs.writeFileSync(path.join(feed.mediaDir(dir), 'old.webp'), 'x');
     feed.clearMedia(dir);
     assert.strictEqual(fs.existsSync(feed.mediaDir(dir)), false);
+  });
+
+  await checkAsync('a 304 is "nothing changed", not a failure', async () => {
+    // The ordinary answer on a 30-second poll. Treating it as an error would
+    // fall through to jsDelivr, which caches a branch for hours — the exact
+    // stale-copy bug this poll exists to avoid.
+    const out = await feed.fetchFeed({
+      urls: ['https://a.test/sponsor.json', 'https://b.test/sponsor.json'],
+      etag: 'W/"v1"',
+      fetchImpl: async (url) => (url.includes('a.test') ? response('', 304) : response('{}')),
+    });
+    assert.ok(out, 'a 304 produced null');
+    assert.strictEqual(out.unchanged, true);
+    assert.strictEqual(out.source, 'https://a.test/sponsor.json');
+    assert.strictEqual(out.feed, undefined);
+  });
+
+  await checkAsync('the validator is offered back to the host', async () => {
+    let seen = null;
+    await feed.fetchFeed({
+      urls: ['https://a.test/sponsor.json'],
+      etag: 'W/"v1"',
+      fetchImpl: async (_url, init) => {
+        seen = init && init.headers ? init.headers['If-None-Match'] : null;
+        return response(JSON.stringify({ slots: [slot()] }));
+      },
+    });
+    assert.strictEqual(seen, 'W/"v1"');
+  });
+
+  await checkAsync('a response header supplies the next validator', async () => {
+    const body = JSON.stringify({ slots: [slot()] });
+    const out = await feed.fetchFeed({
+      urls: ['https://a.test/sponsor.json'],
+      fetchImpl: async () => ({
+        ...response(body),
+        headers: { get: (name) => (String(name).toLowerCase() === 'etag' ? 'W/"next"' : null) },
+      }),
+    });
+    assert.strictEqual(out.etag, 'W/"next"');
+  });
+
+  await checkAsync('every request busts the edge cache, and reports the clean host', async () => {
+    // Measured on the real feed: raw.githubusercontent.com kept answering with
+    // the previous sponsor.json for minutes, so a publish looked like it never
+    // happened. The busting value is a bare timestamp — identical for every
+    // install — and `source` stays clean, because it is what media resolves
+    // against.
+    let requested = '';
+    const out = await feed.fetchFeed({
+      urls: ['https://a.test/sponsor.json'],
+      fetchImpl: async (url) => {
+        requested = url;
+        return response(JSON.stringify({ slots: [slot()] }));
+      },
+    });
+    assert.match(requested, /^https:\/\/a\.test\/sponsor\.json\?t=\d+$/);
+    assert.strictEqual(out.source, 'https://a.test/sponsor.json');
+    assert.strictEqual(feed.cacheBusted('https://a.test/x?y=1', 5000), 'https://a.test/x?y=1&t=5');
   });
 
   fs.rmSync(tmpDir, { recursive: true, force: true });

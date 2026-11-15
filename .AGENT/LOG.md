@@ -1525,3 +1525,157 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 **กฎเพิ่ม (ข้อ 4-5): ขั้นตรวจผลต้องอยู่ใน call เดียวกัน (ผู้ใช้สั่ง 2026-11-17)**
 - ผู้ใช้จับได้ว่า commit+push เสร็จแล้วผมแยกอีก call ไปเช็ค CI → เพิ่มข้อ 4 (ตรวจผลในชุดเดียวกัน)
   และข้อ 5 (นิยาม 1 call = ทำงาน + ตรวจผล + สรุป PASS/ERROR)
+
+**NTAPI ADS: อัตราส่วนดีดกลับเป็น 2:1 หลังกดเผยแพร่ (ผู้ใช้แจ้ง 2026-11-17)**
+- อาการ: ตั้งกรอบ 1:1 แล้วกด **เผยแพร่** → หน้าต่าง ADS เปลี่ยนกลับเป็น 2:1 เอง
+- ตรวจของจริงก่อนแก้: `raw…/main/sponsor.json` = `"ratio": "1:1"` · `media/sponsor-2026-11.webp`
+  = **1072×1072** (VP8X) → ทั้ง feed และไฟล์ถูกต้อง ปัญหาอยู่ฝั่งหน้าต่าง ADS ไม่ใช่ NTAPI
+  (jsDelivr ยังแคช `sponsor.json` รุ่นเก่า แต่ NTAPI ตั้ง raw เป็นตัวแรกอยู่แล้ว จึงไม่เกี่ยว)
+- **ต้นเหตุ:** `slotFromFeed()` คัดลอกแค่ `type/file/poster/alt/text` — ไม่มี `media.ratio`
+  → `publish()` เรียก `await loadFeed()` หลังสำเร็จ แล้วสร้าง slot ใหม่จาก feed
+  → `ratio` กลับเป็น `R.defaultRatio` = `2:1` ทันทีที่ผู้ใช้เห็น
+  · อันตรายกว่าเดิม: กดเผยแพร่ซ้ำจะส่ง `ratio: 2:1` คู่กับไฟล์สี่เหลี่ยม (feed ไม่ตรงกับไฟล์)
+- **แก้:** `slot.media.ratio = R.ratioOf(raw.media && raw.media.ratio)` + คอมเมนต์อธิบายว่ากรอบเป็นส่วนของครีเอทีฟ
+- **เทสต์ใหม่:** `check-render.js` — `feed:load` ตอบ feed ที่มี `ratio: '4:5'` (ไม่ใช่ทั้ง 2:1 และ 1:1)
+  หลัง publish stub ถูกเรียก → assert dropdown = `4:5` + กล่องพรีวิวมีสัดส่วน 4:5
+  · ก่อนแก้มี 27 checks → **29/29** · ย้อนบรรทัดที่แก้ → **FAIL 1** (`feed ratio is read back after publish`) → คืนโค้ดแล้วผ่าน 29/29
+- **ไม่ต้องเผยแพร่ซ้ำ:** repo ถูกต้องอยู่แล้ว · ผู้ใช้แค่ปิด/เปิด ADS ใหม่
+
+**กฎ 1 เทิร์น = 1 bash call — เข้มรอบสอง (ผู้ใช้สั่ง 2026-11-17)**
+- ผู้ใช้บอกว่า "ยังมีหลายคนไม่สนใจกฎนี้" → เขียนใหม่ให้ชัดและบังคับใช้ได้จริง
+- เปลี่ยนจากหัวข้อ "การรันคำสั่ง — ทำเป็นชุดเดียว" → **"กฎข้อ 1 ของโปรเจกต์นี้: 1 เทิร์น = 1 bash call"**
+- เพิ่ม: นิยาม (1 call = เรียก tool `bash` ครั้งเดียว · จำนวนคำสั่งใน call ไม่จำกัด) ·
+  ขั้นตอนบังคับ 6 ข้อ (รวมข้อ 6 = นับ bash call ก่อนส่งคำตอบ ถ้า >1 = ผิดกฎ ต้องบอกผู้ใช้ + บันทึกลง LOG) ·
+  ตาราง ❌/✅ ห้าเคสที่พลาดบ่อย (git status/diff แยก · grep หลายไฟล์แยก · "ต้องดูผลก่อน" ·
+  npm test แยกจาก check:* · commit/push แล้วแยกเช็ค CI) · ข้อยกเว้น 3 ข้อ · ตัวอย่างถูก/ผิด
+- เพิ่มกฎบรรทัดเดียวใน **กติกาเหล็ก** ของทั้ง `AGENTS.md` และ `.AGENT/HANDOFF.md`
+  เพื่อให้เห็นตั้งแต่ต้นไฟล์ ไม่ต้องไปเจอท้าย ๆ
+
+**โฆษณา real-time: เช็ค feed ทุก 30 วิ + ตอนสลับกลับมาที่หน้าต่าง (ผู้ใช้เลือกข้อ 3 · 2026-11-17)**
+- อาการที่ผู้ใช้เจอ: อัปโหลดโฆษณาใหม่แล้วโปรแกรมไม่เปลี่ยน การตรวจของจริง:
+  feed บน repo = `updated 04:56 UTC` slot `ads` / `media/ads.webp` ·
+  แต่ `C:\NTAPI\sponsor\sponsor-feed.json` (ที่แอป 0.5.2 ใช้) = `updated 03:22 UTC` slot `term24hr`
+- **ต้นเหตุ:** revalidate ตอนเปิดแอปครั้งเดียว แล้ว timer **6 ชั่วโมง** → แอปที่เปิดค้างไว้ไม่เห็นของใหม่
+- **แก้:** `REVALIDATE_MS = 30_000` ใน `sponsor-feed.js` + timer ใน `main.js` เปลี่ยนจาก `TTL_MS` เป็น `REVALIDATE_MS`
+  · เพิ่ม `app.on('browser-window-focus')` → เช็คทันทีเมื่อสลับกลับมาที่หน้าต่าง (มี floor 5 วิ กันการยิงรัว)
+  · ใช้ `If-None-Match` + ETag: ไม่มีอะไรเปลี่ยน = 304 ไม่มี body ไม่ parse ไม่ repaint (เก็บ etag ลง cache ด้วย)
+  · เปลี่ยนตัวตรวจจับการเปลี่ยนแปลงจาก "`updated` ต่างกัน" → **fingerprint ของ feed ทั้งก้อน**
+    (กันกรณี publish ซ้ำในวินาทีเดียวกันหรือestamp ซ้ำ แล้วรูปใหม่ไม่ขึ้น)
+  · ยังล้าง `sponsor-media/` + ส่ง `sponsor:changed` → renderer ล้าง cache รูปแล้ววาดใหม่ (ของเดิม)
+- เทสต์: `selftest-sponsor-feed.js` 23 → **32 checks** (304 ต้องไม่ fall through ไป jsDelivr,
+  ส่ง validator กลับ, อ่าน etag จาก header, fingerprint, cache เก่าที่ไม่มี etag ยังโหลดได้)
+  · `selftest-sponsor-refresh.js` ปรับให้ตรงสัญญาใหม่ (timer 30 วิ ไม่ใช่ TTL, focus hook, 304, fingerprint)
+- ผล: `npm test` **all 61 offline test scripts passed** (160 ไฟล์ syntax OK)
+- **ยังไม่ build/ไม่ bump เวอร์ชัน** — โปรแกรมที่ติดตั้งเป็น 0.5.2 (ยัง 6 ชม.) กว่าจะเห็นผลต้องออกรุ่นใหม่ก่อน
+
+**กฎใหม่: 1 ไฟล์ = 1 `edit` call (ผู้ใช้สั่ง 2026-11-17)**
+- ผู้ใช้จับได้ว่าผมแก้ `app/src/main.js` 2 `edit` calls ติดกันทั้งที่เป็นไฟล์เดียวกัน จึงถามว่ามีเหตุผลรองรับไหม
+- คำตอบที่ถูกคือ **ไม่มี** — tool `edit` รับ `edits[]` หลายรายการที่ไม่มี overlap ใน call เดียวได้เสมอ
+  (หลักฐานว่าทำได้: `check-render.js` แก้ 4 จุดใน call เดียวในงาน ADS รอบเดียวกัน)
+  สาเหตุจริงคือผมยิงตามลำดับที่คิดเสร็จแต่ละก้อน ไม่ใช่ข้อจำกัดของเครื่องมือ
+- บันทึกเป็นกฎใน `AGENTS.md` + `.AGENT/HANDOFF.md`: ทุกจุดที่แก้ในไฟล์เดียวกันอยู่ใน `edit` call เดียว
+  · ❌ ตัวอย่างผิด / ✅ ตัวอย่างถูก · วิธีทำให้ถูก (คิดให้ครบก่อนยิง) · ข้อยกเว้น 3 ข้อ
+  (oldText ซ้อน/ซ้ำ · ต้องอ่านผลก่อนแก้อีกจุด · คนละไฟล์)
+
+**โฆษณา 2 ตัวไม่สลับ + ขนาดไม่เปลี่ยนตามที่ตั้ง (ผู้ใช้ทดสอบ 2026-11-17)**
+- หลักฐาน: feed บน repo มี 2 slots (`ads`, `ads2`) ทั้งคู่ 1:1 · แต่ `node -e fetchFeed()` ธรรมดา
+  ได้ feed เก่า 1 slot (`updated 04:56`) — curl ที่ใส่ `?x=<epoch>` กลับได้ของใหม่ (`05:12`)
+  → **raw.githubusercontent.com ให้ copies จาก edge cache ที่ค้างอยู่เป็นนาที ๆ**
+- **แก้ 1:** `cacheBusted(url)` ต่อ `?t=<epoch seconds>` ทุกครั้งที่ขอ feed (ค่าเดียวกันทุกเครื่อง
+  ไม่ระบุตัวผู้ใช้) · `source` ที่คืนกลับยังเป็น URL สะอาด เพื่อให้ media resolve ถูก ·
+  ETag/304 ยังใช้ได้ปกติ
+- **แก้ 2 (บั๊กจริงที่เจอระหว่างทาง):** `sponsorPayload()` ใน `main.js` **ไม่ส่ง `media.ratio`**
+  ให้ renderer → ทุกครีเอทีฟถูกวาดเป็น 2:1 เสมอ ขนาดที่ตั้งใน ADS จึงไม่มีผล
+  → เพิ่ม `ratio: slot.media.ratio`
+  · ทำไมเทสต์เดิมไม่จับ: `check-sponsor-layout.js` สร้าง shape `sponsor` ขึ้นเองพร้อม ratio
+    ไม่เคยผ่าน `sponsorPayload()` จริง → เพิ่ม check ฝั่งซอร์สใน `selftest-sponsor-refresh.js`
+- **หมายเหตุการออกแบบ (ยังเป็นแบบเดิม):** ความสูงของแถบจองไว้ที่กรอบที่สูงสุดใน feed
+  แล้ววางครีเอทีฟแบบ contain → ถ้าโฆษณาหลายตัวมีสัดส่วนต่างกัน แถบจะไม่กระโดด แต่ขนาดกล่อง
+  จะเท่ากันทุกตัว ถ้าผู้ใช้อยากให้แต่ละตัวสูง-เตี้ยตามของตัวเอง ต้องเปลี่ยนดีไซน์ (ถามแล้ว)
+- เทสต์: `selftest-sponsor-feed.js` 32 → **33** · `selftest-sponsor-refresh.js` 9 → **11**
+
+**ขยายเพดานวิดีโอเป็น 100MB + เสิร์ฟครีเอทีฟผ่าน protocol สตรีม (ผู้ใช้เลือก B · 2026-11-17)**
+- ผู้ใช้ขอ 250MB เผื่อลูกค้าส่งวิดีโอ → ชี้แจงว่าติดเพดาน GitHub (ไฟล์เดียวเกิน 100MB push ไม่ผ่าน)
+  จึงเลือกแนวทาง B: เพดาน 100MB + ไม่ส่งไบต์ผ่าน IPC อีก
+- **เดิม:** ดาวน์โหลด → base64 data URL → IPC → `<img>/<video>` · วิดีโอ 100MB จะกลายเป็นสตริง ~133MB
+  ใน main + อีกชุดใน renderer = แรมบวมหลายร้อย MB
+- **ใหม่:** `NTAPI ADS`: `MAX_VIDEO_BYTES` 8MB → **100MB** (เพดาน GitHub) · รูปคงเดิม 1.2MB
+  · NTAPI: `sponsor-feed.MAX_VIDEO_BYTES = 100MB` (รูป/โปสเตอร์คง 8MB) ·
+  `ensureMedia()` คืน `{ file, url, poster }` แทน data URL · `mediaUrl()` สร้าง `ntapi-sponsor://media/<name>`
+  · `main.js`: `protocol.registerSchemesAsPrivileged` (ต้องอยู่ top-level ก่อน ready) +
+  `registerSponsorMedia()` เรียกใน `whenReady` → `net.fetch(pathToFileURL(...))` สตรีมจากดิสก์
+  (ตั้ง handler ก่อน ready ไม่ได้ — เจอ error `Session can only be received when app is ready`)
+  · CSP: `img-src`/`media-src` เพิ่ม `ntapi-sponsor:` · renderer ใช้ `value.url` แทน `value.dataUrl`
+  · timeout ดาวน์โหลด: รูป 15 วิ / วิดีโอ 300 วิ
+- เทสต์: `selftest-sponsor-feed.js` 33 → **35** (ยืนยันคืน URL ไม่ใช่ data URL · เพดานวิดีโอ 100MB ·
+  ปฏิเสธไฟล์เกินเพดานแบบสตรีม 101 chunk ไม่จองแรม 100MB) ·
+  ไฟล์ใหม่ `scripts/check-sponsor-media.js` + `npm run check:media` (Electron จริง: CSP อนุญาต scheme,
+  รูปถอดรหัสได้จริง, ปฏิเสธ `../`/นามสกุลแปลก/ไฟล์หาย)
+- ผล: `npm test` ผ่าน 61 scripts (Syntax OK 161 ไฟล์) · `check:media` ผ่านทุกข้อ · ADS `npm test` ผ่าน 5 scripts
+
+**กฎเพิ่ม: เปิด docs ก่อนเดา + สตริงต้องเป็นสตริง (ผู้ใช้สั่ง 2026-11-17)**
+- ที่มา: ผู้ใช้ถามว่าทำไม `app/scripts/check-sponsor-media.js` ต้องแก้ 3 รอบ → ตอบตรงว่า
+  1 รอบ = สร้างไฟล์ (จำเป็น) · 1 รอบ = เจอข้อจำกัด Electron จริง (`protocol.handle` ต้องหลัง ready) ·
+  1 รอบ = **ความผิดผมเอง** (interpolate IIFE ที่ไปรันใน Node → `document is not defined`)
+- บันทึกเป็นกฎใน `AGENTS.md` + `.AGENT/HANDOFF.md` หัวข้อ "การใช้ API — เปิด docs ก่อนเดา · สตริงต้องเป็นสตริง":
+  (1) API ที่ไม่แน่ใจลำดับการเรียก → เปิด docs ก่อน ไม่ใช่ลองผิดลองถูก
+  (2) main process ห้าม interpolate โค้ดที่จะไปรันใน renderer — เก็บเป็นสตริงล้วน
+  (3) แก้ไฟล์เพราะเทสต์ล้ม = ข้อยกเว้นของกฎ 1 ไฟล์/1 edit call แต่ต้องแยก "ข้อจำกัดที่รู้ได้ตอนรัน"
+      กับ "คิดไม่ครบ" — อย่างหลังคือสิ่งที่ต้องลด
+
+**โฆษณาวิดีโอ: ปุ่มเปิด/ปิดเสียงบนแถบโฆษณา (ผู้ใช้เลือกแบบ 2 · 2026-11-17)**
+- เดิมวิดีโอ `muted` ตลอด (จำเป็น เพราะ Chromium บล็อก autoplay ที่มีเสียง) → ผู้ใช้เลือกให้มีปุ่มกดเอง
+- เพิ่ม `#sponsorSound` เป็น **พี่น้อง** ของ `.sponsor-card` ไม่ใช่ลูก (การ์ดเป็น `<button>` ซ้อนกันไม่ได้)
+  · ซ่อนเมื่อสล็อตเป็นรูป · `aria-pressed` + label เปลี่ยนตามสถานะ (i18n `sponsorSoundOn/Off` th/en)
+  · `sponsorSoundOn` จำค่าไว้ในหน่วยความจำต่อ session และถูกใช้ตอนสร้าง `<video>` ใหม่ทุกครั้ง
+  · คลิกแล้ว `preventDefault/stopPropagation` เพื่อไม่ให้เปิดเบราว์เซอร์ของสปอนเซอร์พร้อมกัน
+  · CSS: `.sponsor-sound` เป็น absolute overlay ขนาด 24px บนมุมขวาของครีเอทีฟ
+- เทสต์: `check-sponsor-layout.js` เพิ่ม 7 checks (ปิดเสียงเป็นค่าเริ่มต้น · มีปุ่มเมื่อเป็นวิดีโอ ·
+  คลิกแล้ว unmute · aria-pressed · label เปลี่ยนเป็นไทย · คลิกซ้ำกลับเป็น mute · รูปไม่มีปุ่ม)
+  · แก้ harness ให้ใช้ `url` แทน `dataUrl` ตามสัญญาใหม่ของ `sponsorMediaCache` (เดิมวัดได้ 2.22/1.64 เพราะรูปไม่โหลด)
+  · `selftest-sponsor.js`: ตัดกฎ `.sponsor-sound` ออกก่อนเช็ค "แถบไม่มีความสูงตายตัว" + เพิ่ม check ว่าเป็น overlay
+- ผล: `npm test` ผ่าน 61 scripts · layout check ผ่านทุกข้อ (มี 7 checks ใหม่)
+
+**sidebar: ข้อความอธิบายการอนุมัติต้องอยู่บรรทัดเดียว + ย่อไม่ได้ต่ำกว่านั้น (ผู้ใช้สั่ง 2026-11-17)**
+- เป้าหมาย: `#approvalNote` ("เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์")
+  ต้องไม่ขึ้น 2 บรรทัด และ sidebar ต้องDragแคบกว่านั้นไม่ได้
+- **แก้ CSS:** `.approval-note { white-space: nowrap; overflow: hidden }` (overflow เป็นแค่กันพลาด)
+- **แก้ JS:** `sidebarMinWidth()` เดิมวัดแค่แถว brand → วัดเพิ่ม `note.scrollWidth`
+  แล้วใช้ `Math.max(row, sentence)` เป็นพื้นล่าง (เดิม floor 200px ทำให้ข้อความขึ้น 2 บรรทัด)
+  · `applyLanguage()` เรียก `applySidebarWidth()` ใหม่ เพื่อให้พื้นล่างขยับตามความยาวข้อความที่เปลี่ยนภาษา
+- **ผลจริงที่วัดได้:** ไทยพื้นล่าง 326px · อังกฤษ 347px (แถว brand กว้างขึ้น) ·
+  บังคับ `applySidebarWidth(40)` → clamp เป็น 326/347 และข้อความยังพอดิบรรทัดเดียว (scrollWidth 301 ≤ clientWidth 301)
+- เทสต์ใหม่: `scripts/check-sidebar-note.js` (Electron วัดของจริง 2 ภาษา × 9 checks = 18)
+  ตรวจ: nowrap · ความสูง ≤ 1 บรรทัด · ไม่ถูกตัด · drag 40px ต้องไม่ยอม · --sidebar-w ตรงกับค่าที่ใช้จริง · reset ยังอยู่ในช่วง
+- **ต้องรู้:** ค่าเริ่มต้น 268px ต่ำกว่าพื้นล่างใหม่ → sidebar จะกว้างขึ้นเป็น ~326px โดยอัตโนมัติ
+  ถ้าผู้ใช้ต้องการคง 268 ต้องย่อข้อความ (ยังไม่ได้ทำ — รอคำตอบ)
+- **แก้เพิ่มหลังเจอ FAIL 3 ข้อใน `check:sidebar`:** `sidebarMinWidth()` รัดขึ้นเรื่อย ๆ (487→507→520)
+  เพราะวัดตอน sidebar กว้าง แล้ว flex child ที่ถูกยืดรายงานขนาดที่ยืดแล้ว → วัดตอนบังคับ `--sidebar-w: 200px` แทนแล้วคืนค่า
+  · พื้นล่างนิ่งที่ **305px** ทั้งภาษาไทย/อังกฤษ
+- อัปเดต `check-sidebar-reset.js`: เดิม hardcode 268 → เทียบกับ `max(268, sidebarMinWidth())` ที่อ่านจากหน้า
+- ผล: `check:sidebar` ผ่านทั้งหมด · `check-sidebar-note` ผ่าน 18/18 · `npm test` ผ่าน 61 scripts
+
+**status popover: กว้างเท่าแท็บของมันเสมอ (ผู้ใช้สั่ง 2026-11-17)**
+- เดิม `.status-popover` กว้างตายตัว 262px → ใหญ่กว่า/เล็กกว่าแท็บ ดูไม่เป็นชิ้นเดียวกัน
+- แก้ CSS: `position: absolute; left: 0; right: 0; width: auto` บน `.status-strip` (ลูกใน-flow มีแค่ `.status-pill`)
+  → ความกว้างผูกกับแท็บโดยอัตโนมัติ ไม่มีเลขที่ต้องคอย sync · `[hidden]` ยังปิดได้
+- กันพังเมื่อแคบ: `.status-popover .usage-row { flex-wrap: wrap; overflow-wrap: anywhere }` + `.status-pop-head { flex-wrap: wrap }`
+- ผลข้างเคียงที่เจอ: sidebar พื้นล่าง 305px ทำให้ topbar แคบลง 2px → `check:pill` FAIL "topbar never overflows 2px"
+  แก้ด้วย `@media (max-width:1080px) { .status-pill { gap:5px; padding:0 8px } }`
+- เทสต์: `check-status-pill.js` เปลี่ยน check เดิม "popover readable ≥240px" (ขัดกับข้อกำหนดใหม่) เป็น 3 checks
+  · กว้างเท่าแท็บ (±1px) · ขอบซ้ายตรงกับแท็บ · ยังเท่ากันเมื่อแท็บโตขึ้น (เปลี่ยน `usageCost` เป็น 999,999/1,000,000 → 336px, 375px ตาม)
+- วัดได้: หน้าต่างปกติ แท็บ 336 → panel 336 · หน้าต่างขั้นต่ำ 900px แท็บ 108 → panel 108
+- ผล: `check:pill` ผ่านทั้งหมด · `check:sidebar` ผ่าน · `npm test` ผ่าน 61 scripts
+
+**ตั้งค่า > เกี่ยวกับ: แยกหัวข้อ "อัปเดต" ออกจากข้อมูลส่วนตัว + จัดใหม่ให้สบายตา (ผู้ใช้สั่ง 2026-11-17)**
+- เดิมบล็อกอัปเดตอยู่ใต้ข้อมูลผู้พัฒนาในคอลัมน์เดียวกัน ดูเป็นรายการเดียวกัน
+- `index.html`: เพิ่ม `<div class="about-sep" role="separator">` (เส้นคั่น) แล้วห่ออัปเดตใหม่เป็น `settings-group update-card`
+  · หัวการ์ด: ไอคอน SVG (ลูกศรวน) + ชื่อ "อัปเดต" + ชิปเวอร์ชัน (`#updateVersion`) ชิดขวา
+  · สถานะ (`#updateStatus`) · แถบความคืบหน้า · ปุ่มในการ์ดแยกแถว (`update-card-actions`)
+  · คง id เดิมทั้งหมด (`updateVersion`, `updateStatus`, `updateCheckBtn`, `updateActionBtn`, `updateBar`, `updatePct`) → JS ไม่ต้องแก้
+- `styles.css`: `.about-sep` เป็นเส้น gradient จางไปทางขวา · `.update-card` การ์ดมุมโค้ง 14px + พื้นไล่เฉดบาง ๆ
+  `.update-card-icon` กล่องไอคอน 26px · `.update-chip` แคปซูลเวอร์ชัน · `.update-status` ลบ margin ทับของ `.settings-hint`
+- เครื่องมือใหม่: `scripts/shot-settings-about.js` ถ่าย PNG ของ panel เกี่ยวกับ (ใช้ตรวจตา ไม่ได้อยู่ในชุดเทสต์)
+  · harness ไม่มี main process → `openSettings()` ล้มเหลว ต้องบังคับ `.overlay.hidden=false` + `showSettingsSection('about')`
+- ตรวจด้วยตาแล้ว (ภาพที่ C:/NTAPI/outputs/downloads/settings-about-th.png): เส้นคั่นชัด การ์ดแยกจริง ชิป/ปุ่มไม่ล้น ไม่ตัด
+- ผล: `npm test` ผ่าน 61 scripts · `check:pill` ผ่าน · `check:sidebar` ผ่าน

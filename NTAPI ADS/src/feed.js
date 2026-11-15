@@ -74,7 +74,13 @@ const MEDIA_H = mediaSize(DEFAULT_RATIO).h;
  * refresh: past a few hundred KB the banner costs more than it earns.
  */
 const MAX_IMAGE_BYTES = 1_200_000;
-const MAX_VIDEO_BYTES = 8_000_000;
+
+/**
+ * A clip goes to GitHub as-is (this tool has no ffmpeg by design), and GitHub
+ * refuses any single file over 100MB. So that is the ceiling, not a round number
+ * we picked: a bigger creative cannot be published at all.
+ */
+const MAX_VIDEO_BYTES = 100 * 1000 * 1000;
 const MAX_POSTER_BYTES = 400_000;
 
 /** Sidebar-height budget. A loop longer than this reads as an ad takeover. */

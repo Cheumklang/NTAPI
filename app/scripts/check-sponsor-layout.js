@@ -94,8 +94,8 @@ const MEASURE_MIXED = `(async () => {
     g.fillText(w + 'x' + h, 40, 120);
     return c.toDataURL('image/webp', 0.8);
   };
-  sponsorMediaCache.set('wide', { ok: true, type: 'image', dataUrl: make(1072, 536) });
-  sponsorMediaCache.set('tall', { ok: true, type: 'image', dataUrl: make(858, 1072) });
+  sponsorMediaCache.set('wide', { type: 'image', url: make(1072, 536) });
+  sponsorMediaCache.set('tall', { type: 'image', url: make(858, 1072) });
   const host = document.getElementById('sponsorMedia');
   const side = document.getElementById('sidebar');
   const heights = [];
@@ -267,6 +267,63 @@ async function atSize(win, label, width, height) {
   check(`${label}: the card says where it goes on hover`, on.title === 'https://www.term24hr.in.th/', on.title);
 }
 
+/**
+ * The sound switch, driven through the real renderer.
+ *
+ * Sound must be off by default (an unmuted clip cannot autoplay at all, and a
+ * banner that talks to a room loses users), and it has to be possible to turn on
+ * with a click — the gesture Chromium requires before audio may play. An image
+ * slot has no sound, so the switch must not appear for it.
+ */
+const SOUND = `(async () => {
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  lang = 'th';
+  sponsor = {
+    enabled: true,
+    rotateSeconds: 15,
+    slots: [{
+      id: 'clip',
+      url: 'https://example.com/clip',
+      media: { type: 'video', ratio: '2:1', alt: 'Clip' },
+      text: { th: { label: 'ผู้สนับสนุน', title: 'คลิปวิดีโอ' }, en: { label: 'Sponsor', title: 'Clip' } },
+    }],
+  };
+  sponsorSlotIndex = 0;
+  sponsorSoundOn = false;
+  const host = document.getElementById('sponsorMedia');
+  const btn = document.getElementById('sponsorSound');
+  paintSponsor();
+  // No IPC in this harness, so the clip is placed by hand: what is under test is
+  // the switch, not the download.
+  const video = document.createElement('video');
+  video.src = 'ntapi-sponsor://media/clip.mp4';
+  video.muted = true;
+  host.replaceChildren(video);
+  updateSponsorSoundButton(sponsor.slots[0]);
+  await frame();
+  const before = {
+    hidden: btn.hidden,
+    muted: video.muted,
+    pressed: btn.getAttribute('aria-pressed'),
+    label: btn.getAttribute('aria-label'),
+  };
+  btn.click();
+  await frame();
+  const after = {
+    hidden: btn.hidden,
+    muted: video.muted,
+    pressed: btn.getAttribute('aria-pressed'),
+    label: btn.getAttribute('aria-label'),
+  };
+  btn.click();
+  await frame();
+  const back = { muted: video.muted, pressed: btn.getAttribute('aria-pressed') };
+  sponsor.slots[0].media.type = 'image';
+  updateSponsorSoundButton(sponsor.slots[0]);
+  await frame();
+  return { before, after, back, onImage: { hidden: btn.hidden } };
+})()`;
+
 app.whenReady().then(async () => {
   main();
 }).catch((err) => {
@@ -319,6 +376,17 @@ async function main() {
     Math.abs(mixed.ratios[0] - 2) < 0.05 && Math.abs(mixed.ratios[1] - 0.8) < 0.05, {
       ratios: mixed.ratios,
     });
+
+  // A clip must arrive silent, and the switch is the only way to change that.
+  const sound = await win.webContents.executeJavaScript(SOUND);
+  console.log('\nsound switch', JSON.stringify(sound));
+  check('a clip is muted until asked otherwise', sound.before.muted === true && sound.before.pressed === 'false', sound.before);
+  check('the sound switch is offered for a clip', sound.before.hidden === false, sound.before);
+  check('clicking it unmutes the clip', sound.after.muted === false, sound.after);
+  check('the switch reports its state to screen readers', sound.after.pressed === 'true', sound.after);
+  check('the label changes with the state, in Thai', sound.after.label !== sound.before.label && /เสียง/.test(sound.after.label), sound.after.label);
+  check('clicking again mutes it', sound.back.muted === true && sound.back.pressed === 'false', sound.back);
+  check('an image slot has no sound switch', sound.onImage.hidden === true, sound.onImage);
 
   console.log(failures ? `\n${failures} check(s) failed` : '\nAll sponsor layout checks passed');
   app.exit(failures ? 1 : 0);

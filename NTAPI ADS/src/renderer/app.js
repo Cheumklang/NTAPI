@@ -127,6 +127,12 @@ function slotFromFeed(raw) {
   slot.media.type = raw.media.type;
   slot.media.file = raw.media.file;
   slot.media.poster = raw.media.poster || '';
+  // The frame is part of the published creative, not a view preference: the file
+  // in the repo is already cropped to it. Dropping it here reset the dropdown to
+  // 2:1 the moment the feed was reloaded after a publish, so a 1:1 upload came
+  // back as a 2:1 band and the next publish would claim a square file was wide.
+  // Missing or unknown (older feeds) falls back to 2:1, same as the readers.
+  slot.media.ratio = R.ratioOf(raw.media && raw.media.ratio);
   // `file` is a repo-relative path, so the preview renders from the CDN — the
   // same bytes an installed NTAPI would fetch.
   slot.media.previewUrl = `${R.readBase[0]}${raw.media.file}`;

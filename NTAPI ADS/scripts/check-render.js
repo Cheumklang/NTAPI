@@ -35,6 +35,10 @@ const fakeFeed = {
 };
 
 let published = null;
+// Flipped by the publish stub: the window reloads the feed right after a
+// successful publish, and that reload is where a hand-set frame ratio used to
+// vanish. The reload serves the *published* feed, ratio included.
+let publishedOnce = false;
 
 ipcMain.handle('cfg:get', () => ({
   owner: 'Cheumklang',
@@ -46,11 +50,29 @@ ipcMain.handle('cfg:get', () => ({
 }));
 ipcMain.handle('cfg:save', (_e, raw) => ({ owner: raw.owner, repo: raw.repo, branch: raw.branch, hasToken: true, tokenHint: 'x', lastPublish: '' }));
 ipcMain.handle('repo:check', () => ({ ok: true, canPush: true, fullName: 'Cheumklang/NTAPI-sponsor', private: false }));
-ipcMain.handle('feed:load', () => ({ ok: true, feed: fakeFeed, sha: 'sha1' }));
+ipcMain.handle('feed:load', () => {
+  if (!publishedOnce) return { ok: true, feed: fakeFeed, sha: 'sha1' };
+  return {
+    ok: true,
+    sha: 'sha2',
+    feed: {
+      ...fakeFeed,
+      slots: [
+        {
+          ...fakeFeed.slots[0],
+          // 4:5 is neither the old default nor the ratio switched in the window,
+          // so reading it back can only come from the feed.
+          media: { ...fakeFeed.slots[0].media, ratio: '4:5' },
+        },
+      ],
+    },
+  };
+});
 ipcMain.handle('media:pick', () => ({ ok: false, canceled: true }));
 ipcMain.handle('media:fetch', () => ({ ok: false, error: 'not used' }));
 ipcMain.handle('publish', (_e, payload) => {
   published = payload;
+  publishedOnce = true;
   return { ok: true, done: ['media/a.webp', 'sponsor.json'], updated: 'now', slots: payload.slots.length };
 });
 ipcMain.handle('shell:open', () => ({ ok: true }));
@@ -240,6 +262,25 @@ async function main() {
     expect('publish carries the rotate interval', sent.rotateSeconds === 15, String(sent.rotateSeconds));
     expect('publish carries the chosen frame ratio', slot && slot.media.ratio === '1:1',
       slot ? String(slot.media.ratio) : 'no slot');
+  }
+
+  // ---- the frame survives the reload that follows a publish.
+  // The file in the repo is already cropped to its frame, so the feed is the only
+  // place that shape is written down. Losing it on reload snapped the dropdown
+  // back to 2:1 and made the next publish describe a square creative as wide.
+  const reloaded = await waitFor(async () => {
+    const out = await js(`(() => {
+      const card = document.querySelector('.slot');
+      const select = card && card.querySelector('select');
+      const media = document.getElementById('frameMedia').getBoundingClientRect();
+      return { ratio: select ? select.value : '', w: Math.round(media.width), h: Math.round(media.height) };
+    })()`);
+    return out.ratio === '4:5' ? out : null;
+  }, 6000);
+  expect('feed ratio is read back after publish', Boolean(reloaded), 'dropdown did not return to the published ratio');
+  if (reloaded) {
+    const shape = reloaded.h ? reloaded.w / reloaded.h : 0;
+    expect('published ratio drives the preview box', Math.abs(shape - 4 / 5) < 0.03, `${reloaded.w}x${reloaded.h}`);
   }
 
   expect('no console errors after interactions', errors.length === 0, errors.join(' | '));

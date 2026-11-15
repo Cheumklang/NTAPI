@@ -184,7 +184,13 @@ check('the media never squashes', /object-fit:\s*cover/.test(css));
 // Height comes from the ratio the feed asks for and the sidebar width, never
 // from a number that would fight the resizer. A cap is allowed and wanted: it is
 // what stops a tall 4:5 banner from eating the session list in a short window.
-check('the strip takes its height from the ratio', !/(?<!max-)height:\s*\d+px/.test(sponsorBlock));
+// The sound switch is a 24px overlay on the creative, not part of the strip's
+// geometry, so its own size is stripped out before this check — otherwise a
+// button would be reported as "the strip has a fixed height".
+const stripBlock = sponsorBlock.replace(/\.sponsor-sound\s*\{[^}]*\}/g, '');
+check('the strip takes its height from the ratio', !/(?<!max-)height:\s*\d+px/.test(stripBlock));
+check('the sound switch floats over the creative instead of taking a row',
+  /\.sponsor-sound\s*\{[^}]*position:\s*absolute/.test(sponsorBlock));
 check('a tall banner is capped so it cannot eat the column', /max-height:\s*\d+px/.test(mediaRule));
 
 if (failures) {

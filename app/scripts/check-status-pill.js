@@ -105,7 +105,14 @@ const MEASURE = `(async () => {
 
   pill.click();
   await frame();
-  const open = { hidden: pop.hidden, box: box(pop), expanded: pill.getAttribute('aria-expanded') };
+  const open = { hidden: pop.hidden, box: box(pop), pill: box(pill), expanded: pill.getAttribute('aria-expanded') };
+
+  // The panel must be the same width as the tab at all times, including when the
+  // tab itself changes size underneath it. Long numbers are the everyday case.
+  document.getElementById('usageCost').textContent = '999,999 / 1,000,000';
+  document.getElementById('usagePct').textContent = '100%';
+  await frame();
+  const grown = { pill: box(pill), box: box(pop) };
 
   // Escape must close it and hand focus back to the pill.
   pop.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -145,6 +152,7 @@ const MEASURE = `(async () => {
     pinnedStays,
     unpinnedClosed,
     open,
+    grown,
     escaped,
     outside,
     provider,
@@ -194,10 +202,13 @@ async function atSize(win, label, width, height) {
     popover: m.open.box,
     viewport: m.viewport.w,
   });
-  check(`${label}: the popover is a readable panel`, m.open.box.w >= 240 && m.open.box.h >= 120, {
-    w: m.open.box.w,
-    h: m.open.box.h,
-  });
+  check(`${label}: the popover is exactly as wide as its tab`,
+    Math.abs(m.open.box.w - m.open.pill.w) <= 1, { panel: m.open.box.w, tab: m.open.pill.w });
+  check(`${label}: the popover is flush with the tab's left edge`,
+    Math.abs(m.open.box.x - m.open.pill.x) <= 1, { panel: m.open.box.x, tab: m.open.pill.x });
+  check(`${label}: it stays that width when the tab grows`,
+    Math.abs(m.grown.box.w - m.grown.pill.w) <= 1 && m.grown.box.w >= m.open.box.w - 1,
+    { panel: m.grown.box.w, tab: m.grown.pill.w, before: m.open.box.w });
   check(`${label}: Escape closes it`, m.escaped.hidden === true);
   check(`${label}: Escape puts focus back on the pill`, m.escaped.focused === true);
   check(`${label}: a click outside closes it`, m.outside.hidden === true);

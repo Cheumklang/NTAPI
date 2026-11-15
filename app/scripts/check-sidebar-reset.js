@@ -90,7 +90,12 @@ const SETUP = `(async () => {
   }
   await wait(60);
 
-  return { before, afterDivider, rewidened, afterSidebar, afterRow, afterHome, defaultWidth: 268 };
+  // The width a reset is allowed to land on: the shipped default, unless the
+  // column's longest single line needs more than that (see sidebarMinWidth()).
+  const floor = Math.round(sidebarMinWidth());
+  const expected = Math.max(268, floor);
+
+  return { before, afterDivider, rewidened, afterSidebar, afterRow, afterHome, defaultWidth: 268, floor, expected };
 })()`;
 
 app.whenReady()
@@ -125,20 +130,21 @@ async function main() {
 
   check('the divider and sidebar are in the page', !m.error, m.error);
   if (!m.error) {
-    check('a dragged width is honoured first', m.before > 268, { before: m.before });
+    check('a dragged width is honoured first', m.before > m.expected, { before: m.before, expected: m.expected });
     check('double-clicking the divider restores the default width',
-      Math.abs(m.afterDivider - 268) <= 1, { after: m.afterDivider });
-    check('the reset happens again after widening to the sidebar edge', m.rewidened > 268, { rewidened: m.rewidened });
+      Math.abs(m.afterDivider - m.expected) <= 1, { after: m.afterDivider, expected: m.expected });
+    check('the reset happens again after widening to the sidebar edge', m.rewidened > m.expected, { rewidened: m.rewidened });
     check('double-clicking the sidebar background restores it too',
-      Math.abs(m.afterSidebar - 268) <= 1, { after: m.afterSidebar });
+      Math.abs(m.afterSidebar - m.expected) <= 1, { after: m.afterSidebar, expected: m.expected });
     if (m.afterRow) {
       check('a double-click on a session row does not resize', m.afterRow.after === m.afterRow.before, m.afterRow);
     }
-    check('Home on the divider restores it as well', Math.abs(m.afterHome - 268) <= 1, { after: m.afterHome });
-    // The reset must not have crossed the minimum-width floor either: 268 is the
-    // shipped default and the sidebar header needs less than that.
-    check('the reset never goes below the default it restored', m.afterDivider >= m.defaultWidth - 1, {
+    check('Home on the divider restores it as well', Math.abs(m.afterHome - m.expected) <= 1, { after: m.afterHome, expected: m.expected });
+    // The reset must not have crossed the minimum-width floor either: it lands on
+    // whichever is larger, the shipped default or the longest line in the column.
+    check('the reset never goes below the floor', m.afterDivider >= m.floor && m.afterDivider >= m.defaultWidth - 1, {
       after: m.afterDivider,
+      floor: m.floor,
     });
   }
 
