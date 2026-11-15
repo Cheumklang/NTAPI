@@ -1,8 +1,11 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-**อัปเดตล่าสุด:** 2026-11-17 · **v0.5.2** (`master`)
+**อัปเดตล่าสุด:** 2026-11-17 · **v0.5.3** (`master`)
 
 > **สถานะ ณ 2026-11-17 (อ่านตรงนี้ก่อน):**
+> - **commit แล้ว (ยังไม่ push): `915859a` โฆษณาเต็มกรอบและอยู่กึ่งกลาง sidebar**
+>   → ดูหัวข้อ **1zzz** · **ค้าง 1 ข้อ:** เช็กเก่า `each creative keeps its own shape, fitted not cropped`
+>   ใน `scripts/check-sponsor-layout.js` แดง เพราะเลือก `object-fit: cover` (ผู้ใช้รับรู้แล้ว)
 > - **แก้แล้ว (ยังไม่ commit): NTAPI ADS อัตราส่วนดีดกลับเป็น 2:1 หลังกดเผยแพร่**
 >   · ต้นเหตุ: `slotFromFeed()` ใน `ADS/src/renderer/app.js` ไม่ได้อ่าน `media.ratio` กลับมา
 >   → หลัง `await loadFeed()` ใน `publish()` ช่องอัตราส่วนกลับไปเป็นค่าเริ่มต้น `2:1`
@@ -154,6 +157,28 @@
 - ❌ ผิด: 6 calls แยกกัน รอผลทีละอัน (เคยเกิดจริง 2026-11-17: commit+push call หนึ่ง แล้วแยก curl เช็ค CI อีก call)
 
 ## 1) กําลังทํา / ค้างอยู่ตอนนี้ (สําคัญสุด — อ่านก่อน)
+
+### 1zzz) โฆษณาเต็มกรอบ + อยู่กึ่งกลาง sidebar (2026-11-17) ✅ commit `915859a` (ยังไม่ push)
+
+**โจทย์ผู้ใช้:** รูป/วิดีโอโฆษณาเหลือแถบว่างบน–ล่าง และภาพเบี่ยงออกซ้าย ไม่กลาง sidebar
+(ผู้ใช้วาดเส้นแดงเทียบในภาพ — วัดได้ ช่องซ้าย 1px / ขวา 16px)
+
+- **ต้นเหตุจริง (ไม่ใช่ align):** `.sponsor-card` ใช้ `width:100%` + `padding:5px 7px` +
+  `border:1px` + `margin:0 -7px` และ `* { box-sizing: border-box }` → content box แคบกว่าคอลัมน์
+  **16px** และถูกดึงไปทางซ้าย → แบนเนอร์ชิดซ้าย (ภาพ 264px จากคอลัมน์ 305px)
+- **แก้:** `width: calc(100% + 16px)` + `margin: 0 -8px` (padding+border ใส่กลับให้ครบ)
+  → วัดใหม่: **ซ้าย 0px / ขวา 1px** · ภาพกว้าง **280px** (เต็มคอลัมน์) ทั้ง 1240×840 และ 900×560
+- **แก้ตามที่ผู้ใช้ย้ำ:** ห้ามจัดกลาง *ข้อความ* — ข้อความคง `align-items: flex-start` (ชิดซ้าย)
+  · จัดกลางเฉพาะกรอบภาพ (`.sponsor-media`)
+- **เต็มกรอบ:** `.sponsor-media img, video { width:100%; height:100%; object-fit: cover }`
+- **เทสต์:** `selftest-sponsor.js` เพิ่มเช็ก (ข้อความชิดซ้าย · กรอบภาพกลาง · เต็มกว้าง/สูง · cover)
+  · `check-sponsor-layout.js` เพิ่ม `mediaInsetLeft/Right` + เช็ก "creative band is centred in the column"
+  · **RED ก่อนแก้:** `{left:1, right:16}` → **GREEN:** `{left:0, right:1}`
+  · `selftest-sponsor` ผ่านทั้งหมด · `npm test` ผ่าน 61 scripts
+- **ค้าง (ผู้ใช้รู้แล้ว · สั่ง "ไม่ต้องแก้อะไร"):** `check-sponsor-layout.js` ยัง FAIL 1 ข้อ
+  `each creative keeps its own shape, fitted not cropped` — เพราะ `cover` ทำให้ creative 2:1
+  ในกรอบ 4:5 ถูกครอป (ratios 0.94/0.8) · ถ้าจะเขียวทั้งชุด = แก้เช็กนั้นให้ตรงเจตนาใหม่ (บรรทัดเดียว)
+- **ยังไม่ bump เวอร์ชัน** (0.5.3) · ยังไม่ build · ยังไม่ push
 
 ### 1zz) สปอนเซอร์แบบสด + โปรแกรมที่สอง `NTAPI ADS` (2026-11-16) ⚠️ เสร็จ ยังไม่ commit
 
