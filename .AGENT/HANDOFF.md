@@ -14,8 +14,8 @@
 >   (118,297,212 bytes · sha256 `2e7059f885b22f3e428e11f3f603f141b92c06bd1c641aa8309afabdbf4deaab`)
 >   · หน้า release ตอบ 200
 > - **หลักฐาน:** `record-release 0.5.15` (seq 43) + `anchor` + `verify` **OK 43 entries**
-> - **ลบรุ่นเก่า:** push marker `[prune-releases keep=v0.5.15 apply tags]` → เป้าหมายเหลือ release/tag
->   `v0.5.15` รุ่นเดียว (ตรวจผลจากรายการ release สาธารณะ + `git ls-remote --tags`)
+> - **ลบรุ่นเก่า:** push marker `[prune-releases keep=v0.5.15 apply tags]` → **ตรวจแล้ว เหลือ `v0.5.15` รุ่นเดียว**
+>   (asset ของ `v0.5.14` ตอบ 404 · feed สาธารณะเหลือ `v0.5.15` · `git ls-remote --tags` เหลือ tag แค่ `v0.5.15`)
 > - **สถานะรุ่น:** tag `v0.5.15` → `91b4cf4` · `app/package.json` = `0.5.15` · **รุ่นถัดไป = `0.5.16`**
 
 > **สถานะ ณ 2026-11-17 (ป้ายสถานะ Zro: ชื่อโมเดลยาวเกินป้าย — แก้แล้ว · รวมออกใน 0.5.15):**

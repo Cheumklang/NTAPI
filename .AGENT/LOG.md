@@ -2638,4 +2638,7 @@ e้า diff ของ `turnFailure()` + `tabState` synthetic error banner ต�
 
 **ลบรุ่นเก่า:** push marker `[prune-releases keep=v0.5.15 apply tags]` (workflow `prune-releases.yml`) → ให้เหลือ `v0.5.15` รุ่นเดียว
 
+**ผลตรวจ prune:** asset `NTAPI-Setup-0.5.14.exe` → **404** · atom feed เหลือ `v0.5.15` · `git ls-remote --tags origin` เหลือ tag แค่ `v0.5.15` → ลบจริง เหลือรุ่นเดียว
+(หน้า HTML `releases/tag/v0.5.14` ยังตอบ 200 เพราะ CDN cache — เชื่อถือสัญญาณ asset 404/atom/tag ไม่ใช่หน้านั้น)
+
 **บทเรียน:** API GitHub (`api.github.com`) ติด rate limit จาก IP เครื่องนี้ (403) — ตรวจ release ได้ด้วย URL สาธารณะ `github.com/.../releases/latest/download/latest.yml` และดาวน์โหลดไฟล์จริงมา hash แทน
