@@ -2058,3 +2058,41 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - **บทเรียนของเทิร์นนี้:** `gh` CLI ไม่มีใน shell นี้ — GitHub ใช้ **stored credential ของ `git credential fill`**
   (40 ตัว · classic PAT) ยิง REST API แทนได้ · และ `/releases/tags/<tag>` ต้องถามที่ **`Cheumklang/NTAPI-releases`**
   ไม่ใช่ repo ต้นทาง (ต้นทางมีแค่ tag)
+
+**รอบแก้ 4 เรื่อง (ยังไม่ commit · 2026-11-17)**
+- **โฆษณา: เส้นแบ่ง/ระยะไม่กลับลงมา** — `paintSponsorMedia()` เคยจองความสูงตามสัดส่วนที่สูงสุดใน feed
+  (`sponsorReservedRatio`) → พอเปลี่ยนไปชิ้นเล็ก แถบยังสูงเท่าเดิม เส้นแบ่งค้างบน + โหว่ระหว่างโฆษณากับ label
+  · แก้: ใช้สัดส่วนของ slot ที่แสดงอยู่ (`sponsorRatio(slot)`) + CSS `aspect-ratio: var(--sponsor-r, 2)`
+  · ลบ `sponsorReservedRatio()` ทิ้ง · วัดจริง: 2:1 = 140px / 4:5 = 338px (เดิมเท่ากัน)
+  · `selftest-sponsor` เปลี่ยนเช็ก "2:1 ตายตัว" → "ตามสัดส่วน slot" · `check-sponsor-layout` 61 checks ผ่าน
+- **เมนู model: "เฉพาะฟรี" กดคำไม่ได้** — คำไม่ใช่โฟกัสได้ → กดแล้ว focus ตกไป `<body>` → `focusout` ปิดเมนู
+  ก่อน checkbox ถูกติ๊ก (เหลือแต่กล่อง 13px) · แก้: `tabindex="-1"` ที่ label + flag `modelPickerPress`
+  ให้ `focusout` ข้ามการปิดเมื่อการกดเริ่มใน picker
+- **เมนู model: scroll bar แนวนอน** — `.model-list { overflow-x: hidden }` + ขยายเมนู 372 → 440px (แนวตั้งไม่แตะ)
+- **first-run guide (ใหม่)** — `GUIDE_STEPS` 4 สเต็ปชี้ของจริง: ปุ่มตั้งค่า → แท็บผู้ให้บริการ → model picker → ช่องพิมพ์
+  · สเต็ป 1–2 เลื่อนเองเมื่อผู้ใช้กดของจริง · ปุ่ม "ข้าม" ทุกสเต็ป · เก็บ `prefs.guideDone` (whitelist ใน `prefs:set`)
+  · `scripts/check-first-run-guide.js` 14 checks
+- **undo 5 วิ หลังกด Enter ตอน AI ว่าง (ใหม่)** — `offerUndoSend()` แถว "แก้ไขได้อีก {n} วิ · แก้ไข/ยกเลิก"
+  · ส่งทันทีเหมือนเดิม (ไม่หน่วง) · ยกเลิก/แก้ไข = `api.abort` + ถอนข้อความ + คืนคำกลับช่องพิมพ์
+  · `scripts/check-undo-send.js` 9 checks · `npm test` 66 scripts ผ่าน
+- **เปิดโปรแกรมใหม่แล้วไม่กลับไปแชทล่าสุด (2026-11-17 · ยังไม่ commit)** — เดิม `boot()` เปิด
+  `tabs[0]` เสมอ → มี 2 แชทเปิดไว้ ปิด/เปิดใหม่เด้งไปอีกแชท
+  · แก้: `rememberActiveTab()` เขียน `prefs.activeSession` ทุกครั้งที่แท็บกลายเป็นแท็บที่ดูอยู่
+  (`applyTabState`) · `restoringTabs` ปิดการเขียนระหว่างกู้แท็บ ไม่งั้นแท็บสุดท้ายที่กู้จะทับค่า
+  · `pickRestoreTarget()` เลือกแท็บที่จำไว้ (เทียบ path แบบไม่สนตัวพิมพ์) ไม่เจอ → `tabs[0]`
+  · `prefs:set` รับ `activeSession` เฉพาะ path ที่อยู่ใต้ `DATA_ROOT/sessions`
+  · เทสต์ใหม่ `scripts/check-restore-active-tab.js` 9 checks · `npm run check:restore`
+- **ค้างสถานะ “กำลังทำงาน” + กดหยุดไม่ได้ (2026-11-17 · ยังไม่ commit)** — ผู้ใช้แจ้ง: AI ตอบจบแล้ว
+  แต่ป้ายยังขึ้นกำลังทำงาน และปุ่มหยุดกดไม่ติด
+  · ต้นเหตุ 1: `prompt:abort` ใน main **await `session.abort()` ก่อน** ล้าง `tab.busy`
+  → เซสชันที่ไม่ทำงานอยู่/ติดรอคำตอบ `abort()` ไม่คืนค่า → ป้ายค้าง + กดซ้ำก็เงียบ
+  (แก้: ล้างธง + `sendTab busy:false` **ก่อน** แล้ว `Promise.race` กับ timeout 4 วิ)
+  · ต้นเหตุ 2: renderer ปิดป้ายเฉพาะ settled ของแท็บที่ active ตอนนั้น → เทิร์นจบในแท็บอื่น/สลับแท็บ
+  แล้ว event ตก → ป้ายค้าง (แก้: `paintBusyFromViews()` อ่าน `activeView().busy` + ตัวกระทบยอด
+  ทุก 4 วิ ถาม `api.getTabState()` ว่าจริง ๆ ยังทำงานไหม)
+  · เทสต์: `selftest-busy-state.js` 7 checks (อยู่ใน `npm test` = 67 scripts) ·
+  `check-busy-state.js` 8 checks (`npm run check:busy`) · ปรับ window ใน `selftest-model-fallback` 600→1400
+- **กฎใหม่: “ส่งอัปเดต” vs “build” (ผู้ใช้สั่ง 2026-11-17 · เขียนใน `AGENTS.md` + `.AGENT/HANDOFF.md` §0)**
+  · **ส่งอัปเดต** = bump + tag + push → คนที่ติดตั้งแล้วกดอัปเดตในโปรแกรมได้ · ไม่ต้อง build/แนบตัวติดตั้งให้คนใหม่โหลด · ไม่ต้องลบ release เก่า
+  · **build** = ส่งอัปเดต + ตรวจว่า `NTAPI-Setup-X.Y.Z.exe` + `latest.yml` ครบ ลิงก์โหลดใช้ได้ + **ลบ release/tag เก่าให้เหลือรุ่นเดียว**
+  · ไม่ชัด = ถาม · แก้เลขค้างใน AGENTS.md (`0.5.1` → รอบถัดไป `0.5.9`) ให้ตรงกับ HANDOFF
