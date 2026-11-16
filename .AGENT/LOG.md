@@ -2219,3 +2219,30 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - `npm test` **69/69** · `check:scroll` 7 · `check:read` 34 · `check:fold` 12 · `check:chips` · `check:busy` · `check:marks` ผ่าน
 - `check:turn-blocks` ยังแดงข้อ “gap ระหว่างบล็อก” (แดงมาก่อนรอบนี้ ไม่ใช่ของใหม่)
 - ยังไม่ commit / ยังไม่ปล่อย — รอบถัดไป `0.5.12`
+
+## 2026-11-17 — คิวค้างเพราะโปรแกรมยังคิดว่า AI ทำงานอยู่
+
+**อาการ (จากภาพ):** composer ขึ้น “AI กำลังทำงาน” + ปุ่ม “หยุด” แต่เทิร์นจบไปแล้ว → คิวไม่ถูกส่งต่อ
+**ต้นเหตุ:** คิวถูกปล่อยจาก event `agent:settled` ทางเดียว ถ้า event นั้นหายไป (listener โยน,
+แท็บถูก rebuild, reload) `view.busy` ค้าง true ตลอด → `drainQueue()` ไม่เคยถูกเรียก
+· `reconcileBusy()` เดิมซ่อมแค่ **ปุ่ม** และดูแค่ **แท็บที่เปิดอยู่** → คิวในแท็บอื่นไม่ไปไหน
+· ฝั่ง main มี watchdog (`session.isIdle` 2 ครั้งติด → ส่ง settled) แต่ถ้า `tab.busy` ฝั่ง main
+  เป็น false อยู่แล้ว มันไม่ทำอะไร (นับเฉพาะแท็บที่ busy) → ช่องว่างนี้เองที่ค้าง
+
+**แก้ (`app/src/renderer/app.js`)**
+· `settleStaleTurn(view)` — ทำทุกอย่างที่ `agent:settled` ทำ: ปล่อย busy/steerPending,
+  ปลด hold, **`drainQueue(view)` ก่อน** แล้วค่อยวาดปุ่ม + `clearViewActivity` ใน try/catch
+  (คิวคือสิ่งที่ผู้ใช้รอ; node ที่หายไปต้องไม่ทำให้ข้อความค้าง)
+· `reconcileBusy()` — วน **ทุก view ที่ busy** ถาม `api.getTabState` ถ้า main บอกไม่ busy → settle
+  (เดิมดูแค่ active view และไม่เคย drain) + ไม่มีแท็บ → `setBusy(false)`
+· `selftest-busy-state.js` อัปเดต assertion เป็น `tabState` + `active?.busy` และเพิ่มเช็ค
+  `settleStaleTurn` / `drainQueue`
+
+**เทสต์ใหม่** `scripts/check-stale-queue.js` (9 checks · `check:stale-queue`)
+: 2 แท็บค้าง busy พร้อมคิว → reconcile → ทั้งคู่หลุด, ข้อความถูกส่ง, ปุ่มกลับเป็น Send,
+  และเทิร์นที่ “ทำงานจริง” ไม่ถูกตัดจบ
+
+## ผลเทสต์
+- `npm test` **69/69** · `check:stale-queue` 9 · `check:busy` · `check:queue` · `check:hold` ·
+  `check:chips` · `check:scroll` · `check:fold` ผ่านหมด
+- ยังไม่ commit/ปล่อย — รอบถัดไป `0.5.12`

@@ -1,6 +1,9 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
 > **สถานะ ณ 2026-11-17 (ยังไม่ปล่อย — งานค้างรอ `0.5.12`):**
+> - **แก้แล้ว (๓): คิวค้างเพราะ busy ค้าง** → `settleStaleTurn()` (ปลด hold + `drainQueue` ก่อนวาด),
+>   `reconcileBusy()` วนทุก busy tab แล้วถาม `api.getTabState` · เทสต์ `scripts/check-stale-queue.js` (`check:stale-queue`)
+
 > - **แก้แล้ว:** (๑) สลับแชทแล้วไม่ไปข้อความล่าสุด → `holdBottom()` + `pinScrollTop()` ยึดท้าย 900 ms
 >   หลัง forced jump, ผู้ใช้ลากเองยังชนะเสมอ · เทสต์ `scripts/check-scroll-to-latest.js` (`check:scroll`)
 >   (๒) รายการโมเดลย่อ/ขยายแต่ละบริษัทได้ → หัวกลุ่มเป็น `<button>`, `.model-group-body`,
