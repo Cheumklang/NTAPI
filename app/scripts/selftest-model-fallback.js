@@ -140,6 +140,38 @@ check('nothing at all is safe', F.failedModelFromMessage(undefined) === null && 
 check('sameModel compares route, not object identity', F.sameModel({ provider: 'zro', id: 'a' }, { provider: 'zro', id: 'a' }));
 check('sameModel rejects two ids on one provider', !F.sameModel({ provider: 'zro', id: 'a' }, { provider: 'zro', id: 'b' }));
 
+/* --------------- the failure pi removes from the projection --------------- */
+//
+// Reported from the window: free-pi answered the first prompt, then the next one
+// went completely silent — no reply, no banner, no notice. The session file had
+// the 429 `hourly_ceiling`, and the SDK had dropped that attempt from its model
+// projection because it scheduled a retry. Cancelling the retry settles the run
+// with the list ending on the user's message, so "last message is an error" was
+// false and every settle-time reader gave up.
+
+const hourlyCeiling =
+  '429: {"message":"This account hit its hourly limit; try again after it resets.","code":"hourly_ceiling","type":"free_pi_error"}';
+const onlyUserTurn = [{ role: 'user', content: [{ type: 'text', text: 'ทำงานที่ค้างก่อนคับ' }] }];
+const remembered = { seq: 7, text: hourlyCeiling, provider: 'free-pi', model: 'deepseek-v4.1-flash' };
+
+const dropped = F.turnFailure({ messages: onlyUserTurn, limitFailure: remembered, seq: 7 });
+check('a failure the projection already dropped is still known', dropped && dropped.text === hourlyCeiling);
+check('the dropped failure still names its route', dropped && dropped.provider === 'free-pi' && dropped.model === 'deepseek-v4.1-flash');
+check(
+  'a failure from an older prompt is not reused',
+  F.turnFailure({ messages: onlyUserTurn, limitFailure: remembered, seq: 8 }) === null
+);
+check('a healthy turn has no failure', F.turnFailure({ messages: [{ role: 'assistant', stopReason: 'stop' }], seq: 7 }) === null);
+check('no messages and no memory is safe', F.turnFailure({}) === null && F.turnFailure(undefined) === null);
+
+const stillThere = F.turnFailure({
+  messages: [{ role: 'assistant', stopReason: 'error', errorMessage: 'boom', provider: 'zro', model: 'deepseek-r1' }],
+  limitFailure: remembered,
+  seq: 7,
+});
+check('an error still in the list is read from the list', stillThere && stillThere.text === 'boom');
+check('the list names the route it carries', stillThere && stillThere.provider === 'zro' && stillThere.model === 'deepseek-r1');
+
 /* --------------------- walking the pool, round by round --------------------- */
 
 // Simulate a turn: each round one route refuses, we retire *that* route and pick
@@ -229,7 +261,14 @@ check(
 check('a spent pool is announced once', main.includes('announceFallbackExhausted(tabId, tab)'));
 
 const settleWindow = main.slice(main.indexOf('async function runModelFallback'), main.indexOf('async function runEmptyAnswerRetry'));
-check('the settle path blames the failed message', settleWindow.includes('failedModelFromMessage(last)'));
+check(
+  'the settle path reads the failure from the copy pi cannot drop',
+  settleWindow.includes('turnFailure({ messages, limitFailure: tab.limitFailure, seq: tab.promptSeq || 0 })')
+);
+check(
+  'the settle path blames the route the failure recorded',
+  settleWindow.includes('failedModelFromMessage(') && settleWindow.includes('failure.provider && failure.model')
+);
 check('the settle path no longer blames the current selection', !settleWindow.includes('switchToNextFreeModel(tabId, tab);'));
 // `tab.fallback` is null until something creates it; reading the field directly
 // skipped the very first limit failure of every prompt — silently.
@@ -239,11 +278,25 @@ check(
 );
 check(
   'a short throttle never burns a free route',
-  /const reason = [\s\S]{0,200}?isTransientThrottle\(\{ text: reason \}\)/.test(settleWindow)
+  settleWindow.includes('isTransientThrottle({ text: failure.text })')
 );
+check('only a limit failure switches', settleWindow.includes('isLimitError({ text: failure.text })'));
 check(
   'a failed turn that was never reported is announced at settle',
   /function announceIfUnreported\(tabId, tab\)/.test(main) && main.includes('announceIfUnreported(tabId, tab)')
+);
+check(
+  'the settle-time announcer uses the same remembered failure',
+  /function announceIfUnreported\(tabId, tab\)[\s\S]{0,400}?turnFailure\(/.test(main)
+);
+check(
+  'a dropped failure stays visible after a repaint',
+  (() => {
+    const at = main.indexOf('function tabState(tabId)');
+    const end = main.indexOf('/** Ads and the usage meter belong to FreePi models only. */', at);
+    const window = at === -1 ? '' : main.slice(at, end === -1 ? at + 2600 : end);
+    return window.includes('turnFailure(') && window.includes("kind: 'error'");
+  })()
 );
 check(
   'a reported failure is remembered per prompt',
@@ -269,18 +322,21 @@ check(
 );
 check(
   'the limit is remembered when the retry is cancelled',
-  /case 'auto_retry_start'[\s\S]{0,2200}?tab\.limitFailure = \{ seq: tab\.promptSeq \|\| 0/.test(main),
+  /case 'auto_retry_start'[\s\S]{0,2400}?tab\.limitFailure = \{[\s\S]{0,90}?seq: tab\.promptSeq \|\| 0/.test(main),
+);
+check(
+  'the remembered limit carries the route that refused',
+  /tab\.limitFailure = \{[\s\S]{0,200}?provider:[\s\S]{0,100}?model:/.test(main),
 );
 check(
   'the limit is remembered when the turn ends on it',
-  /case 'message_end'[\s\S]{0,900}?tab\.limitFailure = \{ seq: tab\.promptSeq \|\| 0/.test(main),
+  /case 'message_end'[\s\S]{0,900}?tab\.limitFailure = \{[\s\S]{0,120}?seq: tab\.promptSeq \|\| 0/.test(main),
 );
 check('a user Stop is not a spent allowance', /prompt:abort[\s\S]{0,1400}?tab\.limitFailure = null;/.test(main));
 check(
   'the settle path accepts an aborted turn when the limit was ours',
-  /if \(last\.stopReason !== 'error' && last\.stopReason !== 'aborted'\) return;/.test(main) &&
-    /const limit = tab\.limitFailure && tab\.limitFailure\.seq === \(tab\.promptSeq \|\| 0\);/.test(settleWindow) &&
-    /if \(!limit && !isLimitError\(\{ text: last\.errorMessage \}\)\) return;/.test(settleWindow),
+  settleWindow.includes('turnFailure({ messages, limitFailure: tab.limitFailure, seq: tab.promptSeq || 0 })') &&
+    settleWindow.includes('if (!failure) return;'),
 );
 check(
   'continuing the turn survives "agent is already processing"',

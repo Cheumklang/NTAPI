@@ -173,6 +173,39 @@ function failedModelFromMessage(message) {
   return { provider, id, name: id };
 }
 
+/**
+ * The failure that ended this turn, from whichever record still has it.
+ *
+ * pi removes a failed attempt from its model projection when it schedules a
+ * retry ("context_edit" with a null replacement). When this app cancels that
+ * retry, the run settles with the message list already ending on the user's own
+ * message: every settle-time reader then saw a normal turn, so a limited route
+ * ended the conversation with no switch, no notice and no banner. The remembered
+ * limit is the copy pi cannot take away.
+ *
+ * @param {{ messages?: Array<object>, limitFailure?: object|null, seq?: number }} [input]
+ * @returns {{ text: string, provider: string|null, model: string|null }|null}
+ */
+function turnFailure({ messages = [], limitFailure = null, seq = 0 } = {}) {
+  const list = Array.isArray(messages) ? messages : [];
+  const last = list[list.length - 1];
+  if (last && last.role === 'assistant' && (last.stopReason === 'error' || last.stopReason === 'aborted')) {
+    return {
+      text: last.errorMessage || limitFailure?.text || '',
+      provider: last.provider || null,
+      model: last.model || last.responseModel || null,
+    };
+  }
+  if (limitFailure && limitFailure.seq === (seq || 0) && limitFailure.text) {
+    return {
+      text: limitFailure.text,
+      provider: limitFailure.provider || null,
+      model: limitFailure.model || null,
+    };
+  }
+  return null;
+}
+
 /** True when two entries describe the same route. */
 function sameModel(a, b) {
   if (!a || !b) return false;
@@ -247,6 +280,7 @@ module.exports = {
   nextFallbackModel,
   modelKey,
   failedModelFromMessage,
+  turnFailure,
   sameModel,
   exhaustedMessage,
   switchMessage,

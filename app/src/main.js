@@ -61,6 +61,7 @@ const {
   modelKey,
   sameModel,
   failedModelFromMessage,
+  turnFailure,
   switchMessage,
 } = require('./model-fallback');
 
@@ -1459,16 +1460,19 @@ async function resumeAgentTurn(tab) {
  * So the settle path asks the source that cannot lose it: the agent's own
  * message list. A turn that ends on an error never reported for this prompt is
  * reported here.
+ *
+ * That list is not enough on its own. When pi schedules a retry it drops the
+ * failed attempt from the projection, and the abort above is what ends the run —
+ * so by settle time the list already looks like a normal turn. `turnFailure`
+ * falls back to the limit this process wrote down before cancelling.
  */
 function announceIfUnreported(tabId, tab) {
   const seq = tab.promptSeq || 0;
   if (tab.lastError?.seq === seq) return;
   const messages = tab.handle?.session?.agent?.state?.messages || [];
-  const last = messages[messages.length - 1];
-  if (!last || last.role !== 'assistant' || last.stopReason !== 'error') return;
-  const raw = last.errorMessage || tab.limitFailure?.text || '';
-  if (!raw) return;
-  reportTabError(tabId, raw);
+  const failure = turnFailure({ messages, limitFailure: tab.limitFailure, seq });
+  if (!failure || !failure.text) return;
+  reportTabError(tabId, failure.text);
 }
 
 async function runModelFallback(tabId, tab) {
@@ -1482,23 +1486,28 @@ async function runModelFallback(tabId, tab) {
   if (tab.busy) return;
 
   const messages = tab.handle?.session?.agent?.state?.messages || [];
-  const last = messages[messages.length - 1];
-  if (!last || last.role !== 'assistant') return;
-  if (last.stopReason !== 'error' && last.stopReason !== 'aborted') return;
-  // Either the turn ends on the limit error itself, or on the abort this process
-  // sent to stop pi retrying that error. Both mean the same thing: the route is
-  // spent and the work it was doing has to finish somewhere else.
-  const limit = tab.limitFailure && tab.limitFailure.seq === (tab.promptSeq || 0);
-  if (!limit && !isLimitError({ text: last.errorMessage })) return;
+  // pi removes the failed attempt from its projection when it schedules a retry,
+  // and the abort this process sends settles the run afterwards. Reading only the
+  // last message therefore saw a normal turn (the user's own) and gave up in
+  // silence — the reported case: free-pi `hourly_ceiling` answered the first
+  // prompt, then the next one vanished with no banner, no switch and no notice.
+  // `turnFailure` keeps the failure this process recorded before cancelling.
+  const failure = turnFailure({ messages, limitFailure: tab.limitFailure, seq: tab.promptSeq || 0 });
+  if (!failure) return;
+  if (!isLimitError({ text: failure.text })) return;
   // A per-minute throttle clears on its own. pi's backoff re-asks the same route
   // a few seconds later and it answers, so switching models to dodge that wait
   // costs the run a request, its context and its tool results for nothing.
-  const reason = tab.limitFailure?.text || last.errorMessage || '';
-  if (isTransientThrottle({ text: reason })) return;
+  if (isTransientThrottle({ text: failure.text })) return;
 
-  // Blame the route recorded on the failed message, not whatever is selected
-  // now: pi may have retried elsewhere before giving up.
-  const res = await switchToNextFreeModel(tabId, tab, failedModelFromMessage(last));
+  // Blame the route recorded on the failure, not whatever is selected now: pi may
+  // have retried elsewhere before giving up, and the projection no longer names
+  // the attempt it dropped.
+  const failed =
+    failure.provider && failure.model
+      ? { provider: failure.provider, id: failure.model, name: failure.model }
+      : failedModelFromMessage(messages[messages.length - 1]);
+  const res = await switchToNextFreeModel(tabId, tab, failed);
   if (!res.ok) {
     if (res.exhausted) announceFallbackExhausted(tabId, tab);
     else if (res.error) {
@@ -1647,10 +1656,30 @@ function tabSummary(tabId) {
 function tabState(tabId) {
   const tab = tabs.get(tabId);
   if (!tab) return null;
+  const messages = messagesForUi(tab.handle.session.messages);
+  // A failed attempt that pi dropped from its projection still has to be visible
+  // after a repaint: `messagesForUi` reads that same projection, so without this
+  // the turn redraws as "user asked, nothing came back". Only the last failure of
+  // the current prompt is added, and only while the turn did not recover — a
+  // successful reply below it means the story already ended well.
+  const failure = turnFailure({
+    messages: tab.handle.session.messages,
+    limitFailure: tab.limitFailure,
+    seq: tab.promptSeq || 0,
+  });
+  const lastDrawn = messages[messages.length - 1];
+  const alreadyShown = lastDrawn && (lastDrawn.kind === 'error' || lastDrawn.kind === 'assistant');
+  if (failure && failure.text && !alreadyShown) {
+    messages.push({
+      kind: 'error',
+      text: friendlyProviderError(failure.text, { provider: failure.provider }).text,
+      ts: Date.now(),
+    });
+  }
   return {
     ...tabSummary(tabId),
     models: tab.handle.modelList,
-    messages: messagesForUi(tab.handle.session.messages),
+    messages,
     stats: safeCall(() => tab.handle.stats(), null),
     todos: safeCall(() => tab.handle.todoItems(), []),
     thinking: safeCall(() => tab.handle.thinking(), null),
@@ -1821,7 +1850,12 @@ function subscribeTab(tabId) {
           // the failure to "aborted", and "aborted" is on the list of errors that
           // must never trigger a switch. The turn would then end in silence.
           if (isLimitError({ text: m.errorMessage })) {
-            tab.limitFailure = { seq: tab.promptSeq || 0, text: m.errorMessage || '' };
+            tab.limitFailure = {
+              seq: tab.promptSeq || 0,
+              text: m.errorMessage || '',
+              provider: m.provider || null,
+              model: m.model || m.responseModel || null,
+            };
           }
           reportTabError(tabId, m.errorMessage);
         } else if (m?.role === 'assistant' && m.stopReason === 'length') {
@@ -1855,8 +1889,15 @@ function subscribeTab(tabId) {
           const session = tab.handle.session;
           // Record the reason before aborting: the abort is ours, and it hides the
           // 429 that caused it. `runModelFallback` reads this instead of the last
-          // error sentence, which is all it would otherwise have left.
-          tab.limitFailure = { seq: tab.promptSeq || 0, text: event.errorMessage || '' };
+          // error sentence, which all it would otherwise have left is a projection
+          // that no longer contains the failed attempt.
+          const current = tab.handle?.session?.model || null;
+          tab.limitFailure = {
+            seq: tab.promptSeq || 0,
+            text: event.errorMessage || '',
+            provider: current?.provider || null,
+            model: current?.id || null,
+          };
           const stop = () => {
             try {
               session?.abortRetry?.();
