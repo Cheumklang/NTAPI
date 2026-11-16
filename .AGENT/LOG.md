@@ -2336,3 +2336,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 
 รวมงานหลัง 0.5.12: ข้อความของผู้ใช้อยู่เหนือคำตอบเสมอ (pendingAt) · ปุ่มซื้อเครดิตครบ 5 เจ้า
 · THIRD-PARTY-NOTICES ในตัวติดตั้ง + ข้อความ not-affiliated · ปลดคิวค้างเมื่อหน้าต่างอยู่เบื้องหลัง
+
+**แก้หลัง CI แดง (v0.5.13):** `selftest-notices` ล้มบน CI เพราะรายการ license สร้างจาก `node_modules`
+ที่แต่ละเครื่องติดตั้งไม่เหมือนกัน → เปลี่ยน `gen-notices.js` ให้อ่านจาก `package-lock.json` (137 แพ็กเกจ runtime)
+ไฟล์จึงเหมือนกันทุกเครื่อง · `notices:check` เขียว · `npm test` 71/71

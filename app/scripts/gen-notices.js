@@ -104,10 +104,51 @@ function licenceText(dir) {
   return null;
 }
 
+/*
+ * The list comes from `package-lock.json`, not from `node_modules`.
+ *
+ * Walking what happens to be installed made the document depend on the machine:
+ * npm resolves nested copies differently between versions and platforms, so the
+ * same commit produced a different notice file on CI than on the developer's
+ * machine — and the installer, built on CI, then shipped a notice that disagreed
+ * with the repository. The lockfile is the one list every machine agrees on.
+ */
+function runtimePackages() {
+  const lock = readJson(path.join(APP, 'package-lock.json'));
+  if (!lock || !lock.packages) {
+    // No lockfile (a fresh clone before `npm install`): fall back to the tree.
+    const root = readJson(path.join(APP, 'package.json')) || {};
+    return collect(Object.keys(root.dependencies || {}), new Set(), []);
+  }
+  const out = [];
+  for (const [key, entry] of Object.entries(lock.packages)) {
+    if (key === '' || !key.startsWith('node_modules/')) continue;
+    // Dev-only packages are not shipped: electron-builder, the test tooling.
+    if (entry.dev) continue;
+    const name = entry.name || key.slice(key.lastIndexOf('node_modules/') + 'node_modules/'.length);
+    out.push({
+      dir: path.join(APP, key),
+      pkg: {
+        name,
+        version: entry.version || '',
+        license: entry.license,
+        repository: entry.repository,
+        homepage: entry.homepage,
+      },
+    });
+  }
+  // A nested copy of the same name@version is listed once.
+  const seen = new Set();
+  return out.filter((p) => {
+    const k = `${p.pkg.name}@${p.pkg.version}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 function build() {
-  const root = readJson(path.join(APP, 'package.json')) || {};
-  const names = Object.keys(root.dependencies || {});
-  const packages = collect(names, new Set(), []);
+  const packages = runtimePackages();
 
   const rows = packages.map((p) => {
     const text = licenceText(p.dir);

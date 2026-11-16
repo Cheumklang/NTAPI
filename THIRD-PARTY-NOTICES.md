@@ -19,139 +19,142 @@ NTAPI is not affiliated with, endorsed by, or sponsored by any model provider.
 
 | แพ็กเกจ | เวอร์ชัน | สัญญาอนุญาต | ที่มา |
 | --- | --- | --- | --- |
-| `@anthropic-ai/sdk` | 0.129.0 | MIT | github:anthropics/anthropic-sdk-typescript |
-| `@aws-sdk/client-bedrock-runtime` | 3.1127.0 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/core` | 3.981.0 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/credential-provider-env` | 3.972.84 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/credential-provider-http` | 3.972.86 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/credential-provider-ini` | 3.973.30 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/credential-provider-login` | 3.972.92 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/credential-provider-node` | 3.972.97 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/credential-provider-process` | 3.972.84 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/credential-provider-sso` | 3.973.28 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/credential-provider-web-identity` | 3.972.90 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/eventstream-handler-node` | 3.972.42 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/middleware-eventstream` | 3.972.38 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/middleware-websocket` | 3.972.66 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/nested-clients` | 3.998.3 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/signature-v4-multi-region` | 3.996.52 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/token-providers` | 3.1127.0 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/types` | 3.975.1 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws-sdk/xml-builder` | 3.972.43 | Apache-2.0 | https://github.com/aws/aws-sdk-js-v3 |
-| `@aws/lambda-invoke-store` | 0.3.0 | Apache-2.0 | https://github.com/awslabs/aws-lambda-invoke-store |
-| `@babel/runtime` | 7.29.14 | MIT | https://github.com/babel/babel |
-| `@earendil-works/pi-agent-core` | 1.5.2 | MIT | https://github.com/earendil-works/pi |
-| `@earendil-works/pi-ai` | 1.5.2 | MIT | https://github.com/earendil-works/pi |
-| `@earendil-works/pi-codemode` | 1.5.2 | MIT | https://github.com/earendil-works/pi |
-| `@earendil-works/pi-coding-agent` | 1.2.0 | MIT | https://github.com/earendil-works/pi |
-| `@earendil-works/pi-mcp` | 1.5.2 | MIT | https://github.com/earendil-works/pi |
-| `@earendil-works/pi-schema` | 1.5.2 | MIT | https://github.com/earendil-works/pi |
-| `@earendil-works/pi-telemetry` | 1.5.2 | MIT | https://github.com/earendil-works/pi |
-| `@earendil-works/pi-tui` | 1.5.2 | MIT | https://github.com/earendil-works/pi |
-| `@google/genai` | 2.21.0 | Apache-2.0 | https://github.com/googleapis/js-genai |
-| `@protobufjs/aspromise` | 1.1.2 | BSD-3-Clause | https://github.com/dcodeIO/protobuf.js |
-| `@protobufjs/base64` | 1.1.2 | BSD-3-Clause | https://github.com/dcodeIO/protobuf.js |
-| `@protobufjs/codegen` | 2.0.5 | BSD-3-Clause | https://github.com/dcodeIO/protobuf.js |
-| `@protobufjs/eventemitter` | 1.1.1 | BSD-3-Clause | https://github.com/dcodeIO/protobuf.js |
-| `@protobufjs/fetch` | 1.1.1 | BSD-3-Clause | https://github.com/dcodeIO/protobuf.js |
-| `@protobufjs/float` | 1.0.2 | BSD-3-Clause | https://github.com/dcodeIO/protobuf.js |
-| `@protobufjs/path` | 1.1.2 | BSD-3-Clause | https://github.com/dcodeIO/protobuf.js |
-| `@protobufjs/pool` | 1.1.0 | BSD-3-Clause | https://github.com/dcodeIO/protobuf.js |
-| `@protobufjs/utf8` | 1.1.2 | BSD-3-Clause | https://github.com/protobufjs/protobuf.js |
-| `@silvia-odwyer/photon-node` | 0.3.4 | Apache-2.0 | https://github.com/silvia-odwyer/photon |
-| `@smithy/core` | 3.40.0 | Apache-2.0 | https://github.com/smithy-lang/smithy-typescript |
-| `@smithy/credential-provider-imds` | 4.5.2 | Apache-2.0 | https://github.com/smithy-lang/smithy-typescript |
-| `@smithy/fetch-http-handler` | 5.8.1 | Apache-2.0 | https://github.com/smithy-lang/smithy-typescript |
-| `@smithy/node-http-handler` | 4.12.1 | Apache-2.0 | https://github.com/smithy-lang/smithy-typescript |
-| `@smithy/signature-v4` | 5.7.5 | Apache-2.0 | https://github.com/smithy-lang/smithy-typescript |
-| `@smithy/types` | 4.20.0 | Apache-2.0 | https://github.com/smithy-lang/smithy-typescript |
-| `@stablelib/base64` | 1.0.1 | MIT | https://github.com/StableLib/stablelib |
-| `@types/node` | 22.20.5 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
-| `@types/retry` | 0.12.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
-| `agent-base` | 7.1.4 | MIT | https://github.com/TooTallNate/proxy-agents |
-| `ansi-styles` | 4.3.0 | MIT | chalk/ansi-styles |
-| `argparse` | 2.0.1 | Python-2.0 | nodeca/argparse |
-| `balanced-match` | 4.0.4 | MIT | git://github.com/juliangruber/balanced-match |
-| `base64-js` | 1.5.1 | MIT | git://github.com/beatgammit/base64-js |
-| `bignumber.js` | 9.3.1 | MIT | https://github.com/MikeMcl/bignumber.js |
-| `bowser` | 2.15.0 | MIT | https://github.com/bowser-js/bowser |
-| `brace-expansion` | 5.0.13 | MIT | https://github.com/juliangruber/brace-expansion |
-| `buffer-equal-constant-time` | 1.0.1 | BSD-3-Clause | git@github.com:goinstant/buffer-equal-constant-time |
-| `builder-util-runtime` | 9.7.0 | MIT | https://github.com/electron-userland/electron-builder |
-| `chalk` | 4.1.2 | MIT | chalk/chalk |
-| `color-convert` | 2.0.1 | MIT | Qix-/color-convert |
-| `color-name` | 1.1.4 | MIT | git@github.com:colorjs/color-name |
-| `cross-spawn` | 7.0.6 | MIT | git@github.com:moxystudio/node-cross-spawn |
-| `data-uri-to-buffer` | 4.0.1 | MIT | git://github.com/TooTallNate/node-data-uri-to-buffer |
-| `debug` | 4.4.3 | MIT | git://github.com/debug-js/debug |
-| `diff` | 8.0.4 | BSD-3-Clause | https://github.com/kpdecker/jsdiff |
-| `ecdsa-sig-formatter` | 1.0.11 | Apache-2.0 | ssh://git@github.com/Brightspace/node-ecdsa-sig-formatter |
-| `electron-updater` | 6.8.11 | MIT | https://github.com/electron-userland/electron-builder |
-| `extend` | 3.0.2 | MIT | https://github.com/justmoon/node-extend |
-| `fast-sha256` | 1.3.0 | Unlicense | https://github.com/dchest/fast-sha256-js |
-| `fetch-blob` | 3.2.0 | MIT | https://github.com/node-fetch/fetch-blob |
-| `formdata-polyfill` | 4.0.10 | MIT | https://jimmywarting@github.com/jimmywarting/FormData |
-| `fs-extra` | 8.1.0 | MIT | https://github.com/jprichardson/node-fs-extra |
-| `gaxios` | 7.3.1 | Apache-2.0 | https://github.com/googleapis/google-cloud-node |
-| `gcp-metadata` | 8.1.2 | Apache-2.0 | https://github.com/googleapis/google-cloud-node-core |
-| `get-east-asian-width` | 1.6.0 | MIT | sindresorhus/get-east-asian-width |
-| `google-auth-library` | 10.9.1 | Apache-2.0 | https://github.com/googleapis/google-cloud-node |
-| `google-logging-utils` | 1.1.3 | Apache-2.0 | https://github.com/googleapis/google-cloud-node-core |
-| `graceful-fs` | 4.2.12 | BlueOak-1.0.0 | https://github.com/isaacs/node-graceful-fs |
-| `grok-mermaid` | 0.2.3 | Apache-2.0 | github:xl0/grok-mermaid |
-| `has-flag` | 4.0.0 | MIT | sindresorhus/has-flag |
-| `highlight.js` | 10.7.3 | BSD-3-Clause | git://github.com/highlightjs/highlight.js |
-| `hosted-git-info` | 4.1.0 | ISC | https://github.com/npm/hosted-git-info |
-| `http-proxy-agent` | 7.0.2 | MIT | https://github.com/TooTallNate/proxy-agents |
-| `https-proxy-agent` | 7.0.6 | MIT | https://github.com/TooTallNate/proxy-agents |
-| `ignore` | 7.0.8 | MIT | https://github.com/kaelzhang/node-ignore |
-| `isexe` | 3.1.5 | BlueOak-1.0.0 | https://github.com/isaacs/isexe |
-| `jiti` | 2.7.0 | MIT | unjs/jiti |
-| `js-yaml` | 4.3.2 | MIT | nodeca/js-yaml |
-| `json-bigint` | 1.0.0 | MIT | git@github.com:sidorares/json-bigint |
-| `json-schema-to-ts` | 3.1.1 | MIT | https://github.com/ThomasAribart/json-schema-to-ts |
-| `jsonfile` | 4.0.0 | MIT | git@github.com:jprichardson/node-jsonfile |
-| `jwa` | 2.0.1 | MIT | git://github.com/brianloveswords/node-jwa |
-| `jws` | 4.0.1 | MIT | git://github.com/brianloveswords/node-jws |
-| `lazy-val` | 1.0.5 | MIT | develar/lazy-val |
-| `lodash.escaperegexp` | 4.1.2 | MIT | lodash/lodash |
-| `lodash.isequal` | 4.5.0 | MIT | lodash/lodash |
-| `long` | 5.3.2 | Apache-2.0 | https://github.com/dcodeIO/long.js |
-| `lru-cache` | 6.0.0 | ISC | git://github.com/isaacs/node-lru-cache |
-| `marked` | 18.0.11 | MIT | https://github.com/markedjs/marked |
-| `marked-cjk-friendly` | 0.1.2 | MIT | https://github.com/tats-u/markdown-cjk-friendly |
-| `minimatch` | 10.2.6 | BlueOak-1.0.0 | git@github.com:isaacs/minimatch |
-| `ms` | 2.1.3 | MIT | vercel/ms |
-| `node-domexception` | 1.0.0 | MIT | https://github.com/jimmywarting/node-domexception |
-| `node-fetch` | 3.3.2 | MIT | https://github.com/node-fetch/node-fetch |
-| `openai` | 7.19.0 | Apache-2.0 | github:openai/openai-node |
-| `p-retry` | 4.6.2 | MIT | sindresorhus/p-retry |
-| `partial-json` | 0.1.7 | MIT | https://github.com/promplate/partial-json-parser-js |
-| `path-key` | 3.1.1 | MIT | sindresorhus/path-key |
-| `proper-lockfile` | 4.1.2 | MIT | git@github.com:moxystudio/node-proper-lockfile |
-| `protobufjs` | 7.6.6 | BSD-3-Clause | protobufjs/protobuf.js |
-| `quickjs-wasi` | 3.6.2 | MIT | git://github.com/vercel-labs/quickjs-wasi |
-| `retry` | 0.12.0 | MIT | git://github.com/tim-kos/node-retry |
-| `safe-buffer` | 5.1.2 | MIT | git://github.com/feross/safe-buffer |
-| `sax` | 1.6.1 | BlueOak-1.0.0 | ssh://git@github.com/isaacs/sax-js |
-| `semver` | 6.3.2 | ISC | https://github.com/npm/node-semver |
-| `shebang-command` | 2.0.0 | MIT | kevva/shebang-command |
-| `shebang-regex` | 3.0.0 | MIT | sindresorhus/shebang-regex |
-| `signal-exit` | 3.0.7 | ISC | https://github.com/tapjs/signal-exit |
-| `standardwebhooks` | 1.1.1 | MIT | https://github.com/standard-webhooks/standard-webhooks |
-| `supports-color` | 7.2.0 | MIT | chalk/supports-color |
-| `tiny-typed-emitter` | 2.1.0 | MIT | https://github.com/binier/tiny-typed-emitter |
-| `ts-algebra` | 2.0.0 | MIT | https://github.com/ThomasAribart/ts-algebra |
-| `tslib` | 2.9.1 | 0BSD | https://github.com/Microsoft/tslib |
-| `typebox` | 1.3.27 | MIT | https://github.com/sinclairzx81/typebox |
-| `undici` | 6.29.1 | MIT | https://github.com/nodejs/undici |
-| `undici-types` | 6.21.0 | MIT | https://github.com/nodejs/undici |
-| `universalify` | 0.1.2 | MIT | https://github.com/RyanZim/universalify |
-| `web-streams-polyfill` | 3.3.3 | MIT | https://github.com/MattiasBuelens/web-streams-polyfill |
-| `which` | 5.0.0 | ISC | https://github.com/npm/node-which |
-| `ws` | 8.23.0 | MIT | https://github.com/websockets/ws |
-| `yallist` | 4.0.0 | ISC | https://github.com/isaacs/yallist |
-| `yaml` | 2.9.0 | ISC | github:eemeli/yaml |
+| `@anthropic-ai/sdk` | 0.129.0 | MIT | — |
+| `@aws-sdk/client-bedrock-runtime` | 3.1127.0 | Apache-2.0 | — |
+| `@aws-sdk/core` | 3.981.0 | Apache-2.0 | — |
+| `@aws-sdk/credential-provider-env` | 3.972.84 | Apache-2.0 | — |
+| `@aws-sdk/credential-provider-http` | 3.972.86 | Apache-2.0 | — |
+| `@aws-sdk/credential-provider-ini` | 3.973.30 | Apache-2.0 | — |
+| `@aws-sdk/credential-provider-login` | 3.972.92 | Apache-2.0 | — |
+| `@aws-sdk/credential-provider-node` | 3.972.97 | Apache-2.0 | — |
+| `@aws-sdk/credential-provider-process` | 3.972.84 | Apache-2.0 | — |
+| `@aws-sdk/credential-provider-sso` | 3.973.28 | Apache-2.0 | — |
+| `@aws-sdk/credential-provider-web-identity` | 3.972.90 | Apache-2.0 | — |
+| `@aws-sdk/eventstream-handler-node` | 3.972.42 | Apache-2.0 | — |
+| `@aws-sdk/middleware-eventstream` | 3.972.38 | Apache-2.0 | — |
+| `@aws-sdk/middleware-websocket` | 3.972.66 | Apache-2.0 | — |
+| `@aws-sdk/nested-clients` | 3.998.3 | Apache-2.0 | — |
+| `@aws-sdk/signature-v4-multi-region` | 3.996.52 | Apache-2.0 | — |
+| `@aws-sdk/token-providers` | 3.1127.0 | Apache-2.0 | — |
+| `@aws-sdk/token-providers` | 3.1166.0 | Apache-2.0 | — |
+| `@aws-sdk/types` | 3.975.1 | Apache-2.0 | — |
+| `@aws-sdk/xml-builder` | 3.972.43 | Apache-2.0 | — |
+| `@aws/lambda-invoke-store` | 0.3.0 | Apache-2.0 | — |
+| `@babel/runtime` | 7.29.14 | MIT | — |
+| `@earendil-works/pi-agent-core` | 1.5.2 | MIT | — |
+| `@earendil-works/pi-ai` | 1.5.2 | MIT | — |
+| `@earendil-works/pi-codemode` | 1.5.2 | MIT | — |
+| `@earendil-works/pi-coding-agent` | 1.2.0 | MIT | — |
+| `@earendil-works/pi-mcp` | 1.5.2 | MIT | — |
+| `@earendil-works/pi-schema` | 1.5.2 | MIT | — |
+| `@earendil-works/pi-telemetry` | 1.5.2 | MIT | — |
+| `@earendil-works/pi-tui` | 1.5.2 | MIT | — |
+| `@google/genai` | 2.21.0 | Apache-2.0 | — |
+| `@protobufjs/aspromise` | 1.1.2 | BSD-3-Clause | — |
+| `@protobufjs/base64` | 1.1.2 | BSD-3-Clause | — |
+| `@protobufjs/codegen` | 2.0.5 | BSD-3-Clause | — |
+| `@protobufjs/eventemitter` | 1.1.1 | BSD-3-Clause | — |
+| `@protobufjs/fetch` | 1.1.1 | BSD-3-Clause | — |
+| `@protobufjs/float` | 1.0.2 | BSD-3-Clause | — |
+| `@protobufjs/path` | 1.1.2 | BSD-3-Clause | — |
+| `@protobufjs/pool` | 1.1.0 | BSD-3-Clause | — |
+| `@protobufjs/utf8` | 1.1.2 | BSD-3-Clause | — |
+| `@silvia-odwyer/photon-node` | 0.3.4 | Apache-2.0 | — |
+| `@smithy/core` | 3.40.0 | Apache-2.0 | — |
+| `@smithy/credential-provider-imds` | 4.5.2 | Apache-2.0 | — |
+| `@smithy/fetch-http-handler` | 5.8.1 | Apache-2.0 | — |
+| `@smithy/node-http-handler` | 4.12.1 | Apache-2.0 | — |
+| `@smithy/node-http-handler` | 4.14.2 | Apache-2.0 | — |
+| `@smithy/signature-v4` | 5.7.5 | Apache-2.0 | — |
+| `@smithy/types` | 4.20.0 | Apache-2.0 | — |
+| `@stablelib/base64` | 1.0.1 | MIT | — |
+| `@types/node` | 22.20.5 | MIT | — |
+| `@types/retry` | 0.12.0 | MIT | — |
+| `agent-base` | 7.1.4 | MIT | — |
+| `agent-base` | 9.0.0 | MIT | — |
+| `argparse` | 2.0.1 | Python-2.0 | — |
+| `balanced-match` | 4.0.4 | MIT | — |
+| `base64-js` | 1.5.1 | MIT | — |
+| `bignumber.js` | 9.3.1 | MIT | — |
+| `bowser` | 2.15.0 | MIT | — |
+| `brace-expansion` | 5.0.12 | MIT | — |
+| `brace-expansion` | 5.0.13 | MIT | — |
+| `buffer-equal-constant-time` | 1.0.1 | BSD-3-Clause | — |
+| `builder-util-runtime` | 9.7.0 | MIT | — |
+| `chalk` | 6.0.0 | MIT | — |
+| `cross-spawn` | 7.0.6 | MIT | — |
+| `data-uri-to-buffer` | 4.0.1 | MIT | — |
+| `debug` | 4.4.3 | MIT | — |
+| `diff` | 8.0.4 | BSD-3-Clause | — |
+| `ecdsa-sig-formatter` | 1.0.11 | Apache-2.0 | — |
+| `electron-updater` | 6.8.11 | MIT | — |
+| `extend` | 3.0.2 | MIT | — |
+| `fast-sha256` | 1.3.0 | Unlicense | — |
+| `fetch-blob` | 3.2.0 | MIT | — |
+| `formdata-polyfill` | 4.0.10 | MIT | — |
+| `fs-extra` | 10.1.0 | MIT | — |
+| `gaxios` | 7.3.1 | Apache-2.0 | — |
+| `gcp-metadata` | 8.1.2 | Apache-2.0 | — |
+| `get-east-asian-width` | 1.6.0 | MIT | — |
+| `google-auth-library` | 10.9.1 | Apache-2.0 | — |
+| `google-logging-utils` | 1.1.3 | Apache-2.0 | — |
+| `graceful-fs` | 4.2.12 | BlueOak-1.0.0 | — |
+| `grok-mermaid` | 0.2.3 | Apache-2.0 | — |
+| `highlight.js` | 10.7.3 | BSD-3-Clause | — |
+| `hosted-git-info` | 9.0.3 | ISC | — |
+| `http-proxy-agent` | 9.1.0 | MIT | — |
+| `https-proxy-agent` | 7.0.6 | MIT | — |
+| `https-proxy-agent` | 9.1.0 | MIT | — |
+| `ignore` | 7.0.8 | MIT | — |
+| `isexe` | 2.0.0 | ISC | — |
+| `jiti` | 2.7.0 | MIT | — |
+| `js-yaml` | 4.3.2 | MIT | — |
+| `json-bigint` | 1.0.0 | MIT | — |
+| `json-schema-to-ts` | 3.1.1 | MIT | — |
+| `jsonfile` | 6.2.1 | MIT | — |
+| `jwa` | 2.0.1 | MIT | — |
+| `jws` | 4.0.1 | MIT | — |
+| `lazy-val` | 1.0.5 | MIT | — |
+| `lodash.escaperegexp` | 4.1.2 | MIT | — |
+| `lodash.isequal` | 4.5.0 | MIT | — |
+| `long` | 5.3.2 | Apache-2.0 | — |
+| `lru-cache` | 11.5.3 | BlueOak-1.0.0 | — |
+| `marked` | 18.0.11 | MIT | — |
+| `marked-cjk-friendly` | 0.1.2 | MIT | — |
+| `minimatch` | 10.2.6 | BlueOak-1.0.0 | — |
+| `ms` | 2.1.3 | MIT | — |
+| `node-domexception` | 1.0.0 | MIT | — |
+| `node-fetch` | 3.3.2 | MIT | — |
+| `openai` | 7.19.0 | Apache-2.0 | — |
+| `p-retry` | 4.6.2 | MIT | — |
+| `partial-json` | 0.1.7 | MIT | — |
+| `path-key` | 3.1.1 | MIT | — |
+| `proper-lockfile` | 4.1.2 | MIT | — |
+| `protobufjs` | 7.6.6 | BSD-3-Clause | — |
+| `proxy-agent-negotiate` | 1.1.0 | MIT | — |
+| `quickjs-wasi` | 3.6.2 | MIT | — |
+| `retry` | 0.12.0 | MIT | — |
+| `retry` | 0.13.1 | MIT | — |
+| `safe-buffer` | 5.1.2 | MIT | — |
+| `sax` | 1.6.1 | BlueOak-1.0.0 | — |
+| `semver` | 7.7.4 | ISC | — |
+| `semver` | 7.8.5 | ISC | — |
+| `shebang-command` | 2.0.0 | MIT | — |
+| `shebang-regex` | 3.0.0 | MIT | — |
+| `signal-exit` | 3.0.7 | ISC | — |
+| `standardwebhooks` | 1.1.1 | MIT | — |
+| `tiny-typed-emitter` | 2.1.0 | MIT | — |
+| `ts-algebra` | 2.0.0 | MIT | — |
+| `tslib` | 2.9.1 | 0BSD | — |
+| `typebox` | 1.3.27 | MIT | — |
+| `undici` | 6.29.1 | MIT | — |
+| `undici` | 8.10.2 | MIT | — |
+| `undici-types` | 6.21.0 | MIT | — |
+| `universalify` | 2.0.1 | MIT | — |
+| `web-streams-polyfill` | 3.3.3 | MIT | — |
+| `which` | 2.0.2 | ISC | — |
+| `ws` | 8.23.0 | MIT | — |
+| `yaml` | 2.9.0 | ISC | — |
 | `electron` | — | MIT | https://github.com/electron/electron |
 | `Chromium / Node.js` | — | BSD-3-Clause / MIT and others | https://github.com/electron/electron/blob/main/docs/development/README.md |
 
@@ -159,7 +162,7 @@ NTAPI is not affiliated with, endorsed by, or sponsored by any model provider.
 
 ### @anthropic-ai/sdk 0.129.0
 
-Licence: MIT · github:anthropics/anthropic-sdk-typescript
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -175,7 +178,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### @aws-sdk/client-bedrock-runtime 3.1127.0
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -385,7 +388,7 @@ Apache License
 
 ### @aws-sdk/core 3.981.0
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -595,7 +598,7 @@ Apache License
 
 ### @aws-sdk/credential-provider-env 3.972.84
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -805,13 +808,13 @@ Apache License
 
 ### @aws-sdk/credential-provider-http 3.972.86
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @aws-sdk/credential-provider-ini 3.973.30
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -1021,13 +1024,13 @@ Apache License
 
 ### @aws-sdk/credential-provider-login 3.972.92
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @aws-sdk/credential-provider-node 3.972.97
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -1237,7 +1240,7 @@ Apache License
 
 ### @aws-sdk/credential-provider-process 3.972.84
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -1447,7 +1450,7 @@ Apache License
 
 ### @aws-sdk/credential-provider-sso 3.973.28
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -1657,7 +1660,7 @@ Apache License
 
 ### @aws-sdk/credential-provider-web-identity 3.972.90
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -1867,7 +1870,7 @@ Apache License
 
 ### @aws-sdk/eventstream-handler-node 3.972.42
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -2077,7 +2080,7 @@ Apache License
 
 ### @aws-sdk/middleware-eventstream 3.972.38
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -2287,7 +2290,7 @@ Apache License
 
 ### @aws-sdk/middleware-websocket 3.972.66
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -2497,13 +2500,13 @@ Apache License
 
 ### @aws-sdk/nested-clients 3.998.3
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @aws-sdk/signature-v4-multi-region 3.996.52
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -2713,7 +2716,217 @@ Apache License
 
 ### @aws-sdk/token-providers 3.1127.0
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
+
+จากไฟล์ `LICENSE`:
+
+```
+Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "{}"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright 2018-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+```
+
+### @aws-sdk/token-providers 3.1166.0
+
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -2923,7 +3136,7 @@ Apache License
 
 ### @aws-sdk/types 3.975.1
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -3133,7 +3346,7 @@ Apache License
 
 ### @aws-sdk/xml-builder 3.972.43
 
-Licence: Apache-2.0 · https://github.com/aws/aws-sdk-js-v3
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -3343,7 +3556,7 @@ Apache License
 
 ### @aws/lambda-invoke-store 0.3.0
 
-Licence: Apache-2.0 · https://github.com/awslabs/aws-lambda-invoke-store
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -3526,7 +3739,7 @@ Apache License
 
 ### @babel/runtime 7.29.14
 
-Licence: MIT · https://github.com/babel/babel
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -3557,55 +3770,55 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### @earendil-works/pi-agent-core 1.5.2
 
-Licence: MIT · https://github.com/earendil-works/pi
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @earendil-works/pi-ai 1.5.2
 
-Licence: MIT · https://github.com/earendil-works/pi
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @earendil-works/pi-codemode 1.5.2
 
-Licence: MIT · https://github.com/earendil-works/pi
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @earendil-works/pi-coding-agent 1.2.0
 
-Licence: MIT · https://github.com/earendil-works/pi
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @earendil-works/pi-mcp 1.5.2
 
-Licence: MIT · https://github.com/earendil-works/pi
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @earendil-works/pi-schema 1.5.2
 
-Licence: MIT · https://github.com/earendil-works/pi
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @earendil-works/pi-telemetry 1.5.2
 
-Licence: MIT · https://github.com/earendil-works/pi
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @earendil-works/pi-tui 1.5.2
 
-Licence: MIT · https://github.com/earendil-works/pi
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### @google/genai 2.21.0
 
-Licence: Apache-2.0 · https://github.com/googleapis/js-genai
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -3815,7 +4028,7 @@ Apache License
 
 ### @protobufjs/aspromise 1.1.2
 
-Licence: BSD-3-Clause · https://github.com/dcodeIO/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -3850,7 +4063,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### @protobufjs/base64 1.1.2
 
-Licence: BSD-3-Clause · https://github.com/dcodeIO/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -3885,7 +4098,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### @protobufjs/codegen 2.0.5
 
-Licence: BSD-3-Clause · https://github.com/dcodeIO/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -3920,7 +4133,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### @protobufjs/eventemitter 1.1.1
 
-Licence: BSD-3-Clause · https://github.com/dcodeIO/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -3955,7 +4168,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### @protobufjs/fetch 1.1.1
 
-Licence: BSD-3-Clause · https://github.com/dcodeIO/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -3990,7 +4203,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### @protobufjs/float 1.0.2
 
-Licence: BSD-3-Clause · https://github.com/dcodeIO/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -4025,7 +4238,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### @protobufjs/path 1.1.2
 
-Licence: BSD-3-Clause · https://github.com/dcodeIO/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -4060,7 +4273,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### @protobufjs/pool 1.1.0
 
-Licence: BSD-3-Clause · https://github.com/dcodeIO/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -4095,7 +4308,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### @protobufjs/utf8 1.1.2
 
-Licence: BSD-3-Clause · https://github.com/protobufjs/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -4130,7 +4343,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### @silvia-odwyer/photon-node 0.3.4
 
-Licence: Apache-2.0 · https://github.com/silvia-odwyer/photon
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE.md`:
 
@@ -4340,7 +4553,7 @@ Apache License
 
 ### @smithy/core 3.40.0
 
-Licence: Apache-2.0 · https://github.com/smithy-lang/smithy-typescript
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -4550,7 +4763,7 @@ Apache License
 
 ### @smithy/credential-provider-imds 4.5.2
 
-Licence: Apache-2.0 · https://github.com/smithy-lang/smithy-typescript
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -4760,7 +4973,7 @@ Apache License
 
 ### @smithy/fetch-http-handler 5.8.1
 
-Licence: Apache-2.0 · https://github.com/smithy-lang/smithy-typescript
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -4970,7 +5183,217 @@ Apache License
 
 ### @smithy/node-http-handler 4.12.1
 
-Licence: Apache-2.0 · https://github.com/smithy-lang/smithy-typescript
+Licence: Apache-2.0
+
+จากไฟล์ `LICENSE`:
+
+```
+Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "{}"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright 2018-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+```
+
+### @smithy/node-http-handler 4.14.2
+
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -5180,7 +5603,7 @@ Apache License
 
 ### @smithy/signature-v4 5.7.5
 
-Licence: Apache-2.0 · https://github.com/smithy-lang/smithy-typescript
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -5390,7 +5813,7 @@ Apache License
 
 ### @smithy/types 4.20.0
 
-Licence: Apache-2.0 · https://github.com/smithy-lang/smithy-typescript
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -5600,7 +6023,7 @@ Apache License
 
 ### @stablelib/base64 1.0.1
 
-Licence: MIT · https://github.com/StableLib/stablelib
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -5630,7 +6053,7 @@ SOFTWARE.
 
 ### @types/node 22.20.5
 
-Licence: MIT · https://github.com/DefinitelyTyped/DefinitelyTyped
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -5660,7 +6083,7 @@ MIT License
 
 ### @types/retry 0.12.0
 
-Licence: MIT · https://github.com/DefinitelyTyped/DefinitelyTyped
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -5690,7 +6113,7 @@ MIT License
 
 ### agent-base 7.1.4
 
-Licence: MIT · https://github.com/TooTallNate/proxy-agents
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -5719,27 +6142,40 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### ansi-styles 4.3.0
+### agent-base 9.0.0
 
-Licence: MIT · chalk/ansi-styles
+Licence: MIT
 
-จากไฟล์ `license`:
+จากไฟล์ `LICENSE`:
 
 ```
-MIT License
+(The MIT License)
 
-Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
+Copyright (c) 2013 Nathan Rajlich <nathan@tootallnate.net>
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### argparse 2.0.1
 
-Licence: Python-2.0 · nodeca/argparse
+Licence: Python-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -6002,7 +6438,7 @@ OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### balanced-match 4.0.4
 
-Licence: MIT · git://github.com/juliangruber/balanced-match
+Licence: MIT
 
 จากไฟล์ `LICENSE.md`:
 
@@ -6034,7 +6470,7 @@ SOFTWARE.
 
 ### base64-js 1.5.1
 
-Licence: MIT · git://github.com/beatgammit/base64-js
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6064,7 +6500,7 @@ THE SOFTWARE.
 
 ### bignumber.js 9.3.1
 
-Licence: MIT · https://github.com/MikeMcl/bignumber.js
+Licence: MIT
 
 จากไฟล์ `LICENCE.md`:
 
@@ -6098,7 +6534,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 ### bowser 2.15.0
 
-Licence: MIT · https://github.com/bowser-js/bowser
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6144,9 +6580,41 @@ programs and associated documentation files created by the
 Original Author, when distributed with the Software.
 ```
 
+### brace-expansion 5.0.12
+
+Licence: MIT
+
+จากไฟล์ `LICENSE`:
+
+```
+MIT License
+
+Copyright Julian Gruber <julian@juliangruber.com>
+
+TypeScript port Copyright Isaac Z. Schlueter <i@izs.me>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ### brace-expansion 5.0.13
 
-Licence: MIT · https://github.com/juliangruber/brace-expansion
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6178,7 +6646,7 @@ SOFTWARE.
 
 ### buffer-equal-constant-time 1.0.1
 
-Licence: BSD-3-Clause · git@github.com:goinstant/buffer-equal-constant-time
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE.txt`:
 
@@ -6199,7 +6667,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 ### builder-util-runtime 9.7.0
 
-Licence: MIT · https://github.com/electron-userland/electron-builder
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6227,62 +6695,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### chalk 4.1.2
+### chalk 6.0.0
 
-Licence: MIT · chalk/chalk
+Licence: MIT
 
 จากไฟล์ `license`:
 
 ```
 MIT License
 
-Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### color-convert 2.0.1
-
-Licence: MIT · Qix-/color-convert
-
-จากไฟล์ `LICENSE`:
-
-```
-Copyright (c) 2011-2016 Heather Arthur <fayearthur@gmail.com>
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### color-name 1.1.4
-
-Licence: MIT · git@github.com:colorjs/color-name
-
-จากไฟล์ `LICENSE`:
-
-```
-The MIT License (MIT)
-Copyright (c) 2015 Dmitry Ivanov
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -6293,7 +6715,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### cross-spawn 7.0.6
 
-Licence: MIT · git@github.com:moxystudio/node-cross-spawn
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6323,13 +6745,13 @@ THE SOFTWARE.
 
 ### data-uri-to-buffer 4.0.1
 
-Licence: MIT · git://github.com/TooTallNate/node-data-uri-to-buffer
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### debug 4.4.3
 
-Licence: MIT · git://github.com/debug-js/debug
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6357,7 +6779,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### diff 8.0.4
 
-Licence: BSD-3-Clause · https://github.com/kpdecker/jsdiff
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -6395,7 +6817,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### ecdsa-sig-formatter 1.0.11
 
-Licence: Apache-2.0 · ssh://git@github.com/Brightspace/node-ecdsa-sig-formatter
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -6605,7 +7027,7 @@ Apache License
 
 ### electron-updater 6.8.11
 
-Licence: MIT · https://github.com/electron-userland/electron-builder
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6635,7 +7057,7 @@ SOFTWARE.
 
 ### extend 3.0.2
 
-Licence: MIT · https://github.com/justmoon/node-extend
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6666,7 +7088,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### fast-sha256 1.3.0
 
-Licence: Unlicense · https://github.com/dchest/fast-sha256-js
+Licence: Unlicense
 
 จากไฟล์ `LICENSE`:
 
@@ -6699,7 +7121,7 @@ For more information, please refer to <http://unlicense.org>
 
 ### fetch-blob 3.2.0
 
-Licence: MIT · https://github.com/node-fetch/fetch-blob
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6729,7 +7151,7 @@ SOFTWARE.
 
 ### formdata-polyfill 4.0.10
 
-Licence: MIT · https://jimmywarting@github.com/jimmywarting/FormData
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6757,9 +7179,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### fs-extra 8.1.0
+### fs-extra 10.1.0
 
-Licence: MIT · https://github.com/jprichardson/node-fs-extra
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -6783,7 +7205,7 @@ OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHE
 
 ### gaxios 7.3.1
 
-Licence: Apache-2.0 · https://github.com/googleapis/google-cloud-node
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -6993,7 +7415,7 @@ Apache License
 
 ### gcp-metadata 8.1.2
 
-Licence: Apache-2.0 · https://github.com/googleapis/google-cloud-node-core
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -7203,7 +7625,7 @@ Apache License
 
 ### get-east-asian-width 1.6.0
 
-Licence: MIT · sindresorhus/get-east-asian-width
+Licence: MIT
 
 จากไฟล์ `license`:
 
@@ -7221,7 +7643,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### google-auth-library 10.9.1
 
-Licence: Apache-2.0 · https://github.com/googleapis/google-cloud-node
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -7431,7 +7853,7 @@ Apache License
 
 ### google-logging-utils 1.1.3
 
-Licence: Apache-2.0 · https://github.com/googleapis/google-cloud-node-core
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -7641,7 +8063,7 @@ Apache License
 
 ### graceful-fs 4.2.12
 
-Licence: BlueOak-1.0.0 · https://github.com/isaacs/node-graceful-fs
+Licence: BlueOak-1.0.0
 
 จากไฟล์ `LICENSE.md`:
 
@@ -7705,7 +8127,7 @@ software or this license, under any kind of legal claim.***
 
 ### grok-mermaid 0.2.3
 
-Licence: Apache-2.0 · github:xl0/grok-mermaid
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -7917,27 +8339,9 @@ Copyright 2026 Alexey Zaytsev
    limitations under the License.
 ```
 
-### has-flag 4.0.0
-
-Licence: MIT · sindresorhus/has-flag
-
-จากไฟล์ `license`:
-
-```
-MIT License
-
-Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
 ### highlight.js 10.7.3
 
-Licence: BSD-3-Clause · git://github.com/highlightjs/highlight.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -7973,9 +8377,9 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### hosted-git-info 4.1.0
+### hosted-git-info 9.0.3
 
-Licence: ISC · https://github.com/npm/hosted-git-info
+Licence: ISC
 
 จากไฟล์ `LICENSE`:
 
@@ -7995,9 +8399,9 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### http-proxy-agent 7.0.2
+### http-proxy-agent 9.1.0
 
-Licence: MIT · https://github.com/TooTallNate/proxy-agents
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8028,7 +8432,38 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### https-proxy-agent 7.0.6
 
-Licence: MIT · https://github.com/TooTallNate/proxy-agents
+Licence: MIT
+
+จากไฟล์ `LICENSE`:
+
+```
+(The MIT License)
+
+Copyright (c) 2013 Nathan Rajlich <nathan@tootallnate.net>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### https-proxy-agent 9.1.0
+
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8059,77 +8494,37 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### ignore 7.0.8
 
-Licence: MIT · https://github.com/kaelzhang/node-ignore
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
-### isexe 3.1.5
+### isexe 2.0.0
 
-Licence: BlueOak-1.0.0 · https://github.com/isaacs/isexe
+Licence: ISC
 
-จากไฟล์ `LICENSE.md`:
+จากไฟล์ `LICENSE`:
 
 ```
-# Blue Oak Model License
+The ISC License
 
-Version 1.0.0
+Copyright (c) Isaac Z. Schlueter and Contributors
 
-## Purpose
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
 
-This license gives everyone as much permission to work with
-this software as possible, while protecting contributors
-from liability.
-
-## Acceptance
-
-In order to receive this license, you must agree to its
-rules.  The rules of this license are both obligations
-under that agreement and conditions to your license.
-You must not do anything with this software that triggers
-a rule that you cannot or will not follow.
-
-## Copyright
-
-Each contributor licenses you to do everything with this
-software that would otherwise infringe that contributor's
-copyright in it.
-
-## Notices
-
-You must ensure that everyone who gets a copy of
-any part of this software from you, with or without
-changes, also gets the text of this license or a link to
-<https://blueoakcouncil.org/license/1.0.0>.
-
-## Excuse
-
-If anyone notifies you in writing that you have not
-complied with [Notices](#notices), you can keep your
-license by taking all practical steps to comply within 30
-days after the notice.  If you do not do so, your license
-ends immediately.
-
-## Patent
-
-Each contributor licenses you to do everything with this
-software that would otherwise infringe any patent claims
-they can license or become able to license.
-
-## Reliability
-
-No contributor can revoke this license.
-
-## No Liability
-
-***As far as the law allows, this software comes as is,
-without any warranty or condition, and no contributor
-will be liable to anyone for any damages related to this
-software or this license, under any kind of legal claim.***
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
+IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ### jiti 2.7.0
 
-Licence: MIT · unjs/jiti
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8159,7 +8554,7 @@ SOFTWARE.
 
 ### js-yaml 4.3.2
 
-Licence: MIT · nodeca/js-yaml
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8189,7 +8584,7 @@ THE SOFTWARE.
 
 ### json-bigint 1.0.0
 
-Licence: MIT · git@github.com:sidorares/json-bigint
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8218,7 +8613,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### json-schema-to-ts 3.1.1
 
-Licence: MIT · https://github.com/ThomasAribart/json-schema-to-ts
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8246,9 +8641,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### jsonfile 4.0.0
+### jsonfile 6.2.1
 
-Licence: MIT · git@github.com:jprichardson/node-jsonfile
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8272,7 +8667,7 @@ OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHE
 
 ### jwa 2.0.1
 
-Licence: MIT · git://github.com/brianloveswords/node-jwa
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8298,7 +8693,7 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEAL
 
 ### jws 4.0.1
 
-Licence: MIT · git://github.com/brianloveswords/node-jws
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8324,13 +8719,13 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEAL
 
 ### lazy-val 1.0.5
 
-Licence: MIT · develar/lazy-val
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
 ### lodash.escaperegexp 4.1.2
 
-Licence: MIT · lodash/lodash
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8386,7 +8781,7 @@ terms above.
 
 ### lodash.isequal 4.5.0
 
-Licence: MIT · lodash/lodash
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8442,7 +8837,7 @@ terms above.
 
 ### long 5.3.2
 
-Licence: Apache-2.0 · https://github.com/dcodeIO/long.js
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -8650,33 +9045,73 @@ Apache License
    limitations under the License.
 ```
 
-### lru-cache 6.0.0
+### lru-cache 11.5.3
 
-Licence: ISC · git://github.com/isaacs/node-lru-cache
+Licence: BlueOak-1.0.0
 
-จากไฟล์ `LICENSE`:
+จากไฟล์ `LICENSE.md`:
 
 ```
-The ISC License
+# Blue Oak Model License
 
-Copyright (c) Isaac Z. Schlueter and Contributors
+Version 1.0.0
 
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
+## Purpose
 
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+This license gives everyone as much permission to work with
+this software as possible, while protecting contributors
+from liability.
+
+## Acceptance
+
+In order to receive this license, you must agree to its
+rules.  The rules of this license are both obligations
+under that agreement and conditions to your license.
+You must not do anything with this software that triggers
+a rule that you cannot or will not follow.
+
+## Copyright
+
+Each contributor licenses you to do everything with this
+software that would otherwise infringe that contributor's
+copyright in it.
+
+## Notices
+
+You must ensure that everyone who gets a copy of
+any part of this software from you, with or without
+changes, also gets the text of this license or a link to
+<https://blueoakcouncil.org/license/1.0.0>.
+
+## Excuse
+
+If anyone notifies you in writing that you have not
+complied with [Notices](#notices), you can keep your
+license by taking all practical steps to comply within 30
+days after the notice.  If you do not do so, your license
+ends immediately.
+
+## Patent
+
+Each contributor licenses you to do everything with this
+software that would otherwise infringe any patent claims
+they can license or become able to license.
+
+## Reliability
+
+No contributor can revoke this license.
+
+## No Liability
+
+***As far as the law allows, this software comes as is,
+without any warranty or condition, and no contributor
+will be liable to anyone for any damages related to this
+software or this license, under any kind of legal claim.***
 ```
 
 ### marked 18.0.11
 
-Licence: MIT · https://github.com/markedjs/marked
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8729,7 +9164,7 @@ This software is provided by the copyright holders and contributors “as is” 
 
 ### marked-cjk-friendly 0.1.2
 
-Licence: MIT · https://github.com/tats-u/markdown-cjk-friendly
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8760,7 +9195,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 ### minimatch 10.2.6
 
-Licence: BlueOak-1.0.0 · git@github.com:isaacs/minimatch
+Licence: BlueOak-1.0.0
 
 จากไฟล์ `LICENSE.md`:
 
@@ -8824,7 +9259,7 @@ software or this license, under any kind of legal claim._**
 
 ### ms 2.1.3
 
-Licence: MIT · vercel/ms
+Licence: MIT
 
 จากไฟล์ `license.md`:
 
@@ -8854,7 +9289,7 @@ SOFTWARE.
 
 ### node-domexception 1.0.0
 
-Licence: MIT · https://github.com/jimmywarting/node-domexception
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -8884,7 +9319,7 @@ SOFTWARE.
 
 ### node-fetch 3.3.2
 
-Licence: MIT · https://github.com/node-fetch/node-fetch
+Licence: MIT
 
 จากไฟล์ `LICENSE.md`:
 
@@ -8914,7 +9349,7 @@ SOFTWARE.
 
 ### openai 7.19.0
 
-Licence: Apache-2.0 · github:openai/openai-node
+Licence: Apache-2.0
 
 จากไฟล์ `LICENSE`:
 
@@ -9124,7 +9559,7 @@ Apache License
 
 ### p-retry 4.6.2
 
-Licence: MIT · sindresorhus/p-retry
+Licence: MIT
 
 จากไฟล์ `license`:
 
@@ -9142,7 +9577,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### partial-json 0.1.7
 
-Licence: MIT · https://github.com/promplate/partial-json-parser-js
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9172,7 +9607,7 @@ SOFTWARE.
 
 ### path-key 3.1.1
 
-Licence: MIT · sindresorhus/path-key
+Licence: MIT
 
 จากไฟล์ `license`:
 
@@ -9190,7 +9625,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### proper-lockfile 4.1.2
 
-Licence: MIT · git@github.com:moxystudio/node-proper-lockfile
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9220,7 +9655,7 @@ THE SOFTWARE.
 
 ### protobufjs 7.6.6
 
-Licence: BSD-3-Clause · protobufjs/protobuf.js
+Licence: BSD-3-Clause
 
 จากไฟล์ `LICENSE`:
 
@@ -9266,9 +9701,15 @@ standalone and requires a support library to be linked with it. This
 support library is itself covered by the above license.
 ```
 
+### proxy-agent-negotiate 1.1.0
+
+Licence: MIT
+
+_แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
+
 ### quickjs-wasi 3.6.2
 
-Licence: MIT · git://github.com/vercel-labs/quickjs-wasi
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9298,7 +9739,37 @@ THE SOFTWARE.
 
 ### retry 0.12.0
 
-Licence: MIT · git://github.com/tim-kos/node-retry
+Licence: MIT
+
+จากไฟล์ `License`:
+
+```
+Copyright (c) 2011:
+Tim Koschützki (tim@debuggable.com)
+Felix Geisendörfer (felix@debuggable.com)
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+```
+
+### retry 0.13.1
+
+Licence: MIT
 
 จากไฟล์ `License`:
 
@@ -9328,7 +9799,7 @@ Felix Geisendörfer (felix@debuggable.com)
 
 ### safe-buffer 5.1.2
 
-Licence: MIT · git://github.com/feross/safe-buffer
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9358,7 +9829,7 @@ THE SOFTWARE.
 
 ### sax 1.6.1
 
-Licence: BlueOak-1.0.0 · ssh://git@github.com/isaacs/sax-js
+Licence: BlueOak-1.0.0
 
 จากไฟล์ `LICENSE.md`:
 
@@ -9420,9 +9891,33 @@ will be liable to anyone for any damages related to this
 software or this license, under any kind of legal claim.***
 ```
 
-### semver 6.3.2
+### semver 7.7.4
 
-Licence: ISC · https://github.com/npm/node-semver
+Licence: ISC
+
+จากไฟล์ `LICENSE`:
+
+```
+The ISC License
+
+Copyright (c) Isaac Z. Schlueter and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
+IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
+### semver 7.8.5
+
+Licence: ISC
 
 จากไฟล์ `LICENSE`:
 
@@ -9446,7 +9941,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### shebang-command 2.0.0
 
-Licence: MIT · kevva/shebang-command
+Licence: MIT
 
 จากไฟล์ `license`:
 
@@ -9464,7 +9959,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### shebang-regex 3.0.0
 
-Licence: MIT · sindresorhus/shebang-regex
+Licence: MIT
 
 จากไฟล์ `license`:
 
@@ -9482,7 +9977,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### signal-exit 3.0.7
 
-Licence: ISC · https://github.com/tapjs/signal-exit
+Licence: ISC
 
 จากไฟล์ `LICENSE.txt`:
 
@@ -9507,31 +10002,13 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### standardwebhooks 1.1.1
 
-Licence: MIT · https://github.com/standard-webhooks/standard-webhooks
+Licence: MIT
 
 _แพ็กเกจนี้ไม่ได้แนบไฟล์สัญญาอนุญาตมาในตัวแพ็กเกจ โปรดดูที่ต้นทาง._
 
-### supports-color 7.2.0
-
-Licence: MIT · chalk/supports-color
-
-จากไฟล์ `license`:
-
-```
-MIT License
-
-Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
 ### tiny-typed-emitter 2.1.0
 
-Licence: MIT · https://github.com/binier/tiny-typed-emitter
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9561,7 +10038,7 @@ SOFTWARE.
 
 ### ts-algebra 2.0.0
 
-Licence: MIT · https://github.com/ThomasAribart/ts-algebra
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9591,7 +10068,7 @@ SOFTWARE.
 
 ### tslib 2.9.1
 
-Licence: 0BSD · https://github.com/Microsoft/tslib
+Licence: 0BSD
 
 จากไฟล์ `LICENSE.txt`:
 
@@ -9612,7 +10089,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
 ### typebox 1.3.27
 
-Licence: MIT · https://github.com/sinclairzx81/typebox
+Licence: MIT
 
 จากไฟล์ `license`:
 
@@ -9644,7 +10121,37 @@ THE SOFTWARE.
 
 ### undici 6.29.1
 
-Licence: MIT · https://github.com/nodejs/undici
+Licence: MIT
+
+จากไฟล์ `LICENSE`:
+
+```
+MIT License
+
+Copyright (c) Matteo Collina and Undici contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### undici 8.10.2
+
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9674,7 +10181,7 @@ SOFTWARE.
 
 ### undici-types 6.21.0
 
-Licence: MIT · https://github.com/nodejs/undici
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9702,9 +10209,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### universalify 0.1.2
+### universalify 2.0.1
 
-Licence: MIT · https://github.com/RyanZim/universalify
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9733,7 +10240,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### web-streams-polyfill 3.3.3
 
-Licence: MIT · https://github.com/MattiasBuelens/web-streams-polyfill
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9762,9 +10269,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### which 5.0.0
+### which 2.0.2
 
-Licence: ISC · https://github.com/npm/node-which
+Licence: ISC
 
 จากไฟล์ `LICENSE`:
 
@@ -9788,7 +10295,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### ws 8.23.0
 
-Licence: MIT · https://github.com/websockets/ws
+Licence: MIT
 
 จากไฟล์ `LICENSE`:
 
@@ -9815,33 +10322,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### yallist 4.0.0
-
-Licence: ISC · https://github.com/isaacs/yallist
-
-จากไฟล์ `LICENSE`:
-
-```
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter and Contributors
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-```
-
 ### yaml 2.9.0
 
-Licence: ISC · github:eemeli/yaml
+Licence: ISC
 
 จากไฟล์ `LICENSE`:
 
