@@ -137,7 +137,7 @@ check('the row is repainted when a turn starts and when it ends', () => {
   if (!/function refreshSessionBusy\(\)/.test(renderer)) throw new Error('no refreshSessionBusy()');
   const expected = [
     ['onBusy', /view\.busy = p\.busy;\s*\n\s*refreshSessionBusy\(\);/],
-    ['onSettled', /const hadQueue = Boolean\(view\.queue\?\.length\);\s*\n\s*view\.busy = false;\s*\n\s*refreshSessionBusy\(\);/],
+    ['onSettled', /const hadQueue = Boolean\(view\.queue\?\.length\);[^\n]*\n[\s\S]{0,1200}?view\.busy = false;\s*\n\s*view\.steerPending = false;\s*\n\s*refreshSessionBusy\(\);/],
     ['onError', /view\.busy = false;\s*\n\s*view\.steerPending = false;\s*\n\s*refreshSessionBusy\(\);/],
   ];
   for (const [hook, re] of expected) {

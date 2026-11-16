@@ -19,7 +19,7 @@ const crypto = require('node:crypto');
 
 const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER } = require('./provider-plan');
 const { detectClientVersion, upgradedClientVersion, FALLBACK_CLIENT_VERSION } = require('./client-version');
-const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels } = require('./coarena');
+const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels, retagModels, setCoarenaFreeTier } = require('./coarena');
 const {
   EXTENSION_ID,
   DEFAULT_PORT,
@@ -581,6 +581,12 @@ async function createFreePiSession(options) {
      * reopening the tab.
      */
     coarenaKey = null,
+    /**
+     * Display names Coarena's own 402 said are on the free tier, remembered
+     * across restarts. Without them every route looks free, because its catalog
+     * prices everything at zero.
+     */
+    coarenaFreeTier = null,
     /** Zro API key, or null. Zro exposes one DeepSeek model. */
     zroKey = null,
     /** NVIDIA NIM key, or null. Only DeepSeek Flash is exposed, text only. */
@@ -634,9 +640,11 @@ async function createFreePiSession(options) {
   // The catalog is fetched once per process (10-minute memory cache) and never
   // rejects: with no network it returns the verified fallback list.
   const coarenaCatalog = coarenaKey ? await fetchCoarenaModels() : { models: [], source: 'none' };
-  // Coarena prices each route in its own catalog, so the plan tag comes from
-  // there rather than from a list kept in this file.
-  let coarenaModels = tagPlans(coarenaCatalog.models);
+  // Coarena prices every route at zero, including the Claude ones a free key is
+  // refused. A list learned from that refusal is the only honest free/paid
+  // signal, so it is applied before the catalog is labelled.
+  if (Array.isArray(coarenaFreeTier) && coarenaFreeTier.length) setCoarenaFreeTier(coarenaFreeTier);
+  let coarenaModels = tagPlans(retagModels(coarenaCatalog.models));
 
   // Zro's picker is deliberately static: the free daily model plus the models
   // that draw on a usage pack.
@@ -1632,8 +1640,9 @@ async function createFreePiSession(options) {
 
     // force: the key may have changed, and the catalog is cheap to refetch.
     const result = await fetchCoarenaModels({ force: true });
-    // Every route the new key can reach, labelled free or paid.
-    coarenaModels = tagPlans(result.models);
+    // Every route the new key can reach, labelled free or paid — including what
+    // an earlier 402 taught this session about the free tier.
+    coarenaModels = tagPlans(retagModels(result.models));
     if (piApi) {
       piApi.registerProvider(
         COARENA_PROVIDER,
@@ -1802,6 +1811,17 @@ async function createFreePiSession(options) {
       return currentModelFallback();
     },
     applyCoarenaKey,
+    /**
+     * Learn the free-tier list from a 402 refusal and re-label the picker. The
+     * registered provider is untouched: same ids, different tag.
+     */
+    applyCoarenaFreeTier(names) {
+      const res = setCoarenaFreeTier(names);
+      if (!plan.coarena) return { changed: res.changed, models: null };
+      coarenaModels = tagPlans(retagModels(coarenaModels));
+      coarenaEntries = coarenaModelEntries(coarenaModels);
+      return { changed: res.changed, models: rebuildModelList() };
+    },
     applyZroKey,
     applyNvidiaKey,
     applyTokenHarborKey,

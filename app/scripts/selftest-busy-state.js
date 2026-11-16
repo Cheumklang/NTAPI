@@ -76,7 +76,7 @@ check('the pill is repainted from the tab state, not switched off blindly', () =
 });
 
 check('a settle in another tab still clears the pill', () => {
-  const at = renderer.indexOf('api.onSettled(');
+  const at = renderer.indexOf('api.onSettled((p) => {');
   assert.notStrictEqual(at, -1, 'the settled handler is missing');
   const body = renderer.slice(at, renderer.indexOf('api.onNotice(', at));
   assert.ok(/paintBusyFromViews\(\)/.test(body), 'the pill is left on after a settle');
@@ -92,6 +92,33 @@ check('an error repaints the pill the same way', () => {
 check('a stuck pill is reconciled with the main process', () => {
   assert.ok(/api\.getTabState\(view\.tabId\)/.test(renderer), 'nothing asks main what is really running');
   assert.ok(/if \(state && !state\.busy\)/.test(renderer), 'the answer is never acted on');
+});
+
+check('main heals a busy flag on an idle session', () => {
+  assert.ok(/session\.isIdle/.test(main), 'the session is never asked whether it is idle');
+  assert.ok(/agent:settled', \{ aborted: false, healed: true \}/.test(main), 'a healed tab never settles');
+});
+
+check('the heal needs two readings before it acts', () => {
+  assert.ok(/if \(streak < 2\) continue;/.test(main), 'a run that is just starting could be cut short');
+});
+
+check('a healed settle releases the queue without a second finish ping', () => {
+  assert.ok(/if \(!hadQueue && !p\.healed\) notifyFinished\(view\);/.test(renderer),
+    'the queue is not released, or the reader is pinged twice');
+});
+
+check('a settle clears the flag and the queue before it touches the DOM', () => {
+  const at = renderer.indexOf('api.onSettled((p) => {');
+  assert.notStrictEqual(at, -1, 'the settled handler is missing');
+  const body = renderer.slice(at, renderer.indexOf('api.onNotice(', at));
+  const flag = body.indexOf('view.busy = false');
+  const drain = body.indexOf('drainQueue(view)');
+  const clear = body.indexOf('clearViewActivity(view)');
+  assert.ok(flag !== -1 && drain !== -1 && clear !== -1, 'the handler no longer does all three');
+  assert.ok(flag < clear && drain < clear, 'a failed cleanup can still leave the window saying "working"');
+  assert.ok(clear < body.indexOf('try {'), 'the activity reset sits inside the guarded block');
+  assert.ok(/catch \{\s*\n\s*\/\/ The transcript moves/.test(body), 'the DOM part is unguarded');
 });
 
 console.log(`\n${pass} checks passed`);

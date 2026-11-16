@@ -63,7 +63,30 @@ const COARENA_HINTS = {
   rate_limit: 'Coarena allows 30 requests per minute. Wait a moment and try again.',
   rate_limit_exceeded: 'Coarena allows 30 requests per minute. Wait a moment and try again.',
   insufficient_quota: 'Coarena has no quota left today — it resets at UTC midnight.',
+  // Not the daily quota: a free key is refused this *model*, on a catalog that
+  // prices everything at zero. Saying "quota" here sent people looking for a
+  // reset that never comes.
+  payment_required:
+    'This model is not part of the Coarena free tier — pick a free model, or add credits to use it.',
 };
+
+/**
+ * The models a free Coarena key may use, as named in its own refusal:
+ *   "Free accounts can use GPT-6 Luna, Gemini 3.8 Flash and DeepSeek V4.1 Flash 1017."
+ * Returns display names — the caller matches them against the catalog. An
+ * unfamiliar sentence yields an empty list, never a guess.
+ */
+const FREE_TIER_PATTERN = /free accounts? can use (.+?)\.\s/i;
+
+function parseFreeTierModels(message) {
+  const match = FREE_TIER_PATTERN.exec(String(message || ''));
+  if (!match) return [];
+  return match[1]
+    .split(/\s*,\s*|\s+and\s+/i)
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
 
 /**
  * Zro's failures are its own: a 401 is a bad key, a 402 means the key's balance
@@ -201,6 +224,7 @@ function friendlyProviderError(raw, { provider } = {}) {
   if (provider === 'coarena') {
     if (code && COARENA_HINTS[code]) hint = COARENA_HINTS[code];
     else if (status === '401') hint = COARENA_HINTS.invalid_api_key;
+    else if (status === '402') hint = COARENA_HINTS.insufficient_quota;
     else if (status === '429') hint = COARENA_HINTS.rate_limit;
     // A dead network has no status and no code; the raw body would just say
     // "fetch failed", which tells the user nothing about which service is down.
@@ -243,11 +267,17 @@ function friendlyProviderError(raw, { provider } = {}) {
   // like the user cancelled rather than the provider going quiet.
   if (!hint && looksLikeStall(text)) hint = STALL_HINTS[provider] || STALL_HINTS.default;
   if (!hint) hint = (code && ERROR_HINTS[code]) || message || text || 'The model request failed.';
+  // A provider body is JSON; nobody should have to read `{"message":…}` in the
+  // chat window, so a body that failed to parse falls back to a plain sentence.
+  if (/^\s*[[{]/.test(hint) || /\{\s*"/.test(hint)) hint = 'The model request failed — retry, or pick another model.';
   // A network failure names no provider code, so it gets the generic key; the
   // renderer still has one sentence per provider for the stall cases above.
   const suffix = status ? ` (HTTP ${status}${code ? ` · ${code}` : ''})` : '';
   const key = KEY_BY_TEXT.get(hint) || null;
-  return { text: `${hint}${suffix}`, code, key, status };
+  // Only Coarena publishes a free-tier list inside its refusals; other
+  // providers get an empty array so callers can read the field unconditionally.
+  const freeModels = provider === 'coarena' ? parseFreeTierModels(message) : [];
+  return { text: `${hint}${suffix}`, code, key, status, freeModels };
 }
 
 module.exports = {
@@ -260,5 +290,6 @@ module.exports = {
   LLM7_HINTS,
   STALL_HINTS,
   parseProviderError,
+  parseFreeTierModels,
   friendlyProviderError,
 };

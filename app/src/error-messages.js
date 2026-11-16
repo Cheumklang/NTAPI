@@ -139,6 +139,10 @@
       en: 'Coarena has no quota left today — it resets at UTC midnight.',
       th: 'โควตาวันนี้ของ Coarena หมดแล้ว — จะรีเซ็ตตอนเที่ยงคืน UTC',
     },
+    'coarena.model_not_free': {
+      en: 'This model is not part of the Coarena free tier — pick a free model, or add credits to use it.',
+      th: 'โมเดลนี้ไม่อยู่ในแพ็กฟรีของ Coarena — เลือกโมเดลฟรี หรือเติมเครดิตเพื่อใช้โมเดลนี้',
+    },
 
     /* --------------------------------- zro -------------------------------- */
     'zro.invalid_api_key': {

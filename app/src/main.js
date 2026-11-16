@@ -1190,14 +1190,38 @@ async function refreshFreePiClientVersion(tabId, tab) {
 }
 
 /**
+ * Store the free-tier names a Coarena 402 named. Returns the merged list when
+ * something new was learned, null when it was already known — so the caller can
+ * skip a repaint that would change nothing.
+ */
+function rememberCoarenaFreeTier(names) {
+  const fresh = (names || []).filter((name) => typeof name === 'string' && name.trim());
+  if (!fresh.length) return null;
+  const previous = Array.isArray(readPrefs().coarenaFreeTier) ? readPrefs().coarenaFreeTier : [];
+  const merged = [...new Set([...previous, ...fresh.map((name) => name.trim())])];
+  if (merged.length === previous.length) return null;
+  writePrefs({ coarenaFreeTier: merged });
+  return merged;
+}
+
+/** Re-label Coarena rows in every open tab, then repaint the dropdown. */
+function relabelCoarenaModels(names) {
+  for (const [tabId, tab] of tabs) {
+    const res = safeCall(() => tab.handle.applyCoarenaFreeTier(names), null);
+    if (!res || !res.models) continue;
+    // Same channel a key swap uses: the tab state carries the model list.
+    sendTab(tabId, 'agent:history', { state: tabState(tabId) });
+  }
+}
+
+/**
  * One failure can surface twice (the assistant message and the rejected
  * prompt), so report each distinct failure once per few seconds.
  */
 function reportTabError(tabId, raw) {
   const tab = tabs.get(tabId);
-  const { text, code, key: messageKey, status } = friendlyProviderError(raw, {
-    provider: tab?.handle?.session?.model?.provider,
-  });
+  const provider = tab?.handle?.session?.model?.provider;
+  const { text, code, key: messageKey, status, freeModels } = friendlyProviderError(raw, { provider });
   const dedupe = `${code || ''}|${messageKey || text}`;
   const now = Date.now();
   if (tab?.lastError && tab.lastError.key === dedupe && now - tab.lastError.at < 10000) return;
@@ -1216,6 +1240,13 @@ function reportTabError(tabId, raw) {
   // in the language the user picked, and falls back to `text` when it has no
   // translation for a raw provider sentence.
   sendTab(tabId, 'agent:error', { text, code, key: messageKey || null, status: status || null });
+  // Coarena's 402 for a model outside the free tier names the ones inside it.
+  // Keep that sentence: it is the only free/paid signal its catalog lacks, and
+  // it lets the picker stop advertising Claude to a free key.
+  if (provider === COARENA_PROVIDER && freeModels.length) {
+    const known = rememberCoarenaFreeTier(freeModels);
+    if (known) relabelCoarenaModels(known);
+  }
 }
 
 /**
@@ -1879,6 +1910,10 @@ async function attachTab(tabId, manager, cwd) {
     // A saved, readable key registers Coarena in this same session. A key that
     // cannot be decrypted is treated as absent rather than failing the tab.
     coarenaKey: coarenaKeys.read(),
+    // What a past 402 taught us about Coarena's free tier. Its catalog prices
+    // every route at zero, so this list is the only thing keeping the picker
+    // from calling a Claude route free.
+    coarenaFreeTier: Array.isArray(readPrefs().coarenaFreeTier) ? readPrefs().coarenaFreeTier : null,
     // Zro's key works the same way; its catalog is static and DeepSeek-only.
     zroKey: zroKeys.read(),
     // NVIDIA's catalog is text-only and re-resolved against /v1/models.
@@ -2233,6 +2268,17 @@ ipcMain.handle('prefs:set', async (_e, patch = {}) => {
     if (typeof patch.browserBridge.enabled === 'boolean') {
       allowed.browserBridge = { ...current, enabled: patch.browserBridge.enabled };
     }
+  }
+  /*
+   * Coarena's free-tier model names, learned from its own 402 refusal. Plain
+   * display names only, capped in count and length, so prefs stays a settings
+   * file and not a general string store.
+   */
+  if (Array.isArray(patch.coarenaFreeTier)) {
+    allowed.coarenaFreeTier = patch.coarenaFreeTier
+      .filter((name) => typeof name === 'string' && name.trim())
+      .map((name) => name.trim().slice(0, 60))
+      .slice(0, 40);
   }
   if (Object.keys(allowed).length) writePrefs(allowed);
   return readPrefs();
@@ -4050,6 +4096,46 @@ ipcMain.handle('approval:setMode', async (_e, { policy } = {}) => {
 });
 
 ipcMain.handle('approval:getMode', async () => ({ policy: getApprovalPolicy() }));
+
+/**
+ * Notice a tab that says it is working when it is not.
+ *
+ * The "กำลังทำงาน" pill and the held queue both wait for one message:
+ * `agent:settled`. If that message never arrives — a listener that threw, a run
+ * that ended through a path this process did not expect, a window that was
+ * reloading at that moment — the pill stays on and the messages the user put in
+ * the queue never leave it. The user cannot get out of that state either: Stop
+ * has nothing to stop.
+ *
+ * The session object is the only authority on whether a run is still going, so
+ * this asks it instead of trusting the flag. Two consecutive idle readings are
+ * required, so a run that is just starting up is never cut short.
+ */
+const idleStreak = new Map();
+setInterval(() => {
+  for (const [tabId, tab] of tabs) {
+    if (!tab.busy) {
+      idleStreak.delete(tabId);
+      continue;
+    }
+    const session = tab.handle?.session;
+    if (!session) continue;
+    if (!safeCall(() => session.isIdle, false)) {
+      idleStreak.delete(tabId);
+      continue;
+    }
+    const streak = (idleStreak.get(tabId) || 0) + 1;
+    idleStreak.set(tabId, streak);
+    if (streak < 2) continue;
+    idleStreak.delete(tabId);
+    tab.busy = false;
+    logCrash('busy-heal', `idle session but a busy flag on ${tabId}`);
+    sendTab(tabId, 'agent:busy', { busy: false });
+    // `healed` keeps the window from announcing a finish that has already been
+    // shown; what it must do is release the queue.
+    sendTab(tabId, 'agent:settled', { aborted: false, healed: true });
+  }
+}, 4000).unref?.();
 
 function persistTabs() {
   writePrefs({

@@ -50,6 +50,7 @@ const TESTS = [
   'selftest-error-ux.js',
   'selftest-model-fallback.js',
   'selftest-error-messages.js',
+  'selftest-coarena-free-tier.js',
   'selftest-retry-notice.js',
   'selftest-busy-state.js',
   'selftest-boot-skeleton.js',

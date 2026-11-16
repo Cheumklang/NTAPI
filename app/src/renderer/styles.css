@@ -1827,6 +1827,22 @@ button { font-family: inherit; }
   .hint-dots i { animation: none; opacity: .55; }
 }
 
+/*
+ * The step the turn is on and how long it has been running.
+ * Smaller and dimmer than the sentence it follows: it is a readout, not a
+ * headline, and it must not push the composer around when the wording changes.
+ */
+.hint-phase {
+  display: inline-block;
+  margin-left: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--line, #2a3142);
+  font-size: .92em;
+  opacity: .72;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #262c3a; border-radius: 8px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-thumb:hover { background: #333a4d; }

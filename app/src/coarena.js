@@ -38,6 +38,51 @@ const FALLBACK_MODELS = [
 /** @type {{ at: number, models: Array<object> } | null} */
 let modelCache = null;
 
+/**
+ * Display names (lowercased) that Coarena itself said a free account can use.
+ *
+ * Its catalog cannot be trusted for this: every route in `GET /models` is
+ * priced `0/0`, Claude included, yet a free key is refused with 402
+ * `payment_required`. The refusal sentence is the only free/paid signal the API
+ * offers, so it is remembered here and the picker stops calling the rest free.
+ */
+const freeTierNames = new Set();
+
+function nameKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+/** `'free'`, `'paid'`, or `null` while nothing is known about this tier. */
+function planFromFreeTier(model) {
+  if (freeTierNames.size === 0) return null;
+  const name = nameKey(model?.name);
+  const id = nameKey(model?.id);
+  if (!name && !id) return null;
+  return freeTierNames.has(name) || freeTierNames.has(id) ? 'free' : 'paid';
+}
+
+/**
+ * Remember the free-tier list Coarena named in a 402. Replaces the previous
+ * list (the API may publish a different one next month) and reports whether
+ * anything changed, so a caller can skip a pointless repaint.
+ */
+function setCoarenaFreeTier(names) {
+  const next = [...new Set((names || []).map(nameKey).filter(Boolean))];
+  const before = [...freeTierNames].sort().join('\n');
+  freeTierNames.clear();
+  for (const name of next) freeTierNames.add(name);
+  return { changed: before !== [...next].sort().join('\n'), names: next };
+}
+
+/** Re-label an already-normalised catalog after the tier list changed. */
+function retagModels(models) {
+  return (models || []).map((model) => {
+    const tier = planFromFreeTier(model);
+    if (!tier) return model;
+    return { ...model, plan: tier, planNote: tier === 'paid' ? 'credit' : '' };
+  });
+}
+
 /** Tests only: forget the catalog so the next call hits the injected fetch. */
 function resetCoarenaModelCache() {
   modelCache = null;
@@ -92,7 +137,11 @@ function normalizeModel(raw) {
     vision: Boolean(raw?.capabilities?.vision),
     pricing,
   };
-  return { ...model, plan: planOf(model), planNote: planNote(model) };
+  const tier = planFromFreeTier(model);
+  const plan = tier || planOf(model);
+  // A route Coarena refused for a free key wears "credit", not a price: its
+  // catalog says $0 for it, so a price would be the same lie in another font.
+  return { ...model, plan, planNote: tier === 'paid' ? 'credit' : planNote({ ...model, plan }) };
 }
 
 function fallbackCatalog() {
@@ -238,4 +287,6 @@ module.exports = {
   coarenaModelEntries,
   readCoarenaKeyInfo,
   resetCoarenaModelCache,
+  retagModels,
+  setCoarenaFreeTier,
 };

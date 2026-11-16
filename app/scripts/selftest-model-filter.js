@@ -99,8 +99,13 @@ check(
 const bridge = fs.readFileSync(path.join(__dirname, '..', 'src', 'freepi-bridge.js'), 'utf8');
 check('the FreePi catalog is tagged', /tagPlans\(catalogModelsFor\(/.test(bridge));
 check('the defense catalog is tagged', /tagPlans\(defenseModelsFor\(/.test(bridge));
-check('the Coarena catalog is tagged at start', /tagPlans\(coarenaCatalog\.models\)/.test(bridge));
-check('a new Coarena key re-tags the catalog', /tagPlans\(result\.models\)/.test(bridge));
+// Coarena's catalog prices every route at zero, so `retagModels` re-applies the
+// free-tier list a 402 taught us before the rows are labelled.
+check(
+  'the Coarena catalog is tagged at start',
+  /tagPlans\(retagModels\(coarenaCatalog\.models\)\)/.test(bridge)
+);
+check('a new Coarena key re-tags the catalog', /tagPlans\(retagModels\(result\.models\)\)/.test(bridge));
 check('nothing is filtered out by plan any more', !/onlyDeepSeekFree/.test(bridge));
 check('entries carry the plan to the renderer', /function modelEntry\(provider, model\)/.test(bridge));
 

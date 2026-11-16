@@ -381,6 +381,13 @@ const STRINGS = {
   actThinking: 'Thinking',
   actTools: 'Using tools',
   actNotes: 'Writing',
+  actToolName: '{name}',
+  phaseWait: 'waiting for the model',
+  phaseThink: 'thinking',
+  phaseWrite: 'writing',
+  phaseTool: 'running {name}',
+  phaseRetry: 'retrying',
+  phaseIdle: 'ready',
     toolsFailed: '{n} failed',
     cancel: 'Cancel',
     delete: 'Delete',
@@ -753,6 +760,13 @@ const STRINGS = {
   actThinking: 'กำลังคิด',
   actTools: 'กำลังใช้เครื่องมือ',
   actNotes: 'กำลังเขียน',
+  actToolName: '{name}',
+  phaseWait: 'รอคำตอบจากโมเดล',
+  phaseThink: 'กำลังคิด',
+  phaseWrite: 'กำลังเขียนคำตอบ',
+  phaseTool: 'กำลังรัน {name}',
+  phaseRetry: 'กำลังลองใหม่',
+  phaseIdle: 'พร้อมใช้งาน',
     toolsFailed: 'ล้มเหลว {n}',
     cancel: 'ยกเลิก',
     delete: 'ลบ',
@@ -1029,18 +1043,71 @@ function scrollToBottom(force = false) {
   syncJumpToBottom();
 }
 
+/*
+ * What the turn is doing, and for how long.
+ *
+ * A turn is mostly silence: the model thinks, a tool runs for a minute, a file
+ * gets read. The hint above the composer used to say the same three words the
+ * whole time, so after a while it read as "still working? or stuck?". It now
+ * names the step the turn is on and counts from the start of the turn, and the
+ * count keeps moving even while a single tool is running — which is the one
+ * thing that proves the window is alive rather than frozen.
+ */
+const TURN_PHASES = {
+  wait: 'phaseWait',
+  think: 'phaseThink',
+  write: 'phaseWrite',
+  tool: 'phaseTool',
+  retry: 'phaseRetry',
+};
+let turnClock = { phase: '', detail: '', since: 0 };
+
+/** A new turn starts the clock; the same turn only moves the phase on. */
+function setTurnPhase(view, phase, detail = '') {
+  if (!view || !view.busy) return;
+  if (!turnClock.since) turnClock = { phase: '', detail: '', since: Date.now() };
+  if (turnClock.phase === phase && turnClock.detail === detail) {
+    paintWorkingHint();
+    return;
+  }
+  turnClock = { ...turnClock, phase, detail };
+  paintWorkingHint();
+}
+
+function paintWorkingHint() {
+  const view = activeView();
+  if (!view?.busy) {
+    statusHint.textContent = t('idle');
+    return;
+  }
+  const label = t('working').replace(/[\s.\u2026]+$/, '');
+  const phaseKey = TURN_PHASES[turnClock.phase];
+  const what = phaseKey ? t(phaseKey, turnClock.detail ? { name: turnClock.detail } : null) : '';
+  const elapsed = formatSpan(Math.max(0, Date.now() - (turnClock.since || Date.now())));
+  statusHint.innerHTML =
+    `${escapeHtml(label)}<span class="hint-dots" aria-hidden="true"><i></i><i></i><i></i></span>` +
+    (what
+      ? `<span class="hint-phase">${escapeHtml(what)} · ${escapeHtml(elapsed)}</span>`
+      : '');
+}
+
+// The counter is what proves the window is alive; one second is the shortest tick
+// that stays honest without redrawing a label for every animation frame.
+setInterval(paintWorkingHint, 1000);
+
 function setBusy(value) {
   const view = activeView();
   if (view) view.busy = value;
   sendBtn.hidden = value;
   stopBtn.hidden = !value;
   sendBtn.disabled = value || (!input.value.trim() && pendingImages.length === 0);
-  // The working hint gets three softly bouncing dots so a long turn never looks
-  // like a frozen window. Plain static text was easy to mistake for a hang.
+  // The working hint names the step and counts the turn out loud so a long turn
+  // never looks like a frozen window.
   if (value) {
-    const label = t('working').replace(/[\s.\u2026]+$/, '');
-    statusHint.innerHTML = `${escapeHtml(label)}<span class="hint-dots" aria-hidden="true"><i></i><i></i><i></i></span>`;
+    if (!turnClock.since) turnClock = { phase: 'wait', detail: '', since: Date.now() };
+    paintWorkingHint();
   } else {
+    turnClock = { phase: '', detail: '', since: 0 };
     statusHint.textContent = t('idle');
   }
   input.placeholder = value ? t('placeholderBusy') : t('placeholderIdle');
@@ -1269,6 +1336,55 @@ function clearMsgActivity(wrap) {
   box.replaceChildren();
   box.hidden = true;
   wrap.__runningTools = 0;
+}
+
+/*
+ * The chips are painted from `view.act`, not from the last event.
+ *
+ * They used to be driven straight from events, per bubble. That is what made
+ * them unreliable: a tool that ran for a while kept its chip only as long as the
+ * bubble it started in stayed in the document. The bubble is rebuilt whenever the
+ * chat is repainted (a tab switch, a reload, a restored view), and the rebuilt
+ * one knew nothing about what was running — so "กำลังใช้เครื่องมือ" vanished under
+ * a bash command that was still going, and the window looked idle while the agent
+ * was working.
+ *
+ * The state now lives on the view, and every paint of a bubble reads it back.
+ * A chip can only disappear when the work it stands for has really stopped.
+ */
+function markActivity(view, channel, on) {
+  if (!view) return;
+  view.act = view.act || {};
+  view.act[channel] = Boolean(on);
+  setActivity(view.liveAssistant, channel, on);
+  labelToolChip(view);
+}
+
+/** Name the tool that is running, so the chip says "bash" and not just "tools". */
+function labelToolChip(view) {
+  const chip = view?.liveAssistant?.querySelector?.('.act-chip[data-act="tools"] .act-text');
+  if (!chip) return;
+  const base = t('actTools');
+  chip.textContent = view.actTool ? `${base}: ${view.actTool}` : base;
+}
+
+/** Repaint every chip of the live bubble from the view's own state. */
+function syncActivity(view) {
+  if (!view) return;
+  const act = view.act || {};
+  for (const channel of Object.keys(ACTIVITY_CHANNELS)) {
+    setActivity(view.liveAssistant, channel, Boolean(act[channel]));
+  }
+  labelToolChip(view);
+}
+
+/** The turn is over, on every channel at once. */
+function clearViewActivity(view) {
+  if (!view) return;
+  view.act = {};
+  view.actTool = '';
+  view.runningTools = 0;
+  clearMsgActivity(view.liveAssistant);
 }
 
 /* ------------------------------ messages ------------------------------ */
@@ -7000,6 +7116,9 @@ function ensureLive(view) {
     if (!view.liveAssistant || !document.body.contains(view.liveAssistant)) {
       view.liveAssistant = addMessage('assistant');
       view.liveTools = view.liveAssistant.querySelector('.tools');
+      // A rebuilt bubble carries no chips: repaint them from the view's own state, so
+      // a repaint in the middle of a turn does not read as "nothing is running".
+      syncActivity(view);
     }
     return view.liveAssistant;
   }
@@ -7138,12 +7257,14 @@ api.onDelta((p) => {
         toggle.hidden = false;
         if (th.hidden) toggle.textContent = `\u25b8 ${t('thinkingShow')}`;
       }
-      setActivity(wrap, 'think', true);
+      markActivity(view, 'think', true);
+      setTurnPhase(view, 'think');
     }
   } else {
     // Prose arrived, so reasoning has handed over to writing.
-    setActivity(wrap, 'think', false);
-    setActivity(wrap, 'notes', true);
+    markActivity(view, 'think', false);
+    markActivity(view, 'notes', true);
+    setTurnPhase(view, 'write');
     wrap.classList.add('streaming');
     // The last body, not the first: a turn that already spoke once continues in a
     // new bubble, and appending to the old one would put the new words above the
@@ -7181,7 +7302,12 @@ api.onTextEnd((p) => {
 api.onToolStart((p) => {
   const view = viewFor(p);
   if (!view) return;
+  // Tracked even for a tab that is not on screen: the chip is drawn from this
+  // state when the tab comes back, and a switch mid-tool must not lose it.
+  view.runningTools = (view.runningTools || 0) + 1;
+  view.actTool = p.name || '';
   if (!payloadTabIsActive(view)) {
+    view.act = { ...(view.act || {}), tools: true, think: false, notes: false };
     view.messages.push({ kind: 'assistant', text: '', thinking: '', tools: [{ id: p.id, name: p.name, args: p.args }] });
     return;
   }
@@ -7192,12 +7318,12 @@ api.onToolStart((p) => {
   // leaving the words attached to two bubbles at once.
   sealBody(wrap);
   // Writing is over while the tool runs; the tool chip takes over.
-  setActivity(wrap, 'notes', false);
-  setActivity(wrap, 'think', false);
-  // Several tools can be in flight at once, so the chip tracks a count rather
-  // than a flag: it must survive until the last one finishes.
-  wrap.__runningTools = (wrap.__runningTools || 0) + 1;
-  setActivity(wrap, 'tools', true);
+  markActivity(view, 'notes', false);
+  markActivity(view, 'think', false);
+  view.runningTools = (view.runningTools || 0) + 1;
+  view.actTool = p.name || '';
+  markActivity(view, 'tools', true);
+  setTurnPhase(view, 'tool', p.name || '');
   view.liveTools = wrap.querySelector('.tools');
   if (view.liveTools) toolCard(view.liveTools, p);
 });
@@ -7227,10 +7353,15 @@ api.onToolEnd((p) => {
   if (!card) return;
   applyToolResult(card, view.toolResults.get(p.id), view.cwd);
   // The chip goes only when nothing else is still running.
-  const wrap = card.closest('.msg');
-  if (wrap) {
-    wrap.__runningTools = Math.max(0, (wrap.__runningTools || 1) - 1);
-    if (!wrap.__runningTools) setActivity(wrap, 'tools', false);
+  view.runningTools = Math.max(0, (view.runningTools || 1) - 1);
+  if (!view.runningTools) {
+    view.actTool = '';
+    markActivity(view, 'tools', false);
+    // The turn is not over, it is back between steps: waiting on the model again
+    // is the honest label, not "idle".
+    setTurnPhase(view, 'wait');
+  } else {
+    labelToolChip(view);
   }
   scrollToBottom();
 });
@@ -7322,8 +7453,12 @@ api.onBusy((p) => {
   refreshSessionBusy();
   if (payloadTabIsActive(view)) {
     paintBusyFromViews();
-    if (p.busy) ensureLive(view);
-    else if (view.liveAssistant) view.liveAssistant.classList.remove('streaming');
+    if (p.busy) {
+      ensureLive(view);
+      setTurnPhase(view, 'wait');
+    } else if (view.liveAssistant) {
+      view.liveAssistant.classList.remove('streaming');
+    }
   }
 });
 
@@ -7341,7 +7476,7 @@ api.onTurnStart((p) => {
     // would otherwise keep an empty bubble on screen.
     const text = live.querySelector(':scope > .body')?.textContent || '';
     const hasTools = Boolean(live.querySelector('.tool'));
-    clearMsgActivity(live);
+    clearViewActivity(view);
     if (!text.trim() && !hasTools) live.remove();
     else live.classList.remove('streaming');
   }
@@ -7352,19 +7487,23 @@ api.onTurnStart((p) => {
 api.onSettled((p) => {
   const view = viewFor(p);
   if (!view) return;
-  // Nothing is producing output any more.
-  if (view.liveAssistant) clearMsgActivity(view.liveAssistant);
   // A queued prompt restarts work immediately, so only the last turn of a run
   // deserves the "finished" ping.
   const hadQueue = Boolean(view.queue?.length);
+  /*
+   * State first, DOM second.
+   *
+   * The flag and the queue used to be updated *after* the live bubble was cleaned
+   * up. One throw in that cleanup — a bubble a repaint had already replaced, a
+   * node that was no longer in the document — took the rest of the handler with
+   * it: the pill stayed on "กำลังทำงาน", the queued messages never went out, and
+   * nothing the user could press changed that. The two things that must always
+   * happen are now above the fragile part, and the bubble tidy-up is guarded.
+   */
   view.busy = false;
-  refreshSessionBusy();
   view.steerPending = false;
-  if (view.liveAssistant) view.liveAssistant.classList.remove('streaming');
-  view.liveAssistant = null;
-  view.liveTools = null;
+  refreshSessionBusy();
   if (payloadTabIsActive(view)) paintBusyFromViews();
-  if (payloadTabIsActive(view) && noticeIsRetry) showNotice(null);
   // A message held back while this turn ran no longer has anything to wait for:
   // send it now rather than making the user watch a countdown for a turn that
   // already finished.
@@ -7373,12 +7512,31 @@ api.onSettled((p) => {
     held.item.holdReleased = true;
   }
   drainQueue(view);
-  if (!hadQueue) notifyFinished(view);
+  // A heal from the main process says "this turn was already over": the queue
+  // still has to move, but a finish ping for a turn the reader watched end long
+  // ago would be noise.
+  if (!hadQueue && !p.healed) notifyFinished(view);
+
+  // A repaint between turns can leave chips behind; the state is authoritative.
+  clearViewActivity(view);
+
+  try {
+    // Nothing is producing output any more.
+    if (view.liveAssistant) view.liveAssistant.classList.remove('streaming');
+    view.liveAssistant = null;
+    view.liveTools = null;
+    if (payloadTabIsActive(view) && noticeIsRetry) showNotice(null);
+  } catch {
+    // The transcript moves under this handler on every repaint; a bubble that is
+    // already gone is not a reason to leave the window saying "working".
+  }
 });
 
 api.onNotice((p) => {
-  if (!payloadTabIsActive(viewFor(p))) return;
+  const view = viewFor(p);
+  if (!payloadTabIsActive(view)) return;
   noticeIsRetry = p.key === 'notice.retrying';
+  if (noticeIsRetry) setTurnPhase(view, 'retry');
   showNotice(p.key ? t(p.key, p.params || null) : p.text, noticeIsRetry ? 10000 : undefined);
 });
 
@@ -7400,6 +7558,7 @@ api.onError((p) => {
   view.busy = false;
   view.steerPending = false;
   refreshSessionBusy();
+  clearViewActivity(view);
   if (!payloadTabIsActive(view)) return;
   showNotice(null);
   // `key` is the same failure in the user's language; `status`/`code` stay
@@ -7432,7 +7591,11 @@ setInterval(async () => {
     if (state && !state.busy) {
       view.busy = false;
       paintBusyFromViews();
+      return;
     }
+    // Still busy: put back any chip a repaint dropped, and if a tool is running
+    // the phase line keeps counting, which is what shows the window is alive.
+    syncActivity(view);
   } catch {
     // The tabs table changed under us; the event path still applies.
   }
