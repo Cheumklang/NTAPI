@@ -1,0 +1,22 @@
+{
+  "version": "0.5.15",
+  "tag": "v0.5.15",
+  "recordedAt": "2026-11-16T21:00:47.460Z",
+  "git": {
+    "head": "91b4cf4d3d0f3005cc98fe4f217d1d1ce7fd446f",
+    "branch": "master",
+    "tree": "d652a814c58aeff7fc6c21014068d2b01ed0750b",
+    "subject": "internal: bump 0.5.15",
+    "authorDate": "2026-11-17T03:52:21+07:00",
+    "commitCount": 301
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.15",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.15.exe",
+      "size": 118297212,
+      "sha256": "2e7059f885b22f3e428e11f3f603f141b92c06bd1c641aa8309afabdbf4deaab"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.15"
+}

@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-16T18:58:16.761Z
-entries 29
-head_hash 19a934ff814fb8a2f75dbcb9819c5a5706b9c469dea6b65b2557879ce3430fce
-git 1534d66478d179829144ffc144ce286ed067ed4b
+updated 2026-11-16T21:00:47.540Z
+entries 43
+head_hash 852f80ef07c55daad4f0c75c69a5527a0f657429462e5ef6b96e2aa96ca24dd0
+git 91b4cf4d3d0f3005cc98fe4f217d1d1ce7fd446f
 
 latest entries:
-  #22 2026-11-16T17:04:44.032Z release — Released version 0.5.13
-  #23 2026-11-16T17:04:59.938Z commit — internal: บันทึกหลักฐานการปล่อย v0.5.13
-  #24 2026-11-16T17:17:43.147Z session — เพิ่ม LICENSE/PRIVACY/TERMS/SECURITY + README repo public + SHA256 ใน release notes
-  #25 2026-11-16T18:22:58.950Z session — fix stuck tool chip and tool card: single runningTools count, apply stored results on redraw, unknown-result label; new check:tools (11), npm test 72/72
-  #26 2026-11-16T18:42:23.250Z session — fix silent turn end on provider 429: transient throttle kept on pi backoff, fallback pool initialised on first prompt, unreported failure announced at settle, Coarena per-minute wording corrected
-  #27 2026-11-16T18:47:22.775Z session — bump 0.5.14 covering both pending rounds: silent turn end on 429 and legal docs/tool lifecycle fixes
-  #28 2026-11-16T18:50:29.655Z commit — แก้เทิร์นหยุดเงียบเมื่อผู้ให้บริการจำกัดคำขอ · เพิ่มเอกสารสิทธิ์ในโปรแกรม · แก้สถานะเครื่องมือค้าง
-  #29 2026-11-16T18:58:16.682Z release — Released version 0.5.14
+  #36 2026-11-16T19:31:16.256Z commit — internal: บันทึกหลักฐานการแก้เทิร์นจบเงียบเมื่อเจอ 429
+  #37 2026-11-16T19:32:11.495Z commit — internal: ปิดท้ายสายหลักฐานรอบแก้เทิร์นจบเงียบ
+  #38 2026-11-16T19:37:33.394Z session — ถอดระบบสลับโมเดลอัตโนมัติออกตามคำสั่งผู้ใช้: ลบ runModelFallback/switchToNextFreeModel/fallbackState/announceFallbackExhausted/resumeAgentTurn/dropFailedAssistant, IPC agent:fallback, notice.switched, fallback.exhausted, tab.fallback; model-fallback.js เหลือ isLimitError/isTransientThrottle/turnFailure; 429 ที่สิทธิ์หมดแจ้งเตือนอย่างเดียวไม่สลับโมเดล; npm test 72/72
+  #39 2026-11-16T19:44:25.643Z session — ถอดระบบสลับโมเดลอัตโนมัติทั้งหมดตามคำสั่งผู้ใช้: ลบ fallback pool/IPC agent:fallback/notice.switched/fallback.exhausted และ LLM7 empty-answer recovery (empty-answer.js + เทสต์, notice.emptyRepeat/emptySwitched/switchFailed, tab.emptyAnswer/emptyRetryCount/lastPromptText); เหลือแจ้งเตือนอย่างเดียว (fp.hourly_ceiling + noticeReasoningOverflow); npm test 71/71 ผ่าน
+  #40 2026-11-16T19:44:26.289Z commit — ถอดระบบสลับโมเดลอัตโนมัติ เหลือแจ้งเตือนอย่างเดียวเมื่อสิทธิ์หมดหรือโมเดลตอบว่าง
+  #41 2026-11-16T20:52:20.799Z commit — ป้ายสถานะแสดงชื่อโมเดลเต็มไม่ตัด · ลิงก์สมัคร FreePi มีรหัสแนะนำของผู้พัฒนา ระบุชัดในเอกสารสิทธิ์
+  #42 2026-11-16T20:52:21.364Z commit — internal: bump 0.5.15
+  #43 2026-11-16T21:00:47.463Z release — Released version 0.5.15

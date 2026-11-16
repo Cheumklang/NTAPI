@@ -2622,3 +2622,20 @@ e้า diff ของ `turnFailure()` + `tabState` synthetic error banner ต�
 **ต่อ (ผู้ใช้สั่ง):** "commit + push ปล่อยตัวอัปเดตและ build ... ลบเวอร์ชั่นเก่า tag เก่าออกด้วย" → ออก **`0.5.15`**
 
 **บทเรียน:** เทิร์นปล่อยรุ่นต้องยิง bash หลาย call (รอ CI/ปล่อยรุ่น) — งานยาวจนรวมเป็น call เดียวไม่ได้จริง
+
+## 2026-11-17 — ปล่อย v0.5.15 (build ครบ) + ลบ release/tag เก่า
+
+ผู้ใช้สั่ง: "commit + push ปล่อยตัวอัปเดตและ build … ลบเวอร์ชั่นเก่า tag เก่าออกด้วย" (ผู้ใช้จะเปลี่ยน session ไปทดสอบ)
+
+**commit:** `83b3fea` (ป้ายสถานะแสดงชื่อโมเดลเต็มไม่ตัด · ลิงก์สมัคร FreePi มีรหัสแนะนำ · เอกสารสิทธิ์ + หน้าเกี่ยวกับ)
+· `91b4cf4` `internal: bump 0.5.15` · tag `v0.5.15` → push origin แล้ว
+
+**ตรวจก่อนปล่อย:** `npm test` 71/71 · `check:legal` ผ่าน · `check:pill` = "All status pill checks passed" · `prove:verify` OK 40 entries
+
+**ตรวจหลังปล่อย:** `latest.yml` = 0.5.15 · โหลด `NTAPI-Setup-0.5.15.exe` ได้จริง (118,297,212 bytes · sha256 `2e7059f885b22f3e428e11f3f603f141b92c06bd1c641aa8309afabdbf4deaab`) · หน้า release 200
+
+**หลักฐาน:** `record-release 0.5.15` seq 43 + `anchor` + `verify` OK 43 entries
+
+**ลบรุ่นเก่า:** push marker `[prune-releases keep=v0.5.15 apply tags]` (workflow `prune-releases.yml`) → ให้เหลือ `v0.5.15` รุ่นเดียว
+
+**บทเรียน:** API GitHub (`api.github.com`) ติด rate limit จาก IP เครื่องนี้ (403) — ตรวจ release ได้ด้วย URL สาธารณะ `github.com/.../releases/latest/download/latest.yml` และดาวน์โหลดไฟล์จริงมา hash แทน
