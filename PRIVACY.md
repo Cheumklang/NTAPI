@@ -36,6 +36,20 @@
 **เราไม่ได้ใช้:** Google Analytics, การติดตามพฤติกรรม, fingerprint, หรือ SDK โฆษณา
 ของบุคคลที่สาม — ไม่มีการส่งเนื้อหาแชทของคุณกลับมาที่ผู้พัฒนา
 
+### ลิงก์แนะนำของผู้ให้บริการ (referral)
+
+ปุ่ม “สมัคร/เข้าสู่ระบบ” ของ FreePi ในหน้าบัญชี เปิดหน้า `freepi.ai` ในเบราว์เซอร์ของคุณ
+พร้อม **รหัสแนะนำของผู้พัฒนา** (`?ref=…`) เพื่อให้ผู้ให้บริการทราบว่าคุณมาจาก NTAPI
+และอาจให้เครดิตหรือสิทธิประโยชน์แก่ผู้พัฒนา
+
+- โปรแกรม **ไม่ได้** ส่งข้อมูลใด ๆ เพิ่มไปกับการเปิดลิงก์ — รหัสเป็นเพียงข้อความในที่อยู่เว็บ
+  ที่เบราว์เซอร์ของคุณเปิด และโปรแกรมไม่ได้อ่านผลลัพธ์กลับมา
+- ผู้ให้บริการอาจวางคุกกี้หรือบันทึกข้อมูลการสมัครตาม **นโยบายความเป็นส่วนตัวของเขาเอง**
+  ซึ่งอยู่นอกการควบคุมของผู้พัฒนา
+- ผู้พัฒนา **ไม่ได้รับ** อีเมล ข้อมูลบัญชี เนื้อหา หรือประวัติการใช้งานของคุณจากการแนะนำนี้
+- ไม่กดลิงก์ก็ใช้โปรแกรมได้ครบทุกฟังก์ชัน · การแนะนำเป็นทางเลือก ไม่ใช่เงื่อนไขการใช้บริการ
+  และไม่กระทบสิทธิ์ตามข้อ 5
+
 ### ส่วนขยายเบราว์เซอร์ (ถ้าคุณติดตั้ง)
 
 NTAPI ทำงานกับเบราว์เซอร์ Chrome ผ่าน **ส่วนขยายที่คุณติดตั้งเองและให้สิทธิ์เอง** เมื่อคุณกดปุ่ม
@@ -62,6 +76,8 @@ NTAPI ทำงานกับเบราว์เซอร์ Chrome ผ่า
   เพื่อวัดการใช้งานโดยรวม โดยใช้ข้อมูลน้อยที่สุดและระบุตัวตนไม่ได้
 - **การส่งข้อความไปยังบริษัท AI:** เป็นการดำเนินการตามคำขอของคุณ (มาตรา 24(3))
   คุณเป็นผู้เลือกเองว่าจะส่งอะไรให้ใคร
+- **การเปิดลิงก์แนะนำไปยังเว็บของผู้ให้บริการ:** เป็นการดำเนินการตามคำขอของคุณ
+  (มาตรา 24(3)) — โปรแกรมเปิดลิงก์เฉพาะเมื่อคุณกด และไม่ส่งข้อมูลใด ๆ ไปกับลิงก์
 - **การส่งข้อมูลไปต่างประเทศ:** บริการที่ใช้ (Render, GitHub, ผู้ให้บริการ AI)
   อยู่นอกประเทศไทย และมีมาตรการคุ้มครองตามนโยบายของผู้ให้บริการนั้น (มาตรา 28–29)
 
@@ -104,6 +120,11 @@ call is an anonymous per-launch UUID sent every 45 s to
 `ntapi-presence.onrender.com` (Render, US) to count online users, held in
 memory only. Messages you send go directly to the AI provider you chose, with
 your own key — not through the developer. No analytics, no tracking, no ad SDKs.
+Some provider sign-in buttons open the provider's site with this developer's
+referral code (`?ref=…`): the app adds no data to that link, the price and quota
+you get are the same as signing up directly, and the developer receives no
+account, email or usage data from it — only the provider may set cookies, under
+its own policy.
 To delete everything, remove `C:\NTAPI` and `%APPDATA%\NTAPI`. Questions or
 data requests: cheumklang@gmail.com.
 

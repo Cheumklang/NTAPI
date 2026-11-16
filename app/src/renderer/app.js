@@ -428,7 +428,7 @@ const STRINGS = {
     aboutDonation: 'Buy me a coffee',
     aboutQrDesc: 'Scan the QR code to support a coffee',
     aboutLicence: 'Third-party licences',
-    aboutLegalText: 'NTAPI has no affiliation with and is not endorsed by any model provider. It is free to use with your own keys · it bundles third-party software under their licences.',
+    aboutLegalText: 'NTAPI has no affiliation with and is not endorsed by any model provider. It is free to use with your own keys · it bundles third-party software under their licences. Some provider sign-in links carry the developer\'s referral code — signing up that way never changes your price, quota or rights.',
     aboutSecurityOpen: 'Security policy',
     aboutNoticesOpen: 'Third-party software licences',
     aboutTermsOpen: 'Terms of use',
@@ -818,7 +818,7 @@ const STRINGS = {
     aboutDonation: 'สนับสนุนค่ากาแฟ',
     aboutQrDesc: 'สแกน QR Code เพื่อสนับสนุนค่ากาแฟ',
     aboutLicence: 'ลิขสิทธิ์ของผู้อื่น',
-    aboutLegalText: 'NTAPI ไม่มีความเกี่ยวข้องและไม่ได้รับการรับรองจากเจ้าของโมเดลหรือผู้ให้บริการใด ๆ ใช้ฟรีด้วยคีย์ของคุณเอง · โปรแกรมรวมซอฟต์แวร์ของผู้อื่นภายใต้สัญญาอนุญาตของเขา',
+    aboutLegalText: 'NTAPI ไม่มีความเกี่ยวข้องและไม่ได้รับการรับรองจากเจ้าของโมเดลหรือผู้ให้บริการใด ๆ ใช้ฟรีด้วยคีย์ของคุณเอง · โปรแกรมรวมซอฟต์แวร์ของผู้อื่นภายใต้สัญญาอนุญาตของเขา · ลิงก์สมัครของผู้ให้บริการบางรายมีรหัสแนะนำของผู้พัฒนาอยู่ด้วย ซึ่งไม่มีผลต่อราคา โควตา หรือสิทธิ์ที่คุณได้รับ',
     aboutSecurityOpen: 'ความปลอดภัย',
     aboutNoticesOpen: 'สัญญาอนุญาตของซอฟต์แวร์ที่ใช้',
     aboutTermsOpen: 'ข้อกำหนดการใช้งาน',
@@ -2884,7 +2884,12 @@ function paintProviderMeter(view) {
   const pillMeter = el('statusProviderMeter');
   const mirror = () => {
     if (pillName) pillName.textContent = name.textContent;
-    if (pillMeter) pillMeter.textContent = text.textContent;
+    if (pillMeter) {
+      // The tab is narrower than some model names, and CSS ends the overflow in
+      // an ellipsis. The full sentence still has to be reachable on hover.
+      pillMeter.textContent = text.textContent;
+      pillMeter.title = text.textContent || '';
+    }
   };
   if (!name || !text || !label) return;
   if (chrome.meter === null) return;

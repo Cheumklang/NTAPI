@@ -232,4 +232,39 @@ check('the command palette entry still reaches the refresh control', () => {
   assert.match(app, /run: \(\) => el\('refreshUsage'\)\.click\(\)/);
 });
 
+check('a model name too long for the tab ends in an ellipsis', () => {
+  // Reported from the window: “Zro DeepSeek V4.1 Flash” in a provider pill was
+  // cut mid-glyph on the tab's border. The provider name stays whole; only the
+  // model name gives way, and it gives way with an ellipsis.
+  const at = css.indexOf('#statusProviderMeter {');
+  assert.ok(at > -1, 'no rule for the model name');
+  const rule = css.slice(at, css.indexOf('\n}', at));
+  assert.match(rule, /text-overflow:\s*ellipsis/);
+  assert.match(rule, /overflow:\s*hidden/);
+  assert.match(rule, /white-space:\s*nowrap/);
+  assert.match(rule, /min-width:\s*0/);
+  const nameAt = css.indexOf('#statusProviderName {');
+  assert.ok(nameAt > -1, 'no rule for the provider name');
+  assert.match(css.slice(nameAt, css.indexOf('\n}', nameAt)), /flex:\s*none/);
+  // Truncated on screen is only honest if the whole name is reachable.
+  assert.match(app, /pillMeter\.title = text\.textContent/);
+});
+
+check('the popover is wide enough for its longest row on one line', () => {
+  const at = css.indexOf('.status-popover {');
+  assert.ok(at > -1, 'no popover style');
+  const rule = css.slice(at, css.indexOf('\n}', at));
+  const min = Number((rule.match(/min-width:\s*(\d+)px/) || [])[1]);
+  assert.ok(min >= 220, `min-width is ${min}px`);
+  // Still anchored to the tab's left edge, so growing only moves the right side.
+  assert.match(rule, /left:\s*0/);
+});
+
+check('a hidden usage row is really hidden', () => {
+  // Same trap as the popover itself: `.usage-row` sets `display: flex`, which
+  // beats the browser's `[hidden]` rule — the Coarena reset line (and its last
+  // date) stayed on screen for every other provider.
+  assert.match(css, /\.usage-row\[hidden\] \{ display: none; \}/);
+});
+
 console.log(`${pass} checks passed`);

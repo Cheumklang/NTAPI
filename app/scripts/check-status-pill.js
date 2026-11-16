@@ -126,17 +126,31 @@ const MEASURE = `(async () => {
   await frame();
   const outside = { hidden: pop.hidden };
 
-  // Provider mode swaps the group instead of the whole pill disappearing.
+  // Provider mode swaps the group instead of the whole pill disappearing. The
+  // values are the reported worst case: a provider plus a long model name in a
+  // tab that is narrower than the two together.
   document.getElementById('statusFree').hidden = true;
   document.getElementById('statusProvider').hidden = false;
-  document.getElementById('statusProviderName').textContent = 'Coarena';
-  document.getElementById('statusProviderMeter').textContent = '1.20 / 5.00';
+  document.getElementById('statusProviderName').textContent = 'Zro';
+  document.getElementById('statusProviderMeter').textContent = 'DeepSeek V4.1 Flash';
+  pill.click();
   await frame();
+  const meter = document.getElementById('statusProviderMeter');
+  const modelRow = document.getElementById('providerMeterText').parentElement;
   const provider = {
     freeHidden: document.getElementById('statusFree').hidden,
     box: box(pill),
+    panel: box(pop),
     meterShown: getComputedStyle(document.getElementById('statusProvider')).display !== 'none',
+    // Inside the tab the name may end in an ellipsis, but its box must end
+    // inside the pill instead of painting over the tab's border.
+    meterInside: Math.round(meter.getBoundingClientRect().right) <= Math.round(pill.getBoundingClientRect().right),
+    // The popover's “model” row keeps the label and the value on one line.
+    rowH: Math.round(modelRow.getBoundingClientRect().height),
+    labelH: Math.round(modelRow.firstElementChild.getBoundingClientRect().height),
   };
+  pill.click();
+  await frame();
   document.getElementById('statusFree').hidden = false;
   document.getElementById('statusProvider').hidden = true;
   await frame();
@@ -202,17 +216,25 @@ async function atSize(win, label, width, height) {
     popover: m.open.box,
     viewport: m.viewport.w,
   });
-  check(`${label}: the popover is exactly as wide as its tab`,
-    Math.abs(m.open.box.w - m.open.pill.w) <= 1, { panel: m.open.box.w, tab: m.open.pill.w });
+  // The panel is the width of its tab, unless the tab is too narrow to hold a
+  // label and its value on one line — then it keeps that reading width and grows
+  // to the right only (its left edge is checked separately below).
+  check(`${label}: the popover is as wide as its tab, or wide enough to read a row`,
+    m.open.box.w >= m.open.pill.w - 1 && m.open.box.w >= 232, { panel: m.open.box.w, tab: m.open.pill.w });
   check(`${label}: the popover is flush with the tab's left edge`,
     Math.abs(m.open.box.x - m.open.pill.x) <= 1, { panel: m.open.box.x, tab: m.open.pill.x });
-  check(`${label}: it stays that width when the tab grows`,
-    Math.abs(m.grown.box.w - m.grown.pill.w) <= 1 && m.grown.box.w >= m.open.box.w - 1,
+  check(`${label}: a wider tab widens the panel with it`,
+    m.grown.box.w >= m.grown.pill.w - 1 && m.grown.box.w >= m.open.box.w - 1,
     { panel: m.grown.box.w, tab: m.grown.pill.w, before: m.open.box.w });
   check(`${label}: Escape closes it`, m.escaped.hidden === true);
   check(`${label}: Escape puts focus back on the pill`, m.escaped.focused === true);
   check(`${label}: a click outside closes it`, m.outside.hidden === true);
   check(`${label}: provider mode shows the provider line`, m.provider.meterShown === true && m.provider.freeHidden === true);
+  check(`${label}: a long model name stays inside the tab`, m.provider.meterInside === true, m.provider);
+  check(`${label}: the model name and its label share one line`,
+    m.provider.rowH <= m.provider.labelH + 3, m.provider);
+  check(`${label}: the wider panel still opens inside the window`,
+    m.provider.panel.x >= 0 && m.provider.panel.right <= m.viewport.w, m.provider.panel);
   check(`${label}: swapping modes keeps the pill the same height`, m.provider.box.h === m.back.h, {
     free: m.back.h,
     provider: m.provider.box.h,

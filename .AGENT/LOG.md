@@ -2545,6 +2545,41 @@ e้า diff ของ `turnFailure()` + `tabState` synthetic error banner ต�
 **บทเรียน:** ยังทำผิดกฎ 1 เทิร์น = 1 bash call ในเทิร์นตรวจสองครั้งแรก (ทยอยอ่าน AGENTS.md/HANDOFF แยก call)
 → เทิร์นนี้ควรเริ่มด้วยสคริปต์เดียวที่ `git status` + `npm test` + grep usage + ตัดสินใจตามผล
 
+## 2026-11-17 — ลิงก์แนะนำ FreePi + แก้ TERMS/PRIVACY/หน้า "เกี่ยวกับ"
+
+**สั่งโดยผู้ใช้:** "แก้ไขลิงค์ของ FREEPI เป็น https://freepi.ai/?ref=3tygm5kd … ผมจะได้ค่าแนะนำด้วย"
+แล้วถามต่อว่า "เรื่องกฏหมายต้องอัปเดตไหม" → สั่ง "จัดการให้หน่อย"
+
+**โค้ด (1 บรรทัด):** `app/src/renderer/app.js:4888` ปุ่ม `accountGetKey` ("สมัคร/เข้าสู่ระบบที่ freepi.ai")
+`https://freepi.ai/` → `https://freepi.ai/?ref=3tygm5kd`
+· **ไม่แตะ API:** `freepi-bridge.js:50 DEFAULT_BASE_URL`, `main.js:4425 FREEPI_BASE_URL`, `selftest-sse-guard.js:81` ยังเป็น `api.freepi.ai`
+· grep ทั้ง `src/`+`scripts/` แล้ว URL แบบเว็บเหลือจุดเดียว (`freepiGetKey` ×2 ภาษา + `index.html` เป็นแค่ข้อความปุ่ม ไม่ใช่ลิงก์)
+
+**ทำไมต้องแก้กฎหมาย:** TERMS §2.1 เดิม = "ไม่มีส่วนได้เสียและ**ไม่ได้รับค่าตอบแทน**จากการที่คุณเติมเงิน" และ §1 = รายได้"โฆษณา + บริจาค**เท่านั้น**"
+→ พอใส่ `?ref=` สองประโยคนี้เป็นเท็จ เสี่ยง พ.ร.บ.คุ้มครองผู้บริโภค (ข้อความอันเป็นเท็จเกี่ยวกับบริการ) และทำให้ TERMS ขัดกับพฤติกรรมจริงของโปรแกรม
+
+**TERMS.md (5 จุด):** §1 เติมแหล่งรายได้ referral · §2.1 เขียนใหม่ (ติดต่อบริษัทด้วยคีย์ผู้ใช้โดยตรง ผู้พัฒนาไม่เห็นบัญชี/เนื้อหา) ·
+**§2.5 ใหม่** ลิงก์แนะนำ (ไม่มีผลต่อราคา/โควตา/สิทธิ์ · ไม่ได้ข้อมูลบัญชี · ไม่ใช่เงื่อนไขการใช้) · §2.6 ค่าใช้จ่ายเป็นเรื่องระหว่างผู้ใช้กับผู้ให้บริการ ·
+§5.4 ลิงก์แนะนำไม่ถือเป็นการรับรอง · English summary เติม *Referral links*
+
+**PRIVACY.md (3 จุด):** หัวข้อย่อยใหม่ "ลิงก์แนะนำของผู้ให้บริการ (referral)" (ไม่กดก็ใช้ได้ครบ · ไม่มีข้อมูลไปกับลิงก์ · คุกกี้เป็นของผู้ให้บริการ)
+· §4 ฐานกฎหมาย ม.24(3) คำขอของเจ้าของข้อมูล · English summary เติมเรื่อง referral
+
+**หน้าต่าง ๆ ในแอปให้ตรงกัน:** `aboutLegalText` EN (app.js:431) + TH (app.js:821) + `index.html:842` เติมประโยค "ลิงก์สมัคร…มีรหัสแนะนำของผู้พัฒนา…ไม่มีผลต่อราคา โควตา หรือสิทธิ์"
+→ เหตุที่ต้องแก้ 3 ที่: เวลาที่ข้อความใน `.md` ต่างจากหน้าเกี่ยวกับ ผู้ใช้จะเห็นแค่หน้าเกี่ยวกับ
+
+**เทสต์:** `node --check renderer/app.js` ผ่าน · `check:legal` **7 checks** · `npm test` **71/71** (71 ไม่ใช่ 72 เพราะชุดเทสต์ถูกอีก session แก้ — ไม่ใช่ผลจาก turn นี้) · grep ยืนยันไม่เหลือประโยคเท็จ
+
+**ยังไม่ commit / ยังไม่ bump** — `app/package.json` = `0.5.14` · tag มี `v0.5.14` เดียว · `latest.yml` = `0.5.14` · commit ล่าสุดของผม = `9399f61`
+**ไฟล์ค้างที่ผมแก้รอบนี้ (4):** `TERMS.md` `PRIVACY.md` `app/src/renderer/app.js` `app/src/renderer/index.html` + `.AGENT/HANDOFF.md` + `.AGENT/LOG.md`
+**กองเดียวกับอีก session (ห้าม commit รวม):** `app/src/main.js` `model-fallback.js` `preload.js` `error-messages.js` `renderer/app.js`(คนละ hunk) `scripts/selftest-*` `check-duration-wiring.js` — งาน "ถอดระบบสลับโมเดลอัตโนมัติ" ยังไม่จบ
+
+**ขั้นถัดไป (รอผู้ใช้เลือก):** (ก) commit เฉพาะ TERMS/PRIVACY/index.html + patch hunk `app.js` ของเรา → `git add -p app/src/renderer/app.js`
+หรือ (ข) รออีก session commit ก่อน แล้วรวมออกเป็น **`0.5.15`** ทั้งชุด · **ห้าม bump/tag/push เอง**
+
+**บทเรียน:** กฎหมายในโปรเจกต์นี้อยู่ 3 ที่ที่ต้องตรงกันเสมอ (`.md` + i18n th/en + HTML ตั้งต้น) — แก้ `.md` อย่างเดียวผู้ใช้ไม่เห็น
+และถ้าเปลี่ยนวิธีได้รายได้ (referral/affiliate/sponsor) ต้องกลับมาแก้ §1 + §2 ของ TERMS ทุกครั้ง ไม่งั้น TERMS จะเป็นเท็จ
+
 ## 2026-11-17 — ถอดระบบสลับโมเดลอัตโนมัติออก (ผู้ใช้สั่ง)
 
 ผู้ใช้: "เอาระบบสลับอัตโนมัติออกเลยคับ ผมว่ามันทำให้ผู้ใช้งานสับสน แจ้งเตือนก็ให้มันบอกแค่ว่าหมดก็พอ"
@@ -2572,3 +2607,18 @@ e้า diff ของ `turnFailure()` + `tabState` synthetic error banner ต�
 `notice.emptyRepeat` / `notice.emptySwitched` / `notice.switchFailed` ·
 `tab.emptyAnswer` / `tab.emptyRetryCount` / `tab.lastPromptText` · `run-unit-tests.js` เหลือ 71 สคริปต์
 → ตอบว่าง = `noticeReasoningOverflow` อย่างเดียว · `node --check` + `npm test` ผ่าน · commit เดียว ไม่ bump/tag/push
+
+## 2026-11-17 — ป้ายสถานะ Zro: ชื่อโมเดลยาวเกินป้าย + แถว "รีเซ็ตใน" ค้าง
+
+ผู้ใช้แจ้งพร้อมภาพ: `Zro DeepSeek V4.1 Flash` ในป้ายสถานะถูกตัดที่ขอบ · ในป๊อปอัปแถว "โมเดล" ขึ้นคนละบรรทัด · มีแถว "รีเซ็ตใน" ของ Coarena ค้าง
+
+**สาเหตุ:** popover กว้างเท่าป้าย (`min-width: 0`) → ใส่ "โมเดล + ชื่อรุ่น" ไม่พอ · `.usage-row { display:flex }` ทับ `[hidden]` → `#providerResetsRow` ไม่ยอมซ่อน (ค่าเก่าค้าง)
+
+**แก้:** `styles.css` — popover `min-width: 252px` · `.usage-row[hidden]` · ellipsis ให้ `#statusProviderMeter` · `flex:none` ให้ `#statusProviderName` · `app.js` — `title` ของป้าย = ชื่อเต็ม
+
+**เทสต์:** `selftest-usage-pill.js` +3 checks (27 ผ่าน) · `npm test` 71/71 · `node --check` ผ่าน 3 ไฟล์
+`check-status-pill.js` ปรับให้วัดของจริง (แถวเดียว / ไม่ล้นป้าย / popover กว้าง ≥ 232)
+
+**ต่อ (ผู้ใช้สั่ง):** "commit + push ปล่อยตัวอัปเดตและ build ... ลบเวอร์ชั่นเก่า tag เก่าออกด้วย" → ออก **`0.5.15`**
+
+**บทเรียน:** เทิร์นปล่อยรุ่นต้องยิง bash หลาย call (รอ CI/ปล่อยรุ่น) — งานยาวจนรวมเป็น call เดียวไม่ได้จริง

@@ -772,14 +772,19 @@ button { font-family: inherit; }
 }
 
 /*
- * The panel is exactly as wide as the pill that opened it.
+ * The panel hangs from the pill that opened it.
  *
  * It used to be a fixed 262px, so the panel and its tab had two different widths
  * and the panel stuck out past both edges of the thing it belonged to. Tying the
  * geometry to the strip (`left: 0; right: 0` on a full-width child of the strip,
- * whose only in-flow child is the pill) means it tracks the tab through resizes,
- * a language switch, and the pill's own narrow-window trimming — always equal,
- * never a number that has to be kept in sync by hand.
+ * whose only in-flow child is the pill) keeps the left edge on the tab through
+ * resizes, a language switch, and the pill's own narrow-window trimming.
+ *
+ * Width is the one exception. A provider's model name next to its label is
+ * longer than a provider pill — “โมเดล  DeepSeek V4.1 Flash” does not fit in the
+ * 170px a name-only pill can be — and a value that wrapped under its own label
+ * read like a layout bug. The minimum below keeps such a row on one line; the
+ * panel then grows to the right only, so it still never leaves its tab's edge.
  */
 .status-popover {
   position: absolute;
@@ -788,7 +793,7 @@ button { font-family: inherit; }
   right: 0;
   z-index: 60;
   width: auto;
-  min-width: 0;
+  min-width: 252px;
   padding: 11px 12px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -796,6 +801,23 @@ button { font-family: inherit; }
   box-shadow: 0 18px 44px rgba(0, 0, 0, .5);
 }
 .status-popover[hidden] { display: none; }
+
+/* A `hidden` row is really hidden. `display: flex` on `.usage-row` beats the
+ * browser's `[hidden]` rule, so Coarena's “Resets” line — with whatever date it
+ * last held — stayed on screen for every other provider. */
+.usage-row[hidden] { display: none; }
+
+/* The model name is the part of the provider line that gives way: the provider
+ * name stays whole, and a model name too long for the tab ends in an ellipsis
+ * instead of being cut mid-glyph at the tab's border. The full name is one hover
+ * away in the popover, and `title` carries it too. */
+#statusProviderName { flex: none; }
+#statusProviderMeter {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* At an exact pill width the rows can be a hundred pixels wide on a narrow window:
  * let the value wrap under its label rather than push the panel wider than its
  * tab, which is the one thing this panel must not do. */
