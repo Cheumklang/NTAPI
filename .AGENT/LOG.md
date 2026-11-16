@@ -2096,3 +2096,10 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   · **ส่งอัปเดต** = bump + tag + push → คนที่ติดตั้งแล้วกดอัปเดตในโปรแกรมได้ · ไม่ต้อง build/แนบตัวติดตั้งให้คนใหม่โหลด · ไม่ต้องลบ release เก่า
   · **build** = ส่งอัปเดต + ตรวจว่า `NTAPI-Setup-X.Y.Z.exe` + `latest.yml` ครบ ลิงก์โหลดใช้ได้ + **ลบ release/tag เก่าให้เหลือรุ่นเดียว**
   · ไม่ชัด = ถาม · แก้เลขค้างใน AGENTS.md (`0.5.1` → รอบถัดไป `0.5.9`) ให้ตรงกับ HANDOFF
+
+**ปล่อย v0.5.9 แล้ว (2026-11-17 · build)**
+- commit `3340403` (งาน 6 เรื่อง) · `5331295` (กติกาส่งอัปเดต/build) · `edd84f4` (bump 0.5.9) → push + tag `v0.5.9`
+- CI `Release` run `43870886990` **success** · assets 3 ไฟล์: `NTAPI-Setup-0.5.9.exe` (118,261,253B) + `latest.yml` + blockmap
+- ลิงก์ดาวน์โหลดทดสอบแล้ว (206 partial content)
+- **ลบ `v0.5.8` ออก:** release + tag ใน `NTAPI-releases` + tag ใน repo ต้นทาง + tag ในเครื่อง
+  → เหลือ `v0.5.9` รุ่นเดียวทั้ง 2 repo

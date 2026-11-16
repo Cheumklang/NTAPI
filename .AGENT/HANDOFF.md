@@ -11,7 +11,8 @@
 >   (5) เปิดโปรแกรมใหม่กลับไปแชทล่าสุดที่เปิดไว้ (`prefs.activeSession` + `pickRestoreTarget`)
 >   (6) ป้าย “กำลังทำงาน” ค้าง + กดหยุดไม่ติด (abort ล้างธงก่อน + `paintBusyFromViews` + reconcile 4 วิ)
 >   · เทสต์: `npm test` 66 scripts · `check-sponsor-layout` 61 · `check-first-run-guide` 14 · `check-undo-send` 9
->   · **รอบปล่อยครั้งถัดไป = `0.5.9`** (ล่าสุดที่ปล่อย = `v0.5.8`)
+>   · **ปล่อยแล้ว `v0.5.9`** (2026-11-17) — CI `Release` run `43870886990` success · assets: `NTAPI-Setup-0.5.9.exe` 118,261,253B + `latest.yml` (version 0.5.9) + blockmap
+>   · **repo เหลือรุ่นเดียว:** release + tag = `v0.5.9` ทั้ง `NTAPI-releases` และ repo ต้นทาง (ลบ `v0.5.8` แล้ว) · **รอบปล่อยครั้งถัดไป = `0.5.10`**
 > - **v0.5.5 ปล่อยแล้ว** — CI `Release` **success** · assets: `NTAPI-Setup-0.5.5.exe` (118 MB) + `latest.yml` + blockmap
 >   · release body ขึ้น 1 บรรทัด: "โฆษณาแนวตั้งแสดงเต็มสัดส่วน ล็อคความกว้าง sidebar และสีแชทไม่ซ้อนกรอบ"
 >   · รัน: https://github.com/Cheumklang/NTAPI/actions/runs/43703513191
