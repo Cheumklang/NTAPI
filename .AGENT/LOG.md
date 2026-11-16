@@ -2154,3 +2154,11 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - เทสต์ใหม่ `scripts/selftest-coarena-free-tier.js` 19 checks (อยู่ใน `npm test` = 68 scripts)
   · ปรับ `selftest-model-filter.js` 2 checks ให้ตรงกับ `tagPlans(retagModels(...))`
 - `npm test` **68/68** ผ่าน
+
+**ปล่อย v0.5.10 แล้ว (2026-11-17 · build)**
+- commits `e3e3a18` (บันทึก) · `770fc25` (งาน) · `9bd7f24` (bump) → tag `v0.5.10` push สำเร็จ
+- CI: `CI` run `43881210819` success · `Release` run `43881221951` **success**
+- assets บน `Cheumklang/NTAPI-releases`: `NTAPI-Setup-0.5.10.exe` 118,264,843B + `latest.yml` (version 0.5.10) + blockmap
+- ทดสอบลิงก์โหลด: HTTP 206 (partial 1024B) ใช้ได้
+- **ลบ `v0.5.9` แล้ว** (release + tag ทั้ง 2 repo + tag ในเครื่อง) → เหลือ `v0.5.10` รุ่นเดียว
+- รอบปล่อยครั้งถัดไป = **`0.5.11`**
