@@ -3125,7 +3125,24 @@ function mergeIncomingMessages(view, incoming) {
     }
     kept.push(m);
   }
-  return next.concat(kept);
+  if (!kept.length) return next;
+
+  /*
+   * A message the session does not have yet goes back to the slot it was written
+   * in, not to the end.
+   *
+   * Appending it was visibly wrong: the reply that the message caused was already
+   * streaming, so the transcript ended with the answer and then the question under
+   * it. It looked right while the turn was live — the message had been drawn before
+   * that reply existed — and only broke on the repaint that a tab switch performs,
+   * which is exactly how it was reported.
+   */
+  const out = next.slice();
+  for (const m of kept) {
+    const wanted = Number.isInteger(m.pendingAt) ? m.pendingAt : out.length;
+    out.splice(Math.max(0, Math.min(wanted, out.length)), 0, m);
+  }
+  return out;
 }
 
 /*
@@ -6053,7 +6070,19 @@ async function sendQueued(view, item) {
     renderUserMessage(item.text, item.images);
     scrollToBottom(true);
   }
-  view.messages.push({ kind: 'user', text: item.text, images: item.images, pending: true });
+  // Where this message belongs in the conversation, kept as an index on the entry
+  // itself. The session file is the authority on order, but until main has written
+  // the prompt the pending copy is the only one that exists — and when a repaint
+  // put that copy back it appended it at the end, below the answer it had already
+  // started. That is why switching back to a chat showed the question under its
+  // own reply. Remembering the slot lets the merge put it back where it was.
+  view.messages.push({
+    kind: 'user',
+    text: item.text,
+    images: item.images,
+    pending: true,
+    pendingAt: view.messages.length,
+  });
   view.liveAssistant = null;
   view.liveTools = null;
   view.busy = true;

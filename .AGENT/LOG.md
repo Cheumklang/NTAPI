@@ -2287,3 +2287,22 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   (บันทึกใน `PROVENANCE/releases/v0.5.12.json` seq 11)
 - แก้ release body ให้เหลือเฉพาะสิ่งที่ผู้ใช้เห็น (ตัดเรื่อง ledger/hook ออกตามกฎ)
 - ลบ `v0.5.11` แล้ว → เหลือ `v0.5.12` รุ่นเดียว · รอบถัดไป = `0.5.13`
+
+## 2026-11-17 — ข้อความของผู้ใช้ไปอยู่ใต้คำตอบ หลังสลับแชทกลับมา
+
+**อาการ (จากภาพ):** ระหว่างทำงาน ข้อความของเราอยู่ **เหนือ** งานของ AI แต่พอสลับแชทไปแล้วกลับมา
+ข้อความเรากลับไปอยู่ **ใต้** งาน/คำตอบที่มันสั่งให้ทำ
+
+**ต้นเหตุ:** `mergeIncomingMessages()` คืน `next.concat(kept)` — ข้อความ local ที่ยัง `pending`
+(เพราะ main ยังไม่ทันเขียน prompt ลง session) ถูก **ต่อท้าย** ตอน repaint
+แต่ session มี “คำตอบ/งาน” ของเทิร์นนั้นอยู่แล้ว → ข้อความไปอยู่ใต้คำตอบของตัวเอง
+(ตอนเทิร์นยัง live ไม่เห็นปัญหา เพราะ DOM วาดข้อความก่อน bubble คำตอบจะเกิด)
+
+**แก้ (`app/src/renderer/app.js`)**
+- `sendQueued()` บันทึก `pendingAt: view.messages.length` = “ช่อง” ของข้อความตอนส่ง
+- `mergeIncomingMessages()` ใส่ข้อความที่ยัง pending กลับที่ `pendingAt` (clamp กับความยาวจริง)
+  แทนการต่อท้าย — ถ้า session มีข้อความนั้นแล้วก็ยังทิ้งสำเนา pending ตามเดิม (ไม่ซ้ำ)
+- เทสต์ใหม่ `scripts/check-message-order.js` (`check:order`, 7 checks) + `scripts/selftest-message-order.js` (2 checks, offline 70/70)
+
+**ผลเทสต์:** `npm test` **70/70** · `check:order` 7 · `check:history-merge` · `check:queue`
+· `check:read` · `check:stale-queue` · `check:scroll` ผ่านหมด

@@ -1,6 +1,10 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **สถานะ ณ 2026-11-17 (ปล่อย `0.5.12` แล้ว):**
+> **สถานะ ณ 2026-11-17 (ปล่อย `0.5.12` แล้ว · มีงานค้างรอ `0.5.13`):**
+> - **ค้าง (ยังไม่ปล่อย):** ข้อความของผู้ใช้ไปอยู่ใต้คำตอบหลังสลับแชท → แก้ด้วย `pendingAt`
+>   ใน `sendQueued` + `mergeIncomingMessages` วางกลับช่องเดิม · เทสต์ `check:order` 7 ·
+>   `selftest-message-order.js` 2 · `npm test` **70/70**
+
 > - **`v0.5.12` ปล่อยแล้ว** — 4 เรื่อง: scroll to latest · fold provider groups · queue release ·
 >   PROVENANCE ledger · **รอบปล่อยครั้งถัดไป = `0.5.13`**
 

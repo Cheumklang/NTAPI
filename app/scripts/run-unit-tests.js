@@ -54,6 +54,7 @@ const TESTS = [
   'selftest-retry-notice.js',
   'selftest-busy-state.js',
   'selftest-activity-state.js',
+  'selftest-message-order.js',
   'selftest-boot-skeleton.js',
   'selftest-installer-assets.js',
   'selftest-duration.js',
