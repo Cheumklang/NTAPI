@@ -3077,6 +3077,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .about-legal { gap: 6px; }
 .about-legal-text { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--muted, #8a8f98); max-width: 58ch; }
 .about-legal .link-btn { font-size: 12.5px; }
+/* A row of small links, separated by dots; it wraps rather than shrinking the type. */
+.about-legal-links { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 3px; }
+.about-legal-links .link-sep { color: var(--muted, #8a8f98); font-size: 12px; }
+.about-copyright { margin: 4px 0 0; font-size: 11.5px; color: var(--muted, #8a8f98); opacity: 0.85; }
 .provider-card .account-token-note { margin-top: 8px; }
 
 /* ---------------- settings: toggle ---------------- */

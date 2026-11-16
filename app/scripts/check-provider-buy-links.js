@@ -99,7 +99,11 @@ app.whenReady().then(async () => {
     btn: (document.getElementById('aboutNotices') || {}).textContent || '',
   }))()`);
   check('about states it has no affiliation', /not affiliated|no affiliation/i.test(about.text), about.text);
-  check('about offers to open the licence notices', /notice/i.test(about.btn), about.btn);
+  // The About block now holds a row of documents (terms, privacy, licence,
+  // security, notices), so the label is "licences", not "notices". This check only
+  // cares that a legal document can be reached from About at all; the full row is
+  // covered by check-legal-docs.
+  check('about offers to open the licence documents', /licen[cs]/i.test(about.btn), about.btn);
 
   win.destroy();
   console.log(failures ? `\n${failures} check(s) failed` : '\nPASS: buy links and licence notice are in place');

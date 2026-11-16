@@ -83,6 +83,73 @@ function isLimitError({ text, code } = {}) {
   return LIMIT_TEXT.some((re) => re.test(body));
 }
 
+/*
+ * Two kinds of 429 want opposite answers.
+ *
+ * A requests-per-minute limit is exactly what pi's own backoff is for: wait the
+ * few seconds it asks for and the *same* route answers. A free allowance that
+ * is spent until a published reset will still be spent after that wait, so it
+ * is worth cancelling the backoff and moving the turn to another route.
+ *
+ * `isLimitError` cannot tell them apart — both say 429 — and treating a short
+ * throttle as a spent route is how a conversation died: the abort cancelled a
+ * retry that would have worked, and the abort then hid the reason.
+ */
+const SPENT_CODES = new Set([
+  'insufficient_quota',
+  'quota_exceeded',
+  'free_tier_limit_reached',
+  'usage_limit',
+  'usage_limit_reached',
+  'limit_reached',
+  'daily_limit_reached',
+  'monthly_limit',
+  'tokens_exhausted',
+  'credit_exhausted',
+  'out_of_budget',
+  'subscription_limit',
+]);
+
+const SPENT_TEXT = [
+  /insufficient[_\s-]?quota/i,
+  /free[_\s-]?tier[_\s-]?limit/i,
+  /(quota|allowance|balance|credits?)[^.]{0,24}(used up|exhausted|reached|spent|ran out)/i,
+  /(used up|ran out of|run out of)[^.]{0,24}(quota|allowance|balance|credits?|tokens)/i,
+  /(daily|monthly|weekly)[_\s-]?limit/i,
+  /\b(comes? back|resets?) (on|at)\b/i,
+  /out of budget/i,
+];
+
+const THROTTLE_CODES = new Set([
+  'rate_limit',
+  'rate_limit_error',
+  'rate_limit_exceeded',
+  'too_many_requests',
+]);
+
+const THROTTLE_TEXT = [
+  /requests?[_\s-]?per[_\s-]?minute/i,
+  /per[_\s-]?minute/i,
+  /too many requests/i,
+  /rate[_\s-]?limit/i,
+  /try again in \d+(?:\.\d+)?\s*(?:ms|s|sec|secs|seconds?|minutes?|mins?)\b/i,
+];
+
+/**
+ * @param {{ text?: string, code?: string }} error
+ * @returns {boolean} true when waiting (not switching) is the right recovery.
+ */
+function isTransientThrottle({ text, code } = {}) {
+  const body = String(text || '');
+  const normalizedCode = String(code || '').toLowerCase();
+  // Spending wording wins: "your free allowance is used up" is not a throttle,
+  // even when the same body mentions requests per minute.
+  if (normalizedCode && SPENT_CODES.has(normalizedCode)) return false;
+  if (SPENT_TEXT.some((re) => re.test(body))) return false;
+  if (normalizedCode && THROTTLE_CODES.has(normalizedCode)) return true;
+  return THROTTLE_TEXT.some((re) => re.test(body));
+}
+
 /** Stable key for a model entry, so "tried" survives a rebuilt model list. */
 function modelKey(model) {
   return model ? `${model.provider}/${model.id}` : '';
@@ -175,6 +242,7 @@ function switchMessage(from, to) {
 
 module.exports = {
   isLimitError,
+  isTransientThrottle,
   freeDeepSeekOrder,
   nextFallbackModel,
   modelKey,

@@ -56,6 +56,7 @@ const { formatSystemInfo, safeErrorMessage } = require('./system-info');
 const { sdkCandidatePaths } = require('./sdk-path');
 const {
   isLimitError,
+  isTransientThrottle,
   nextFallbackModel,
   modelKey,
   sameModel,
@@ -1225,7 +1226,9 @@ function reportTabError(tabId, raw) {
   const dedupe = `${code || ''}|${messageKey || text}`;
   const now = Date.now();
   if (tab?.lastError && tab.lastError.key === dedupe && now - tab.lastError.at < 10000) return;
-  if (tab) tab.lastError = { key: dedupe, at: now };
+  // The prompt number rides along: a failure counts as "already shown for this
+  // turn" only when it was reported while this same prompt was running.
+  if (tab) tab.lastError = { key: dedupe, at: now, seq: tab.promptSeq || 0 };
 
   // A 426 `upgrade_required` is the backend rejecting our version header, not a
   // problem with the user's message. When the installed CLI — or the `min` the
@@ -1443,9 +1446,38 @@ async function resumeAgentTurn(tab) {
   }
 }
 
+/**
+ * Never let a failed turn end with nothing on screen.
+ *
+ * `message_end` is the normal reporter, but it is not guaranteed to have the
+ * last word: pi can decide to retry before the turn settles, and the abort this
+ * process sends to cancel that retry rewrites the failure into a bare
+ * "aborted". The window then flipped back to "พร้อมใช้งาน" with no banner and no
+ * notice — the complaint from a session whose last three turns died on a
+ * provider 429.
+ *
+ * So the settle path asks the source that cannot lose it: the agent's own
+ * message list. A turn that ends on an error never reported for this prompt is
+ * reported here.
+ */
+function announceIfUnreported(tabId, tab) {
+  const seq = tab.promptSeq || 0;
+  if (tab.lastError?.seq === seq) return;
+  const messages = tab.handle?.session?.agent?.state?.messages || [];
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== 'assistant' || last.stopReason !== 'error') return;
+  const raw = last.errorMessage || tab.limitFailure?.text || '';
+  if (!raw) return;
+  reportTabError(tabId, raw);
+}
+
 async function runModelFallback(tabId, tab) {
-  const state = tab.fallback;
-  if (!state || state.exhausted) return;
+  // `tab.fallback` is created lazily by `fallbackState()`, and this is the first
+  // place a fresh prompt can need it. Reading the field directly returned early
+  // on the *first* limit failure of every conversation, so that turn ended with
+  // no switch and no message at all.
+  const state = fallbackState(tab);
+  if (state.exhausted) return;
   if (state.seq !== (tab.promptSeq || 0)) return;
   if (tab.busy) return;
 
@@ -1458,6 +1490,11 @@ async function runModelFallback(tabId, tab) {
   // spent and the work it was doing has to finish somewhere else.
   const limit = tab.limitFailure && tab.limitFailure.seq === (tab.promptSeq || 0);
   if (!limit && !isLimitError({ text: last.errorMessage })) return;
+  // A per-minute throttle clears on its own. pi's backoff re-asks the same route
+  // a few seconds later and it answers, so switching models to dodge that wait
+  // costs the run a request, its context and its tool results for nothing.
+  const reason = tab.limitFailure?.text || last.errorMessage || '';
+  if (isTransientThrottle({ text: reason })) return;
 
   // Blame the route recorded on the failed message, not whatever is selected
   // now: pi may have retried elsewhere before giving up.
@@ -1674,6 +1711,7 @@ function subscribeTab(tabId) {
           runModelFallback(tabId, tab)
             .catch(() => {})
             .then(() => {
+              announceIfUnreported(tabId, tab);
               if (!tab.fallback?.attempts) runEmptyAnswerRetry(tabId, tab);
             });
         }
@@ -1805,7 +1843,15 @@ function subscribeTab(tabId) {
         // Switching here would be theatre. The retry reuses the model captured
         // when this run started, and this event fires *before* pi creates the
         // abort controller, so the abort has to land on the next microtask.
-        if (isLimitError({ text: event.errorMessage })) {
+        // Only a route that is *spent* gets that treatment now. A per-minute 429
+        // ("Limit: 10 … try again in 21s") is precisely what the backoff is for:
+        // cancelling it ended the turn for a limit that had cleared by the time
+        // the next attempt could run — and the abort hid the reason, so the
+        // window said "พร้อมใช้งาน" with no warning at all.
+        if (
+          isLimitError({ text: event.errorMessage }) &&
+          !isTransientThrottle({ text: event.errorMessage })
+        ) {
           const session = tab.handle.session;
           // Record the reason before aborting: the abort is ours, and it hides the
           // 429 that caused it. `runModelFallback` reads this instead of the last
@@ -4078,10 +4124,29 @@ ipcMain.handle('app:openExternal', async (_e, url) => {
  * the shipped program — a link to the project page is not the notice. Packaged, the
  * file sits in resources; from source it is one level above `app/`.
  */
-ipcMain.handle('app:openNotices', async () => {
+ipcMain.handle('app:openNotices', async () => openShippedDoc('THIRD-PARTY-NOTICES.md'));
+
+/*
+ * The terms, privacy notice, security policy and licence itself.
+ *
+ * These are not decoration: the licence says use is governed by TERMS.md and
+ * PRIVACY.md, so a person who installs the program has to be able to read them
+ * without visiting a repository. They ship next to the app and open with the
+ * system viewer. The list is an allowlist — the renderer names a document, never
+ * a path.
+ */
+const SHIPPED_DOCS = new Set(['TERMS.md', 'PRIVACY.md', 'SECURITY.md', 'LICENSE', 'THIRD-PARTY-NOTICES.md']);
+
+ipcMain.handle('app:openDoc', async (_e, name) => {
+  const doc = String(name || '');
+  if (!SHIPPED_DOCS.has(doc)) return { ok: false, reason: 'unknown-document' };
+  return openShippedDoc(doc);
+});
+
+async function openShippedDoc(name) {
   const file = app.isPackaged
-    ? path.join(process.resourcesPath, 'THIRD-PARTY-NOTICES.md')
-    : path.join(__dirname, '..', '..', 'THIRD-PARTY-NOTICES.md');
+    ? path.join(process.resourcesPath, name)
+    : path.join(__dirname, '..', '..', name);
   try {
     if (!fs.existsSync(file)) return { ok: false, reason: 'missing' };
     const err = await shell.openPath(file);
@@ -4089,7 +4154,7 @@ ipcMain.handle('app:openNotices', async () => {
   } catch (err) {
     return { ok: false, reason: String(err && err.message) };
   }
-});
+}
 
 ipcMain.handle('app:copyText', async (_e, text) => {
   const value = typeof text === 'string' ? text.slice(0, 2_000_000) : '';

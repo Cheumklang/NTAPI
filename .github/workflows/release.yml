@@ -82,6 +82,17 @@ jobs:
           $lines = @("## มีอะไรใหม่ใน $tag", "")
           if ($commits.Count -gt 0) { $lines += $commits }
           else { $lines += "- ปรับปรุงความเรียบร้อยภายใน" }
+
+          # Publish the hash next to the download: the installer is not code
+          # signed, so comparing SHA256 is the only way a user can tell a real
+          # build from a repacked one. Guarded so a rename can never fail a
+          # release over a missing file.
+          $exe = Get-ChildItem dist/NTAPI-Setup-*.exe | Select-Object -First 1
+          if ($exe) {
+            $sha = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
+            $lines += @("", ("**SHA256** ({0}): ``{1}``" -f $exe.Name, $sha))
+          }
+
           $lines += @("", "ดาวน์โหลด `NTAPI-Setup-$($tag -replace '^v','').exe` ด้านล่าง · Windows 10/11 (64-bit)")
 
           New-Item -ItemType Directory -Force -Path dist | Out-Null

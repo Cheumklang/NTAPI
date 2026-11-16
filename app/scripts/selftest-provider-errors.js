@@ -45,7 +45,10 @@ check('coarena bad key names Settings', /API key/i.test(badKey.text) && /Setting
 check('coarena bad key keeps status', badKey.text.includes('HTTP 401'));
 
 const limited = friendlyProviderError('429: {"error":{"message":"rate limited","code":"rate_limit_exceeded"}}', { provider: 'coarena' });
-check('coarena rate limit names the limit', /30 requests per minute/i.test(limited.text));
+check(
+  'coarena rate limit describes the per-minute limit without inventing a number',
+  /requests per minute/i.test(limited.text) && /try again/i.test(limited.text) && !/\b30\b/.test(limited.text)
+);
 
 const offline = friendlyProviderError('fetch failed', { provider: 'coarena' });
 check('coarena network failure names Coarena', /Coarena/.test(offline.text) && /connection/i.test(offline.text));

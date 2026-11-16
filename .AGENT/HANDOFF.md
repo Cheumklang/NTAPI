@@ -1,5 +1,65 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **สถานะ ณ 2026-11-17 (เทิร์นจบเงียบเมื่อเจอ 429 — แก้แล้ว ยังไม่ commit):**
+> - **อาการ:** เอเจนต์หยุดกลางเทิร์น สถานะล่างกลับเป็น “พร้อมใช้งาน” แต่ไม่มีแบนเนอร์หรือแจ้งเตือนใด ๆ
+>   หลักฐาน: `C:\NTAPI\sessions\…\2026-11-16T13-40-05-065Z_01a1e496….jsonl` มี
+>   `assistant stopReason:error` 11 ครั้ง · สามครั้งสุดท้ายเป็น Coarena
+>   `429 rate_limit_exceeded` (“Limit: 10 … try again in 21s”)
+> - **ต้นเหตุ 1 — abort ทั้งที่ 429 เป็นแค่ลิมิตต่อนาที:** `auto_retry_start` ยกเลิก backoff ของ pi
+>   ทุกครั้งที่ `isLimitError` เป็นจริง (429 ทุกแบบ) → เทิร์นตายทั้งที่รอ 2–20 วินาทีก็ผ่าน
+>   **แก้:** เพิ่ม `isTransientThrottle()` ใน `model-fallback.js` แยก “ลิมิตต่อนาที / ลองใหม่ใน N วินาที”
+>   ออกจาก “สิทธิ์หมดจนถึงรอบรีเซ็ต” (`free_tier_limit_reached`, `insufficient_quota`, 402, “used up”)
+>   → ลิมิตชั่วคราวปล่อยให้ pi backoff เองพร้อม `notice.retrying` · สิทธิ์ที่หมดจริงเท่านั้นจึง abort+สลับโมเดล
+> - **ต้นเหตุ 2 — fallback ไม่เคยเริ่มในเทิร์นแรก:** `runModelFallback` อ่าน `tab.fallback` ตรง ๆ
+>   ซึ่งเป็น `null` จนกว่าจะมีใครเรียก `fallbackState()` → ลิมิตครั้งแรกของทุก prompt จบเงียบ
+>   **แก้:** `const state = fallbackState(tab);`
+> - **กันซ้ำ — เทิร์นที่ล้มเหลวต้องมีข้อความเสมอ:** เพิ่ม `announceIfUnreported()` ตอน settle
+>   ถ้า assistant ตัวสุดท้ายเป็น `error` และเทิร์นนี้ยังไม่เคยรายงาน → ส่ง `agent:error` ทันที
+>   (`tab.lastError` เก็บ `seq` ของ prompt แล้ว)
+> - **แก้คำผิด:** Coarena ไม่ได้ให้ 30 คำขอ/นาที (API บอก `Limit: 10`) → เปลี่ยนเป็น
+>   “จำกัดจำนวนคำขอต่อนาทีของคีย์นี้ — รอไม่กี่วินาทีแล้วลองใหม่” ทั้ง `provider-errors.js` + `error-messages.js`
+> - **เทสต์:** เพิ่มเคส throttle/spent ใน `selftest-model-fallback.js` + ตรวจ wiring
+>   (ไม่ abort throttle, ใช้ `fallbackState`, มี `announceIfUnreported`) ·
+>   `selftest-provider-errors.js` เลิกยืนยันเลข 30
+> - **ยังไม่ commit** · **bump เป็น `0.5.14` แล้ว** (ยังไม่ tag / ยังไม่ push)
+> - รุ่น `0.5.14` รวมของสองรอบ: (1) เทิร์นจบเงียบเมื่อเจอ 429 (2) เอกสารสิทธิ์ + ชิป/การ์ด tool ค้าง
+
+> **สถานะ ณ 2026-11-17 (ชิป/การ์ด tool ค้าง — แก้แล้ว ยังไม่ commit):**
+> - **ต้นเหตุ 1 — `onToolStart` นับ `runningTools` สองครั้ง** (บรรทัดต้นฟังก์ชัน + ใน branch
+>   แท็บที่เปิดอยู่) → tool จบแล้วเหลือ 1 → ชิป “กำลังใช้เครื่องมือ: bash” ค้างทั้งเทิร์น
+>   แม้สถานะล่างจะขึ้น “พร้อมใช้งาน” · แก้: นับครั้งเดียวตอนต้นฟังก์ชัน
+> - **ต้นเหตุ 2 — วาดการ์ดจาก `view.messages` ไม่เอา `view.toolResults` มาใส่** →
+>   tool ที่จบตอนอยู่แท็บอื่น พอกลับมาแชทนั้น การ์ดขึ้น “กำลังรัน…” ค้างจนปิดโปรแกรม
+>   · แก้: `renderActiveTab` ในลูป `m.tools` ใส่ผลที่เก็บไว้ด้วย
+> - **เพิ่ม:** turn จบแล้วไม่เคยมีผล tool (ถูกตัดกลาง/แอปปิด) → “ไม่ทราบผลลัพธ์”
+>   แทนการอ้างว่ากำลังรัน · กัน `applyToolResult` ใส่ซ้ำ (ตัวนับ diff ซ้ำ)
+> - **เทสต์ใหม่:** `app/scripts/check-tool-lifecycle.js` (`npm run check:tools`) 11 checks
+>   — RED 5 → GREEN 11 · เพิ่ม npm script `check:undo-shortcut` (ไฟล์เทสต์เดิมไม่มี script)
+> - **แก้เทสต์:** `selftest-turn-blocks.js` ตัดช่วงโค้ดด้วย `const tailFrom` แทน 4000 ตัวอักษร
+>   (โค้ดยาวขึ้นแล้วช่วงขาด ทำให้ check “replay walks every stored message” แดง)
+> - **ผล:** `npm test` **72/72** · `check:tools` 11 · `check:undo-shortcut` 10 · `check:busy`
+>   · `check:turn-status` · `check:legal` 7 · `check:chips` · `notices:check` · `provenance verify` OK 24
+> - **ยังไม่ commit / ยังไม่ bump** (0.5.13) · งานเอกสารสิทธิ์ (`LICENSE` `PRIVACY` `TERMS`
+>   `SECURITY` + ลิงก์ใน About) ยังค้าง commit เหมือนบล็อกถัดไป
+
+> **สถานะ ณ 2026-11-17 (รอบเอกสารสิทธิ์ — ยังไม่ commit):**
+> - เพิ่ม `LICENSE` (proprietary, all rights reserved), `PRIVACY.md` (PDPA: presence UUID,
+>   ที่เก็บข้อมูล, สิทธิเจ้าของข้อมูล), `TERMS.md` (EULA: คีย์ของผู้ใช้เอง, ห้ามหลายบัญชี,
+>   โฆษณา/บริจาค, ข้อจำกัดความรับผิด), `SECURITY.md`
+> - `app/package.json` เปลี่ยน `"license": "MIT"` → `"UNLICENSED"` (ซอร์สเป็น private,
+>   MIT ขัดกับ LICENSE ใหม่ — ถ้าจะเปิดซอร์สค่อยเปลี่ยนกลับ)
+> - `.github/workflows/release.yml` เพิ่ม SHA256 ของ `.exe` ลงท้าย release body
+>   (มี guard ถ้าหาไฟล์ไม่เจอ จะไม่ทำให้ release ล้ม)
+> - คัดลอก `LICENSE/PRIVACY/TERMS/SECURITY` + `screens/app.png` ไป repo
+>   `Cheumklang/NTAPI-releases` และเขียน `README.md` ใหม่ (ลิงก์เอกสาร, ตารางผู้ให้บริการ,
+>   ข้อความ not-affiliated, FAQ, วิธีตรวจ SHA256, วิธีลบข้อมูล)
+> - เทสต์: `npm test` **71/71**, `npm run notices:check` ผ่าน, `provenance verify` OK 24 entries
+> - **ยังค้าง (ต้องตัดสินใจ/ทำต่อ):** (ก) สวิตช์ปิด presence ในหน้าตั้งค่า (ตอนนี้ใช้ env
+>   `NTAPI_PRESENCE_URL` แทน) (ข) ลายเซ็น/HMAC ของ `sponsor.json` (ค) code signing
+>   (ง) ย้าย data root `C:\NTAPI` → `%APPDATA%` (จ) revoke ntfy token ที่อยู่ใน `AGENTS.md`
+>   (ฉ) ปุ่ม/link เอกสารในหน้า About (ตอนนี้ยังไม่มีในแอป) (ช) push repo public
+> - ยังไม่ขยับเวอร์ชัน (ผู้ใช้ยังไม่สั่ง)
+
 > **สถานะ ณ 2026-11-17 (ปล่อย `0.5.13` แล้ว):**
 > 1. ข้อความของผู้ใช้อยู่เหนือคำตอบเสมอ (pendingAt ใน merge) — เสร็จ, `check:order` 7, เทสต์ 70/70
 > 2. ปุ่ม “ซื้อเครดิตที่ …” ครบ 5 เจ้า + `THIRD-PARTY-NOTICES.md` (MIT ต้องแนบ) + ข้อความ not-affiliated

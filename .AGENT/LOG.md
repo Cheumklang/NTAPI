@@ -2349,3 +2349,100 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - **sha256** `205ccbd2f5c3b44d694b9baf0a04a71d7caf41e7779abe39f41a0be66624ebe3` · range download HTTP 206
 - บันทึก `PROVENANCE/releases/v0.5.13.json` (seq 22) + anchor · ลบ `v0.5.12` แล้ว → เหลือรุ่นเดียว
 - รอบถัดไป = `0.5.14`
+
+
+## 2026-11-17 — เอกสารสิทธิ์/ความเป็นส่วนตัว + หน้า repo public
+
+**ทำ:** เพิ่ม `LICENSE` (proprietary), `PRIVACY.md` (PDPA), `TERMS.md` (EULA), `SECURITY.md`
+· `app/package.json` เปลี่ยน `license` เป็น `UNLICENSED` (ซอร์ส private, MIT ขัดกับ LICENSE)
+· `release.yml` ต่อท้าย release body ด้วย SHA256 ของ `.exe` (มี guard)
+· เขียน `README.md` ใหม่ใน repo `Cheumklang/NTAPI-releases` + คัดลอกเอกสาร 4 ไฟล์ + `screens/app.png`
+
+**ไฟล์ที่แตะ:** `LICENSE` `PRIVACY.md` `TERMS.md` `SECURITY.md` `app/package.json`
+`.github/workflows/release.yml` (+ repo public: `README.md` `LICENSE` `PRIVACY.md` `TERMS.md` `SECURITY.md` `screens/app.png`)
+
+**เทส:** `npm test` 71/71 · `notices:check` ผ่าน · `provenance verify` OK 24 entries
+
+**ค้าง:** สวิตช์ปิด presence ใน UI · ลายเซ็น `sponsor.json` · code signing · ย้าย data root
+· revoke ntfy token · ลิงก์เอกสารในหน้า About · push repo public · ยังไม่ขยับเวอร์ชัน
+
+## 2026-11-17 — ชิป “กำลังใช้เครื่องมือ” ค้าง + การ์ด tool ค้าง “กำลังรัน…”
+
+**อาการ:** สถานะล่างขึ้น “พร้อมใช้งาน” แล้ว แต่ชิปในข้อความยังบอก “กำลังใช้เครื่องมือ: bash”
+· กลับเข้าแชทเดิม (หรือสลับแท็บกลางเทิร์น) การ์ด tool ยังขึ้น “กำลังรัน…” ทั้งที่จบไปแล้ว
+
+**ต้นเหตุ 1 (ชิปค้าง):** `api.onToolStart` ใน `app/src/renderer/app.js` เพิ่ม `view.runningTools`
+**สองครั้ง** — ครั้งหนึ่งก่อน branch แท็บที่เปิดอยู่ และอีกครั้งหลัง `ensureLive()` → tool 1 ตัวนับเป็น 2
+พอ `onToolEnd` ลด 1 จึงเหลือ 1 → `view.act.tools` ยังจริง ชิปจึงไม่หายจนจบเทิร์น
+**แก้:** นับ/ตั้งชื่อ tool ครั้งเดียวตอนต้นฟังก์ชัน ลบบรรทัดซ้ำใน branch
+
+**ต้นเหตุ 2 (การ์ดค้าง):** `renderActiveTab()` วาดการ์ดจาก `m.tools` ด้วย `toolCard()` ที่ตั้งสถานะ
+“กำลังรัน…” เสมอ และไม่เคยถาม `view.toolResults` — tool ที่จบตอนแชทนั้นไม่อยู่บนจอจึงมีผลเก็บไว้
+แต่พอวาดใหม่ก็ยังขึ้นว่ากำลังรัน
+**แก้:** ในลูป `m.tools` ถ้ามีผลใน `view.toolResults` → `applyToolResult()` ทันที
+· ถ้าเทิร์นจบแล้ว (`!view.busy`) และไม่มีผลเลย → ขึ้น `toolNoResult` (“ไม่ทราบผลลัพธ์” TH / “result unknown” EN)
+· `applyToolResult()` ติด `data-applied` กันใส่ผลซ้ำ (เดิมตัวนับ diff จะซ้ำเมื่อวาดทั้งจาก store และ history)
+
+**เทสต์:** ใหม่ `app/scripts/check-tool-lifecycle.js` (`npm run check:tools`) 11 checks
+— ก่อนแก้ RED 5 (runningTools=2, ชิปไม่หาย, การ์ดวาดใหม่เป็น running) → หลังแก้ GREEN 11
+· เพิ่ม `npm run check:undo-shortcut` (ไฟล์ `check-undo-shortcut.js` มีอยู่แล้วแต่ไม่มี script) → 10 checks
+· แก้ `selftest-turn-blocks.js`: ช่วง `replay` ตัดด้วย `const tailFrom` แทน 4000 ตัวอักษร
+(โค้ดยาวขึ้นแล้วช่วงขาด ทำให้ check “replay walks every stored message” แดง)
+
+**ผลรวม:** `npm test` 72/72 · `check:tools` 11 · `check:undo-shortcut` 10 · `check:busy`
+· `check:turn-status` · `check:legal` 7 · `check:chips` · `notices:check` · `provenance verify` OK 24
+
+**ไฟล์:** `app/src/renderer/app.js` (i18n th+en, onToolStart, renderActiveTab, applyToolResult)
+· `app/scripts/check-tool-lifecycle.js` (ใหม่) · `app/scripts/selftest-turn-blocks.js` · `app/package.json`
+
+**ค้าง:** ยังไม่ commit · ยังไม่ bump (0.5.13) · งานเอกสารสิทธิ์/ลิงก์ About ยังค้าง commit
+
+## 2026-11-17 — เทิร์นจบเงียบเมื่อเจอ 429: ไม่สลับโมเดล ไม่มีแบนเนอร์ ไม่มีแจ้งเตือน
+
+**อาการที่ผู้ใช้รายงาน:** เอเจนต์หยุดกลางเทิร์นเอง สถานะล่างขึ้น “พร้อมใช้งาน” แต่ไม่มีข้อความบอกอะไรเลย
+(ตรวจจาก session จริง: `assistant stopReason:error` 11 ครั้ง · สามครั้งสุดท้าย Coarena `429 rate_limit_exceeded`
+“Limit: 10 … try again in 21s”)
+
+**ต้นเหตุ 1 — abort ลิมิตชั่วคราว:** `case 'auto_retry_start'` ใน `main.js` เรียก `isLimitError()` แล้ว
+`abortRetry()` ทุกกรณี — 429 ต่อนาทีก็เข้าเงื่อนไข → ยกเลิก backoff ที่จะสำเร็จใน 2–20 วินาที
+แล้ว abort ยังกลบเหตุผลเดิม → ไม่มีข้อความขึ้นหน้าจอ
+**แก้:** เพิ่ม `isTransientThrottle({text, code})` ใน `app/src/model-fallback.js`
+· `SPENT_CODES`/`SPENT_TEXT` (สิทธิ์หมด, quota, used up, “comes back on …”) มาก่อน
+· `THROTTLE_CODES`/`THROTTLE_TEXT` (`rate_limit*`, per minute, too many requests, “try again in Ns”)
+· `auto_retry_start` abort+`limitFailure` เฉพาะเมื่อ `isLimitError && !isTransientThrottle`
+· ลิมิตชั่วคราวไหลไปถึง `notice.retrying` ตามปกติ (ผู้ใช้เห็น “กำลังลองใหม่ (n/m): …”)
+
+**ต้นเหตุ 2 — `tab.fallback` ยังเป็น null:** `runModelFallback()` เริ่มด้วย
+`const state = tab.fallback; if (!state || state.exhausted) return;`
+แต่ `tab.fallback` ถูกสร้างใน `fallbackState()` เท่านั้น → ลิมิตครั้งแรกของทุก prompt ออก early return
+เงียบ ๆ (ทั้งที่ไม่เคยพยายามสลับเลย)
+**แก้:** `const state = fallbackState(tab);` · เพิ่ม `isTransientThrottle` guard หลังตรวจ limit
+เพื่อไม่ให้ throttle ไปเผาโมเดลฟรีถัดไป (ทั้ง request, context และ tool results)
+
+**กันซ้ำ — เทิร์นล้มเหลวต้องมีข้อความเสมอ:** เพิ่ม `announceIfUnreported(tabId, tab)` เรียกใน `.then()`
+ของ `agent_settled` หลัง `runModelFallback` · ถ้า assistant ตัวสุดท้าย `stopReason === 'error'`
+และ `tab.lastError.seq !== promptSeq` → `reportTabError()` (เดิม `tab.lastError` ไม่มี seq)
+
+**คำผิด:** `COARENA_HINTS.rate_limit*` + `error-messages.js` `coarena.rate_limit*` เคยบอก 30 คำขอ/นาที
+แต่ API จริงบอก `Limit: 10` → เปลี่ยนเป็นถ้อยคำที่ไม่ฝังเลข: “จำกัดจำนวนคำขอต่อนาทีของคีย์นี้”
+
+**เทสต์:** `selftest-model-fallback.js` +8 เคส (throttle จริง/spent/bare 429/daily_cap/ค่าว่าง)
+และ wiring 4 จุด (ไม่ abort throttle, `fallbackState`, guard, `lastError.seq`) ·
+`selftest-provider-errors.js` เลิกยืนยัน “30 requests per minute”
+
+**ไฟล์:** `app/src/main.js` · `app/src/model-fallback.js` · `app/src/provider-errors.js` ·
+`app/src/error-messages.js` · `app/scripts/selftest-model-fallback.js` · `app/scripts/selftest-provider-errors.js`
+
+**ค้าง:** ยังไม่ commit · ยังไม่ bump (0.5.13)
+
+## 2026-11-17 — bump เป็น 0.5.14 (ผู้ใช้สั่ง)
+
+**สั่งโดยผู้ใช้:** “อัปเป็น 0.5.14 ได้เลยคับเพราะสำคัญทั้งนั้น” — รวมงานสองรอบที่ยังค้าง commit:
+(1) เทิร์นจบเงียบเมื่อเจอ 429 (2) เอกสารสิทธิ์ `LICENSE`/`PRIVACY`/`TERMS`/`SECURITY` + ลิงก์ About
++ ชิป/การ์ด tool ค้าง
+
+**แก้:** `app/package.json` + `app/package-lock.json` (2 จุด) → `0.5.14`
+· **ยังไม่ tag / ยังไม่ push / ยังไม่ build** — รอผู้ใช้สั่ง “ส่งอัปเดต” หรือ “build” แยกอีกครั้ง
+· commit ยังเป็นของผู้ใช้ (GitHub Desktop)
+
+**ค้าง:** commit 1 ก้อน (`0.5.14` รวมสองรอบ) · ยังไม่ tag/push · หน้า release เขียนเฉพาะสิ่งใหม่ของรอบนี้

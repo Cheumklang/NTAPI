@@ -378,6 +378,7 @@ const STRINGS = {
     toolRunning: 'running…',
     toolFailed: 'failed',
     toolDone: 'done',
+    toolNoResult: 'result unknown',
     toolsUsed: '{n} tools used',
     toolsUsedOne: '1 tool used',
     narrationMany: '{n} working notes',
@@ -428,7 +429,11 @@ const STRINGS = {
     aboutQrDesc: 'Scan the QR code to support a coffee',
     aboutLicence: 'Third-party licences',
     aboutLegalText: 'NTAPI has no affiliation with and is not endorsed by any model provider. It is free to use with your own keys · it bundles third-party software under their licences.',
-    aboutNoticesOpen: 'Open the licence notices shipped with the app',
+    aboutSecurityOpen: 'Security policy',
+    aboutNoticesOpen: 'Third-party software licences',
+    aboutTermsOpen: 'Terms of use',
+    aboutPrivacyOpen: 'Privacy notice',
+    aboutLicenceOpen: 'Program licence',
     updatesSection: 'Updates',
     updateCurrent: 'Current version',
     checkUpdates: 'Check for updates',
@@ -764,6 +769,7 @@ const STRINGS = {
     toolRunning: 'กำลังรัน…',
     toolFailed: 'ล้มเหลว',
     toolDone: 'เสร็จ',
+    toolNoResult: 'ไม่ทราบผลลัพธ์',
     toolsUsed: 'ใช้เครื่องมือ {n} ครั้ง',
     toolsUsedOne: 'ใช้เครื่องมือ 1 ครั้ง',
     narrationMany: 'บันทึกการทำงาน {n} ช่วง',
@@ -813,7 +819,11 @@ const STRINGS = {
     aboutQrDesc: 'สแกน QR Code เพื่อสนับสนุนค่ากาแฟ',
     aboutLicence: 'ลิขสิทธิ์ของผู้อื่น',
     aboutLegalText: 'NTAPI ไม่มีความเกี่ยวข้องและไม่ได้รับการรับรองจากเจ้าของโมเดลหรือผู้ให้บริการใด ๆ ใช้ฟรีด้วยคีย์ของคุณเอง · โปรแกรมรวมซอฟต์แวร์ของผู้อื่นภายใต้สัญญาอนุญาตของเขา',
-    aboutNoticesOpen: 'ดูสัญญาอนุญาตของซอฟต์แวร์ที่รวมมาในโปรแกรม',
+    aboutSecurityOpen: 'ความปลอดภัย',
+    aboutNoticesOpen: 'สัญญาอนุญาตของซอฟต์แวร์ที่ใช้',
+    aboutTermsOpen: 'ข้อกำหนดการใช้งาน',
+    aboutPrivacyOpen: 'ความเป็นส่วนตัว',
+    aboutLicenceOpen: 'สัญญาอนุญาตโปรแกรม',
     updatesSection: 'อัปเดต',
     updateCurrent: 'เวอร์ชันปัจจุบัน',
     checkUpdates: 'ตรวจหาอัปเดต',
@@ -876,6 +886,10 @@ function applyLanguage() {
   document.documentElement.lang = lang;
   for (const node of document.querySelectorAll('[data-i18n]')) {
     node.textContent = t(node.getAttribute('data-i18n'));
+  }
+  // A tooltip is text a reader sees too, so it follows the language as well.
+  for (const node of document.querySelectorAll('[data-i18n-title]')) {
+    node.title = t(node.getAttribute('data-i18n-title'));
   }
   const btn = el('langBtn');
   if (btn) {
@@ -2664,7 +2678,19 @@ function renderActiveTab() {
         appendImagePreviews(body, text, view.cwd);
       }
       const tc = wrap.querySelector('.tools');
-      for (const tool of tools) toolCard(tc, tool);
+      for (const tool of tools) {
+        const card = toolCard(tc, tool);
+        // A tool that finished while this chat was off screen keeps its result on
+        // the view, not yet in the stored history; drawing it as "running…" made a
+        // finished tool look alive until the app was restarted.
+        const stored = view.toolResults?.get(tool.id);
+        if (stored) applyToolResult(card, stored, view.cwd);
+        else if (!view.busy) {
+          // The turn is over and nothing came back for this call: it was cut short
+          // (the run failed, or the app closed while the tool was still going).
+          card.querySelector('.tool-status').textContent = t('toolNoResult');
+        }
+      }
     } else if (m.kind === 'error') {
       // Replayed from history: keep the failure visible instead of a blank turn.
       appendErrorBanner(m.text, false);
@@ -4263,10 +4289,16 @@ function applySidebarWidth() {
 })();
 el('settingsClose').addEventListener('click', closeSettings);
 
-/* The licence notice the installer must be able to show (MIT condition). */
-el('aboutNotices')?.addEventListener('click', () => {
-  api.openNotices?.().catch(() => {});
-});
+/* The licence notice the installer must be able to show (MIT condition), and the
+   documents the licence points at: terms, privacy notice, the licence itself. One
+   delegated handler, because the buttons are a list and a list grows. */
+for (const button of [...document.querySelectorAll('.about-legal-links .link-btn')]) {
+  button.addEventListener('click', () => {
+    const doc = button.dataset.doc;
+    if (!doc) return;
+    api.openDoc?.(doc).catch(() => {});
+  });
+}
 
 /* --------------------------- Coarena key --------------------------- */
 
@@ -6251,14 +6283,68 @@ function renderQueue() {
       stop.addEventListener('click', () => cancelQueueEdit(view, item));
       line.appendChild(stop);
 
+      // The pictures the message will carry, editable like the words.
+      //
+      // A queued message with an image could be edited for its text only — the
+      // image was stuck, neither removable nor extendable — which made the whole
+      // row useless if the picture was the thing that was wrong. The strip offers
+      // the same two actions the composer does: remove one attachment, or pick
+      // more. The edits live on `item.images` itself, so Save sends exactly what
+      // the row shows, and Cancel puts the snapshot from when Edit was pressed
+      // back.
+      const media = document.createElement('div');
+      media.className = 'queue-edit-media';
+      (item.images || []).forEach((att, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'queue-edit-chip';
+        if (att.kind === 'file') {
+          chip.textContent = (att.name || 'file').split('.').pop()?.slice(0, 4).toUpperCase() || 'FILE';
+          chip.title = att.name || att.path;
+          chip.classList.add('file');
+        } else {
+          const thumb = document.createElement('img');
+          thumb.src = att.dataUri;
+          thumb.alt = '';
+          thumb.title = att.name || 'image';
+          chip.appendChild(thumb);
+        }
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'queue-edit-rm';
+        rm.textContent = '×';
+        rm.title = t('queueRemoveImage');
+        rm.setAttribute('aria-label', t('queueRemoveImage'));
+        rm.addEventListener('click', () => {
+          item.images.splice(i, 1);
+          renderQueue();
+        });
+        chip.appendChild(rm);
+        media.appendChild(chip);
+      });
+      const attach = document.createElement('button');
+      attach.type = 'button';
+      attach.className = 'queue-attach';
+      attach.textContent = t('queueAttach');
+      attach.title = t('queueAttachTitle');
+      attach.addEventListener('click', async () => {
+        const picked = await api.pickImages();
+        if (!picked?.length) return;
+        item.images = [...(item.images || []), ...picked];
+        renderQueue();
+      });
+      media.appendChild(attach);
+      row.appendChild(media);
+
       bar.appendChild(row);
       updateKeepButton(item, row);
       // Focus once the field is in the document — focusing a detached node does
       // nothing — and put the caret at the end so typing appends rather than
-      // overwrites. A re-render keeps the field that already has focus instead of
-      // stealing it back to the start of the list.
-      field.focus();
-      field.setSelectionRange(field.value.length, field.value.length);
+      // overwrites. A re-render (an image removed or added) keeps the field that
+      // already has focus instead of stealing the caret back.
+      if (document.activeElement !== field) {
+        field.focus();
+        field.setSelectionRange(field.value.length, field.value.length);
+      }
       return;
     }
 
@@ -6300,6 +6386,9 @@ function renderQueue() {
         cancelHoldFor(item.queueId);
         v.queue[at].editing = true;
         v.queue[at].draft = v.queue[at].text || '';
+        // The images are edited on the item itself; the snapshot is what Cancel
+        // puts back, because wiping a picture needs a way to change its mind too.
+        v.queue[at].savedImages = (v.queue[at].images || []).slice();
         renderQueue();
       });
       line.appendChild(edit);
@@ -6347,7 +6436,9 @@ function renderQueue() {
 function updateKeepButton(item, row) {
   const save = row.querySelector('.queue-save');
   if (!save) return;
-  save.disabled = !String(item.draft ?? '').trim();
+  // An empty draft is still a valid message when it carries a picture — the same
+  // rule as the composer, where an image alone can be sent.
+  save.disabled = !String(item.draft ?? '').trim() && !(item.images || []).length;
 }
 
 /**
@@ -6364,7 +6455,7 @@ function saveQueueEdit(view, item) {
   view.queue[at].text = draft;
   view.queue[at].editing = false;
   delete view.queue[at].draft;
-  // The edited text is what will be sent, so a countdown that is still running
+  delete view.queue[at].savedImages;
   // would send the old wording: release it.
   const held = holds.get(view.tabId);
   if (held && !held.finished && held.item === view.queue[at]) {
@@ -6384,6 +6475,9 @@ function cancelQueueEdit(view, item) {
   if (at === -1) return;
   view.queue[at].editing = false;
   delete view.queue[at].draft;
+  // Put the pictures that were there when Edit was pressed back.
+  view.queue[at].images = view.queue[at].savedImages;
+  delete view.queue[at].savedImages;
   renderQueue();
   updateSendState();
   drainQueue(view);
@@ -7582,11 +7676,12 @@ api.onToolStart((p) => {
   // to this bubble, and then text_end sees changed text and creates a second one,
   // leaving the words attached to two bubbles at once.
   sealBody(wrap);
-  // Writing is over while the tool runs; the tool chip takes over.
+  // Writing is over while the tool runs; the tool chip takes over. The count and
+  // the tool name were already recorded above, before the active-tab branch: a
+  // second bump here made one tool look like two, so a finished tool left the
+  // chip saying "กำลังใช้เครื่องมือ: bash" for the rest of the turn.
   markActivity(view, 'notes', false);
   markActivity(view, 'think', false);
-  view.runningTools = (view.runningTools || 0) + 1;
-  view.actTool = p.name || '';
   markActivity(view, 'tools', true);
   setTurnPhase(view, 'tool', p.name || '');
   view.liveTools = wrap.querySelector('.tools');
@@ -7643,6 +7738,11 @@ api.onToolEnd((p) => {
 
 /** Paint one finished tool result onto its card. */
 function applyToolResult(card, res, cwd) {
+  // A redraw can meet the same result twice — once from the view's own store and
+  // once from the history entry that follows the call. Applying it twice appended
+  // a second diff counter, so a card that has its result is marked and left alone.
+  if (!card || card.dataset.applied === '1') return;
+  card.dataset.applied = '1';
   card.classList.toggle('error', res.isError);
   card.classList.toggle('ok', !res.isError);
   card.querySelector('.tool-status').textContent = res.isError
@@ -8246,6 +8346,7 @@ Object.assign(STRINGS.en, {
   context: 'Context',
   commands: 'Commands (Ctrl+P)',
   undo: 'Undo',
+  undoTitle: 'Undo your last message',
   redo: 'Redo',
   compact: 'Compact',
   export: 'Export',
@@ -8308,6 +8409,7 @@ Object.assign(STRINGS.th, {
   context: 'บริบท',
   commands: 'คำสั่ง (Ctrl+P)',
   undo: 'ย้อนกลับ',
+  undoTitle: 'ย้อนกลับข้อความล่าสุด',
   redo: 'ทำซ้ำ',
   compact: 'ย่อประวัติ',
   export: 'ส่งออก',
@@ -8628,7 +8730,7 @@ function paletteActions() {
     { id: 'new', label: t('newChat'), hint: 'Ctrl+T', run: () => el('newSession').click() },
     { id: 'settings', label: t('settingsItem'), hint: '', run: () => openSettings() },
     { id: 'search', label: t('searchItem'), hint: 'Ctrl+F', run: () => openFind() },
-    { id: 'undo', label: t('undo'), hint: 'Ctrl+Z', run: () => undoLastMessage() },
+    { id: 'undo', label: t('undo'), hint: '/undo', run: () => undoLastMessage() },
     { id: 'redo', label: t('redo'), hint: '', run: () => redoLastMessage() },
     { id: 'compact', label: t('compact'), hint: '/compact', run: () => compactConversation() },
     { id: 'export', label: t('export'), hint: '/export', run: () => exportConversation() },
@@ -9146,18 +9248,17 @@ window.addEventListener('keydown', (e) => {
     el('newSession').click();
     return;
   }
-  if (key === 'z' && !e.shiftKey) {
-    // Only when the composer is empty, so normal text undo keeps working.
-    if (input.value.trim()) return;
-    e.preventDefault();
-    undoLastMessage();
-    return;
-  }
-  if (key === 'z' && e.shiftKey) {
-    if (input.value.trim()) return;
-    e.preventDefault();
-    redoLastMessage();
-  }
+  /*
+   * Ctrl+Z is deliberately NOT bound here.
+   *
+   * It is the shortcut every text field on Windows has, and the composer is a text
+   * field: people press it to fix a word they just typed. Binding it to "undo the
+   * last message and the work that followed it" made that instinct destructive —
+   * the wrong press rolled a whole turn back, and it fired even when the pending
+   * question had nothing to do with what was being typed. The action still exists,
+   * on the button in the composer and as `/undo` in the palette, where it is named
+   * and cannot be hit by muscle memory.
+   */
 });
 
 /* --------------------------- wiring: links -------------------------- */

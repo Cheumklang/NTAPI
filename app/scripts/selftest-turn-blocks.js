@@ -106,7 +106,13 @@ const applyState = app.slice(app.indexOf('function applyTabState'), app.indexOf(
 // never showed the loss — the bug was in the live stream only. This check pins
 // that difference so a future rewrite does not copy the overwrite into replay.
 const replayStart = app.indexOf('let currentAssistant = null;');
-const replay = replayStart === -1 ? '' : app.slice(replayStart, replayStart + 4000);
+// The replay block grows as the drawing code gains detail; end it where the block
+// really ends rather than at a fixed offset, so a comment cannot push the walk out
+// of the window and fail a check that is still true.
+const replayEnd = replayStart === -1 ? -1 : app.indexOf('const tailFrom', replayStart);
+const replay = replayStart === -1
+  ? ''
+  : app.slice(replayStart, replayEnd === -1 ? replayStart + 8000 : replayEnd);
 // The loop draws through a guard so one unrenderable entry cannot cut the rest of
 // the chat off; it still walks every stored message.
 check(

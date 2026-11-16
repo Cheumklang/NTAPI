@@ -37,6 +37,35 @@ check(
   !F.isLimitError({ text: 'invalid api key: quota check failed' })
 );
 
+/* --------------------------- transient throttles --------------------------- */
+
+// Reported from the window: a busy turn ended after a Coarena 429 that said
+// "requests per minute ... try again in 21s", with no switch, no banner and no
+// notice. Telling the two kinds of 429 apart is what fixes it.
+const coarenaThrottle = {
+  text:
+    '429: {"message":"Rate limit reached for requests per minute. Limit: 10. Please try again in 21s.","type":"rate_limit_error","code":"rate_limit_exceeded"}',
+  code: 'rate_limit_exceeded',
+};
+check('a per-minute 429 is a throttle, not a spent route', F.isTransientThrottle(coarenaThrottle));
+check('a throttle is still a limit for the retry path', F.isLimitError(coarenaThrottle));
+check('a bare too-many-requests answer is a throttle', F.isTransientThrottle({ text: 'Error: 429 Too Many Requests' }));
+check(
+  'a spent free allowance is not a throttle',
+  !F.isTransientThrottle({
+    text:
+      '429: {"message":"Your free allowance for \':free\' models is used up. It comes back on 22 Nov 2026 at 08:56 UTC.","code":"free_tier_limit_reached"}',
+    code: 'free_tier_limit_reached',
+  })
+);
+check(
+  'an exhausted quota is not a throttle',
+  !F.isTransientThrottle({ text: 'You have exceeded your quota', code: 'insufficient_quota' })
+);
+check('a daily cap is not a throttle', !F.isTransientThrottle({ text: '429: {"code":"daily_cap"}' }));
+check('a bad key is not a throttle', !F.isTransientThrottle({ text: 'Invalid API key' }));
+check('an empty error is not a throttle', !F.isTransientThrottle({}));
+
 /* --------------------------- candidate ordering --------------------------- */
 
 const models = [
@@ -177,8 +206,17 @@ check('main requires the fallback module', main.includes("require('./model-fallb
 check('a settled turn runs the fallback', main.includes('runModelFallback(tabId, tab)'));
 
 const retryAt = main.indexOf("case 'auto_retry_start'");
-const retryWindow = retryAt === -1 ? '' : main.slice(retryAt, retryAt + 900);
+// The comment above this branch grew; measure to the next case rather than to a
+// fixed offset, so a longer explanation cannot fail a check that is still true.
+const retryEnd = main.indexOf("case 'compaction_start'", retryAt);
+const retryWindow = retryAt === -1 ? '' : main.slice(retryAt, retryEnd === -1 ? retryAt + 2400 : retryEnd);
 check('a limit error switches before the generic retry', retryWindow.includes('isLimitError('));
+check(
+  'a short throttle is left to pi backoff instead of cancelling it',
+  retryWindow.includes('!isTransientThrottle(') &&
+    retryWindow.indexOf('!isTransientThrottle(') < retryWindow.indexOf('session?.abortRetry')
+);
+check('a throttle still reaches the retry notice', retryWindow.includes("key: 'notice.retrying'"));
 
 const dropAt = main.indexOf('dropFailedAssistant(tab);');
 // Continuing moved into resumeAgentTurn(), which is where the "already processing"
@@ -193,6 +231,24 @@ check('a spent pool is announced once', main.includes('announceFallbackExhausted
 const settleWindow = main.slice(main.indexOf('async function runModelFallback'), main.indexOf('async function runEmptyAnswerRetry'));
 check('the settle path blames the failed message', settleWindow.includes('failedModelFromMessage(last)'));
 check('the settle path no longer blames the current selection', !settleWindow.includes('switchToNextFreeModel(tabId, tab);'));
+// `tab.fallback` is null until something creates it; reading the field directly
+// skipped the very first limit failure of every prompt — silently.
+check(
+  'a fresh prompt creates the fallback pool before reading it',
+  settleWindow.includes('const state = fallbackState(tab);') && !settleWindow.includes('const state = tab.fallback;')
+);
+check(
+  'a short throttle never burns a free route',
+  /const reason = [\s\S]{0,200}?isTransientThrottle\(\{ text: reason \}\)/.test(settleWindow)
+);
+check(
+  'a failed turn that was never reported is announced at settle',
+  /function announceIfUnreported\(tabId, tab\)/.test(main) && main.includes('announceIfUnreported(tabId, tab)')
+);
+check(
+  'a reported failure is remembered per prompt',
+  /tab\.lastError = \{ key: dedupe, at: now, seq: tab\.promptSeq \|\| 0 \}/.test(main)
+);
 
 const retryWindow2 = main.slice(main.indexOf("case 'auto_retry_start'"), main.indexOf("case 'compaction_start'"));
 check('the retry path does not switch: a retry reuses the run-time model', !retryWindow2.includes('switchToNextFreeModel('));
@@ -213,7 +269,7 @@ check(
 );
 check(
   'the limit is remembered when the retry is cancelled',
-  /case 'auto_retry_start'[\s\S]{0,1200}?tab\.limitFailure = \{ seq: tab\.promptSeq \|\| 0/.test(main),
+  /case 'auto_retry_start'[\s\S]{0,2200}?tab\.limitFailure = \{ seq: tab\.promptSeq \|\| 0/.test(main),
 );
 check(
   'the limit is remembered when the turn ends on it',

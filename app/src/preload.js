@@ -115,6 +115,9 @@ contextBridge.exposeInMainWorld('freepi', {
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', String(url || '')),
   // Opens the shipped third-party licence notice (MIT requires it to be reachable).
   openNotices: () => ipcRenderer.invoke('app:openNotices'),
+  // Terms, privacy notice, security policy and the licence itself, shipped with
+  // the installer. The main process holds the allowlist of names.
+  openDoc: (name) => ipcRenderer.invoke('app:openDoc', String(name || '')),
   // The sponsor strip at the bottom of the sidebar. `sponsor:click` counts the
   // click as well as opening the link; the URL itself comes from the main
   // process, so the renderer never chooses where to go.

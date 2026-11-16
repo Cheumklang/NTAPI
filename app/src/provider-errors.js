@@ -60,8 +60,10 @@ const ERROR_HINTS = {
  */
 const COARENA_HINTS = {
   invalid_api_key: 'Coarena rejected this API key — open Settings, replace it, then retry.',
-  rate_limit: 'Coarena allows 30 requests per minute. Wait a moment and try again.',
-  rate_limit_exceeded: 'Coarena allows 30 requests per minute. Wait a moment and try again.',
+  rate_limit:
+    'Coarena limits this key to a set number of requests per minute — wait a few seconds and try again.',
+  rate_limit_exceeded:
+    'Coarena limits this key to a set number of requests per minute — wait a few seconds and try again.',
   insufficient_quota: 'Coarena has no quota left today — it resets at UTC midnight.',
   // Not the daily quota: a free key is refused this *model*, on a catalog that
   // prices everything at zero. Saying "quota" here sent people looking for a

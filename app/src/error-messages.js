@@ -128,12 +128,12 @@
       th: 'Coarena ไม่รับคีย์นี้ — เปิดตั้งค่า ใส่คีย์ใหม่ แล้วลองอีกครั้ง',
     },
     'coarena.rate_limit': {
-      en: 'Coarena allows 30 requests per minute. Wait a moment and try again.',
-      th: 'Coarena รับได้ 30 คำขอต่อนาที — รอสักครู่แล้วลองใหม่',
+      en: 'Coarena limits this key to a set number of requests per minute — wait a few seconds and try again.',
+      th: 'คีย์ Coarena นี้จำกัดจำนวนคำขอต่อนาที — รอไม่กี่วินาทีแล้วลองใหม่',
     },
     'coarena.rate_limit_exceeded': {
-      en: 'Coarena allows 30 requests per minute. Wait a moment and try again.',
-      th: 'Coarena รับได้ 30 คำขอต่อนาที — รอสักครู่แล้วลองใหม่',
+      en: 'Coarena limits this key to a set number of requests per minute — wait a few seconds and try again.',
+      th: 'คีย์ Coarena นี้จำกัดจำนวนคำขอต่อนาที — รอไม่กี่วินาทีแล้วลองใหม่',
     },
     'coarena.insufficient_quota': {
       en: 'Coarena has no quota left today — it resets at UTC midnight.',

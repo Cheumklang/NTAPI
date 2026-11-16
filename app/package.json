@@ -1,7 +1,7 @@
 {
   "name": "ntapi-desktop",
   "productName": "NTAPI",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "description": "รวม AI ที่มีโควตาฟรีไว้ในที่เดียว ลองก่อนจ่ายรายเดือน",
   "main": "src/main.js",
   "scripts": {
@@ -37,6 +37,9 @@
     "notices:check": "node scripts/gen-notices.js --check",
     "check:order": "electron scripts/check-message-order.js",
     "check:buy": "electron scripts/check-provider-buy-links.js",
+    "check:legal": "electron scripts/check-legal-docs.js",
+    "check:tools": "electron scripts/check-tool-lifecycle.js",
+    "check:undo-shortcut": "electron scripts/check-undo-shortcut.js",
     "check:turn-status": "electron scripts/check-turn-status.js",
     "check:notice": "electron scripts/check-notice-bubble.js",
     "check:pill": "electron scripts/check-status-pill.js",
@@ -51,7 +54,7 @@
     "bench:transcript": "electron scripts/bench-transcript.js"
   },
   "author": "Chanathip Cheumklang",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "repository": {
     "type": "git",
     "url": "https://github.com/Cheumklang/NTAPI.git"
@@ -110,6 +113,22 @@
       {
         "from": "../THIRD-PARTY-NOTICES.md",
         "to": "THIRD-PARTY-NOTICES.md"
+      },
+      {
+        "from": "../LICENSE",
+        "to": "LICENSE"
+      },
+      {
+        "from": "../TERMS.md",
+        "to": "TERMS.md"
+      },
+      {
+        "from": "../PRIVACY.md",
+        "to": "PRIVACY.md"
+      },
+      {
+        "from": "../SECURITY.md",
+        "to": "SECURITY.md"
       }
     ]
   },

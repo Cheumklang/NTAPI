@@ -68,7 +68,12 @@ check('the installer ships the notices file', () => {
 check('the app can open the notices it ships', () => {
   assert.ok(/ipcMain\.handle\('app:openNotices'/.test(read('src/main.js')), 'main has no handler');
   assert.ok(/openNotices:/.test(read('src/preload.js')), 'preload does not expose it');
-  assert.ok(/el\('aboutNotices'\)\?\.addEventListener/.test(read('src/renderer/app.js')), 'no button wiring');
+  // The buttons are a list now (terms, privacy, licence, security, notices), so the
+  // wiring is one handler over `.about-legal-links` rather than one per button.
+  assert.ok(
+    /querySelectorAll\('\.about-legal-links \.link-btn'\)/.test(read('src/renderer/app.js')),
+    'no button wiring',
+  );
 });
 
 check('every provider card has a buy link that opens that provider', () => {

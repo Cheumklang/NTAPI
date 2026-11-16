@@ -56,6 +56,7 @@ const TESTS = [
   'selftest-activity-state.js',
   'selftest-message-order.js',
   'selftest-notices.js',
+  'selftest-legal-docs.js',
   'selftest-boot-skeleton.js',
   'selftest-installer-assets.js',
   'selftest-duration.js',
