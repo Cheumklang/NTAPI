@@ -2196,6 +2196,21 @@ ipcMain.handle('app:boot', async () => {
 ipcMain.handle('prefs:set', async (_e, patch = {}) => {
   const allowed = {};
   if (patch.lang === 'en' || patch.lang === 'th') allowed.lang = patch.lang;
+  // The first-run guide is shown once per install; a fresh install has fresh
+  // prefs, so this is exactly the "show it again only if reinstalled" flag.
+  if (typeof patch.guideDone === 'boolean') allowed.guideDone = patch.guideDone;
+  /*
+   * The conversation the window was last on, written by the renderer whenever a
+   * tab becomes active. Only a path inside the app's own sessions folder is
+   * accepted, so prefs cannot be turned into a general-purpose path store.
+   */
+  if (patch.activeSession === '') allowed.activeSession = '';
+  else if (typeof patch.activeSession === 'string') {
+    const p = path.resolve(patch.activeSession.trim());
+    if (p.toLowerCase().startsWith(SESSIONS_ROOT.toLowerCase() + path.sep)) {
+      allowed.activeSession = p;
+    }
+  }
   // The title-bar identity is fixed: this app is always credited to its two
   // authors, so there is deliberately no way to change it through prefs.
   if (typeof patch.sidebarWidth === 'number' && Number.isFinite(patch.sidebarWidth)) {
@@ -3162,14 +3177,29 @@ ipcMain.handle('prompt:abort', async (_e, tabId) => {
     questions.delete(qid);
     pending.resolve(null);
   }
-  try {
-    await tab.handle.session.abort();
-  } catch {}
+  /*
+   * Clear the flag and tell the window *before* asking the session to stop.
+   *
+   * `session.abort()` on a session that is already idle — or one blocked waiting
+   * for an answer — can go a long time without resolving, and this handler used
+   * to sit awaiting it. The result was a Stop button that did nothing while the
+   * window went on saying "working", with no way out of that state. The wait is
+   * bounded now, and the flag stays cleared either way: from the user's side the
+   * turn is over the moment they press Stop.
+   */
   tab.busy = false;
   // The user asked for this stop; it is not a spent allowance and must not send
   // the turn to another model behind their back.
   tab.limitFailure = null;
   sendTab(id, 'agent:busy', { busy: false });
+  try {
+    await Promise.race([
+      tab.handle.session.abort(),
+      new Promise((resolve) => {
+        setTimeout(resolve, 4000).unref?.();
+      }),
+    ]);
+  } catch {}
   return { ok: true };
 });
 

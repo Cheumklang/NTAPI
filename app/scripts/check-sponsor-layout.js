@@ -426,14 +426,16 @@ async function main() {
   await atSize(win, 'default', 1240, 840);
   await atSize(win, 'minimum', 900, 560);
 
-  // A feed that mixes a wide and a tall creative: the box must not resize when
-  // the rotation moves between them.
+  // A feed that mixes a wide and a tall creative: the strip follows the shape of
+  // whichever one is on screen, so the divider above it and the label below it
+  // stay attached to the creative. Reserving the tallest box instead left a hole
+  // under the small banner and left the divider up where the tall one had put it.
   const mixed = await win.webContents.executeJavaScript(MEASURE_MIXED);
   console.log('\nmixed ratios', JSON.stringify(mixed));
-  check('a mixed feed reserves the tallest frame', mixed.heights[0] === mixed.heights[1], {
+  check('the band takes the shape of the slot on screen', mixed.heights[0] !== mixed.heights[1], {
     heights: mixed.heights,
   });
-  check('the reserved box is the 4:5 slot, not the 2:1 one', Number(String(mixed.reserved).split('/')[0]) < 1, mixed.reserved);
+  check('the band is the 4:5 slot once the tall one rotates in', Number(String(mixed.reserved).split('/')[0]) < 1, mixed.reserved);
   // Each creative is framed at its own shape inside the reserved band, which is
   // what the publisher's own preview does. Cropping every sponsor into one band
   // cut the left and right edges off a 1:1 image — and that is where a sponsor

@@ -51,6 +51,7 @@ const TESTS = [
   'selftest-model-fallback.js',
   'selftest-error-messages.js',
   'selftest-retry-notice.js',
+  'selftest-busy-state.js',
   'selftest-boot-skeleton.js',
   'selftest-installer-assets.js',
   'selftest-duration.js',

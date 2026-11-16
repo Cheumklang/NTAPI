@@ -219,7 +219,7 @@ check(
   'the limit is remembered when the turn ends on it',
   /case 'message_end'[\s\S]{0,900}?tab\.limitFailure = \{ seq: tab\.promptSeq \|\| 0/.test(main),
 );
-check('a user Stop is not a spent allowance', /prompt:abort[\s\S]{0,600}?tab\.limitFailure = null;/.test(main));
+check('a user Stop is not a spent allowance', /prompt:abort[\s\S]{0,1400}?tab\.limitFailure = null;/.test(main));
 check(
   'the settle path accepts an aborted turn when the limit was ours',
   /if \(last\.stopReason !== 'error' && last\.stopReason !== 'aborted'\) return;/.test(main) &&

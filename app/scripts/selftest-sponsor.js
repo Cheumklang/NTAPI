@@ -174,14 +174,16 @@ const sponsorBlock = css.slice(css.indexOf('/* ---------------- sponsor strip'),
 // no CSS animation may run behind the text.
 check('the strip itself does not animate', !/animation|@keyframes/.test(sponsorBlock));
 
-// The frame the creative is cropped into: 2:1 and cover, so every banner reads
-// as the same size whatever shape the sponsor sent.
+// The frame the creative is drawn into: one shape per slot, set by the renderer
+// from that slot's own ratio (`--sponsor-r`), so the band matches the creative on
+// screen instead of reserving the tallest shape in the feed.
 const mediaRule = (() => {
   const at = css.indexOf('.sponsor-media {');
   if (at === -1) return '';
   return css.slice(at, css.indexOf('}', at));
 })();
-check('the media band is a 2:1 frame', /aspect-ratio:\s*2\s*\/\s*1/.test(mediaRule));
+check('the media band takes the shape of the slot',
+  /aspect-ratio:\s*var\(--sponsor-r/.test(mediaRule));
 const mediaContentRule = (() => {
   const at = css.indexOf('.sponsor-media img,');
   return at === -1 ? '' : css.slice(at, css.indexOf('}', at));

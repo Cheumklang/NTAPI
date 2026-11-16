@@ -128,6 +128,18 @@ const STRINGS = {
     holdEdit: 'Edit',
     holdCancel: 'Cancel',
     holdDropped: 'Dropped.',
+    undoCountdown: 'Editable for {n}s',
+    guideSkip: 'Skip',
+    guideNext: 'Next',
+    guideDone: 'Got it',
+    guideSettingsTitle: 'Start here: Settings',
+    guideSettingsText: 'The key that lets NTAPI talk to an AI model lives in Settings. Click the gear.',
+    guideProvidersTitle: 'Add a key for one service',
+    guideProvidersText: 'Under “Providers”, paste a key into the card of the service you use — or sign in to FreePi, which costs nothing. Then close this window.',
+    guideModelTitle: 'Pick a model',
+    guideModelText: 'Only models whose key you added appear here. Tick “Free only” to hide the paid ones.',
+    guideSendTitle: 'Type, then press Enter',
+    guideSendText: 'Ask in plain words — “explain this folder”, “fix this error”. Shift+Enter starts a new line.',
     jumpToBottom: 'Newest',
     untitled: 'Untitled session',
     rename: 'Rename',
@@ -493,6 +505,18 @@ const STRINGS = {
     holdEdit: 'แก้ไข',
     holdCancel: 'ยกเลิก',
     holdDropped: 'ยกเลิกแล้ว',
+    undoCountdown: 'แก้ไขได้อีก {n} วิ',
+    guideSkip: 'ข้าม',
+    guideNext: 'ถัดไป',
+    guideDone: 'เข้าใจแล้ว',
+    guideSettingsTitle: 'เริ่มที่ปุ่มตั้งค่า',
+    guideSettingsText: 'คีย์ที่ให้ NTAPI คุยกับ AI อยู่ที่หน้าตั้งค่า — กดปุ่มนี้ก่อน',
+    guideProvidersTitle: 'ใส่คีย์สักเจ้าเดียว',
+    guideProvidersText: 'ไปที่หัวข้อ “ผู้ให้บริการ” แล้ววางคีย์ลงในการ์ดของเจ้าที่ใช้ หรือล็อกอิน FreePi ที่ใช้ฟรีก็ได้ เสร็จแล้วปิดหน้าต่างนี้',
+    guideModelTitle: 'เลือกโมเดล',
+    guideModelText: 'จะเห็นเฉพาะโมเดลที่มีคีย์อยู่แล้ว — ติ๊ก “เฉพาะฟรี” ถ้าไม่อยากเห็นตัวเสียเงิน',
+    guideSendTitle: 'พิมพ์แล้วกด Enter',
+    guideSendText: 'ถามด้วยภาษาธรรมดา เช่น “อธิบายโฟลเดอร์นี้ให้หน่อย” · Shift+Enter ขึ้นบรรทัดใหม่',
     jumpToBottom: 'ล่าสุด',
     untitled: 'แชทไม่มีชื่อ',
     rename: 'เปลี่ยนชื่อ',
@@ -1020,6 +1044,20 @@ function setBusy(value) {
     statusHint.textContent = t('idle');
   }
   input.placeholder = value ? t('placeholderBusy') : t('placeholderIdle');
+}
+
+/**
+ * Repaint the pill from the tab the window is on.
+ *
+ * "Working" used to be cleared only by the settled event of the tab that was
+ * active at that instant. A turn that finished in another tab — or an event that
+ * arrived while a tab switch was in flight — left the pill saying "กำลังทำงาน"
+ * with nothing running anywhere, and Stop could not help because there was
+ * nothing left to stop. The pill is a view of `view.busy`, so it is repainted
+ * from that state instead of being switched off by one message.
+ */
+function paintBusyFromViews() {
+  setBusy(Boolean(activeView()?.busy));
 }
 
 let noticeTimer = null;
@@ -2220,9 +2258,26 @@ document.addEventListener('pointerdown', (e) => {
   if (!modelMenu.hidden && !modelPicker.contains(e.target)) closeModelMenu();
 });
 
+// Set on every press inside the picker; read once by the focusout handler above.
+let modelPickerPress = false;
+modelPicker.addEventListener('pointerdown', () => {
+  modelPickerPress = true;
+});
+
 modelPicker.addEventListener('focusout', () => {
   // relatedTarget is null for some native clicks, so check after focus settles.
   setTimeout(() => {
+    /*
+     * A press that started inside the picker keeps the menu open even when the
+     * thing pressed cannot take focus. Without this, the "Free only" words were
+     * dead: they are not focusable, so the press moved focus to <body>, this
+     * handler saw focus leave and closed the menu before the label could toggle
+     * its box — only the 13px checkbox itself worked.
+     */
+    if (modelPickerPress) {
+      modelPickerPress = false;
+      return;
+    }
     if (!modelMenu.hidden && !modelPicker.contains(document.activeElement)) closeModelMenu();
   }, 0);
 });
@@ -2788,8 +2843,42 @@ function mergeIncomingMessages(view, incoming) {
   return next.concat(kept);
 }
 
-function applyTabState(state) {
-  if (!state) return;
+/*
+ * Which conversation the window is on, remembered across launches.
+ *
+ * Written as a path into `prefs.json` (the main process validates it): the tab
+ * id changes on every launch, the session file does not. `restoringTabs` mutes
+ * the writes while the previous launch's tabs are being reopened, so the last
+ * tab restored cannot become the one that is "active".
+ */
+let restoringTabs = false;
+let rememberedSessionFile = '';
+
+function rememberActiveTab(view) {
+  if (restoringTabs) return;
+  const file = view && view.sessionFile ? String(view.sessionFile) : '';
+  if (!file || file === rememberedSessionFile) return;
+  rememberedSessionFile = file;
+  api.setPrefs({ activeSession: file }).catch(() => {});
+}
+
+/**
+ * Which tab the window reopens on.
+ *
+ * The remembered conversation when it is still open, otherwise the first tab —
+ * a session deleted from disk must not leave the window with nothing active.
+ * Paths are compared lower-cased because Windows reports the same file with
+ * different case depending on how the tab was opened.
+ */
+function pickRestoreTarget(tabs, wanted) {
+  const list = Array.isArray(tabs) ? tabs : [];
+  if (!list.length) return null;
+  const key = (p) => String(p || '').toLowerCase();
+  const match = wanted ? list.find((tab) => key(tab.sessionFile) === key(wanted)) : null;
+  return match || list[0];
+}
+
+function applyTabState(state) {  if (!state) return;
   let view = views.get(state.tabId);
   if (!view) view = createView(state.tabId);
 
@@ -2811,6 +2900,7 @@ function applyTabState(state) {
   if (!view.label) view.label = state.name || deriveLabel(state);
   activeTabId = state.tabId;
   renderActiveTab();
+  rememberActiveTab(view);
   // A turn may still be running in this tab: after a window reload the renderer
   // is new but the agent in the main process never stopped. Without this the
   // Send button comes back looking idle, and pressing it would start a second
@@ -2833,8 +2923,7 @@ function applyTabState(state) {
   syncProviderChrome(view);
 }
 
-function deriveLabel(state) {
-  const firstUser = (state.messages || []).find((m) => m.kind === 'user' && m.text);
+function deriveLabel(state) {  const firstUser = (state.messages || []).find((m) => m.kind === 'user' && m.text);
   if (firstUser) return MD.toPlainText(firstUser.text).slice(0, 42) || firstUser.text.slice(0, 42);
   return state.cwd ? state.cwd.split(/[\\/]/).pop() : 'New session';
 }
@@ -2858,8 +2947,7 @@ async function closeTab(tabId) {
   }
 }
 
-async function activateTabDirect(tabId) {
-  // A held message belongs to the tab the user is looking at. Switching away
+async function activateTabDirect(tabId) {  // A held message belongs to the tab the user is looking at. Switching away
   // must not fire a send they can no longer see, and must not leave a timer
   // ticking behind their back — the text goes back to that tab's composer.
   cancelAllHolds(tabId);
@@ -4793,8 +4881,10 @@ function sponsorCreative(slot, value) {
  * puts its wording, so the words vanished. The publisher's own preview frames
  * each creative at its own ratio — this makes the strip agree with it.
  *
- * The band still reserves the tallest shape in the feed, so the sidebar never
- * jumps when the rotation moves between a wide and a tall creative.
+ * The band takes the shape of the creative that is on screen right now — not the
+ * tallest shape in the feed. Reserving the tallest left a hole under a smaller
+ * banner: the strip's top edge stayed high and the copy drifted away from the
+ * creative. Following the slot keeps the divider and the label attached to it.
  */
 function sponsorMediaNode(slot, value) {
   const frame = document.createElement('span');
@@ -4842,28 +4932,28 @@ function sponsorRatio(slot) {
   return 2;
 }
 
-/**
- * The room the strip reserves: the widest-per-height slot in the feed, so the
- * box is already the height the tallest creative needs. Without this the sidebar
- * would grow and shrink every time the rotation moved between a 2:1 and a 4:5
- * banner, dragging the whole session list up and down with it.
- */
-function sponsorReservedRatio() {
-  const slots = sponsor && Array.isArray(sponsor.slots) ? sponsor.slots : [];
-  if (!slots.length) return 2;
-  return slots.reduce((min, slot) => Math.min(min, sponsorRatio(slot)), Infinity) || 2;
-}
-
 function paintSponsorMedia(slot) {
   const host = el('sponsorMedia');
   if (!host) return;
-  // Reserved before any byte arrives, so the band holds its height while the
-  // creative downloads and never snaps the layout around.
-  const reserved = sponsorReservedRatio();
-  host.style.aspectRatio = String(reserved);
+  /*
+   * One band, one shape: the shape of the creative this slot carries.
+   *
+   * The band used to reserve the tallest ratio in the whole feed so the column
+   * would never jump between slots. The cost was visible on the strip itself:
+   * after a tall creative rotated away to a smaller one, the band kept the tall
+   * slot's height, so the divider above the strip stayed up where the tall banner
+   * had put it and the remaining space fell between the creative and its label.
+   * The user's report — "the divider does not come back down" and "the banner
+   * does not sit near ผู้สนับสนุน" — is exactly that leftover.
+   *
+   * Measured from the slot, not from the feed, and set before any byte arrives so
+   * the band still holds its height while the creative downloads.
+   */
+  const own = slot && slot.media ? sponsorRatio(slot) : 2;
+  host.style.aspectRatio = String(own);
   // The stylesheet caps the band by width: without this number it cannot know how
   // tall the frame wants to be, and a 9:16 clip was squashed into a 2:1 band.
-  host.style.setProperty('--sponsor-r', String(reserved));
+  host.style.setProperty('--sponsor-r', String(own));
   host.replaceChildren();
   const hasMedia = Boolean(slot && slot.media);
   host.hidden = !hasMedia;
@@ -5012,6 +5102,11 @@ async function boot() {
   if (typeof api.onSponsorChanged === 'function') api.onSponsorChanged(reloadSponsor);
 
   if (info.openTabs?.length) {
+    // While the tabs are being restored every one of them passes through
+    // `applyTabState`, so writing "this is the active conversation" here would
+    // end up naming whichever tab happened to be restored last. The remembered
+    // one is chosen once, below.
+    restoringTabs = true;
     // One tab per session file: the same conversation opened twice would be
     // written to by two agents. Cap the restore to the account's session limit
     // as well — the extra sessions stay on disk and open from the list.
@@ -5030,7 +5125,12 @@ async function boot() {
         restored += 1;
       } catch {}
     }
+    restoringTabs = false;
   }
+
+  // Which conversation the window was on when it was closed. Read before any
+  // tab is activated, because activating one overwrites it.
+  const wanted = typeof info.prefs?.activeSession === 'string' ? info.prefs.activeSession : '';
 
   if (views.size === 0 && info.lastCwd) {
     statusHint.textContent = t('restoring');
@@ -5047,13 +5147,20 @@ async function boot() {
 
   const tabs = await api.listTabs();
   if (tabs.length) {
-    await activateTabDirect(tabs[0].tabId);
+    // Reopen on the conversation the window was on, not on the first tab in the
+    // list: with two chats open, closing the app kept jumping back to the other
+    // one.
+    await activateTabDirect(pickRestoreTarget(tabs, wanted).tabId);
   } else {
     statusHint.textContent = info.lastCwd
       ? t('readyHint')
       : t('chooseToBegin');
     renderActiveTab();
   }
+
+  // Last thing in boot: the guide points at real controls, so it must not open
+  // while the first tab is still painting over them.
+  maybeShowGuide();
 }
 
 el('pickFolder').addEventListener('click', async () => {
@@ -6185,8 +6292,9 @@ async function submit() {
     view.label = outgoing ? outgoing.slice(0, 42) : 'Image';
   }
 
-  renderUserMessage(outgoing, pendingImages);
-  view.messages.push({ kind: 'user', text: outgoing, images: pendingImages.slice(), pending: true });
+  const bubble = renderUserMessage(outgoing, pendingImages);
+  const entry = { kind: 'user', text: outgoing, images: pendingImages.slice(), pending: true };
+  view.messages.push(entry);
 
   const images = pendingImages.slice();
   pendingImages = [];
@@ -6199,6 +6307,10 @@ async function submit() {
   view.liveTools = null;
   setBusy(true);
 
+  // Five seconds of grace on a message that has already gone: Enter is easy to
+  // hit by accident, and a real turn starts immediately.
+  offerUndoSend(view, bubble, entry, { text: outgoing, images });
+
   try {
     playSound('send');
     await api.sendPrompt(view.tabId, outgoing, images);
@@ -6206,6 +6318,88 @@ async function submit() {
     showNotice(errorText(err));
     setBusy(false);
   }
+}
+
+/**
+ * A message that has already gone out, still within reach for five seconds.
+ *
+ * Enter is one keystroke and the message leaves the composer immediately, which
+ * means a mistyped or mis-timed Enter starts a real turn. Rather than delay every
+ * send with a countdown (which makes the app feel slower for people who never
+ * mistype), the message goes at once and the row that appears under it offers
+ * Edit and Cancel until the window closes. Taking it back stops the turn first —
+ * the words are the user's again, so whatever the agent began is no longer wanted.
+ */
+function offerUndoSend(view, wrap, entry, { text, images }) {
+  if (!wrap) return;
+
+  const row = document.createElement('div');
+  row.className = 'hold-row';
+
+  const clock = document.createElement('span');
+  clock.className = 'hold-clock';
+
+  const edit = document.createElement('button');
+  edit.type = 'button';
+  edit.className = 'hold-btn';
+  edit.textContent = t('holdEdit');
+
+  const drop = document.createElement('button');
+  drop.type = 'button';
+  drop.className = 'hold-btn hold-drop';
+  drop.textContent = t('holdCancel');
+
+  row.append(clock, edit, drop);
+  wrap.appendChild(row);
+
+  let left = HOLD_SECONDS;
+  const paint = () => {
+    clock.textContent = t('undoCountdown', { n: left });
+  };
+  paint();
+
+  const stop = () => {
+    clearInterval(timer);
+    row.remove();
+  };
+
+  const timer = setInterval(() => {
+    left -= 1;
+    if (left > 0) paint();
+    else stop();
+  }, 1000);
+
+  const takeBack = async (taken) => {
+    // A repaint can replace the transcript under us; a row that is no longer in
+    // the document has nothing left to undo and must not delete a message.
+    if (!row.isConnected) {
+      stop();
+      return;
+    }
+    stop();
+    try {
+      await api.abort(view.tabId);
+    } catch {
+      // Nothing running yet is not an error.
+    }
+    const at = (view.messages || []).indexOf(entry);
+    if (at !== -1) view.messages.splice(at, 1);
+    wrap.remove();
+    emptyState.hidden = (view.messages || []).length > 0;
+    if (taken) {
+      input.value = text || '';
+      pendingImages = (images || []).slice();
+      renderAttachments();
+      autoGrow();
+      updateSendState();
+      input.focus();
+    } else {
+      showNotice(t('holdDropped'), 1800);
+    }
+  };
+
+  edit.addEventListener('click', () => takeBack(true));
+  drop.addEventListener('click', () => takeBack(false));
 }
 
 sendBtn.addEventListener('click', submit);
@@ -7127,7 +7321,7 @@ api.onBusy((p) => {
   view.busy = p.busy;
   refreshSessionBusy();
   if (payloadTabIsActive(view)) {
-    setBusy(p.busy);
+    paintBusyFromViews();
     if (p.busy) ensureLive(view);
     else if (view.liveAssistant) view.liveAssistant.classList.remove('streaming');
   }
@@ -7169,7 +7363,7 @@ api.onSettled((p) => {
   if (view.liveAssistant) view.liveAssistant.classList.remove('streaming');
   view.liveAssistant = null;
   view.liveTools = null;
-  if (payloadTabIsActive(view)) setBusy(false);
+  if (payloadTabIsActive(view)) paintBusyFromViews();
   if (payloadTabIsActive(view) && noticeIsRetry) showNotice(null);
   // A message held back while this turn ran no longer has anything to wait for:
   // send it now rather than making the user watch a countdown for a turn that
@@ -7216,9 +7410,33 @@ api.onError((p) => {
   // "... service_busy) (HTTP 503 · service_busy)".
   const suffix = p.key && p.status ? ` (HTTP ${p.status}${p.code ? ` · ${p.code}` : ''})` : '';
   appendErrorBanner(`${body}${suffix}`);
-  setBusy(false);
+  paintBusyFromViews();
 });
 
+
+/**
+ * Reconcile the pill with what the main process says is running.
+ *
+ * Every path above depends on one IPC message arriving. A missed one — a tab
+ * switch at the wrong moment, a renderer that reloaded mid-turn — left the pill
+ * saying "working" while nothing was running. So while the pill says busy, ask
+ * the main process what that tab is really doing: one cheap question every few
+ * seconds beats a window that cannot be talked out of its state.
+ */
+setInterval(async () => {
+  if (document.hidden) return;
+  const view = activeView();
+  if (!view || !view.busy) return;
+  try {
+    const state = await api.getTabState(view.tabId);
+    if (state && !state.busy) {
+      view.busy = false;
+      paintBusyFromViews();
+    }
+  } catch {
+    // The tabs table changed under us; the event path still applies.
+  }
+}, 4000);
 
 /**
  * Every free route is spent. Say it in the transcript of the tab that hit it and
@@ -8683,3 +8901,217 @@ function matchSkill(skill, query) {
 }
 
 loadSkills();
+
+/* ------------------------- first-run guide ------------------------- */
+/**
+ * Four coach marks for a machine that has never run NTAPI.
+ *
+ * Not a manual: a brand-new install has no key, no model, and no reason to guess
+ * that Settings is where a key goes. Each mark points at the real control, and
+ * the first two advance when that control is actually clicked — so the reader is
+ * looking at the thing while reading about it, and the Settings window really
+ * opens underneath.
+ *
+ * Skip is always on screen and is remembered for good (`prefs.guideDone`), which
+ * is what the "if I install it again" case needs: a fresh install has fresh
+ * prefs and sees the guide once.
+ */
+const GUIDE_STEPS = [
+  {
+    target: () => el('settingsBtn'),
+    advanceOnTarget: true,
+    title: 'guideSettingsTitle',
+    text: 'guideSettingsText',
+  },
+  {
+    target: () => el('settingsTabProviders'),
+    advanceOnTarget: true,
+    title: 'guideProvidersTitle',
+    text: 'guideProvidersText',
+    // Reached by "Next" as well, so the window has to be open here too.
+    ensure: () => {
+      if (el('settingsOverlay')?.hidden !== false) openSettings();
+      showSettingsSection('providers');
+    },
+  },
+  {
+    target: () => el('modelPicker'),
+    title: 'guideModelTitle',
+    text: 'guideModelText',
+    ensure: () => closeSettings(),
+  },
+  {
+    target: () => el('input'),
+    title: 'guideSendTitle',
+    text: 'guideSendText',
+  },
+];
+
+let guideAt = 0;
+let guideLive = false;
+// Repositioning runs on a short clock while a step's window is still opening.
+let guidePlaceTimer = null;
+
+function guideTargetOf(step) {
+  try {
+    return step && typeof step.target === 'function' ? step.target() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Put the ring around the target and the card beside it.
+ *
+ * Both are `position: fixed` and placed from the target's client rect, so this
+ * has to run again on resize and on scroll — the settings dialog scrolls its own
+ * column, which is why the listener is captured.
+ */
+function placeGuide() {
+  const step = GUIDE_STEPS[guideAt];
+  const node = guideTargetOf(step);
+  const ring = el('guideRing');
+  const card = el('guideCard');
+  if (!node || !ring || !card) return;
+
+  const box = node.getBoundingClientRect();
+  // A window that is still opening (or a control that is not laid out yet)
+  // reports 0x0 at 0,0. Placing the ring there put the card in the top-left
+  // corner of the window with nothing to point at, so nothing is drawn until the
+  // target has a real box.
+  if (!box.width || !box.height) {
+    ring.style.visibility = 'hidden';
+    return;
+  }
+  ring.style.visibility = '';
+  const pad = 5;
+  ring.style.left = `${Math.round(box.left - pad)}px`;
+  ring.style.top = `${Math.round(box.top - pad)}px`;
+  ring.style.width = `${Math.round(box.width + pad * 2)}px`;
+  ring.style.height = `${Math.round(box.height + pad * 2)}px`;
+
+  const width = card.offsetWidth || 288;
+  const height = card.offsetHeight || 148;
+  const gap = 14;
+  // Below the target when there is room, above it otherwise, always inside the
+  // window: a card half off-screen teaches nothing.
+  let top = box.bottom + gap;
+  if (top + height > window.innerHeight - 10) top = Math.max(10, box.top - height - gap);
+  let left = box.left + box.width / 2 - width / 2;
+  left = Math.max(10, Math.min(left, window.innerWidth - width - 10));
+  card.style.left = `${Math.round(left)}px`;
+  card.style.top = `${Math.round(top)}px`;
+}
+
+function paintGuideStep() {  const step = GUIDE_STEPS[guideAt];
+  if (!step) return;
+  if (typeof step.ensure === 'function') {
+    try {
+      step.ensure();
+    } catch {
+      // A step whose window failed to open still shows its words.
+    }
+  }
+  el('guideCount').textContent = `${guideAt + 1} / ${GUIDE_STEPS.length}`;
+  el('guideTitle').textContent = t(step.title);
+  el('guideText').textContent = t(step.text);
+  el('guideNext').textContent = t(guideAt === GUIDE_STEPS.length - 1 ? 'guideDone' : 'guideNext');
+  el('guideLayer').hidden = false;
+  // The first measurement is on the next frame; the retry covers the slower
+  // case — step two opens the Settings window, which animates in and only then
+  // has a tab to ring.
+  requestAnimationFrame(placeGuide);
+  placeGuideSoon();
+  el('guideCard').focus({ preventScroll: true });
+}
+
+/**
+ * Keep re-measuring for about a second after a step appears.
+ *
+ * Settings is opened asynchronously (`openSettings()` awaits the settings
+ * payload), so the Providers tab has no box yet when the step paints. One
+ * measurement was enough only for steps that were already on screen.
+ */
+function placeGuideSoon() {
+  clearInterval(guidePlaceTimer);
+  let tries = 0;
+  guidePlaceTimer = setInterval(() => {
+    tries += 1;
+    if (!guideLive || tries > 20) {
+      clearInterval(guidePlaceTimer);
+      guidePlaceTimer = null;
+      return;
+    }
+    placeGuide();
+  }, 50);
+}
+
+function advanceGuide() {
+  if (!guideLive) return;
+  if (guideAt >= GUIDE_STEPS.length - 1) {
+    endGuide();
+    return;
+  }
+  guideAt += 1;
+  paintGuideStep();
+}
+
+function endGuide() {
+  if (!guideLive) return;
+  guideLive = false;
+  clearInterval(guidePlaceTimer);
+  guidePlaceTimer = null;
+  el('guideLayer').hidden = true;
+  window.removeEventListener('resize', placeGuide);
+  window.removeEventListener('scroll', placeGuide, true);
+  document.removeEventListener('click', onGuideTargetClick, true);
+  document.removeEventListener('keydown', onGuideKey, true);
+  // One preference, written once: the guide is a first-run thing.
+  api.setPrefs({ guideDone: true }).catch(() => {});
+}
+
+function onGuideTargetClick(event) {
+  if (!guideLive) return;
+  const step = GUIDE_STEPS[guideAt];
+  if (!step || !step.advanceOnTarget) return;
+  const node = guideTargetOf(step);
+  if (!node || !(node === event.target || node.contains(event.target))) return;
+  // The control's own handler has to run first — Settings really opening is the
+  // whole point of that step — so the move waits for the next turn.
+  setTimeout(advanceGuide, 150);
+}
+
+function onGuideKey(event) {
+  if (event.key === 'Escape' && guideLive) {
+    event.preventDefault();
+    endGuide();
+  }
+}
+
+function startGuide() {
+  if (guideLive || !GUIDE_STEPS.length) return;
+  guideAt = 0;
+  guideLive = true;
+  document.addEventListener('click', onGuideTargetClick, true);
+  document.addEventListener('keydown', onGuideKey, true);
+  window.addEventListener('resize', placeGuide);
+  window.addEventListener('scroll', placeGuide, true);
+  paintGuideStep();
+}
+
+/**
+ * Offered once per install, after the window has settled.
+ *
+ * Waiting matters: the guide measures real buttons, and the first tab is still
+ * being restored while `boot()` runs, so an early start would describe a window
+ * that is about to change shape.
+ */
+function maybeShowGuide() {
+  if (!appPrefs || appPrefs.guideDone) return;
+  setTimeout(() => {
+    if (!document.hidden) startGuide();
+  }, 1500);
+}
+
+el('guideNext').addEventListener('click', advanceGuide);
+el('guideSkip').addEventListener('click', endGuide);

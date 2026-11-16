@@ -300,7 +300,11 @@
                     aria-label="Search models"
                   />
                   <!-- Paid routes are labelled but never hidden unless asked for. -->
-                  <label class="model-free-toggle" title="Free only">
+                  <!-- `tabindex="-1"` keeps focus in the menu when the words are
+                       clicked: the label is not a control, and without it the
+                       press dropped focus on <body>, which closed the menu
+                       before the checkbox could be ticked. -->
+                  <label class="model-free-toggle" title="Free only" tabindex="-1">
                     <input id="modelFreeOnly" type="checkbox" />
                     <span id="modelFreeOnlyLabel">Free only</span>
                   </label>
@@ -551,6 +555,33 @@
         <p class="update-hint" data-i18n="updateOverlayHint">
           You do not need to start it again. Leave this window; it goes away by itself.
         </p>
+      </div>
+    </div>
+
+    <!--
+      First-run guide. Four coach marks that point at the real controls, not a
+      manual: a machine that has never run NTAPI has no key, no model and no idea
+      that Settings is where the key goes. The layer is transparent to clicks
+      except for the card, so the reader can press the thing being described and
+      the ring keeps it highlighted. Skip is always on screen.
+    -->
+    <div class="guide" id="guideLayer" hidden>
+      <div class="guide-ring" id="guideRing" aria-hidden="true"></div>
+      <div
+        class="guide-card"
+        id="guideCard"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="guideTitle"
+        aria-describedby="guideText"
+      >
+        <span class="guide-count" id="guideCount"></span>
+        <div class="guide-title" id="guideTitle"></div>
+        <p class="guide-text" id="guideText"></p>
+        <div class="guide-actions">
+          <button type="button" class="ghost small" id="guideSkip" data-i18n="guideSkip">Skip</button>
+          <button type="button" class="ghost small guide-next" id="guideNext" data-i18n="guideNext">Next</button>
+        </div>
       </div>
     </div>
 
