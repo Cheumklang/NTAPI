@@ -164,6 +164,7 @@ const STRINGS = {
     coarenaPlaintext: 'stored without encryption',
     coarenaLimits: 'Limits',
     coarenaGetKey: 'Get a key at coarena.ai',
+    coarenaBuy: 'Buy credits at coarena.ai',
     coarenaSaved: 'Coarena key saved.',
     coarenaUnverified: 'Coarena could not be reached — the key was saved unverified.',
     coarenaSaveFailed: 'Could not save the key:',
@@ -180,6 +181,7 @@ const STRINGS = {
     zroUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
     zroNotConfigured: 'No key yet — Zro models stay hidden.',
     zroGetKey: 'Get a key at zro.moonmath.ai',
+    zroBuy: 'Buy credits at zro.moonmath.ai',
     zroSaved: 'Zro key saved.',
     zroUnverified: 'Zro could not be reached — the key was saved unverified.',
     zroSaveFailed: 'Could not save the key:',
@@ -195,6 +197,7 @@ const STRINGS = {
     nvidiaUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
     nvidiaNotConfigured: 'No key yet — NVIDIA models stay hidden.',
     nvidiaGetKey: 'Get a key at build.nvidia.com',
+    nvidiaBuy: 'Buy credits at build.nvidia.com',
     nvidiaSaved: 'NVIDIA key saved.',
     nvidiaUnverified: 'NVIDIA could not be reached — the key was saved unverified.',
     nvidiaModelMissing: 'The key works, but NVIDIA no longer serves a DeepSeek Flash model.',
@@ -213,6 +216,7 @@ const STRINGS = {
     tokenharborUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
     tokenharborNotConfigured: 'No key yet — Token Harbor models stay hidden.',
     tokenharborGetKey: 'Get a key at tokenharbor.ai',
+    tokenharborBuy: 'Buy credits at tokenharbor.ai',
     tokenharborSaved: 'Token Harbor key saved.',
     tokenharborUnverified: 'Token Harbor could not be reached — the key was saved unverified.',
     tokenharborModelMissing:
@@ -232,6 +236,7 @@ const STRINGS = {
     llm7Unreadable: 'This token was saved on another machine and cannot be read here — enter it again.',
     llm7NotConfigured: 'No token yet — LLM7.io models stay hidden.',
     llm7GetKey: 'Get a token at dash.llm7.io',
+    llm7Buy: 'Top up credits at dash.llm7.io',
     llm7Saved: 'LLM7.io token saved.',
     llm7Unverified: 'LLM7.io could not confirm the token — it was saved as unverified.',
     llm7SaveFailed: 'Could not save the token:',
@@ -421,6 +426,9 @@ const STRINGS = {
     aboutBugDesc: 'Found a bug? Send an email — I read every report.',
     aboutDonation: 'Buy me a coffee',
     aboutQrDesc: 'Scan the QR code to support a coffee',
+    aboutLicence: 'Third-party licences',
+    aboutLegalText: 'NTAPI has no affiliation with and is not endorsed by any model provider. It is free to use with your own keys · it bundles third-party software under their licences.',
+    aboutNoticesOpen: 'Open the licence notices shipped with the app',
     updatesSection: 'Updates',
     updateCurrent: 'Current version',
     checkUpdates: 'Check for updates',
@@ -547,6 +555,7 @@ const STRINGS = {
     coarenaPlaintext: 'บันทึกโดยไม่เข้ารหัส',
     coarenaLimits: 'ขีดจำกัด',
     coarenaGetKey: 'ขอคีย์ที่ coarena.ai',
+    coarenaBuy: 'ซื้อเครดิตที่ coarena.ai',
     coarenaSaved: 'บันทึกคีย์ Coarena แล้ว',
     coarenaUnverified: 'ติดต่อ Coarena ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
     coarenaSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
@@ -562,6 +571,7 @@ const STRINGS = {
     zroUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
     zroNotConfigured: 'ยังไม่มีคีย์ — โมเดล Zro จะไม่แสดง',
     zroGetKey: 'ขอคีย์ที่ zro.moonmath.ai',
+    zroBuy: 'ซื้อเครดิตที่ zro.moonmath.ai',
     zroSaved: 'บันทึกคีย์ Zro แล้ว',
     zroUnverified: 'ติดต่อ Zro ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
     zroSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
@@ -576,6 +586,7 @@ const STRINGS = {
     nvidiaUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
     nvidiaNotConfigured: 'ยังไม่มีคีย์ — โมเดล NVIDIA จะไม่แสดง',
     nvidiaGetKey: 'ขอคีย์ที่ build.nvidia.com',
+    nvidiaBuy: 'ซื้อเครดิตที่ build.nvidia.com',
     nvidiaSaved: 'บันทึกคีย์ NVIDIA แล้ว',
     nvidiaUnverified: 'ติดต่อ NVIDIA ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
     nvidiaModelMissing: 'คีย์ใช้ได้ แต่ NVIDIA ไม่มีโมเดล DeepSeek Flash ให้บริการแล้ว',
@@ -593,6 +604,7 @@ const STRINGS = {
     tokenharborUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
     tokenharborNotConfigured: 'ยังไม่มีคีย์ — โมเดล Token Harbor จะไม่แสดง',
     tokenharborGetKey: 'ขอคีย์ที่ tokenharbor.ai',
+    tokenharborBuy: 'ซื้อเครดิตที่ tokenharbor.ai',
     tokenharborSaved: 'บันทึกคีย์ Token Harbor แล้ว',
     tokenharborUnverified: 'ติดต่อ Token Harbor ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
     tokenharborModelMissing: 'คีย์ใช้ได้ แต่ยังไม่ได้เปิด free models ในหน้า dashboard ของ Token Harbor',
@@ -610,6 +622,7 @@ const STRINGS = {
     llm7Unreadable: 'โทเคนนี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
     llm7NotConfigured: 'ยังไม่มีโทเคน — โมเดล LLM7.io จะไม่แสดง',
     llm7GetKey: 'ขอโทเคนที่ dash.llm7.io',
+    llm7Buy: 'เติมเครดิตที่ dash.llm7.io',
     llm7Saved: 'บันทึกโทเคน LLM7.io แล้ว',
     llm7Unverified: 'LLM7.io ยืนยันโทเคนไม่ได้ — บันทึกไว้แบบยังไม่ยืนยัน',
     llm7SaveFailed: 'บันทึกโทเคนไม่สำเร็จ:',
@@ -798,6 +811,9 @@ const STRINGS = {
     aboutBugDesc: 'เจอบั๊กหรือใช้งานไม่ได้ ส่งอีเมลมาบอกได้เลยครับ',
     aboutDonation: 'สนับสนุนค่ากาแฟ',
     aboutQrDesc: 'สแกน QR Code เพื่อสนับสนุนค่ากาแฟ',
+    aboutLicence: 'ลิขสิทธิ์ของผู้อื่น',
+    aboutLegalText: 'NTAPI ไม่มีความเกี่ยวข้องและไม่ได้รับการรับรองจากเจ้าของโมเดลหรือผู้ให้บริการใด ๆ ใช้ฟรีด้วยคีย์ของคุณเอง · โปรแกรมรวมซอฟต์แวร์ของผู้อื่นภายใต้สัญญาอนุญาตของเขา',
+    aboutNoticesOpen: 'ดูสัญญาอนุญาตของซอฟต์แวร์ที่รวมมาในโปรแกรม',
     updatesSection: 'อัปเดต',
     updateCurrent: 'เวอร์ชันปัจจุบัน',
     checkUpdates: 'ตรวจหาอัปเดต',
@@ -4247,6 +4263,11 @@ function applySidebarWidth() {
 })();
 el('settingsClose').addEventListener('click', closeSettings);
 
+/* The licence notice the installer must be able to show (MIT condition). */
+el('aboutNotices')?.addEventListener('click', () => {
+  api.openNotices?.().catch(() => {});
+});
+
 /* --------------------------- Coarena key --------------------------- */
 
 el('coarenaSave')?.addEventListener('click', async () => {
@@ -4288,6 +4309,12 @@ el('coarenaGetKey')?.addEventListener('click', () => {
   api.openExternal('https://coarena.ai/developers').catch(() => {});
 });
 
+/* The same card carries where to top up: people who like it and run out of credits
+   should not have to hunt for the shop that sells them. */
+el('coarenaBuy')?.addEventListener('click', () => {
+  api.openExternal('https://coarena.ai/account/api').catch(() => {});
+});
+
 /* ----------------------------- Zro key ----------------------------- */
 
 el('zroSave')?.addEventListener('click', async () => {
@@ -4326,6 +4353,10 @@ el('zroRemove')?.addEventListener('click', () => {
 
 el('zroGetKey')?.addEventListener('click', () => {
   api.openExternal('https://zro.moonmath.ai/api-keys').catch(() => {});
+});
+
+el('zroBuy')?.addEventListener('click', () => {
+  api.openExternal('https://zro.moonmath.ai/pricing').catch(() => {});
 });
 
 /* ---------------------------- NVIDIA key ---------------------------- */
@@ -4369,6 +4400,10 @@ el('nvidiaGetKey')?.addEventListener('click', () => {
   api.openExternal('https://build.nvidia.com/settings/api-keys').catch(() => {});
 });
 
+el('nvidiaBuy')?.addEventListener('click', () => {
+  api.openExternal('https://build.nvidia.com/pricing').catch(() => {});
+});
+
 /* ------------------------- Token Harbor key ------------------------- */
 
 el('tokenharborSave')?.addEventListener('click', async () => {
@@ -4410,6 +4445,10 @@ el('tokenharborGetKey')?.addEventListener('click', () => {
   api.openExternal('https://tokenharbor.ai/dashboard/api-keys').catch(() => {});
 });
 
+el('tokenharborBuy')?.addEventListener('click', () => {
+  api.openExternal('https://tokenharbor.ai/pricing').catch(() => {});
+});
+
 /* ------------------------- LLM7.io token ------------------------- */
 
 el('llm7Save')?.addEventListener('click', async () => {
@@ -4447,6 +4486,10 @@ el('llm7Remove')?.addEventListener('click', () => {
 });
 
 el('llm7GetKey')?.addEventListener('click', () => {
+  api.openExternal('https://dash.llm7.io/').catch(() => {});
+});
+
+el('llm7Buy')?.addEventListener('click', () => {
   api.openExternal('https://dash.llm7.io/').catch(() => {});
 });
 
@@ -7871,7 +7914,15 @@ function settleStaleTurn(view) {
 }
 
 async function reconcileBusy() {
-  if (document.hidden) return;
+  /*
+   * No `document.hidden` bail-out here.
+   *
+   * It looked like a free optimisation and was the opposite: a window behind another
+   * one is exactly where a turn ends without the settle event arriving, and a queue
+   * stuck in a background window is the case this repair exists for. The work below
+   * is a few IPC calls and a repaint of hidden DOM — cheaper than a message that
+   * never goes out.
+   */
   if (!views.size) {
     // No tab at all: nothing can be running here, so Stop must not stay up.
     if (!sendBtn.hidden) setBusy(false);
@@ -7896,7 +7947,7 @@ async function reconcileBusy() {
       }
       // Still busy: put back any chip a repaint dropped, and if a tool is running
       // the phase line keeps counting, which is what shows the window is alive.
-      if (payloadTabIsActive(view)) syncActivity(view);
+      if (payloadTabIsActive(view) && !document.hidden) syncActivity(view);
     } catch {
       // The tabs table changed under us; the event path still applies.
     }

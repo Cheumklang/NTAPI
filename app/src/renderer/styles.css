@@ -3068,8 +3068,15 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .provider-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
 .provider-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .provider-actions .settings-input { flex: 1 1 200px; min-width: 180px; }
-.provider-card-foot { display: flex; justify-content: flex-end; margin-top: 8px; }
+.provider-card-foot { display: flex; justify-content: flex-end; align-items: baseline; gap: 7px; margin-top: 8px; }
 .provider-card-foot .link-btn { font-size: 12px; }
+/* Separator between "get a key" and "buy credits" — two different journeys in one row. */
+.provider-card-foot .link-sep { color: var(--muted, #8a8f98); font-size: 12px; }
+
+/* About: the licence block reads as one statement, not as a field of statistics. */
+.about-legal { gap: 6px; }
+.about-legal-text { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--muted, #8a8f98); max-width: 58ch; }
+.about-legal .link-btn { font-size: 12.5px; }
 .provider-card .account-token-note { margin-top: 8px; }
 
 /* ---------------- settings: toggle ---------------- */

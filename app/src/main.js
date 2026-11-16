@@ -4071,6 +4071,26 @@ ipcMain.handle('app:openExternal', async (_e, url) => {
   }
 });
 
+/*
+ * The licence notice that travels with the installer.
+ *
+ * Two bundled packages are MIT, and MIT requires its notice to be reachable from
+ * the shipped program — a link to the project page is not the notice. Packaged, the
+ * file sits in resources; from source it is one level above `app/`.
+ */
+ipcMain.handle('app:openNotices', async () => {
+  const file = app.isPackaged
+    ? path.join(process.resourcesPath, 'THIRD-PARTY-NOTICES.md')
+    : path.join(__dirname, '..', '..', 'THIRD-PARTY-NOTICES.md');
+  try {
+    if (!fs.existsSync(file)) return { ok: false, reason: 'missing' };
+    const err = await shell.openPath(file);
+    return { ok: !err, reason: err || '' };
+  } catch (err) {
+    return { ok: false, reason: String(err && err.message) };
+  }
+});
+
 ipcMain.handle('app:copyText', async (_e, text) => {
   const value = typeof text === 'string' ? text.slice(0, 2_000_000) : '';
   if (!value) return { ok: false };

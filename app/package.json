@@ -33,7 +33,10 @@
     "check:fold": "electron scripts/check-model-fold.js",
     "check:stale-queue": "electron scripts/check-stale-queue.js",
     "prove:verify": "node scripts/provenance.js verify",
+    "notices": "node scripts/gen-notices.js",
+    "notices:check": "node scripts/gen-notices.js --check",
     "check:order": "electron scripts/check-message-order.js",
+    "check:buy": "electron scripts/check-provider-buy-links.js",
     "check:turn-status": "electron scripts/check-turn-status.js",
     "check:notice": "electron scripts/check-notice-bubble.js",
     "check:pill": "electron scripts/check-status-pill.js",
@@ -103,6 +106,10 @@
       {
         "from": "browser-extension",
         "to": "browser-extension"
+      },
+      {
+        "from": "../THIRD-PARTY-NOTICES.md",
+        "to": "THIRD-PARTY-NOTICES.md"
       }
     ]
   },

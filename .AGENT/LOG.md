@@ -2306,3 +2306,28 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 
 **ผลเทสต์:** `npm test` **70/70** · `check:order` 7 · `check:history-merge` · `check:queue`
 · `check:read` · `check:stale-queue` · `check:scroll` ผ่านหมด
+
+## 2026-11-17 — ถามเรื่องกฎหมาย (ตอบเป็นคำแนะนำ ไม่ใช่คำปรึกษากฎหมาย)
+
+ตรวจสถานะจริงของโปรแกรมเพื่อตอบ: ฝังแค่ `@earendil-works/pi-coding-agent` (MIT) + Electron (MIT),
+**ไม่ได้แจก binary ของ Anthropic/OpenAI/Google**, และเรียกผู้ให้บริการด้วย **API key ของผู้ใช้เอง**
+(ไม่ใช้ OAuth token ของ subscription) → ความเสี่ยงหลักคือ ToS/สัญญา ไม่ใช่กฎหมายอาญา
+ค้างไว้: ยังไม่มี `THIRD-PARTY-NOTICES` และข้อความ "ไม่เกี่ยวข้อง/ไม่ได้รับการรับรอง" ใน About
+
+## 2026-11-17 — ลิงก์ซื้อเครดิต + เอกสารลิขสิทธิ์ (ก่อน 0.5.13)
+
+**ตามคำขอ:** ใช้ฟรี คีย์จากผู้ใช้เอง แต่อยากให้ผู้ใช้หา “ที่เติมเครดิต” เจอง่าย → เพิ่มปุ่มซื้อในแต่ละการ์ดผู้ให้บริการ
+
+**ทำแล้ว**
+- การ์ดผู้ให้บริการทั้ง 5 มีปุ่ม 2 อัน: “ขอคีย์ที่ …” (เดิม) + **“ซื้อเครดิตที่ …”** (ใหม่):
+  coarena.ai/account/api · zro.moonmath.ai/pricing · build.nvidia.com/pricing · tokenharbor.ai/pricing · dash.llm7.io
+  (ตรวจ URL จริงแล้วไม่ 404 ทั้งหมด; coarena ไม่มีหน้า pricing → ใช้หน้า account/api)
+- แยกการ์ด–หน้า About: ข้อความ “ไม่มีความเกี่ยวข้อง/ไม่ได้รับการรับรองจากเจ้าของโมเดล” + ปุ่มเปิด `THIRD-PARTY-NOTICES.md`
+- `THIRD-PARTY-NOTICES.md` (root) สร้างด้วย `scripts/gen-notices.js` — รายชื่อแพ็กเกจ + license ครบ (MIT text ของ pi-agent ฯลฯ)
+  + ลงตัวติดตั้งผ่าน `extraResources` + เปิดได้จากในโปรแกรม (`app:openNotices`) + `npm run notices:check`
+- **แก้ของจริง:** `reconcileBusy()` เดิม `if (document.hidden) return;` → ข้ามไปเมื่อ window อยู่เบื้องหลัง
+  ทำให้ “คิวค้างในแท็บเบื้องหลัง” ไม่เคยถูกปลด (บั๊กนี้ทำให้ check-stale-queue หลุดในหัวข้อนี้ด้วย) — เอาออก, เหลือแค่ไม่ syncActivity เมื่อ hidden
+- เทสต์: `check-provider-buy-links.js` (`check:buy`, 25 checks) · `selftest-notices.js` (8) · `npm test` **71/71**
+- **KNOWN-FAIL เดิม:** check-turn-blocks (gap 0) ยังแดงอยู่เหมือนเดิม ไม่ใช่ regression
+
+**ถ้าจะขายต่อ:** ยังต้องดู PDPA/VAT ของไทย — แต่ตอนนี้ให้ใช้ฟรี เก็บเฉพาะคีย์ผู้ใช้ ไม่ผิดอะไร

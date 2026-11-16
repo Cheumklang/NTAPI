@@ -113,6 +113,8 @@ contextBridge.exposeInMainWorld('freepi', {
   listFiles: (cwd, query) => ipcRenderer.invoke('fs:listFiles', { cwd, query }),
   respondQuestion: (id, answer) => ipcRenderer.invoke('question:respond', { id, answer }),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', String(url || '')),
+  // Opens the shipped third-party licence notice (MIT requires it to be reachable).
+  openNotices: () => ipcRenderer.invoke('app:openNotices'),
   // The sponsor strip at the bottom of the sidebar. `sponsor:click` counts the
   // click as well as opening the link; the URL itself comes from the main
   // process, so the renderer never chooses where to go.
