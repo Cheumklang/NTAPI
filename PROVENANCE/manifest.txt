@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-16T16:13:08.931Z
-entries 13
-head_hash b5ffdcebdcaa07c7fa54f2364b5cb5a92b5e3dccbceef0c3adaed1b8a33e1777
-git 065bea464e51df6f6ad446dbd87f5d51fcbcd161
+updated 2026-11-16T16:39:42.170Z
+entries 15
+head_hash b3817d7a87a0bbb85c3ac6c08b1b6572eb9802c53ac4f69520ac4f0ea3a97263
+git 500f4e68e414223e5066e7ebb13f3a55430d3eca
 
 latest entries:
-  #6 2026-11-16T15:49:37.022Z commit — internal: ปิด chain หลัง commit
-  #7 2026-11-16T15:49:55.445Z session — ตรวจระบบ PROVENANCE ครบวงจร: hook, tamper detection, CI job
   #8 2026-11-16T15:54:28.824Z commit — internal: บันทึกการปล่อย v0.5.12
   #9 2026-11-16T15:54:29.393Z commit — internal: bump 0.5.12
   #10 2026-11-16T16:04:05.932Z commit — internal: ให้ ledger ตรวจได้บน Linux CI และกันการแปลง line ending
   #11 2026-11-16T16:07:06.251Z release — Released version 0.5.12
   #12 2026-11-16T16:08:09.712Z commit — internal: บันทึกหลักฐานการปล่อย v0.5.12
   #13 2026-11-16T16:13:08.842Z session — แก้ลำดับข้อความของผู้ใช้หลังสลับแชท + เทสต์ check:order
+  #14 2026-11-16T16:13:09.666Z commit — ข้อความของเราอยู่เหนือคำตอบเสมอ แม้สลับแชทกลับมา
+  #15 2026-11-16T16:39:42.068Z session — ปุ่มซื้อเครดิต 5 เจ้า + THIRD-PARTY-NOTICES + not-affiliated + แก้ reconcileBusy hidden
