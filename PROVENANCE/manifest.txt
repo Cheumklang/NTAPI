@@ -1,9 +1,11 @@
 NTAPI — authorship ledger
-updated 2026-11-16T15:47:04.134Z
-entries 2
-head_hash f8120acda998ccf551e7867414ebcdd062ff168fd3e5e5a30d8b22065848ae00
-git e8a15ff5237aa632686aede990a551a44f65768e
+updated 2026-11-16T15:48:19.946Z
+entries 4
+head_hash 1711450cdb06b8a4085dd03a364bff55f4508ef69fe607720d3f74e9af78a0c8
+git b9de399d4ca9edf17c3d897197604c0723c4140b
 
 latest entries:
   #1 2026-11-16T15:47:03.453Z genesis — Authorship ledger opened for the NTAPI project
   #2 2026-11-16T15:47:04.045Z session — เปิดระบบหลักฐานการเป็นผู้สร้าง: ledger + hook + กติกา
+  #3 2026-11-16T15:48:19.017Z commit — เพิ่มระบบหลักฐานการเป็นผู้สร้าง: ledger แบบ hash chain + git hook + ตรวจบน CI
+  #4 2026-11-16T15:48:19.854Z session — สร้างระบบ PROVENANCE + ผูกกติกา AGENTS.md + CI verify
