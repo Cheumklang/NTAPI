@@ -1,5 +1,56 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **สถานะ ณ 2026-11-17 (เก็บงานค้าง: commit โค้ดแก้ 429 แล้ว — เหลือ commit หลักฐาน):**
+> - **commit `2d6d5e0`** `แก้เทิร์นจบเงียบเมื่อผู้ให้บริการตอบ 429 ถึงขีดต่อชั่วโมง`
+>   = 3 ไฟล์: `app/src/main.js`, `app/src/model-fallback.js`, `app/scripts/selftest-model-fallback.js` (+161/−30)
+>   → ปิดงานค้าง "เทิร์นหายเงียบ" ที่ค้างมา 1 session
+> - **ตรวจก่อน commit:** `node --check` ผ่าน 3 ไฟล์ · `npm test` **72/72 ผ่าน** (exit 0) ·
+>   `npm run prove:verify` OK 33 entries · `check:tools` / `check:turn-status` / `check:busy` ผ่าน
+> - **ยังค้าง commit (ไม่ใช่โค้ด — เป็นหลักฐาน):** `.AGENT/HANDOFF.md`, `.AGENT/LOG.md`,
+>   `PROVENANCE/ledger.jsonl`, session note ใหม่ 2 ไฟล์ (`2026-11-16-190205-…`, `2026-11-16-192245-session.md`)
+>   → รอบถัดไป: `node scripts/provenance.js record-session --note "…"` แล้ว commit ขึ้นต้น `internal:`
+> - **ยังไม่ bump / ไม่ tag / ไม่ push** · `app/package.json` = `0.5.14` · `latest.yml` ชี้ `0.5.14`
+> - **ขั้นถัดไป:** ถามผู้ใช้ — จะ "ส่งอัปเดต" เป็น **`0.5.15`** เลยไหม (คำสั่งเต็มชุด: commit + bump + tag + push + รอ CI + ตรวจ `latest.yml`)
+> - **ยังไม่มีผลทดสอบจากเครื่องจริง:** ต้องลองจากซอร์ส `cd app && npm start` ให้ free-pi ตอบ 429 ถึงขีดต่อชั่วโมง แล้วดูว่าแบนเนอร์ขึ้น + สลับโมเดลเอง
+> - **บทเรียนเทิร์นนี้:** ยิง `bash` หลายครั้งเกินกฎ (1 เทิร์น = 1 call) เพราะทยอยอ่านไฟล์ทีละก้อน → รอบหน้าอ่าน/ตรวจ/เทสต์/commit รวมในสคริปต์เดียว
+
+> **สถานะ ณ 2026-11-17 (429 `hourly_ceiling` ของ free-pi → เทิร์นหายเงียบ — แก้แล้ว ยังไม่ commit):**
+> - **อาการที่ผู้ใช้เจอ:** free-pi ตอบครั้งแรกได้ พอถามต่อ **ไม่มีอะไรขึ้นเลย** — ไม่มีคำตอบ ไม่มีแบนเนอร์
+>   สถานะล่างขึ้นปกติ เหมือนโปรแกรมใช้งานไม่ได้ · เรียก `npx free-pi-cli@latest` ตรง ๆ เห็น
+>   `HTTP 429 … hourly limit …` แสดงว่าเซิร์ฟเวอร์ตอบ แต่โปรแกรมกลืนไป
+> - **หลักฐาน:** `C:\NTAPI\sessions\NTAPI-Chat\2026-11-16T19-07-43-243Z_01a1e5c2….jsonl` —
+>   user `ทำงานที่ค้างก่อนคับ` → assistant `stopReason:error` `errorMessage: 429 … hourly_ceiling` →
+>   ต่อด้วย entry `context_edit` · **ไม่มีอะไรหลังจากนั้น**
+> - **ต้นเหตุ (อยู่ใน SDK ไม่ใช่โค้ดเรา):** `agent-session.js` เมื่อจะ retry จะเรียก `_omitRecoveryAttempt()`
+>   → `context_edit` แบบ replacement = null → `_refreshFinalizedContext()` **ตัด assistant ที่ล้มออกจาก
+>   `agent.state.messages`** และ `session.messages` getter คืน projection นั้นตรง ๆ ·
+>   แอปเราสั่ง `abortRetry()` (เพราะเป็นลิมิตจริง) → run settle ตอนที่ข้อความล่าสุด = ข้อความของผู้ใช้เอง
+>   → ตัวอ่านตอน settle ทุกตัว (`announceIfUnreported`, `runModelFallback`) เห็นว่า "เทิร์นปกติ" แล้วจบเงียบ
+> - **แก้ 3 ชั้น:**
+>   1. `model-fallback.js` — เพิ่ม `turnFailure({ messages, limitFailure, seq })`:
+>      อ่าน error ที่ยังอยู่ในลิสต์ ถ้าไม่มีให้ใช้ลิมิตที่ **โปรเซสเราจดไว้ก่อน abort** (ผูกด้วย `seq` ของ prompt)
+>   2. `main.js` — `announceIfUnreported` + `runModelFallback` ใช้ `turnFailure` ·
+>      `tab.limitFailure` เก็บ `provider`/`model` ของเส้นทางที่ถูกปฏิเสธ (ทั้ง `message_end` + `auto_retry_start`)
+>   3. `main.js` `tabState` — ถ้าเทิร์นไม่ฟื้น เติม entry `kind:'error'` สังเคราะห์ท้าย transcript
+>      → **แบนเนอร์แดงอยู่ต่อแม้วาดใหม่/สลับแท็บกลับมา** (เดิมหายเพราะอ่าน projection เดียวกัน)
+> - **เทสต์:** `selftest-model-fallback.js` เพิ่ม 8 เคส `turnFailure` + เขียน structural check ใหม่
+>   (กันอ่านแค่ข้อความล่าสุด / กันเดาโมเดลจากตัวที่เลือกอยู่) + เคส "failure ที่ถูกลบต้องยังเห็นหลังวาดใหม่" ·
+>   `node --check` ผ่านทั้งสองไฟล์ · `npm test` **72/72 ผ่าน** (exit 0)
+> - **ยังไม่ commit 3 ไฟล์:** `app/src/main.js`, `app/src/model-fallback.js`, `app/scripts/selftest-model-fallback.js`
+>   (+ `PROVENANCE/ledger.jsonl` จาก session note)
+> - **ขั้นถัดไป:** รอผู้ใช้สั่ง — commit อย่างเดียว หรือ "ส่งอัปเดต" เป็น **`0.5.15`**
+>   (`app/package.json` ยังเป็น `0.5.14` · ยังไม่ bump)
+
+> **สถานะ ณ 2026-11-17 (ลบ `v0.5.13` แล้ว — repo เหลือรุ่นเดียว):**
+> - ลบ release `v0.5.13` บน `Cheumklang/NTAPI-releases` (asset หายทั้งชุด) + git ref ของ tag
+> - ลบ tag `v0.5.13` ใน repo ต้นทาง: local `git tag -d` + `git push origin :refs/tags/v0.5.13`
+> - **ตรวจแล้ว:** `NTAPI-releases` เหลือ **`v0.5.14` รุ่นเดียว** · tag ในเครื่องเหลือ `v0.5.14`
+>   · `latest.yml` ยังชี้ `version: 0.5.14` (คนที่ติดตั้งไว้กดอัปเดตได้ตามปกติ)
+> - `npm test` **72/72 ผ่าน** · `provenance verify` OK 32 entries
+> - ไม่แตะ `PROVENANCE/releases/v0.5.13.json` (ledger append-only = หลักฐานว่าเคยปล่อยจริง)
+> - **ค้าง commit:** `.AGENT/LOG.md`, `PROVENANCE/ledger.jsonl`, session note ใหม่ 1 ไฟล์
+> - **รอบปล่อยครั้งถัดไป = `0.5.15`** (ยังไม่ bump · `app/package.json` = `0.5.14`)
+
 > **สถานะ ณ 2026-11-17 (ปล่อยรุ่น 0.5.14 แล้ว — `latest.yml` ชี้ 0.5.14):**
 > - **"ส่งอัปเดต" เสร็จครบ:** commit `1534d66` (32 ไฟล์) + tag `v0.5.14` + push `master`
 > - **CI ปล่อยรุ่นแล้ว:** https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.14
