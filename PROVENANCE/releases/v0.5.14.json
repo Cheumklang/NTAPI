@@ -1,0 +1,22 @@
+{
+  "version": "0.5.14",
+  "tag": "v0.5.14",
+  "recordedAt": "2026-11-16T18:58:16.679Z",
+  "git": {
+    "head": "1534d66478d179829144ffc144ce286ed067ed4b",
+    "branch": "master",
+    "tree": "5f0e180a96cf4aa3fda584f4eda93e240627eb5a",
+    "subject": "แก้เทิร์นหยุดเงียบเมื่อผู้ให้บริการจำกัดคำขอ · เพิ่มเอกสารสิทธิ์ในโปรแกรม · แก้สถานะเครื่องมือค้าง",
+    "authorDate": "2026-11-17T01:50:29+07:00",
+    "commitCount": 294
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.14",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.14.exe",
+      "size": 118298902,
+      "sha256": "c29b44bdad419f147538f22240802eabe8711bc98bd749b649a38bc8c01b3525"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.14"
+}

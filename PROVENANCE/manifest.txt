@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-16T17:04:44.120Z
-entries 22
-head_hash 7fb839ee8d707d4b9380fcb871bb2c388c8ca99941afc9bfd9972aaaf5d7e9fb
-git 635055ad7bd6eb56d04496b59964c2ed34d75b06
+updated 2026-11-16T18:58:16.761Z
+entries 29
+head_hash 19a934ff814fb8a2f75dbcb9819c5a5706b9c469dea6b65b2557879ce3430fce
+git 1534d66478d179829144ffc144ce286ed067ed4b
 
 latest entries:
-  #15 2026-11-16T16:39:42.068Z session — ปุ่มซื้อเครดิต 5 เจ้า + THIRD-PARTY-NOTICES + not-affiliated + แก้ reconcileBusy hidden
-  #16 2026-11-16T16:39:42.930Z commit — บอกผู้ใช้ที่เติมเครดิตได้ + แนบสัญญาอนุญาตซอฟต์แวร์ + ปลดคิวค้างตอนหน้าต่างอยู่เบื้องหลัง
-  #17 2026-11-16T16:43:05.500Z commit — internal: bump 0.5.13
-  #18 2026-11-16T16:43:06.113Z commit — internal: บันทึกการปล่อย v0.5.13
-  #19 2026-11-16T16:50:23.790Z commit — internal: สร้างรายการสัญญาอนุญาตจาก lockfile ให้เหมือนกันทุกเครื่อง
-  #20 2026-11-16T16:53:48.430Z commit — internal: ทำให้ไฟล์สัญญาอนุญาตเหมือนกันทุกเครื่อง (line ending)
-  #21 2026-11-16T16:57:22.201Z commit — internal: เทียบไฟล์สัญญาอนุญาตโดยไม่สน line ending ของ checkout
   #22 2026-11-16T17:04:44.032Z release — Released version 0.5.13
+  #23 2026-11-16T17:04:59.938Z commit — internal: บันทึกหลักฐานการปล่อย v0.5.13
+  #24 2026-11-16T17:17:43.147Z session — เพิ่ม LICENSE/PRIVACY/TERMS/SECURITY + README repo public + SHA256 ใน release notes
+  #25 2026-11-16T18:22:58.950Z session — fix stuck tool chip and tool card: single runningTools count, apply stored results on redraw, unknown-result label; new check:tools (11), npm test 72/72
+  #26 2026-11-16T18:42:23.250Z session — fix silent turn end on provider 429: transient throttle kept on pi backoff, fallback pool initialised on first prompt, unreported failure announced at settle, Coarena per-minute wording corrected
+  #27 2026-11-16T18:47:22.775Z session — bump 0.5.14 covering both pending rounds: silent turn end on 429 and legal docs/tool lifecycle fixes
+  #28 2026-11-16T18:50:29.655Z commit — แก้เทิร์นหยุดเงียบเมื่อผู้ให้บริการจำกัดคำขอ · เพิ่มเอกสารสิทธิ์ในโปรแกรม · แก้สถานะเครื่องมือค้าง
+  #29 2026-11-16T18:58:16.682Z release — Released version 0.5.14
