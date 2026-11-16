@@ -97,7 +97,10 @@ function licenceText(dir) {
       const full = path.join(dir, file);
       const stat = fs.statSync(full);
       if (!stat.isFile() || stat.size > 200_000) continue;
-      const text = fs.readFileSync(full, 'utf8').trim();
+      // Line endings are normalised: a licence file checked out on Windows is CRLF,
+      // on CI it is LF, and either way the notice must come out byte-identical —
+      // otherwise the file the installer ships is not the file in the repository.
+      const text = fs.readFileSync(full, 'utf8').replace(/\r\n?/g, '\n').trim();
       if (text) return { file, text };
     }
   }
