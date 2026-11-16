@@ -2042,6 +2042,16 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   → default `'th'` · และ assertion ที่คาด `/เชื่อมต่อไม่ได้/` ทั้งที่ข้อความจริงคือ `/เซิร์ฟเวอร์ไม่ได้/`
 - **ผล:** `selftest-notice-i18n.js` 25 checks · `check-skill-menu.js` 9 checks · `npm test` **66 scripts**
 
+**รอบ 0.5.8 ปล่อยแล้ว (2026-11-16)**
+- bump `0.5.8` (`47c449b`) → tag `v0.5.8` → CI `43858669875` **success** (~2 นาที) → release มี 3 assets
+  · `latest.yml` 339B · `NTAPI-Setup-0.5.8.exe` 118,256,100B · blockmap
+- **ผู้ใช้สั่งเก็บ release ไว้รุ่นเดียว:** ลบ API `DELETE /releases/{id}` + `DELETE /git/refs/tags/{t}`
+  · ลบ release + tag `v0.5.7` ใน `NTAPI-releases` · ลบ tag `v0.5.5`, `v0.5.6`, `v0.5.7` ใน repo ต้นทาง
+  · **ผล:** release เหลือ 1 (`v0.5.8`) · tag ต้นทางเหลือ `v0.5.8` · tag ในเครื่องเหลือ `v0.5.8`
+- **เรื่องที่คุยแล้วไม่ได้ทำ (ผู้ใช้สั่งข้าม):** ปุ่ม/สวิตช์ฝัง “กติกาการใช้ bash” ลง system prompt
+  · คุยกันแล้วอธิบาย 3 ทางเลือก (ติ๊กถาวร / ชิป `@bash-rules` / สองชั้น) + ต้นทุน token 90–150/เทิร์น
+  · ผู้ใช้ตอบว่า "เป็นเรื่องของผู้ใช้ ไม่น่าเกี่ยวกับเรา" → **ไม่แตะโค้ด**
+
 - **ปล่อยแล้ว v0.5.6** (2026-11-15): commit `0ba9e0f` (UI polish + ตัวหมุน) · `c718bd2` · `5e92443` (bump)
   · CI run `43712252312` success ทุก step (build 3 นาที) · asset 3 ไฟล์ใน `Cheumklang/NTAPI-releases`
   · `latest.yml` → `version: 0.5.6` `path: NTAPI-Setup-0.5.6.exe` (118 MB) · แจ้งเตือนผู้ใช้ทาง `ntfy.sh/NTAPI`
