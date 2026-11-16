@@ -2103,3 +2103,54 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - ลิงก์ดาวน์โหลดทดสอบแล้ว (206 partial content)
 - **ลบ `v0.5.8` ออก:** release + tag ใน `NTAPI-releases` + tag ใน repo ต้นทาง + tag ในเครื่อง
   → เหลือ `v0.5.9` รุ่นเดียวทั้ง 2 repo
+
+## 2026-11-17 — สถานะกิจกรรมหายกลางงาน (แก้แล้ว ยังไม่ commit)
+
+- อาการ: ขณะ bash กำลังรัน การ์ดขึ้น "กำลังรัน…" แต่ชิป "กำลังใช้เครื่องมือ" หายไป → หน้าต่างดูเหมือนค้าง
+- ต้นเหตุ: ชิปถูกวาดจากเหตุการณ์ลงบับเบิ้ลโดยตรง พอ transcript ถูกวาดใหม่ (สลับแท็บ/รีโหลด/reconcile) บับเบิ้ลใหม่ไม่มีสถานะอะไรเลย
+- แก้: เก็บสถานะที่ view (`view.act` / `view.runningTools` / `view.actTool`) + `markActivity` `syncActivity` `clearViewActivity`
+  · `ensureLive` วาดชิปกลับเมื่อสร้างบับเบิ้ลใหม่ · reconcile 4 วิ เรียก `syncActivity` · background tab ก็ track state
+  · ชิปบอกชื่อเครื่องมือ · onError/onSettled เรียก `clearViewActivity`
+- เพิ่มสถานะที่ผู้ใช้เห็น: แถบสถานะมีขั้นตอน + เวลาที่เดินจริง (รอคำตอบจากโมเดล / กำลังคิด / กำลังเขียนคำตอบ / กำลังรัน <tool> / กำลังลองใหม่)
+- ไฟล์: `app/src/renderer/app.js`, `app/src/renderer/styles.css`, `app/src/main.js`, `app/scripts/check-turn-status.js` (ใหม่),
+  `app/scripts/selftest-busy-state.js`, `app/scripts/selftest-session-marks-ui.js`, `app/package.json`
+- เทสต์: `npm test` 67/67 · `check:turn-status` 6 checks ผ่าน · `check-turn-blocks` แดงมาก่อนแล้ว (gap บล็อก)
+- กฎใหม่: บันทึกงานลง `.AGENT/` ทุกเทิร์น ก่อนตอบ (ผู้ใช้อาจเปลี่ยน session โดยไม่บอก)
+- รอบปล่อยครั้งถัดไป = `0.5.10` (ยังไม่ bump — รอผู้ใช้สั่ง)
+
+## 2026-11-17 — Coarena: โมเดล Claude ใช้งานไม่ได้ (ตรวจแล้ว ไม่ใช่บักของ NTAPI)
+
+- อาการ: ผู้ใช้เลือกโมเดล Claude ของ Coarena (key แพ็กฟรี) แล้วไม่ทำงาน
+- หลักฐาน: session `2026-11-16T13-40-05-065Z_...jsonl` มี 2 error จริง
+  · `claude-sonnet-5-5` → `402 payment_required` "Claude Sonnet 5.5 is not part of the free tier.
+    Free accounts can use GPT-6 Luna, Gemini 3.8 Flash and DeepSeek V4.1 Flash 1017."
+  · `claude-haiku-5-5` → ข้อความเดียวกัน (คนละชื่อโมเดล)
+- ยืนยันฝั่งเซิร์ฟเวอร์: `GET https://coarena.ai/api/v1/models` ตอบ 200 มี 18 โมเดล
+  ทุกตัว `pricing {"prompt":"0","completion":"0"}` → **ฟีดไม่ได้บอกว่าใครอยู่ในแพ็กฟรี**
+- **ต้นเหตุ = นโยบายของ Coarena** ไม่ใช่โค้ด NTAPI (แพ็กฟรีไม่รวม Claude ทุกตัว)
+- **บักจริงที่เจอระหว่างตรวจ (ยังไม่แก้):** เพราะ pricing เป็น 0/0 ทุกตัว `planOf()` จึงติดป้าย
+  “ฟรี” ให้ Claude ด้วย → ตัวเลือกโมเดลโฆษณาเกินจริง และ `coarena.insufficient_quota`
+  แปลว่า “โควตาวันนี้หมด—รีเซ็ตเที่ยงคืน UTC” ซึ่งผิดบริบท (จริง ๆ คือโมเดลนั้นไม่อยู่ในแพ็กฟรี)
+  · ยังเห็น JSON ดิบ `402: {"message":...}` ในหน้าต่างแชท
+- ยังไม่แก้โค้ด · ยังไม่ commit · รอผู้ใช้สั่งว่าจะแก้ป้าย/ข้อความ error ไหม
+
+## 2026-11-17 — Coarena แพ็กฟรี: ป้ายฟรีเกินจริง + ข้อความ 402 (แก้แล้ว · ปล่อย 0.5.10)
+
+- อาการ: เลือก Claude ใน Coarena (คีย์แพ็กฟรี) แล้วไม่ทำงาน — เซิร์ฟเวอร์ตอบ 402 `payment_required`
+  "Claude Sonnet 5.5 is not part of the free tier. Free accounts can use GPT-6 Luna, Gemini 3.8 Flash
+  and DeepSeek V4.1 Flash 1017."
+- **ต้นเหตุ:** `GET /models` ของ Coarena ติดราคาทุกตัว `0/0` (Claude ด้วย) → `planOf()` อ่านว่า "ฟรี" ทั้งหมด
+  และ `coarena.insufficient_quota` แปลว่า "โควตาวันนี้หมด—รีเซ็ตเที่ยงคืน UTC" ซึ่งผิดบริบท
+- **แก้ 3 ข้อ**
+  1. `coarena.js` — `freeTierNames` + `setCoarenaFreeTier()` + `retagModels()`: จำชื่อโมเดลที่ Coarena
+     บอกเองว่าใช้ได้ในแพ็กฟรี แล้วติดป้ายที่เหลือเป็น `paid` + `planNote: credit` (ไม่ใช่ราคา $0 ที่โกหก)
+     · `normalizeModel` ใช้ tier ก่อน `planOf` · `coarenaModelEntries` ส่งต่อให้ dropdown
+  2. `provider-errors.js` — `COARENA_HINTS.payment_required` + `parseFreeTierModels()` (อ่านรายชื่อจากประโยคของเขา)
+     · 402 ที่ไม่มี code ยังเป็น `insufficient_quota` · กัน JSON ดิบหลุดเข้าหน้าต่างแชท
+  3. `error-messages.js` — `coarena.model_not_free` (th+en)
+- **ต่อสาย:** `freepi-bridge` รับ `coarenaFreeTier` (seed จาก prefs) + เมธอด `applyCoarenaFreeTier(names)`
+  · `main.js` — `rememberCoarenaFreeTier()` เขียน `prefs.coarenaFreeTier` แล้ว `relabelCoarenaModels()`
+  ส่ง `agent:history` ให้ทุกแท็บวาด dropdown ใหม่ · `prefs:set` รับเฉพาะชื่อสั้น ๆ ไม่เกิน 40 รายการ
+- เทสต์ใหม่ `scripts/selftest-coarena-free-tier.js` 19 checks (อยู่ใน `npm test` = 68 scripts)
+  · ปรับ `selftest-model-filter.js` 2 checks ให้ตรงกับ `tagPlans(retagModels(...))`
+- `npm test` **68/68** ผ่าน
