@@ -144,7 +144,6 @@ const STRINGS = {
     untitled: 'Untitled session',
     rename: 'Rename',
     noSessions: 'No saved sessions yet.',
-    openBadge: 'open',
     currentBadge: 'current',
     sessionMenuHint: 'Right-click to rename or delete',
     settings: 'Settings',
@@ -528,7 +527,6 @@ const STRINGS = {
     untitled: 'แชทไม่มีชื่อ',
     rename: 'เปลี่ยนชื่อ',
     noSessions: 'ยังไม่มีแชทที่บันทึกไว้',
-    openBadge: 'เปิดอยู่',
     currentBadge: 'ปัจจุบัน',
     sessionMenuHint: 'คลิกขวาเพื่อเปลี่ยนชื่อหรือลบ',
     settings: 'ตั้งค่า',
@@ -1385,6 +1383,15 @@ function clearViewActivity(view) {
   view.actTool = '';
   view.runningTools = 0;
   clearMsgActivity(view.liveAssistant);
+  // A repaint mid-turn can leave chips in bubbles this view no longer points at,
+  // and they read as "still working" on a turn that finished long ago. The
+  // transcript is the only place a chip can be seen, so it is cleared whole.
+  if (payloadTabIsActive(view)) {
+    for (const box of transcript.querySelectorAll('.msg-activity')) {
+      box.replaceChildren();
+      box.hidden = true;
+    }
+  }
 }
 
 /* ------------------------------ messages ------------------------------ */
@@ -1933,6 +1940,9 @@ const PLAN_NOTE_KEYS = {
   trial: 'planNoteTrial',
   wallet: 'planNoteWallet',
   routed: 'planNoteRouted',
+  // Coarena prices every route at zero, so the only thing a free account can be
+  // told about an excluded one is that it needs credits.
+  paidOnly: 'planNotePaidOnly',
 };
 
 function planText(model) {
@@ -2538,6 +2548,9 @@ function renderActiveTab() {
   renderAttachments();
   renderQueue();
   syncProviderChrome(view);
+  // The repaint dropped the bubble the running turn was writing into; point it
+  // back at the last reply before any chip is painted.
+  adoptLiveBubble(view);
 
   // Ranges still to draw, nearest to the tail first: reading upward, the history
   // arrives in the order it is being looked at.
@@ -3211,9 +3224,7 @@ async function renderSessions(cwd) {
         <span class="s-title">${escapeHtml(title)}</span>
         ${isActive ? `<span class="s-current">${t('currentBadge')}</span>` : ''}
       </span>
-      <span class="s-meta">${escapeHtml(new Date(s.created || s.modified).toLocaleString())}${
-      open ? ` \u00b7 ${t('openBadge')}` : ''
-    }</span>
+      <span class="s-meta">${escapeHtml(new Date(s.created || s.modified).toLocaleString())}</span>
     `;
     btn.title = isActive
       ? `${title} \u2014 ${t('currentBadge')}`
@@ -7133,6 +7144,26 @@ function ensureLive(view) {
 const payloadTabIsActive = (view) => view && view.tabId === activeTabId;
 
 /**
+ * Point `view.liveAssistant` back at the bubble the running turn is writing into.
+ *
+ * A repaint (a tab switch, a reload, a restored view) throws every node away, so
+ * the pointer the turn was using is gone. Without re-attaching it, the next tool
+ * call built a *second* bubble at the bottom and painted its chip there: the
+ * status of the running turn sat below the turn it belonged to, and coming back
+ * to a tab mid-turn looked like two separate jobs. Nothing is appended unless
+ * there is no reply to attach to at all.
+ */
+function adoptLiveBubble(view) {
+  if (!view || !view.busy || !payloadTabIsActive(view)) return;
+  const wraps = transcript.querySelectorAll('.msg.assistant');
+  const last = wraps[wraps.length - 1];
+  if (!last) return;
+  view.liveAssistant = last;
+  view.liveTools = last.querySelector('.tools');
+  syncActivity(view);
+}
+
+/**
  * The bubble the agent is writing into right now.
  *
  * An assistant message used to hold exactly one `.body`, because one turn was
@@ -7347,15 +7378,25 @@ api.onToolEnd((p) => {
     durationMs: p.durationMs,
     diff: p.diff || null,
   });
+  /*
+   * The tool count belongs to the turn, not to the screen.
+   *
+   * While this tab was not the one on screen the chip state was left untouched,
+   * so a tool that finished in the background kept `act.tools` true. Coming back
+   * later re-painted "กำลังใช้เครื่องมือ: bash" over a finished turn — and the
+   * next repaint parked that chip in a reply that had been done for minutes.
+   */
+  view.runningTools = Math.max(0, (view.runningTools || 1) - 1);
+  view.act = { ...(view.act || {}), tools: Boolean(view.runningTools) };
+  if (!view.runningTools) view.actTool = '';
+  else labelToolChip(view);
   if (!payloadTabIsActive(view)) return;
 
   const card = document.querySelector(`[data-tool-id="${p.id}"]`);
   if (!card) return;
   applyToolResult(card, view.toolResults.get(p.id), view.cwd);
   // The chip goes only when nothing else is still running.
-  view.runningTools = Math.max(0, (view.runningTools || 1) - 1);
   if (!view.runningTools) {
-    view.actTool = '';
     markActivity(view, 'tools', false);
     // The turn is not over, it is back between steps: waiting on the model again
     // is the honest label, not "idle".
@@ -7451,8 +7492,17 @@ api.onBusy((p) => {
   if (!view) return;
   view.busy = p.busy;
   refreshSessionBusy();
+  /*
+   * Repaint from the view that is on screen, whoever this payload was for.
+   *
+   * The composer is one element shared by every tab. Painting only when the
+   * payload belonged to the active tab meant a turn that ended while another
+   * tab was "active" — or a payload whose tab id had just changed under it —
+   * left Send hidden behind Stop with nothing running and no event left to fix
+   * it, until switching chats forced a repaint.
+   */
+  paintBusyFromViews();
   if (payloadTabIsActive(view)) {
-    paintBusyFromViews();
     if (p.busy) {
       ensureLive(view);
       setTurnPhase(view, 'wait');
@@ -7503,7 +7553,9 @@ api.onSettled((p) => {
   view.busy = false;
   view.steerPending = false;
   refreshSessionBusy();
-  if (payloadTabIsActive(view)) paintBusyFromViews();
+  // Same rule as onBusy: the composer follows the view on screen, not the tab
+  // the event happened to name.
+  paintBusyFromViews();
   // A message held back while this turn ran no longer has anything to wait for:
   // send it now rather than making the user watch a countdown for a turn that
   // already finished.
@@ -7559,6 +7611,9 @@ api.onError((p) => {
   view.steerPending = false;
   refreshSessionBusy();
   clearViewActivity(view);
+  // Clear the composer before the early return below: an error in a background
+  // tab still ends the turn, and the window on screen must say so.
+  paintBusyFromViews();
   if (!payloadTabIsActive(view)) return;
   showNotice(null);
   // `key` is the same failure in the user's language; `status`/`code` stay
@@ -7569,7 +7624,6 @@ api.onError((p) => {
   // "... service_busy) (HTTP 503 · service_busy)".
   const suffix = p.key && p.status ? ` (HTTP ${p.status}${p.code ? ` · ${p.code}` : ''})` : '';
   appendErrorBanner(`${body}${suffix}`);
-  paintBusyFromViews();
 });
 
 
@@ -7582,10 +7636,33 @@ api.onError((p) => {
  * the main process what that tab is really doing: one cheap question every few
  * seconds beats a window that cannot be talked out of its state.
  */
-setInterval(async () => {
+setInterval(reconcileBusy, 4000);
+
+/**
+ * Ask the main process whether the tab on screen is really working, and put the
+ * composer back in step with it.
+ *
+ * Two failures are covered here:
+ *   · the button says "working" while nothing runs (the flag is stale), and
+ *   · the flag already says idle but the button was never repainted — the case
+ *     a missed settle leaves behind, because the composer is shared by every tab
+ *     while the events are per tab.
+ */
+async function reconcileBusy() {
   if (document.hidden) return;
   const view = activeView();
-  if (!view || !view.busy) return;
+  if (!view) {
+    // No tab on screen: nothing can be running here, so Stop must not stay up.
+    if (!sendBtn.hidden) setBusy(false);
+    return;
+  }
+  // One element, one source of truth: `sendBtn.hidden` is the DOM's copy of
+  // `view.busy`, so a disagreement means the DOM is what is wrong.
+  if (Boolean(view.busy) !== !sendBtn.hidden) {
+    paintBusyFromViews();
+    if (!view.busy) return;
+  }
+  if (!view.busy) return;
   try {
     const state = await api.getTabState(view.tabId);
     if (state && !state.busy) {
@@ -7599,7 +7676,14 @@ setInterval(async () => {
   } catch {
     // The tabs table changed under us; the event path still applies.
   }
-}, 4000);
+}
+
+// A window that was behind another one never saw the repaint that happened while
+// it was hidden, so catching up on the way back is the cheapest repair of all.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) reconcileBusy();
+});
+window.addEventListener('focus', () => reconcileBusy());
 
 /**
  * Every free route is spent. Say it in the transcript of the tab that hit it and
@@ -7925,6 +8009,7 @@ Object.assign(STRINGS.en, {
   planNoteTrial: 'trial credit',
   planNoteWallet: 'billed to wallet',
   planNoteRouted: 'routed model',
+  planNotePaidOnly: 'needs credits',
   freeOnly: 'Free only',
   favorites: 'Favorites',
   star: 'Add to favorites',
@@ -7985,6 +8070,7 @@ Object.assign(STRINGS.th, {
   planNoteTrial: 'เครดิตทดลอง',
   planNoteWallet: 'หักจากเครดิต',
   planNoteRouted: 'ตามโมเดล',
+  planNotePaidOnly: 'ต้องเติมเครดิต',
   freeOnly: 'เฉพาะฟรี',
   favorites: 'รายการโปรด',
   star: 'เพิ่มในรายการโปรด',

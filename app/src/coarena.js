@@ -48,17 +48,28 @@ let modelCache = null;
  */
 const freeTierNames = new Set();
 
+/**
+ * The free-tier routes as they stood when this app was built (2026-11-17).
+ *
+ * Coarena publishes no free flag anywhere — `/models` prices every route `0/0`,
+ * `/models?free=1` returns the same list, and `/key` only says whether the
+ * account is on the free tier. So without a starting point every row looked
+ * free until the first refusal, which is exactly the lie this fixes. A refusal
+ * that names a different list replaces this one.
+ */
+const KNOWN_FREE_TIER = ['gpt-6-luna', 'gemini-3-8-flash', 'deepseek-v4-1-flash-1017'];
+
 function nameKey(value) {
   return String(value || '').trim().toLowerCase();
 }
 
 /** `'free'`, `'paid'`, or `null` while nothing is known about this tier. */
 function planFromFreeTier(model) {
-  if (freeTierNames.size === 0) return null;
   const name = nameKey(model?.name);
   const id = nameKey(model?.id);
   if (!name && !id) return null;
-  return freeTierNames.has(name) || freeTierNames.has(id) ? 'free' : 'paid';
+  const tier = freeTierNames.size > 0 ? freeTierNames : new Set(KNOWN_FREE_TIER);
+  return tier.has(name) || tier.has(id) ? 'free' : 'paid';
 }
 
 /**
@@ -79,7 +90,7 @@ function retagModels(models) {
   return (models || []).map((model) => {
     const tier = planFromFreeTier(model);
     if (!tier) return model;
-    return { ...model, plan: tier, planNote: tier === 'paid' ? 'credit' : '' };
+    return { ...model, plan: tier, planNote: tier === 'paid' ? 'paidOnly' : '' };
   });
 }
 
@@ -139,9 +150,10 @@ function normalizeModel(raw) {
   };
   const tier = planFromFreeTier(model);
   const plan = tier || planOf(model);
-  // A route Coarena refused for a free key wears "credit", not a price: its
-  // catalog says $0 for it, so a price would be the same lie in another font.
-  return { ...model, plan, planNote: tier === 'paid' ? 'credit' : planNote({ ...model, plan }) };
+  // A route Coarena refused for a free key wears "needs credits", not a price:
+  // its catalog says $0 for every route, so a price would be the same lie in
+  // another font.
+  return { ...model, plan, planNote: tier === 'paid' ? 'paidOnly' : planNote({ ...model, plan }) };
 }
 
 function fallbackCatalog() {
@@ -289,4 +301,5 @@ module.exports = {
   resetCoarenaModelCache,
   retagModels,
   setCoarenaFreeTier,
+  KNOWN_FREE_TIER,
 };

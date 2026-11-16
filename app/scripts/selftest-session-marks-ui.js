@@ -303,6 +303,18 @@ check('deleting a chat forgets its mark', () => {
   if (start === -1) throw new Error('deleting a session never drops its mark');
 });
 
+/* ------------------------------- row meta ------------------------------ */
+
+check('a saved chat row says only when it was written', () => {
+  // "เปิดอยู่" sat beside the date on every open chat and read as a second status
+  // next to the "ปัจจุบัน" badge. The badge already answers "which one am I in?",
+  // so the date is all the second line carries now.
+  const at = renderer.indexOf('<span class="s-meta">');
+  if (at === -1) throw new Error('the row meta line is missing');
+  const meta = renderer.slice(at, renderer.indexOf('</span>', at));
+  if (meta.includes('openBadge')) throw new Error('the "open" label is back on the row');
+});
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

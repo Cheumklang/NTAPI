@@ -121,4 +121,44 @@ check('a settle clears the flag and the queue before it touches the DOM', () => 
   assert.ok(/catch \{\s*\n\s*\/\/ The transcript moves/.test(body), 'the DOM part is unguarded');
 });
 
+check('a payload for another tab still repaints the composer', () => {
+  const at = renderer.indexOf('api.onBusy((p) => {');
+  assert.notStrictEqual(at, -1, 'the busy handler is missing');
+  const body = renderer.slice(at, renderer.indexOf('api.onTurnStart(', at));
+  const paint = body.indexOf('paintBusyFromViews();');
+  const guarded = body.indexOf('if (payloadTabIsActive(view)) {');
+  assert.notStrictEqual(paint, -1, 'the composer is never repainted');
+  assert.ok(guarded !== -1 && paint < guarded, 'the repaint still hides behind the active-tab check');
+});
+
+check('a settle repaints the composer whatever tab it names', () => {
+  const at = renderer.indexOf('api.onSettled((p) => {');
+  const body = renderer.slice(at, renderer.indexOf('api.onNotice(', at));
+  assert.ok(!/if \(payloadTabIsActive\(view\)\) paintBusyFromViews\(\)/.test(body),
+    'the repaint is still conditional on the payload\'s tab');
+  const paint = body.indexOf('paintBusyFromViews();');
+  const drain = body.indexOf('drainQueue(view)');
+  assert.ok(paint !== -1 && drain !== -1 && paint < drain, 'the button is repainted after the queue moves');
+});
+
+check('an error in a background tab still clears the button', () => {
+  const at = renderer.indexOf('api.onError((p) => {');
+  const body = renderer.slice(at, renderer.indexOf('/*\n * Reconcile the pill', at));
+  const paint = body.indexOf('paintBusyFromViews();');
+  const earlyReturn = body.indexOf('if (!payloadTabIsActive(view)) return;');
+  assert.notStrictEqual(paint, -1, 'the composer is never repainted on error');
+  assert.ok(earlyReturn === -1 || paint < earlyReturn, 'the repaint sits behind the early return');
+});
+
+check('the watchdog also fixes a button that was never repainted', () => {
+  assert.ok(/function reconcileBusy\(\)/.test(renderer), 'the reconcile step is not a named function');
+  assert.ok(/Boolean\(view\.busy\) !== !sendBtn\.hidden/.test(renderer),
+    'the watchdog only acts while the flag says busy, so a missed settle is never repaired');
+  assert.ok(/if \(!sendBtn\.hidden\) setBusy\(false\);/.test(renderer),
+    'with no tab on screen the composer keeps saying "working"');
+  assert.ok(/document\.addEventListener\('visibilitychange'/.test(renderer), 'coming back to the window repairs nothing');
+  assert.ok(/window\.addEventListener\('focus', \(\) => reconcileBusy\(\)\)/.test(renderer),
+    'focusing the window repairs nothing');
+});
+
 console.log(`\n${pass} checks passed`);

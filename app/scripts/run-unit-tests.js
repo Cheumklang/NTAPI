@@ -53,6 +53,7 @@ const TESTS = [
   'selftest-coarena-free-tier.js',
   'selftest-retry-notice.js',
   'selftest-busy-state.js',
+  'selftest-activity-state.js',
   'selftest-boot-skeleton.js',
   'selftest-installer-assets.js',
   'selftest-duration.js',

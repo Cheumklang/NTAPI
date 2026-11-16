@@ -24,6 +24,7 @@ const {
   retagModels,
   setCoarenaFreeTier,
   coarenaModelEntries,
+  KNOWN_FREE_TIER,
 } = require('../src/coarena');
 
 let failed = 0;
@@ -126,10 +127,16 @@ function fakeCatalog() {
   setCoarenaFreeTier([]);
   const before = await fetchCoarenaModels({ fetchImpl: fakeCatalog(), force: true });
   const claudeBefore = before.models.find((m) => m.id === 'claude-sonnet-5-5');
+  const lunaBefore = before.models.find((m) => m.id === 'gpt-6-luna');
   check(
-    'without anything learned the catalog prices Claude as free',
-    claudeBefore.plan === 'free',
+    'out of the box a route outside the free tier is not sold as free',
+    claudeBefore.plan === 'paid',
     claudeBefore.plan
+  );
+  check(
+    'and the verified free route is still free',
+    lunaBefore.plan === 'free' && lunaBefore.planNote === '',
+    `${lunaBefore.plan}/${lunaBefore.planNote}`
   );
 
   resetCoarenaModelCache();
@@ -138,13 +145,13 @@ function fakeCatalog() {
   const claude = after.models.find((m) => m.id === 'claude-sonnet-5-5');
   const luna = after.models.find((m) => m.id === 'gpt-6-luna');
   check('a refused route is labelled paid once the tier is known', claude.plan === 'paid', claude.plan);
-  check('and it says "credit" rather than a $0 price', claude.planNote === 'credit', claude.planNote);
+  check('and it says "needs credits" rather than a $0 price', claude.planNote === 'paidOnly', claude.planNote);
   check('a free-tier route stays free', luna.plan === 'free' && luna.planNote === '', luna.plan);
 
   const flipped = retagModels([{ ...claude, plan: 'free', planNote: '' }]);
   check(
     'an already-cached catalogue can be re-labelled without a refetch',
-    flipped[0].plan === 'paid' && flipped[0].planNote === 'credit',
+    flipped[0].plan === 'paid' && flipped[0].planNote === 'paidOnly',
     JSON.stringify(flipped[0])
   );
 
@@ -156,9 +163,14 @@ function fakeCatalog() {
   );
 
   check(
-    'clearing the tier list forgets it (a later refusal may differ)',
+    'clearing the learned list falls back to the verified one',
     setCoarenaFreeTier([]).names.length === 0,
     'names should be empty'
+  );
+  check(
+    'the verified fallback names exactly the three free routes',
+    KNOWN_FREE_TIER.length === 3 && KNOWN_FREE_TIER.includes('gpt-6-luna'),
+    JSON.stringify(KNOWN_FREE_TIER)
   );
   check('the hint text has no bare price claim for a refused route', !/USD|\\$/.test(COARENA_HINTS.payment_required));
 
