@@ -137,7 +137,6 @@ contextBridge.exposeInMainWorld('freepi', {
   onToolEnd: on('agent:toolEnd'),
   onNotice: on('agent:notice'),
   onError: on('agent:error'),
-  onFallback: on('agent:fallback'),
   onAd: on('ads:show'),
   openAd: (url) => ipcRenderer.invoke('ads:open', url),
   rotateAd: (opts) => ipcRenderer.invoke('ads:rotate', opts),

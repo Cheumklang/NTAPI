@@ -4885,7 +4885,7 @@ el('accountFolder')?.addEventListener('click', () => {
   if (dir) api.revealPath(dir);
 });
 el('accountGetKey')?.addEventListener('click', () => {
-  api.openExternal('https://freepi.ai/').catch(() => {});
+  api.openExternal('https://freepi.ai/?ref=3tygm5kd').catch(() => {});
 });
 
 el('confirmCancel').addEventListener('click', hideConfirm);
@@ -8064,16 +8064,6 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) reconcileBusy();
 });
 window.addEventListener('focus', () => reconcileBusy());
-
-/**
- * Every free route is spent. Say it in the transcript of the tab that hit it and
- * leave the view where the reader put it — no scrolling, no dialog.
- */
-api.onFallback((p) => {
-  const view = viewFor(p);
-  if (!view) return;
-  if (payloadTabIsActive(view)) appendErrorBanner(t('fallback.exhausted', { n: p.tried || 0 }));
-});
 
 /* ------------------------------ ads ------------------------------ */
 

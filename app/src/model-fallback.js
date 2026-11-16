@@ -1,24 +1,23 @@
 'use strict';
 
 /**
- * Automatic model switching when a free allowance runs out.
+ * Reading a provider's limit failures.
  *
- * The free lanes are rationed per account, so a turn can die with "429 ·
- * free_tier_limit_reached" while another free route still answers. The rule the
- * user asked for is deliberately narrow and needs no dialog:
+ * This used to walk the free routes and switch models on its own. That was
+ * removed: the model changing under the user, mid-conversation, was confusing —
+ * people could not tell whether the app had done what they asked, and the switch
+ * notice read like a second, unrelated event. The rule now is simple: the model
+ * the user picked stays picked, and a spent allowance is reported as a spent
+ * allowance.
  *
- *   - only DeepSeek routes, only the free ones;
- *   - walk the picker from the top down, skipping what already failed;
- *   - when every candidate is spent, stop trying and say so.
- *
- * This module is pure so the ordering rules can be tested without a session.
+ * What is still needed is the reading part: telling a limit apart from a bad key
+ * (never retried) and from a per-minute throttle (pi's own backoff handles it).
+ * This module is pure so those rules can be tested without a session.
  */
-
-const { isDeepSeekModel, isFreeModel } = require('./model-filter');
 
 /**
  * Error texts that mean "this account is out of allowance", not "this request
- * was wrong". Everything here is worth another model; nothing else is.
+ * was wrong".
  *
  * The provider error parser already maps most of these to a stable code, so the
  * code list is the reliable path and the text patterns cover raw bodies.
@@ -53,10 +52,9 @@ const LIMIT_TEXT = [
 ];
 
 /**
- * Failures where another model cannot help: a wrong key fails everywhere, a
- * dead network fails everywhere, and a context overflow is compaction's job.
- * These are checked first so a message that says both "limit" and "invalid key"
- * is not retried.
+ * Failures where the allowance is not the story: a wrong key, a dead network, a
+ * context overflow. Checked first so a message that says both "limit" and
+ * "invalid key" is not reported as "out of allowance".
  */
 const NOT_LIMIT_TEXT = [
   /invalid[_\s-]?(api[_\s-]?)?key/i,
@@ -71,7 +69,7 @@ const NOT_LIMIT_TEXT = [
 
 /**
  * @param {{ text?: string, code?: string }} error
- * @returns {boolean} true when switching models is worth a try.
+ * @returns {boolean} true when the account is out of allowance.
  */
 function isLimitError({ text, code } = {}) {
   const body = String(text || '');
@@ -87,9 +85,10 @@ function isLimitError({ text, code } = {}) {
  * Two kinds of 429 want opposite answers.
  *
  * A requests-per-minute limit is exactly what pi's own backoff is for: wait the
- * few seconds it asks for and the *same* route answers. A free allowance that
- * is spent until a published reset will still be spent after that wait, so it
- * is worth cancelling the backoff and moving the turn to another route.
+ * few seconds it asks for and the *same* route answers. Wording that says the
+ * allowance is spent until a published reset will still be spent after that
+ * wait, so cancelling the pointless backoff and reporting it is the honest
+ * answer — the user then knows to wait for the reset.
  *
  * `isLimitError` cannot tell them apart — both say 429 — and treating a short
  * throttle as a spent route is how a conversation died: the abort cancelled a
@@ -137,7 +136,7 @@ const THROTTLE_TEXT = [
 
 /**
  * @param {{ text?: string, code?: string }} error
- * @returns {boolean} true when waiting (not switching) is the right recovery.
+ * @returns {boolean} true when waiting (not giving up) is the right recovery.
  */
 function isTransientThrottle({ text, code } = {}) {
   const body = String(text || '');
@@ -150,29 +149,6 @@ function isTransientThrottle({ text, code } = {}) {
   return THROTTLE_TEXT.some((re) => re.test(body));
 }
 
-/** Stable key for a model entry, so "tried" survives a rebuilt model list. */
-function modelKey(model) {
-  return model ? `${model.provider}/${model.id}` : '';
-}
-
-/**
- * Which model actually refused?
- *
- * At settle time `session.model` may already be the route we switched *to*, so
- * reading it there blamed the new model for a failure it never saw and skipped
- * it on the next try. Every assistant message records who answered — use that.
- *
- * @param {{role?: string, provider?: string, model?: string, responseModel?: string}} message
- * @returns {{provider: string, id: string, name: string}|null}
- */
-function failedModelFromMessage(message) {
-  if (!message || message.role !== 'assistant') return null;
-  const provider = message.provider;
-  const id = message.model || message.responseModel;
-  if (!provider || !id) return null;
-  return { provider, id, name: id };
-}
-
 /**
  * The failure that ended this turn, from whichever record still has it.
  *
@@ -180,8 +156,8 @@ function failedModelFromMessage(message) {
  * retry ("context_edit" with a null replacement). When this app cancels that
  * retry, the run settles with the message list already ending on the user's own
  * message: every settle-time reader then saw a normal turn, so a limited route
- * ended the conversation with no switch, no notice and no banner. The remembered
- * limit is the copy pi cannot take away.
+ * ended the conversation with no banner and no notice. The remembered limit is
+ * the copy pi cannot take away.
  *
  * @param {{ messages?: Array<object>, limitFailure?: object|null, seq?: number }} [input]
  * @returns {{ text: string, provider: string|null, model: string|null }|null}
@@ -206,83 +182,9 @@ function turnFailure({ messages = [], limitFailure = null, seq = 0 } = {}) {
   return null;
 }
 
-/** True when two entries describe the same route. */
-function sameModel(a, b) {
-  if (!a || !b) return false;
-  return modelKey(a) === modelKey(b);
-}
-
-/**
- * Every free DeepSeek route, in the order the picker shows them (top down).
- * Paid routes are excluded: the whole point is spending no money.
- *
- * @param {Array<object>} models
- * @returns {Array<object>}
- */
-function freeDeepSeekOrder(models) {
-  const seen = new Set();
-  const out = [];
-  for (const model of Array.isArray(models) ? models : []) {
-    if (!model || !model.id || !model.provider) continue;
-    if (!isDeepSeekModel(model) || !isFreeModel(model)) continue;
-    const key = modelKey(model);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(model);
-  }
-  return out;
-}
-
-/**
- * The next model to try, or null when the pool is spent.
- *
- * @param {Array<object>} models
- * @param {{ current?: object|null, tried?: Iterable<string> }} [options]
- * @returns {object|null}
- */
-function nextFallbackModel(models, { current = null, tried = [] } = {}) {
-  const used = new Set(tried || []);
-  if (current) used.add(modelKey(current));
-  for (const model of freeDeepSeekOrder(models)) {
-    if (used.has(modelKey(model))) continue;
-    return model;
-  }
-  return null;
-}
-
-/**
- * The message shown when every free DeepSeek route has been tried and refused.
- * Deliberately says what to do next instead of only reporting a failure.
- *
- * @param {number} [triedCount]
- * @returns {string}
- */
-function exhaustedMessage(triedCount = 0) {
-  const count = Number(triedCount) > 0 ? ` (${triedCount} routes)` : '';
-  return (
-    `All free DeepSeek models are used up${count}. ` +
-    'Nothing else can run until the provider resets the free allowance — ' +
-    'wait for the reset, then send the message again.'
-  );
-}
-
-/** One line that explains an automatic switch while it happens. */
-function switchMessage(from, to) {
-  const fromName = from ? from.name || from.id : 'the current model';
-  const toName = to ? to.name || to.id : 'another free model';
-  return `Free allowance reached on ${fromName}. Switched to ${toName} and carrying on from here.`;
-}
-
 module.exports = {
   isLimitError,
   isTransientThrottle,
-  freeDeepSeekOrder,
-  nextFallbackModel,
-  modelKey,
-  failedModelFromMessage,
   turnFailure,
-  sameModel,
-  exhaustedMessage,
-  switchMessage,
   LIMIT_CODES,
 };

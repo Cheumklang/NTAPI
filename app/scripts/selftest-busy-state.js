@@ -85,7 +85,7 @@ check('a settle in another tab still clears the pill', () => {
 
 check('an error repaints the pill the same way', () => {
   const at = renderer.indexOf('api.onError(');
-  const body = renderer.slice(at, renderer.indexOf('api.onFallback(', at));
+  const body = renderer.slice(at, renderer.indexOf('api.onAd(', at));
   assert.ok(/paintBusyFromViews\(\)/.test(body), 'an error leaves the pill on');
 });
 

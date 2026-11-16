@@ -325,25 +325,9 @@
       en: 'Retrying ({attempt}/{max}): {error}',
       th: 'กำลังลองใหม่ ({attempt}/{max}): {error}',
     },
-    'notice.switched': {
-      en: 'Free allowance reached on {from}. Switched to {to} and carrying on from here.',
-      th: 'สิทธิ์ฟรีของ {from} หมดแล้ว สลับไปใช้ {to} และทำต่อจากเดิมให้เลย',
-    },
     'notice.compacting': {
       en: 'Compacting conversation…',
       th: 'กำลังย่อบทสนทนา…',
-    },
-    'notice.emptyRepeat': {
-      en: 'LLM7 cut that reply before it started — retrying once in a moment…',
-      th: 'LLM7 ตัดคำตอบตั้งแต่ยังไม่เริ่ม — จะลองใหม่ในอีกสักครู่…',
-    },
-    'notice.emptySwitched': {
-      en: '{from} spent LLM7’s free output on reasoning and never answered. Switched to {to} and sent your message again.',
-      th: '{from} ใช้โควตาผลลัพธ์ฟรีของ LLM7 ไปกับการคิดจนไม่เหลือคำตอบ สลับไป {to} และส่งข้อความของคุณอีกครั้งแล้ว',
-    },
-    'notice.switchFailed': {
-      en: 'Could not switch to {model}: {error}. Pick another model.',
-      th: 'สลับไป {model} ไม่สำเร็จ: {error} — เลือกโมเดลอื่นด้วยตัวเอง',
     },
     'notice.keyRemoved': {
       en: '{label} key removed — switched to {provider}/{id}.',
@@ -360,10 +344,6 @@
     'notice.browserError': {
       en: 'Browser error ({code}): {message}',
       th: 'เบราว์เซอร์ผิดพลาด ({code}): {message}',
-    },
-    'fallback.exhausted': {
-      en: 'All free DeepSeek models are used up ({n} tried). Nothing else can run until the provider resets the free allowance — wait for the reset, then send the message again.',
-      th: 'DeepSeek ฟรีทุกตัวหมดแล้ว (ลองไป {n} ตัว) ตอนนี้ยังทำอะไรต่อไม่ได้ ต้องรอระบบรีเซ็ตโควต้าก่อน แล้วค่อยส่งข้อความอีกครั้ง',
     },
   };
 

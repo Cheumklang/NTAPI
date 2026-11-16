@@ -71,7 +71,6 @@ const TESTS = [
   'selftest-transcript-resilience.js',
   'selftest-transcript-speed.js',
   'selftest-update-handoff.js',
-  'selftest-empty-answer.js',
   'selftest-image-history.js',
   'selftest-image-review.js',
   'selftest-llm7.js',

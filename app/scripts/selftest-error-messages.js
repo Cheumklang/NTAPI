@@ -67,7 +67,7 @@ check('lookup returns English by default', messageFor('fp.daily_cap') === MESSAG
 check('lookup switches language', messageFor('fp.daily_cap', 'th') === MESSAGES['fp.daily_cap'].th);
 check(
   'lookup fills placeholders',
-  messageFor('fallback.exhausted', 'en', { n: 4 }).includes('(4 tried)')
+  messageFor('notice.keyRemoved', 'en', { label: 'Coarena', provider: 'free-pi', id: 'DeepSeek' }).includes('Coarena')
 );
 check(
   'lookup keeps unknown placeholders visible',
@@ -126,7 +126,7 @@ check('notices translate through their key', app.includes('p.key ? t(p.key, p.pa
 const noticeKeys = [...main.matchAll(/key:\s*'(notice\.[a-zA-Z]+)'/g)].map((m) => m[1]);
 const unknownNoticeKeys = noticeKeys.filter((key) => !MESSAGES[key]);
 check('every notice key exists', unknownNoticeKeys.length === 0, unknownNoticeKeys.join(', '));
-check('notices actually carry keys', noticeKeys.length >= 8, `${noticeKeys.length} found`);
+check('notices actually carry keys', noticeKeys.length >= 5, `${noticeKeys.length} found`);
 
 if (failures) {
   console.log(`\n${failures} failure(s)`);

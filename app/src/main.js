@@ -57,12 +57,7 @@ const { sdkCandidatePaths } = require('./sdk-path');
 const {
   isLimitError,
   isTransientThrottle,
-  nextFallbackModel,
-  modelKey,
-  sameModel,
-  failedModelFromMessage,
   turnFailure,
-  switchMessage,
 } = require('./model-fallback');
 
 /**
@@ -138,8 +133,7 @@ installSseErrorGuard();
 const { checkZroKey } = require('./zro');
 const { checkNvidiaKey } = require('./nvidia');
 const { checkTokenHarborKey } = require('./tokenharbor');
-const { checkLlm7Key, preferredLlm7Model } = require('./llm7');
-const { nextRecoveryMove } = require('./empty-answer');
+const { checkLlm7Key } = require('./llm7');
 const { focusExistingWindow } = require('./single-instance');
 const { promptOptionsFor } = require('./prompt-mode');
 
@@ -1259,41 +1253,12 @@ function reportTabError(tabId, raw) {
  * A reasoning model then spends the whole cap thinking and finishes with
  * `finish_reason: "length"` and no answer at all.
  *
- * Measured on the live gateway: the route comes and goes within seconds (the
- * same message answered normally four seconds after an empty turn), so the first
- * recovery is to wait a moment and ask again. Only if that also comes back empty
- * is the tab moved to a free model that does not reason before it writes.
- *
- * The turn cannot be retried from message_end (it fires mid-turn), so the plan is
- * recorded here and `runEmptyAnswerRetry` acts on `agent_settled`.
+ * Nothing is retried or switched on the user's behalf: a model changing under
+ * them mid-conversation was confusing, so the window says what happened and they
+ * decide. Saying it is still required — an empty turn with no notice reads as a
+ * hang.
  */
-function planEmptyAnswerRetry(tabId, tab, message) {
-  const provider = message.provider || tab.handle.session?.model?.provider;
-  const model = message.model || tab.handle.session?.model?.id;
-  const rows = (tab.handle.modelList || []).filter((e) => e.provider === 'llm7');
-  const current = rows.find((e) => e.id === model);
-  const fallback = preferredLlm7Model(rows);
-  const nextMove = nextRecoveryMove({
-    provider,
-    model,
-    plan: current?.plan,
-    reasoning: Boolean(current?.reasoning),
-    attempts: tab.emptyRetryCount || 0,
-    hasPrompt: Boolean(tab.lastPromptText),
-    fallbackId: fallback?.id || null,
-  });
-
-  if (nextMove) {
-    tab.emptyAnswer = {
-      move: nextMove,
-      prompt: tab.lastPromptText,
-      from: model,
-      to: fallback,
-      seq: tab.promptSeq || 0,
-    };
-    return;
-  }
-
+function announceEmptyAnswer(tabId) {
   sendTab(tabId, 'agent:notice', {
     text:
       'The model used its whole output limit on reasoning and never answered. ' +
@@ -1302,149 +1267,6 @@ function planEmptyAnswerRetry(tabId, tab, message) {
     // English, and this notice sits right under a Thai composer.
     key: 'noticeReasoningOverflow',
   });
-}
-
-/** Send a prompt for a tab, making sure a rejection never leaves it spinning. */
-function sendPromptToTab(tabId, tab, text) {
-  const run = tab.handle.session.prompt(text);
-  run.catch((err) => {
-    reportTabError(tabId, err instanceof Error ? err.message : String(err));
-    tab.busy = false;
-    sendTab(tabId, 'agent:busy', { busy: false });
-  });
-}
-
-/** Run the recovery `planEmptyAnswerRetry` recorded, once the agent is idle. */
-/**
- * Free DeepSeek routes are rationed one account at a time, and each of them can
- * run dry while another still answers. This walks the free DeepSeek routes from
- * the top of the picker down and carries on with the first one that has
- * allowance left — the user never retypes the message.
- *
- * What counts as "the same turn": the prompt sequence number. A new message from
- * the user starts a fresh pool; anything the agent does on its own keeps walking
- * the pool it already started on.
- */
-function fallbackState(tab) {
-  const seq = tab.promptSeq || 0;
-  if (!tab.fallback || tab.fallback.seq !== seq) {
-    tab.fallback = { seq, tried: new Set(), attempts: 0, exhausted: false };
-  }
-  return tab.fallback;
-}
-
-/**
- * Switch to the next free DeepSeek route that has not been refused yet.
- *
- * `failed` is the route that *actually* answered with a limit error. It matters:
- * by the time a turn settles, pi may already have retried on the route we
- * switched to, so reading `session.model` there would retire a model that never
- * ran and the walk would skip a candidate every round — which is how the pool
- * looked spent after a single switch.
- *
- * @param {object|null} [failed] The route that refused the request.
- * @returns {Promise<{ok: boolean, exhausted?: boolean, count?: number, model?: object, reused?: boolean, error?: string}>}
- */
-async function switchToNextFreeModel(tabId, tab, failed = null) {
-  const state = fallbackState(tab);
-  if (state.exhausted) return { ok: false, exhausted: true, count: state.tried.size };
-
-  const selected = tab.handle.session?.model || null;
-  const refused = failed || selected;
-  const refusedKey = modelKey(refused);
-  if (refusedKey) state.tried.add(refusedKey);
-
-  const next = nextFallbackModel(tab.handle.modelList, { current: refused, tried: state.tried });
-  if (!next) {
-    state.exhausted = true;
-    return { ok: false, exhausted: true, count: state.tried.size };
-  }
-
-  // Already on the route we want: re-setting it would fire a second "switched"
-  // notice for one failure. It stays a candidate — it has not refused anything.
-  if (sameModel(next, selected)) return { ok: true, model: selected, reused: true };
-
-  state.attempts += 1;
-  try {
-    const model = await tab.handle.setModel(next.provider, next.id);
-    sendTab(tabId, 'model:changed', { model });
-    sendTab(tabId, 'agent:notice', {
-      text: switchMessage(refused, next),
-      key: 'notice.switched',
-      params: {
-        from: refused ? refused.name || refused.id : 'the current model',
-        to: next.name || next.id,
-      },
-    });
-    return { ok: true, model: next };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-/** Tell the UI once that every free route is spent, instead of retrying blind. */
-function announceFallbackExhausted(tabId, tab) {
-  const state = fallbackState(tab);
-  state.exhausted = true;
-  sendTab(tabId, 'agent:fallback', { exhausted: true, tried: state.tried.size });
-}
-
-/**
- * Drop the failed assistant message so the transcript ends on the user turn
- * again. Mirrors what pi's own retry does: the failure stays in the session
- * file, it is only left out of the projection the next request is built from.
- */
-function dropFailedAssistant(tab) {
-  const messages = tab.handle?.session?.agent?.state?.messages;
-  if (!Array.isArray(messages) || !messages.length) return false;
-  const last = messages[messages.length - 1];
-  if (!last || last.role !== 'assistant') return false;
-  if (last.stopReason !== 'error' && last.stopReason !== 'aborted') return false;
-  messages.pop();
-  return true;
-}
-
-/**
- * Runs after a turn settles. Two failures reach this point:
- *   - a spent allowance pi refuses to retry (quota wording, not 429), and
- *   - a route that exhausted pi's own retries on the same dead model.
- * Both continue the interrupted turn on the next free route.
- */
-/**
- * Pick the interrupted turn back up on the new route.
- *
- * `agent.continue()` has two ways of saying no that both used to end a turn in
- * silence: it refuses while it still believes a run is active ("Agent is already
- * processing"), and it refuses when the transcript ends on an assistant message.
- * The first happens right after the abort that skipped a spent route's retry — the
- * run has settled but pi has not let go yet — and the second is what the pop above
- * is for. Rather than trusting the timing, make sure the agent is idle and try
- * once more before telling the user anything.
- */
-async function resumeAgentTurn(tab) {
-  const session = tab.handle.session;
-  const agent = session.agent;
-
-  if (session.isStreaming) {
-    try {
-      await session.abort();
-    } catch {}
-    for (let i = 0; i < 20 && session.isStreaming; i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-  }
-
-  try {
-    await agent.continue();
-  } catch (err) {
-    const text = err instanceof Error ? err.message : String(err);
-    if (!/already processing/i.test(text)) throw err;
-    try {
-      await session.abort();
-    } catch {}
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    await agent.continue();
-  }
 }
 
 /**
@@ -1473,108 +1295,6 @@ function announceIfUnreported(tabId, tab) {
   const failure = turnFailure({ messages, limitFailure: tab.limitFailure, seq });
   if (!failure || !failure.text) return;
   reportTabError(tabId, failure.text);
-}
-
-async function runModelFallback(tabId, tab) {
-  // `tab.fallback` is created lazily by `fallbackState()`, and this is the first
-  // place a fresh prompt can need it. Reading the field directly returned early
-  // on the *first* limit failure of every conversation, so that turn ended with
-  // no switch and no message at all.
-  const state = fallbackState(tab);
-  if (state.exhausted) return;
-  if (state.seq !== (tab.promptSeq || 0)) return;
-  if (tab.busy) return;
-
-  const messages = tab.handle?.session?.agent?.state?.messages || [];
-  // pi removes the failed attempt from its projection when it schedules a retry,
-  // and the abort this process sends settles the run afterwards. Reading only the
-  // last message therefore saw a normal turn (the user's own) and gave up in
-  // silence — the reported case: free-pi `hourly_ceiling` answered the first
-  // prompt, then the next one vanished with no banner, no switch and no notice.
-  // `turnFailure` keeps the failure this process recorded before cancelling.
-  const failure = turnFailure({ messages, limitFailure: tab.limitFailure, seq: tab.promptSeq || 0 });
-  if (!failure) return;
-  if (!isLimitError({ text: failure.text })) return;
-  // A per-minute throttle clears on its own. pi's backoff re-asks the same route
-  // a few seconds later and it answers, so switching models to dodge that wait
-  // costs the run a request, its context and its tool results for nothing.
-  if (isTransientThrottle({ text: failure.text })) return;
-
-  // Blame the route recorded on the failure, not whatever is selected now: pi may
-  // have retried elsewhere before giving up, and the projection no longer names
-  // the attempt it dropped.
-  const failed =
-    failure.provider && failure.model
-      ? { provider: failure.provider, id: failure.model, name: failure.model }
-      : failedModelFromMessage(messages[messages.length - 1]);
-  const res = await switchToNextFreeModel(tabId, tab, failed);
-  if (!res.ok) {
-    if (res.exhausted) announceFallbackExhausted(tabId, tab);
-    else if (res.error) {
-      // The route list knows a model this session cannot select (key pulled,
-      // catalog changed). Say so instead of leaving the turn silent.
-      sendTab(tabId, 'agent:notice', {
-        text: `Could not switch to the next free model: ${res.error}`,
-        key: 'notice.switchFailed',
-        params: { model: 'free DeepSeek', error: res.error },
-      });
-    }
-    return;
-  }
-  if (state.seq !== (tab.promptSeq || 0)) return;
-
-  dropFailedAssistant(tab);
-  tab.busy = true;
-  sendTab(tabId, 'agent:busy', { busy: true });
-  try {
-    await resumeAgentTurn(tab);
-  } catch (err) {
-    tab.busy = false;
-    sendTab(tabId, 'agent:busy', { busy: false });
-    reportTabError(tabId, err instanceof Error ? err.message : String(err));
-  }}
-
-async function runEmptyAnswerRetry(tabId, tab) {
-  const pending = tab.emptyAnswer;
-  tab.emptyAnswer = null;
-  if (!pending) return;
-  // A new message from the user cancels the recovery: never answer twice.
-  if ((tab.promptSeq || 0) !== pending.seq) return;
-
-  if (pending.move === 'repeat') {
-    tab.emptyRetryCount = 1;
-    sendTab(tabId, 'agent:notice', {
-      text: 'LLM7 cut that reply before it started — retrying once in a moment…',
-      key: 'notice.emptyRepeat',
-    });
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-    if ((tab.promptSeq || 0) !== pending.seq || tab.busy) return;
-    sendPromptToTab(tabId, tab, pending.prompt);
-    return;
-  }
-
-  try {
-    await tab.handle.setModel('llm7', pending.to.id);
-  } catch (err) {
-    sendTab(tabId, 'agent:notice', {
-      text: `Could not switch to ${pending.to.id}: ${err instanceof Error ? err.message : String(err)}. Pick another model.`,
-      key: 'notice.switchFailed',
-      params: { model: pending.to.id, error: err instanceof Error ? err.message : String(err) },
-    });
-    return;
-  }
-
-  tab.emptyRetryCount = 2;
-  sendTab(tabId, 'model:changed', { model: tab.handle.session?.model || null });
-  sendTab(tabId, 'agent:notice', {
-    text:
-      `${pending.from} spent LLM7's free output on reasoning and never answered. ` +
-      `Switched to ${pending.to.name || pending.to.id} and sent your message again.`,
-    key: 'notice.emptySwitched',
-    params: { from: pending.from, to: pending.to.name || pending.to.id },
-  });
-  if ((tab.promptSeq || 0) !== pending.seq || tab.busy) return;
-  sendPromptToTab(tabId, tab, pending.prompt);
 }
 
 function messagesForUi(messages) {
@@ -1728,21 +1448,14 @@ function subscribeTab(tabId) {
         tab.busy = false;
         sendTab(tabId, 'agent:busy', { busy: false });
         sendTab(tabId, 'agent:settled', { aborted: Boolean(event.aborted) });
-        // An abort is normally the user pressing Stop, and re-asking another model
-        // after that would answer a question they no longer want answered. The
-        // exception is the abort *this* process sends to stop pi retrying a spent
-        // free route — that turn still has to be finished, on a route that can.
+        // An abort is normally the user pressing Stop, and nothing should be
+        // re-sent after that. The exception is the abort *this* process sends to
+        // stop pi retrying a spent free route — that turn still has to say why it
+        // ended, or the window goes silent and the app looks broken.
         const ownAbort =
           Boolean(event.aborted) && tab.limitFailure && tab.limitFailure.seq === (tab.promptSeq || 0);
         if (!event.aborted || ownAbort) {
-          // A spent allowance is handled first: the empty-answer retry would
-          // only re-send the prompt to a model that has nothing left.
-          runModelFallback(tabId, tab)
-            .catch(() => {})
-            .then(() => {
-              announceIfUnreported(tabId, tab);
-              if (!tab.fallback?.attempts) runEmptyAnswerRetry(tabId, tab);
-            });
+          announceIfUnreported(tabId, tab);
         }
         break;
 
@@ -1848,7 +1561,7 @@ function subscribeTab(tabId) {
           // A spent allowance is worth remembering even when the sentence pi ends
           // up reporting is not the one it started with: the abort below rewrites
           // the failure to "aborted", and "aborted" is on the list of errors that
-          // must never trigger a switch. The turn would then end in silence.
+          // are never a limit. Without this copy the turn ends in silence.
           if (isLimitError({ text: m.errorMessage })) {
             tab.limitFailure = {
               seq: tab.promptSeq || 0,
@@ -1863,34 +1576,33 @@ function subscribeTab(tabId) {
           // no answer at all. Without a notice the window just goes quiet, which
           // reads as a hang rather than a truncated turn.
           const answered = (m.content || []).some((c) => c.type === 'text' && c.text.trim());
-          if (!answered) planEmptyAnswerRetry(tabId, tab, m);
+          if (!answered) announceEmptyAnswer(tabId);
         }
         break;
       }
 
       case 'auto_retry_start': {
         // pi treats a 429 as a throttle and re-asks the same model with backoff.
-        // A spent free allowance will not come back in 2 seconds, so skip the
-        // wait: the turn settles at once and runModelFallback moves it to the
-        // next free route there.
+        // A spent free allowance will not come back in two seconds, so skip the
+        // wait and let the turn end on the failure `message_end` already reported.
+        // Nothing is switched behind the user's back: the model they picked stays
+        // picked, and the banner says the allowance is gone.
         //
-        // Switching here would be theatre. The retry reuses the model captured
-        // when this run started, and this event fires *before* pi creates the
-        // abort controller, so the abort has to land on the next microtask.
-        // Only a route that is *spent* gets that treatment now. A per-minute 429
-        // ("Limit: 10 … try again in 21s") is precisely what the backoff is for:
-        // cancelling it ended the turn for a limit that had cleared by the time
-        // the next attempt could run — and the abort hid the reason, so the
-        // window said "พร้อมใช้งาน" with no warning at all.
+        // The abort has to land on the next microtask: this event fires *before*
+        // pi creates the abort controller. Only a route that is *spent* gets that
+        // treatment. A per-minute 429 ("Limit: 10 … try again in 21s") is
+        // precisely what the backoff is for: cancelling it ended the turn for a
+        // limit that had cleared by the time the next attempt could run — and the
+        // abort hid the reason, so the window said "พร้อมใช้งาน" with no warning.
         if (
           isLimitError({ text: event.errorMessage }) &&
           !isTransientThrottle({ text: event.errorMessage })
         ) {
           const session = tab.handle.session;
           // Record the reason before aborting: the abort is ours, and it hides the
-          // 429 that caused it. `runModelFallback` reads this instead of the last
-          // error sentence, which all it would otherwise have left is a projection
-          // that no longer contains the failed attempt.
+          // 429 that caused it. The settle path and a repainted transcript read
+          // this copy, because pi has already dropped the failed attempt from its
+          // own projection by the time they run.
           const current = tab.handle?.session?.model || null;
           tab.limitFailure = {
             seq: tab.promptSeq || 0,
@@ -3293,13 +3005,9 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
   }
   const promptText = parts.join('\n\n');
 
-  // Remembered so an empty LLM7 answer can be retried on a model that answers.
-  tab.lastPromptText = promptText;
+  // A new prompt starts a new turn: a limit remembered for the last one is not
+  // this turn's story.
   tab.promptSeq = (tab.promptSeq || 0) + 1;
-  tab.emptyAnswer = null;
-  tab.emptyRetryCount = 0;
-  // A new message starts a fresh pool of free routes to fall back through.
-  tab.fallback = null;
   tab.limitFailure = null;
 
   // A second prompt while the agent is running must say how to queue itself:

@@ -1,5 +1,32 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **สถานะ ณ 2026-11-17 (ถอดระบบสลับโมเดลอัตโนมัติออก — `npm test` 72/72 · ยังไม่ commit):**
+> - **ผู้ใช้สั่ง:** "เอาระบบสลับอัตโนมัติออกเลยคับ ผมว่ามันทำให้ผู้ใช้งานสับสน แจ้งเตือนก็ให้มันบอกแค่ว่าหมดก็พอ"
+> - **ถอดออกทั้งระบบ** (สลับเองเมื่อสิทธิ์หมด + walk pool + resume เทิร์นบนโมเดลใหม่):
+>   ลบ `runModelFallback`, `switchToNextFreeModel`, `fallbackState`, `announceFallbackExhausted`,
+>   `resumeAgentTurn`, `dropFailedAssistant` · ลบช่อง IPC `agent:fallback` (main/preload/renderer)
+>   · ลบข้อความ `notice.switched` + `fallback.exhausted` · ลบ `tab.fallback` ทั้งหมด
+> - **`model-fallback.js` เหลือ 3 ฟังก์ชัน:** `isLimitError` · `isTransientThrottle` · `turnFailure`
+>   (ไม่ import `model-filter` แล้ว · ไม่มีตัวช่วยเรียง/สลับโมเดล) — คงชื่อไฟล์เดิมเพื่อลดการแก้ import
+> - **พฤติกรรมใหม่เมื่อเจอ 429 ที่สิทธิ์หมดจริง:** แจ้งเตือนอย่างเดียวแล้วจบเทิร์น —
+>   `message_end` → `reportTabError` → `friendlyProviderError` (`fp.hourly_ceiling` = "หมดชั่วโมงนี้
+>   รอรีเซ็ตแล้วกดส่งอีกครั้ง ไม่ใช่แบน ไม่ใช่แอดบล็อก") · ไม่สลับโมเดล ไม่เล่นซ้ำเอง
+>   · ยัง abort backoff ที่ไร้ประโยชน์ของ pi (ไม่ต้องรอ 2–20 วิ) และยังจำ `tab.limitFailure`
+>   เพื่อให้แบนเนอร์อยู่ต่อหลังวาดใหม่ (`tabState` เติม `kind:'error'`)
+> - **ถอด LLM7 empty-answer recovery ด้วย (ผู้ใช้สั่ง):** ลบ `planEmptyAnswerRetry` · `runEmptyAnswerRetry`
+>   · `empty-answer.js` + `selftest-empty-answer.js` · ข้อความ `notice.emptyRepeat` / `notice.emptySwitched`
+>   / `notice.switchFailed` · `tab.emptyAnswer` / `tab.emptyRetryCount` / `tab.lastPromptText`
+>   → ตอบว่าง = แจ้งเตือน `noticeReasoningOverflow` อย่างเดียว ไม่ลองซ้ำ ไม่สลับโมเดล
+> - **ไฟล์ที่แก้รอบนี้:** `app/src/main.js`, `app/src/model-fallback.js`, `app/src/preload.js`,
+>   `app/src/renderer/app.js`, `app/src/error-messages.js`,
+>   `app/scripts/selftest-model-fallback.js` (เขียนใหม่), `app/scripts/selftest-error-messages.js`,
+>   `app/scripts/selftest-busy-state.js`, `app/scripts/check-duration-wiring.js`,
+>   `app/scripts/run-unit-tests.js` · **ลบ:** `app/src/empty-answer.js`, `app/scripts/selftest-empty-answer.js`
+> - **เทสต์:** `node --check` ผ่านทุกไฟล์ที่แก้ · `selftest-model-fallback.js` ผ่าน (เพิ่ม check ว่าไม่มี
+>   ชื่อฟังก์ชัน/ช่อง IPC เดิมเหลือ, ไม่มี `tab.fallback`, ไม่มี retry อัตโนมัติ) · `npm test` ผ่านครบ
+> - **commit:** เทิร์นนี้ commit เดียว (`ถอดระบบสลับโมเดลอัตโนมัติ …`) · ไม่ bump / ไม่ tag / ไม่ push
+>   · `app/package.json` ยัง `0.5.14` · รอบปล่อยถัดไป = **`0.5.15`** เมื่อสั่ง
+
 > **สถานะ ณ 2026-11-17 (เก็บงานค้าง: commit โค้ดแก้ 429 แล้ว — เหลือ commit หลักฐาน):**
 > - **commit `2d6d5e0`** `แก้เทิร์นจบเงียบเมื่อผู้ให้บริการตอบ 429 ถึงขีดต่อชั่วโมง`
 >   = 3 ไฟล์: `app/src/main.js`, `app/src/model-fallback.js`, `app/scripts/selftest-model-fallback.js` (+161/−30)

@@ -2544,3 +2544,31 @@ e้า diff ของ `turnFailure()` + `tabState` synthetic error banner ต�
 **ค้าง:** commit แฟ้มหลักฐาน (`.AGENT/`, `PROVENANCE/` + session note 2 ไฟล์) ขึ้นต้น `internal:`
 **บทเรียน:** ยังทำผิดกฎ 1 เทิร์น = 1 bash call ในเทิร์นตรวจสองครั้งแรก (ทยอยอ่าน AGENTS.md/HANDOFF แยก call)
 → เทิร์นนี้ควรเริ่มด้วยสคริปต์เดียวที่ `git status` + `npm test` + grep usage + ตัดสินใจตามผล
+
+## 2026-11-17 — ถอดระบบสลับโมเดลอัตโนมัติออก (ผู้ใช้สั่ง)
+
+ผู้ใช้: "เอาระบบสลับอัตโนมัติออกเลยคับ ผมว่ามันทำให้ผู้ใช้งานสับสน แจ้งเตือนก็ให้มันบอกแค่ว่าหมดก็พอ"
+
+**ถอด:** `runModelFallback` · `switchToNextFreeModel` · `fallbackState` · `announceFallbackExhausted`
+· `resumeAgentTurn` · `dropFailedAssistant` · IPC `agent:fallback` (main/preload/renderer)
+· ข้อความ `notice.switched` + `fallback.exhausted` · `tab.fallback`
+
+**`model-fallback.js` เหลือ:** `isLimitError` · `isTransientThrottle` · `turnFailure` (ตัด `model-filter`)
+
+**พฤติกรรมใหม่:** 429 ที่สิทธิ์หมดจริง → แบนเนอร์บอกเหตุผลอย่างเดียวแล้วจบเทิร์น (ไม่สลับโมเดล)
+· ยัง abort backoff ที่ไร้ประโยชน์ · ยังจำ `limitFailure` ให้แบนเนอร์อยู่หลังวาดใหม่
+
+**ไฟล์:** `main.js`, `model-fallback.js`, `preload.js`, `renderer/app.js`, `error-messages.js`,
+`selftest-model-fallback.js` (เขียนใหม่), `selftest-error-messages.js`, `selftest-busy-state.js`,
+`check-duration-wiring.js`
+
+**เทสต์:** `node --check` 8 ไฟล์ผ่าน · `npm test` **72/72 ผ่าน** (exit 0)
+
+**ค้าง:** ยังไม่ commit 9 ไฟล์ · ยังไม่ bump (`0.5.14`) · **ถามผู้ใช้:** `runEmptyAnswerRetry` ของ LLM7
+(สลับโมเดลเมื่อตอบว่าง) จะเอาออกด้วยไหม
+
+**ต่อ (ผู้ใช้ตอบ):** "เอาออกด้วย — แจ้งเตือนอย่างเดียว" + "commit อย่างเดียว"
+→ ลบ `planEmptyAnswerRetry` · `runEmptyAnswerRetry` · `empty-answer.js` + เทสต์ ·
+`notice.emptyRepeat` / `notice.emptySwitched` / `notice.switchFailed` ·
+`tab.emptyAnswer` / `tab.emptyRetryCount` / `tab.lastPromptText` · `run-unit-tests.js` เหลือ 71 สคริปต์
+→ ตอบว่าง = `noticeReasoningOverflow` อย่างเดียว · `node --check` + `npm test` ผ่าน · commit เดียว ไม่ bump/tag/push

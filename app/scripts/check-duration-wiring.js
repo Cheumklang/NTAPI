@@ -42,7 +42,7 @@ app.whenReady().then(async () => {
       ms: globalThis.FPDuration ? globalThis.FPDuration.formatDuration(9150, 'th') : null,
       short: globalThis.FPDuration ? globalThis.FPDuration.formatDuration(86, 'th') : null,
       notice: globalThis.FPErrorMessages
-        ? globalThis.FPErrorMessages.messageFor('notice.switched', 'th', { from: 'A', to: 'B' })
+        ? globalThis.FPErrorMessages.messageFor('notice.keyRemoved', 'th', { label: 'A', provider: 'B', id: 'C' })
         : null,
       long: globalThis.FPDuration ? globalThis.FPDuration.formatDuration(1154000, 'th') : null,
       en: globalThis.FPDuration ? globalThis.FPDuration.formatDuration(9150, 'en') : null,
