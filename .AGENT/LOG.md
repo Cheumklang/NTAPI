@@ -2021,6 +2021,27 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 
 **บทเรียนซ้ํา (2026-11-15):** อย่าลดค่าที่ตกลงไว้ในสเปกโดยไม่บอกผู้ใช้ — เคส 1.012 vs 1.035
 
+**รอบ 0.5.8 (2026-11-16): `/skill` + แปลข้อความเตือน**
+- **ผู้ใช้ขอ:** "พิมพ์ /skill ขึ้นโชว์ตอนก่อนส่งได้ไหม ว่ามีอะไรบ้าง" · คุยก่อนทำ · เลือก **1 ค / 2 ก / 3 ก / A**
+  · ค = `/` ไม่รก ใช้ `/skill` เป็นทริกเกอร์ · ก = แทรก `@name` · ก = คำอธิบายอังกฤษตาม SKILL.md
+  · A = อุ่นรายการตอนบูต · **ส่งแค่อัปเดต ไม่ build ตัวติดตั้ง**
+- **ได้ของฟรี:** เมนู `/` มีอยู่แล้ว (SLASH_COMMANDS + filter + คีย์บอร์ด) · `loadSkills()` (IPC cache 60s) มีอยู่แล้ว
+  → งานคือต่อท่อ ไม่ใช่สร้างใหม่
+- **กับดักที่เกือบพลาด:** `loadSkills()` วางไว้ที่ "initial paint" (บรรทัด ~8295) ไม่ได้ เพราะ `let skillsCache` อยู่ทีหลัง
+  (บรรทัด ~8521) → TDZ ReferenceError · ใช้ `setTimeout(() => loadSkills(), 0)` ให้รันหลัง script ประเมินเสร็จ
+- **เทสต์ probe ล้มครั้งแรก:** `npx electron probe` ไม่มี handlers (`app:boot`, `usage:fetch`, `skills:list`)
+  → รายการว่าง ไม่ใช่บั๊กของฟีเจอร์ · **ผู้ใช้ถามว่าแก้ได้ไหม → ได้** · เปลี่ยนเป็น `check-skill-menu.js`
+  ที่ลงทะเบียน `ipcMain.handle('skills:list')` เองแล้วสแกน `~/.agents/skills` จริง → **48 ตัว ผ่าน 9/9**
+- **ผู้ใช้แจ้งต่อ:** "ข้อความสีเหลืองที่แจ้งเตือนในช่องแชท ยังแปลไทยไม่หมด"
+  · ลบ probe ทิ้งแล้ว (ตามที่รับปากว่าจะลบ)
+  · สแกน 72 call site ของ `showNotice()` → ไม่ผ่าน `t()` 16 จุด · ในนั้น **ฝังอังกฤษจริง 5 จุด**
+    (`Could not delete` · `Deleted session from disk.` · `Could not read the path` · `Could not switch model` + main 2 จุด)
+  · **main.js เป็นตัวการสําคัญ:** `sendTab('agent:notice', { text: '...' })` ไม่มี `key` → renderer แปลไม่ได้เลย
+- **ผู้ใช้เลือก ข** (แปลง error ผู้ให้บริการด้วย) และถามว่า "เปลือง token ผู้ใช้ไหม" → **ไม่** ตาราง regex ในเครื่อง
+- **บั๊กในเทสต์ของผมเอง 3 รอบ:** `\'` หลุดใน string · `SOURCE` ไม่มี (ตัวแปรชื่อ `app`) · `soften(text)` ไม่ส่ง lang
+  → default `'th'` · และ assertion ที่คาด `/เชื่อมต่อไม่ได้/` ทั้งที่ข้อความจริงคือ `/เซิร์ฟเวอร์ไม่ได้/`
+- **ผล:** `selftest-notice-i18n.js` 25 checks · `check-skill-menu.js` 9 checks · `npm test` **66 scripts**
+
 - **ปล่อยแล้ว v0.5.6** (2026-11-15): commit `0ba9e0f` (UI polish + ตัวหมุน) · `c718bd2` · `5e92443` (bump)
   · CI run `43712252312` success ทุก step (build 3 นาที) · asset 3 ไฟล์ใน `Cheumklang/NTAPI-releases`
   · `latest.yml` → `version: 0.5.6` `path: NTAPI-Setup-0.5.6.exe` (118 MB) · แจ้งเตือนผู้ใช้ทาง `ntfy.sh/NTAPI`

@@ -296,6 +296,27 @@
 >   · **โฆษณา: เฟรมตามอัตราส่วนครีเอทีฟเอง (แบบ ข)** — แก้ “ภาพหลุดกรอบ/ตัวหนังสือหาย”
 >   · ntfy token เขียนลง `AGENTS.md` แล้ว (สถานะ: ใช้ได้จนผู้ใช้สั่งหยุด)
 
+> - **งานรอบ 0.5.7 (เสร็จ รอ commit):** fade ตอนปิด (ข้อ 2) · model row 1.035+ตัวหนา (ข้อ 4)
+
+**(ซ) 0.5.8 — `/skill` + แปลข้อความเตือนให้ครบ** (ผู้ใช้สั่ง 2026-11-16)
+- **`/skill` ดูรายการทักษะก่อนส่ง:** พิมพ์ `/` ยังเป็นคำสั่งเดิม (เพิ่มรายการ `/skill` ไว้นำทาง)
+  → พิมพ์ `/skill` แล้วเมนูสลับเป็นรายชื่อทักษะ **48 ตัว** พร้อมคำอธิบายจาก SKILL.md เอง
+  · เลือกแล้วแทรก `@name` (ท่าเดียวกับที่ผู้ใช้พิมพ์เอง) · ส่งจริงแปลงเป็น `/skill:name`
+  · ความสูงเมนูสูงสุด 260px (ค่าเดิม) · ไฮไลต์ไม่หลุดเมื่อพิมพ์ต่อ เพราะเทียบด้วยชื่อ ไม่ใช่ identity
+  · อุ่นรายการตอนบูต (`setTimeout(() => loadSkills(), 0)`) — ครั้งแรกไม่ต้องรอ IPC
+- **ข้อความเหลืองที่แปลไม่หมด — 5 จุดที่ฝังอังกฤษไว้:** `Could not delete…` · `Deleted session from disk.`
+  · `Could not read the path of…` · `Could not switch model…` + **main.js 2 จุด** (reasoning overflow,
+  warning ตอนล้างแชท) ที่เคยส่งประโยคอังกฤษมา จึงแปลไม่ได้เลย
+  · แก้: เพิ่มคีย์ `deleteFailed`/`deletedFromDisk`/`attachPathFailed`/`modelSwitchFailed`/`unknownError`/
+    `noticeReasoningOverflow`/`noticeClearUnlink`/`noticeClearOutsideStore` · main ส่ง `warningKey`+`warningParams`
+- **ข้อความเทคนิคจากผู้ให้บริการ (ผู้ใช้เลือก ข):** `TECHNICAL_ERRORS` 11 กฎ แปลงที่ `showNotice()` จุดเดียว
+  · `fetch failed`/`net::ERR_*`/`ECONNREFUSED`/`ETIMEDOUT`/`429`/`401`/`5xx`/`ENOSPC`/`EACCES`/`ENOENT`
+  · **0 token** — เป็นการแมตช์ในเครื่อง ไม่เรียก model · ไม่แตะไทยเดิม · ไม่แตะชื่อ model
+  · โหมดอังกฤษเห็นข้อความดิบเดิม
+- **เทสต์ใหม่ 2 ตัว:** `selftest-notice-i18n.js` (25 checks · สแกนโค้ดห้ามมี showNotice อังกฤษดิบ/
+  notice ไม่มี key + รัน `softenTechnical()` จริงใน vm) · `check-skill-menu.js` (9 checks · Electron จริง
+  + สแกน 48 skills จริง + IPC `skills:list`) → `npm test` **66 scripts**
+
 **(ฉ) gap ข้อ 2+4 ของ UI polish + โฆษณาหลุดเฟรม** (ผู้ใช้สั่ง 2026-11-15)
 - **ข้อ 2 — fade ตอนปิด:** `.settings-dialog`/.model-menu/.ctx-menu ใช้ `allow-discrete` + `@starting-style`
   · ปิด 120ms (เดิมเปิดมีอนิเมชันแต่ปิดหายวับ = กระพริบ) · `pointer-events: none` ตอนปิด
