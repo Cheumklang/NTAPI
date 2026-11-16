@@ -1,0 +1,6 @@
+# The evidence ledger is hashed byte for byte, so its content must never be
+# rewritten by line-ending conversion on checkout. Without this, the recorded
+# SHA-256 of a record file stops matching on a machine whose git is set to CRLF —
+# and the ledger would look tampered with when it is not.
+PROVENANCE/** -text
+.githooks/* text eol=lf

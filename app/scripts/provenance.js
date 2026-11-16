@@ -167,7 +167,9 @@ function cmdRecordSession() {
   const month = iso.slice(0, 7);
   const dir = path.join(DIR, 'sessions', month);
   fs.mkdirSync(dir, { recursive: true });
-  const rel = path.join('PROVENANCE', 'sessions', month, name);
+  // Recorded with forward slashes: the ledger is checked on Linux CI too, and a
+  // Windows path separator there names a file that does not exist.
+  const rel = path.posix.join('PROVENANCE', 'sessions', month, name);
   const md = [
     `# Work record — ${iso}`,
     '',
@@ -237,7 +239,7 @@ function cmdRecordRelease() {
     releaseUrl: `https://github.com/Cheumklang/NTAPI-releases/releases/tag/v${version}`,
   };
   fs.mkdirSync(path.join(DIR, 'releases'), { recursive: true });
-  const rel = path.join('PROVENANCE', 'releases', `v${version}.json`);
+  const rel = path.posix.join('PROVENANCE', 'releases', `v${version}.json`);
   const body = JSON.stringify(record, null, 2) + '\n';
   fs.writeFileSync(path.join(ROOT, rel), body);
   const entry = appendEntry('release', `Released version ${version}`, {
@@ -277,9 +279,12 @@ function cmdVerify() {
   for (const entry of entries) {
     const rel = entry.data?.record;
     if (!rel || !entry.data?.recordSha256) continue;
+    // Entries written before paths were stored with forward slashes still have to
+    // resolve here; the file content is what matters, not the spelling.
+    const onDisk = path.join(ROOT, rel.split('\\').join('/'));
     let actual = '';
     try {
-      actual = sha256(fs.readFileSync(path.join(ROOT, rel)));
+      actual = sha256(fs.readFileSync(onDisk));
     } catch {
       console.error(`MISSING at seq ${entry.seq}: ${rel}`);
       return 1;
