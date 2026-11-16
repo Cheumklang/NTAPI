@@ -7810,34 +7810,72 @@ setInterval(reconcileBusy, 4000);
  *     a missed settle leaves behind, because the composer is shared by every tab
  *     while the events are per tab.
  */
+/**
+ * A turn that ended without saying so, settled the way the real event would.
+ *
+ * Releasing the flag is only half of it. Everything `agent:settled` does has to
+ * happen here too, because the user's complaint was not the button saying "หยุด" —
+ * it was the queued message that never went out: the queue drains on that event
+ * and on nothing else, so a missed event meant the message sat there until the
+ * chat was reopened.
+ */
+function settleStaleTurn(view) {
+  if (!view || !view.busy) return false;
+  view.busy = false;
+  view.steerPending = false;
+  const held = holds.get(view.tabId);
+  if (held && !held.finished && held.item) held.item.holdReleased = true;
+  // The queue is what the reader is waiting for, so it is released before
+  // anything that only touches the picture: a missing node, a repaint in flight or
+  // a session list that cannot be rebuilt must not keep the message waiting.
+  drainQueue(view);
+  try {
+    // The button first: it is one line and cannot fail, and leaving it on "หยุด"
+    // was the visible half of the report.
+    paintBusyFromViews();
+    refreshSessionBusy();
+    clearViewActivity(view);
+  } catch {
+    // The window catches up on its own next paint.
+  }
+  return true;
+}
+
 async function reconcileBusy() {
   if (document.hidden) return;
-  const view = activeView();
-  if (!view) {
-    // No tab on screen: nothing can be running here, so Stop must not stay up.
+  if (!views.size) {
+    // No tab at all: nothing can be running here, so Stop must not stay up.
     if (!sendBtn.hidden) setBusy(false);
     return;
   }
+  /*
+   * Check every busy tab, not only the one on screen.
+   *
+   * The flag went stale in a background chat and the messages waiting behind it
+   * were never sent — the drain is driven by the settle event, and the settle
+   * event had already been missed. The tab the reader happens to be looking at
+   * is not where the queue is stuck, so looking only at that one fixed nothing.
+   */
+  for (const [, view] of views) {
+    if (!view.busy) continue;
+    try {
+      const tabState = await api.getTabState(view.tabId);
+      if (!tabState) continue; // the tab is gone; closeTab owns that path
+      if (!tabState.busy) {
+        settleStaleTurn(view);
+        continue;
+      }
+      // Still busy: put back any chip a repaint dropped, and if a tool is running
+      // the phase line keeps counting, which is what shows the window is alive.
+      if (payloadTabIsActive(view)) syncActivity(view);
+    } catch {
+      // The tabs table changed under us; the event path still applies.
+    }
+  }
   // One element, one source of truth: `sendBtn.hidden` is the DOM's copy of
   // `view.busy`, so a disagreement means the DOM is what is wrong.
-  if (Boolean(view.busy) !== !sendBtn.hidden) {
-    paintBusyFromViews();
-    if (!view.busy) return;
-  }
-  if (!view.busy) return;
-  try {
-    const state = await api.getTabState(view.tabId);
-    if (state && !state.busy) {
-      view.busy = false;
-      paintBusyFromViews();
-      return;
-    }
-    // Still busy: put back any chip a repaint dropped, and if a tool is running
-    // the phase line keeps counting, which is what shows the window is alive.
-    syncActivity(view);
-  } catch {
-    // The tabs table changed under us; the event path still applies.
-  }
+  const active = activeView();
+  if (Boolean(active?.busy) !== !sendBtn.hidden) paintBusyFromViews();
 }
 
 // A window that was behind another one never saw the repaint that happened while

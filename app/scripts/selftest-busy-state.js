@@ -91,7 +91,12 @@ check('an error repaints the pill the same way', () => {
 
 check('a stuck pill is reconciled with the main process', () => {
   assert.ok(/api\.getTabState\(view\.tabId\)/.test(renderer), 'nothing asks main what is really running');
-  assert.ok(/if \(state && !state\.busy\)/.test(renderer), 'the answer is never acted on');
+  assert.ok(/if \(!tabState\.busy\)/.test(renderer), 'the answer is never acted on');
+  // The queue is the half the user feels: it drains on the settle event, so a
+  // missed settle must be settled here, not merely repainted.
+  assert.ok(/settleStaleTurn\(view\)/.test(renderer), 'a stale flag releases nothing but the button');
+  assert.ok(/drainQueue\(view\)/.test(renderer.slice(renderer.indexOf('function settleStaleTurn'))),
+    'the blocked queue is left waiting');
 });
 
 check('main heals a busy flag on an idle session', () => {
@@ -152,7 +157,7 @@ check('an error in a background tab still clears the button', () => {
 
 check('the watchdog also fixes a button that was never repainted', () => {
   assert.ok(/function reconcileBusy\(\)/.test(renderer), 'the reconcile step is not a named function');
-  assert.ok(/Boolean\(view\.busy\) !== !sendBtn\.hidden/.test(renderer),
+  assert.ok(/Boolean\(active\?\.busy\) !== !sendBtn\.hidden/.test(renderer),
     'the watchdog only acts while the flag says busy, so a missed settle is never repaired');
   assert.ok(/if \(!sendBtn\.hidden\) setBusy\(false\);/.test(renderer),
     'with no tab on screen the composer keeps saying "working"');
