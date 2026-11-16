@@ -451,14 +451,9 @@ body { display: flex; flex-direction: column; }
 }
 
 /*
-  The frame the creative is cropped into. `aspect-ratio` is written by the
-  renderer from the feed — the tallest frame any slot asks for — so the band never
-  resizes while the rotation moves between a wide and a tall creative.
-
-  The cap is on *width*, not height. `max-height` alone squashed the frame: a
-  9:16 clip asked for 268x476 and got 268x288, which is no longer 9:16 at all.
-  A tall frame now narrows slightly to keep its shape, and the cap still stops it
-  from eating the session list.
+  The band. It reserves the *tallest* shape in the feed so the sidebar cannot
+  jump while the rotation moves between a 2:1 banner and a 4:5 one — but it no
+  longer shapes the creative itself; see `.sponsor-frame` below.
 */
 .sponsor-media {
   display: grid;
@@ -469,13 +464,36 @@ body { display: flex; flex-direction: column; }
   width: min(100%, calc(var(--sponsor-cap, 480px) * var(--sponsor-r, 2)));
   aspect-ratio: 2 / 1;
   max-height: 480px;
+  overflow: hidden;
+}
+.sponsor-media[hidden] { display: none; }
+
+/*
+  The frame the creative is drawn in.
+
+  The band above is one shape for the whole feed, so drawing the creative into it
+  meant cropping: a 1:1 image in a 4:5 band lost its left and right edges, which
+  is precisely where a sponsor puts its wording — the text simply disappeared.
+  The publisher's own preview never did this, because it frames each creative at
+  its own ratio.
+
+  This frame takes the creative's shape and sits centred in the reserved band.
+  Since the band reserves the *minimum* ratio over the slots, every slot's own
+  ratio is at least that, so width is always the binding constraint: the frame is
+  full width, its height falls short of the band, and `object-fit: cover` has
+  nothing left to crop. The band's height is unchanged, so the column still never
+  jumps.
+*/
+.sponsor-frame {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: var(--slot-r, 2);
   border-radius: 6px;
   overflow: hidden;
   background: var(--bg-3);
 }
-.sponsor-media[hidden] { display: none; }
-/* Fitted, not cropped: the publisher already cropped the creative to its own
-   frame, so stretching it again here would undo that. */
+/* Fitted, not cropped: the frame already has the creative's shape. */
 .sponsor-media img,
 .sponsor-media video {
   display: block;
@@ -2670,18 +2688,47 @@ button { font-family: inherit; }
 .chip-btn:active,
 .path-btn:active,
 .ghost:active { transform: translateY(1px); }
-/* The row under the pointer thickens a touch, so the target reads before it is read. */
-.model-option:hover { transform: scale(1.012); }
+/*
+ * The row under the pointer thickens. The glyphs get heavier through
+ * `-webkit-text-stroke`, not `font-weight`: a weight change reflows the label and
+ * makes every row twitch as the pointer travels down the list.
+ */
+.model-option:hover,
+.model-option:focus-visible {
+  transform: scale(1.035);
+  -webkit-text-stroke: .35px currentColor;
+}
 
 /* A visible focus ring everywhere, not only where a rule happened to exist. */
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* Dialogs and menus arrive instead of snapping into place. */
-.settings-dialog { animation: ui-arrive .18s ease-out; }
-.model-menu { animation: ui-arrive .16s ease-out; }
-.ctx-menu { animation: ui-arrive .14s ease-out; }
-@keyframes ui-arrive {
-  from { opacity: 0; transform: translateY(4px) scale(.995); }
+/*
+ * Dialogs and menus arrive and, since this pass, also leave. Closing used to be a
+ * hard cut while opening was animated, which read as a flicker. `allow-discrete`
+ * keeps the element rendered for the length of the exit; a browser without it
+ * simply closes instantly, exactly as before.
+ */
+.overlay#settingsOverlay,
+.model-menu {
+  transition: opacity .12s ease, display .12s allow-discrete;
+}
+.settings-dialog {
+  transition: opacity .18s ease-out, transform .18s ease-out, display .12s allow-discrete;
+}
+.ctx-menu {
+  transition: opacity .12s ease, transform .12s ease;
+}
+.settings-dialog,
+.ctx-menu { opacity: 1; }
+#settingsOverlay[hidden],
+.model-menu[hidden] { opacity: 0; }
+#settingsOverlay[hidden] { pointer-events: none; }
+#settingsOverlay[hidden] .settings-dialog { transform: translateY(4px) scale(.995); }
+.ctx-menu.is-closing { opacity: 0; transform: translateY(-2px) scale(.99); pointer-events: none; }
+@starting-style {
+  .settings-dialog,
+  .model-menu,
+  .ctx-menu { opacity: 0; transform: translateY(4px) scale(.995); }
 }
 
 /*
@@ -2749,7 +2796,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .chip-btn, .path-btn, .ghost, .model-picker-btn, .model-option, .model-star,
   .ctx-menu button { transition: none; }
   .chip-btn:hover, .path-btn:hover, .ghost:hover, .model-option:hover { transform: none; }
-  .settings-dialog, .model-menu, .ctx-menu { animation: none; }
+  .settings-dialog, .model-menu, .ctx-menu { transition: none; }
+  /* No fade, either: the overlay and menus close the way they always did. */
+  .ctx-menu.is-closing { display: none; }
   /* Still says "working", without anything moving: frozen on the bright side
      rather than the dim one, so the meaning survives. */
   .session-item.active.busy {

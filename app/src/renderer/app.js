@@ -2982,14 +2982,19 @@ async function renderSessions(cwd) {
 let openMenuEl = null;
 
 function closeSessionMenu() {
-  if (openMenuEl) {
-    openMenuEl.remove();
-    openMenuEl = null;
-  }
+  const el = openMenuEl;
+  if (!el) return;
+  openMenuEl = null;
+  // Fade out instead of vanishing. The node stays one transition long, and
+  // pointer-events is off immediately so it cannot swallow the next click.
+  el.classList.add('is-closing');
+  setTimeout(() => el.remove(), 130);
 }
 
 function openSessionMenu(x, y, cwd, session, itemEl) {
   closeSessionMenu();
+  // A menu still fading out from a moment ago would sit on top of the new one.
+  for (const stale of document.querySelectorAll('.ctx-menu.is-closing')) stale.remove();
 
   const menu = document.createElement('div');
   menu.className = 'ctx-menu';
@@ -4681,7 +4686,7 @@ function sponsorMediaFor(id) {
  * A sponsor's creative fills a 2:1 box whatever shape it arrives in — the frame
  * is fixed, so a square logo and a wide banner read as the same size of ad.
  */
-function sponsorMediaNode(slot, value) {
+function sponsorCreative(slot, value) {
   const alt = (slot.media && slot.media.alt) || (slot.text.th && slot.text.th.title) || 'Sponsor';
   const reduced = sponsorPrefersReducedMotion();
 
@@ -4716,6 +4721,25 @@ function sponsorMediaNode(slot, value) {
   img.loading = 'lazy';
   img.decoding = 'async';
   return img;
+}
+
+/**
+ * The creative, wrapped in a frame shaped like the creative itself.
+ *
+ * Drawing every sponsor into one band cropped whatever did not match it: a 1:1
+ * image in a 4:5 band lost its left and right edges, and that is where a sponsor
+ * puts its wording, so the words vanished. The publisher's own preview frames
+ * each creative at its own ratio — this makes the strip agree with it.
+ *
+ * The band still reserves the tallest shape in the feed, so the sidebar never
+ * jumps when the rotation moves between a wide and a tall creative.
+ */
+function sponsorMediaNode(slot, value) {
+  const frame = document.createElement('span');
+  frame.className = 'sponsor-frame';
+  frame.style.setProperty('--slot-r', String(sponsorRatio(slot)));
+  frame.appendChild(sponsorCreative(slot, value));
+  return frame;
 }
 
 /**

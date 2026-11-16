@@ -197,7 +197,24 @@ check('pressable things share one motion language', () => {
   must(css, '.chip-btn:hover', 'no chip hover motion');
   must(css, '.ghost:hover', 'no ghost hover motion');
   must(css, 'button:focus-visible', 'no global focus ring');
-  must(css, '.model-option:hover { transform: scale(1.012); }', 'model rows do not thicken on hover');
+  must(css, 'transform: scale(1.035)', 'model rows do not thicken to the agreed amount');
+  must(css, '-webkit-text-stroke', 'the model row does not gain weight under the pointer');
+});
+
+check('menus fade out instead of vanishing', () => {
+  // Opening was animated and closing was a hard cut; that mismatch is what read
+  // as a flicker. Guard the exit on all three, not just the dialog.
+  must(css, 'allow-discrete', 'no discrete transition, so a hidden menu cannot fade');
+  must(css, '@starting-style', 'no entry state, so menus appear with a jump');
+  must(css, '#settingsOverlay[hidden]', 'the settings overlay has no exit rule');
+  must(css, '.model-menu[hidden] { opacity: 0; }', 'the model menu has no exit rule');
+  must(css, '.ctx-menu.is-closing', 'the context menu has no exit state');
+  // The menu node is removed from the DOM, so the class has to be added in JS.
+  must(renderer, "classList.add('is-closing')", 'the context menu never enters its exit state');
+  must(renderer, 'openMenuEl = null;', 'a closing menu can be closed twice');
+  if (/animation: ui-arrive/.test(css)) {
+    throw new Error('the old entrance animation is back alongside the transitions');
+  }
 });
 
 check('the sidebar draws a colour stripe cell', () => {

@@ -118,18 +118,36 @@ const MEASURE_MIXED = `(async () => {
   const side = document.getElementById('sidebar');
   const heights = [];
   const ratios = [];
+  const fits = [];
+  const widths = [];
+  const hostWidths = [];
   for (let i = 0; i < 2; i += 1) {
     sponsorSlotIndex = i;
     paintSponsor();
     await frame();
-    heights.push(Math.round(host.getBoundingClientRect().height));
+    const hostBox = host.getBoundingClientRect();
+    heights.push(Math.round(hostBox.height));
     const node = host.firstElementChild;
-    const box = node ? node.getBoundingClientRect() : { width: 0, height: 0 };
+    const box = node ? node.getBoundingClientRect() : { width: 0, height: 0, top: 0, bottom: 0, left: 0, right: 0 };
     ratios.push(box.height ? Math.round((box.width / box.height) * 100) / 100 : 0);
+    widths.push(Math.round(box.width));
+    hostWidths.push(Math.round(hostBox.width));
+    // Nothing may leave the band: an escapee paints over the session list above
+    // and over the sponsor's own two lines of copy below.
+    fits.push(
+      Boolean(node) &&
+        box.top >= hostBox.top - 1 &&
+        box.bottom <= hostBox.bottom + 1 &&
+        box.left >= hostBox.left - 1 &&
+        box.right <= hostBox.right + 1,
+    );
   }
   return {
     heights,
     ratios,
+    fits,
+    widths,
+    hostWidths,
     sideWidth: Math.round(side.getBoundingClientRect().width),
     reserved: getComputedStyle(host).aspectRatio,
   };
@@ -416,15 +434,23 @@ async function main() {
     heights: mixed.heights,
   });
   check('the reserved box is the 4:5 slot, not the 2:1 one', Number(String(mixed.reserved).split('/')[0]) < 1, mixed.reserved);
-  // Cover, not contain. The user chose a full-bleed band over letterboxing, so a
-  // 2:1 creative inside a 4:5 reservation is cropped to the band on purpose; both
-  // boxes take the reserved shape, which is what stops the strip resizing as the
-  // rotation moves between them. This check used to demand the opposite and had
-  // been failing since cover was chosen — the assertion was wrong, not the layout.
-  check('every creative fills the reserved band, cropped on purpose',
-    Math.abs(mixed.ratios[0] - 0.8) < 0.05 && Math.abs(mixed.ratios[1] - 0.8) < 0.05, {
+  // Each creative is framed at its own shape inside the reserved band, which is
+  // what the publisher's own preview does. Cropping every sponsor into one band
+  // cut the left and right edges off a 1:1 image — and that is where a sponsor
+  // puts its wording, so the words disappeared.
+  check('each creative keeps its own shape, so nothing is cropped',
+    Math.abs(mixed.ratios[0] - 2) < 0.06 && Math.abs(mixed.ratios[1] - 0.8) < 0.06, {
       ratios: mixed.ratios,
     });
+  check('a 1:1 creative in a 4:5 band is not cut on its sides',
+    mixed.widths[1] === mixed.hostWidths[1] && Math.abs(mixed.ratios[1] - 0.8) < 0.06, {
+      creative: mixed.widths[1],
+      band: mixed.hostWidths[1],
+      ratio: mixed.ratios[1],
+    });
+  check('no creative leaves the reserved band', mixed.fits[0] === true && mixed.fits[1] === true, {
+    fits: mixed.fits,
+  });
 
   // A clip must arrive silent, and the switch is the only way to change that.
   const sound = await win.webContents.executeJavaScript(SOUND);
