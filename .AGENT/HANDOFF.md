@@ -1,5 +1,14 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **สถานะ ณ 2026-11-17 (ยังไม่ปล่อย — งานค้างรอ `0.5.12`):**
+> - **แก้แล้ว:** (๑) สลับแชทแล้วไม่ไปข้อความล่าสุด → `holdBottom()` + `pinScrollTop()` ยึดท้าย 900 ms
+>   หลัง forced jump, ผู้ใช้ลากเองยังชนะเสมอ · เทสต์ `scripts/check-scroll-to-latest.js` (`check:scroll`)
+>   (๒) รายการโมเดลย่อ/ขยายแต่ละบริษัทได้ → หัวกลุ่มเป็น `<button>`, `.model-group-body`,
+>   จำใน prefs `collapsedProviders`, ค้นหากางทุกกลุ่มชั่วคราว · เทสต์ `scripts/check-model-fold.js` (`check:fold`)
+> - `npm test` **69/69** · `check:read` 34 · `check:chips` · `check:busy` · `check:marks` ผ่าน
+> - **ยังค้าง:** `check:turn-blocks` ข้อ gap ระหว่างบล็อก (แดงมาก่อนรอบนี้)
+> - **รอบปล่อยครั้งถัดไป = `0.5.12`** (ยังไม่ commit/ปล่อย)
+
 > **สถานะ ณ 2026-11-17 (รอบปล่อย `0.5.11` — อ่านตรงนี้ก่อน):**
 > - **แก้แล้ว 3 เรื่อง (ปล่อย 0.5.11):** (ก) ปุ่ม ส่ง/หยุด ค้างหลังเทิร์นจบ — วาดปุ่มทุก event +
 >   `reconcileBusy()` เทียบ DOM กับ state + ซ่อมตอน focus/visibility · (ข) ชิป “กำลังใช้เครื่องมือ”

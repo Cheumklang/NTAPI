@@ -2194,3 +2194,28 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - assets: `NTAPI-Setup-0.5.11.exe` 118,266,209B + `latest.yml` (0.5.11) + blockmap · ลิงก์โหลด HTTP 206
 - ลบ `v0.5.10` แล้ว (release + tag ทั้ง 2 repo + tag ในเครื่อง) → เหลือ `v0.5.11` รุ่นเดียว
 - รอบปล่อยครั้งถัดไป = `0.5.12`
+
+## 2026-11-17 — เปลี่ยนแชทแล้วไม่ไปข้อความล่าสุด · ย่อ/ขยายแต่ละบริษัทในรายการโมเดล
+
+**(ก) สลับแชทแล้วค้างอยู่กลางบทสนทนา ไม่ไปข้อความล่าสุด**
+· ต้นเหตุ: ตอนวาดแชทใหม่ `scrollToBottom(true)` ถูกเรียกครั้งเดียว แต่การวาดยัง **โตต่อ**
+  (วาดท้ายก่อน แล้วแทรกประวัติด้านบนทีละก้อน + รูป/โค้ดจัดเลย์เอาต์ทีหลัง) ทุกครั้งที่ scrollHeight
+  เพิ่มจะยิง scroll event และ handler อ่านว่า “ผู้ใช้ออกไปแล้ว” → `pinnedToBottom = false` → ค้างกลางทาง
+· แก้: `holdBottom()` ยึดท้ายไว้ 900 ms หลัง forced jump + `pinScrollTop()` จำ offset ที่เราเขียนเอง
+  ใน interval จะเลื่อนก็ต่อเมื่อ offset ยังเป็นของเรา (ผู้ใช้ลากเอง = เปลี่ยน offset + ระยะไกล → ยอมแพ้ทันที)
+  + `wheel`/`touchmove`/`pointerdown`/`keydown` ยกเลิกการยึด
+· เทสต์ใหม่ `scripts/check-scroll-to-latest.js` (7 checks) · `check:read` 34 checks ยังผ่าน
+· แก้ `scripts/selftest-read-position.js` ให้ตรวจรูปแบบใหม่ + เพิ่มเช็ค `holdBottom()`
+
+**(ข) รายการโมเดล: ย่อ/ขยายแต่ละบริษัทได้**
+· `renderModelMenu` — หัวกลุ่มเป็นปุ่ม `<button>` มี chevron + `aria-expanded` + `aria-controls`
+  เนื้อหาอยู่ใน `.model-group-body` (ซ่อนเมื่อยุบ) · ยุบแล้วเหลือแถวเดียว ประหยัดการเลื่อน
+· จำสถานะใน `collapsedProviders` (Set) → prefs `collapsedProviders` (allowlist ใน `main.js`) ส่งผ่าน `api.boot()`
+· ค้นหา/กรอง “เฉพาะฟรี” = กางทุกกลุ่มชั่วคราว แล้วคืนค่าที่ผู้ใช้เลือกเมื่อล้างคำค้น (`filterModelMenu`)
+· `visibleModelOptions()` เช็ค `.model-group-body` ด้วย · CSS: ปุ่มรีเซ็ตสไตล์ + chevron หมุน + focus ring
+· i18n `groupToggleTitle` (en/th) · เทสต์ใหม่ `scripts/check-model-fold.js` (12 checks) + `check:fold`
+
+## ผลเทสต์
+- `npm test` **69/69** · `check:scroll` 7 · `check:read` 34 · `check:fold` 12 · `check:chips` · `check:busy` · `check:marks` ผ่าน
+- `check:turn-blocks` ยังแดงข้อ “gap ระหว่างบล็อก” (แดงมาก่อนรอบนี้ ไม่ใช่ของใหม่)
+- ยังไม่ commit / ยังไม่ปล่อย — รอบถัดไป `0.5.12`
