@@ -42,3 +42,12 @@ jobs:
       - name: Offline unit tests
         working-directory: app
         run: node scripts/run-unit-tests.js
+
+  provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify authorship ledger
+        run: node app/scripts/provenance.js verify

@@ -1,0 +1,9 @@
+NTAPI — authorship ledger
+updated 2026-11-16T15:47:04.134Z
+entries 2
+head_hash f8120acda998ccf551e7867414ebcdd062ff168fd3e5e5a30d8b22065848ae00
+git e8a15ff5237aa632686aede990a551a44f65768e
+
+latest entries:
+  #1 2026-11-16T15:47:03.453Z genesis — Authorship ledger opened for the NTAPI project
+  #2 2026-11-16T15:47:04.045Z session — เปิดระบบหลักฐานการเป็นผู้สร้าง: ledger + hook + กติกา

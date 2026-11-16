@@ -1,6 +1,10 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
 > **สถานะ ณ 2026-11-17 (ยังไม่ปล่อย — งานค้างรอ `0.5.12`):**
+> - **ระบบหลักฐานการเป็นผู้สร้าง:** `PROVENANCE/` + `app/scripts/provenance.js` + git hook
+>   · กติกาอยู่ใน `AGENTS.md` หัวข้อ “หลักฐานการเป็นผู้สร้าง”
+>   · **ทุกเทิร์น:** `record-session` · **ทุกการปล่อย:** `record-release` + `anchor` · `verify` ต้อง OK
+
 > - **แก้แล้ว (๓): คิวค้างเพราะ busy ค้าง** → `settleStaleTurn()` (ปลด hold + `drainQueue` ก่อนวาด),
 >   `reconcileBusy()` วนทุก busy tab แล้วถาม `api.getTabState` · เทสต์ `scripts/check-stale-queue.js` (`check:stale-queue`)
 

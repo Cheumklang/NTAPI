@@ -2246,3 +2246,24 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - `npm test` **69/69** · `check:stale-queue` 9 · `check:busy` · `check:queue` · `check:hold` ·
   `check:chips` · `check:scroll` · `check:fold` ผ่านหมด
 - ยังไม่ commit/ปล่อย — รอบถัดไป `0.5.12`
+
+## 2026-11-17 — เพิ่มระบบหลักฐานการเป็นผู้สร้าง (PROVENANCE) เข้าเป็นกติกาถาวร
+
+**ผู้ใช้สั่ง:** ต้องการหลักฐานว่าเป็นผู้สร้างจริง อ้างอิงในศาลได้ (กันคนลอกแล้วอ้างทำก่อน)
+และให้บันทึกอัตโนมัติทุกครั้งที่มีการอัปเดต/เปลี่ยน session โดยไม่ต้องสั่ง · เก็บใน `NTAPI/PROVENANCE/`
+
+**สิ่งที่สร้าง**
+- `app/scripts/provenance.js` — สมุดบันทึกแบบ **hash chain** (zero-dep):
+  `hash(n)=sha256(seq,kind,at,summary,data,prev)` · คำสั่ง `genesis | record-session | record-commit |
+  record-release | anchor | verify | status` · `verify` ตรวจสายทั้งเส้น + hash ของไฟล์ sessions/releases
+- `PROVENANCE/ledger.jsonl` · `sessions/<เดือน>/*.md` (เวลา/โมเดล/commit/ไฟล์ที่แก้ + sha256)
+  · `releases/vX.Y.Z.json` (sha256 ตัวติดตั้ง + CI) · `anchors/<วันที่>.txt` · `manifest.txt`
+  · `AUTHORSHIP.md` (คำแถลงเจ้าของ) · `README.md` (วิธีตรวจ + ข้อจำกัด + วิธีใช้ในศาล)
+- `.githooks/post-commit` + `git config core.hooksPath .githooks` → ทุก commit บันทึกเอง
+- `app/package.json`: `npm run prove:verify` · `.github/workflows/ci.yml`: job `provenance`
+  รัน `verify` บน GitHub (เท่ากับมีบุคคลที่สามยืนยันว่าสายไม่แตก)
+- `AGENTS.md` เพิ่มหัวข้อ **“หลักฐานการเป็นผู้สร้าง — PROVENANCE/”** (ก่อน “ก่อนจบ session”)
+  = กฎถาวร: record-session ทุกเทิร์น, record-release + anchor ทุกครั้งที่ปล่อย, verify ก่อนบอกว่าเสร็จ,
+  ห้ามแก้ ledger มือ, ห้ามใส่ข้อมูลลับ
+
+**เริ่มใช้งานแล้ว:** genesis seq 1 · session seq 2 · anchor 2026-11-16 · `verify` = OK 2 entries

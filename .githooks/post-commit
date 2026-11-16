@@ -1,0 +1,8 @@
+#!/bin/sh
+# Every commit is appended to the authorship ledger, so the record is written by
+# the commit that made it instead of being remembered afterwards. A failure here
+# must never block a commit: the ledger can be filled in by hand ("record-commit").
+if command -v node >/dev/null 2>&1; then
+  node "$(git rev-parse --show-toplevel)/app/scripts/provenance.js" record-commit >/dev/null 2>&1 || true
+fi
+exit 0

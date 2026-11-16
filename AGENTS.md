@@ -192,6 +192,29 @@ printf '%s' "$payload" | curl -sS -X POST \
 - ✅ ถูก: 1 call = สคริปต์เดียวรัน 6 คำสั่ง + พิมพ์สรุป `[PASS]/[ERROR]`
 - ❌ ผิด: 6 calls แยกกัน รอผลทีละอัน (เคยเกิดจริง 2026-11-17: commit+push call หนึ่ง แล้วแยก curl เช็ค CI อีก call)
 
+## หลักฐานการเป็นผู้สร้าง — `PROVENANCE/` (ผู้ใช้สั่ง 2026-11-17)
+
+ผู้ใช้ต้องการ**หลักฐานว่าโปรแกรมนี้เป็นผลงานของเขา** เผื่อมีคนลอกไปแล้วอ้างว่าทำก่อน
+และอยากให้ **บันทึกอัตโนมัติทุกครั้ง** โดยไม่ต้องสั่ง — เก็บใน `PROVENANCE/` ที่รากโปรเจกต์
+
+### กฎ (ทำทุกครั้ง ห้ามรอสั่ง)
+- **ก่อนตอบทุกเทิร์นที่ทำงานจริง** → `node app/scripts/provenance.js record-session --note "สรุปสั้น ๆ ว่าทำอะไร"`
+  (ทำงานคู่กับกฎ `.AGENT/` ด้านล่าง — เขียน HANDOFF/LOG แล้วบันทึก session ด้วย)
+- **หลัง commit** ทุกครั้ง — hook `.githooks/post-commit` บันทึกให้เองอยู่แล้ว
+  (`core.hooksPath = .githooks` ตั้งไว้แล้ว) ถ้า hook ไม่ทำงานให้รัน `record-commit` เอง
+- **หลังปล่อยรุ่นสำเร็จ (build / ส่งอัปเดต)** ต้องรัน
+  `node app/scripts/provenance.js record-release X.Y.Z --asset "NTAPI-Setup-X.Y.Z.exe:ขนาด:sha256" --ci "<URL ของ CI run>"`
+  แล้ว `node app/scripts/provenance.js anchor` → งานปล่อยรุ่นยังไม่นับว่าจบถ้าไม่มีสองคำสั่งนี้
+- **ตรวจก่อนบอกผู้ใช้ว่างานเสร็จ** → `node app/scripts/provenance.js verify` ต้องขึ้น `OK …`
+- **ห้ามแก้ไฟล์ใน `PROVENANCE/` ด้วยมือ** และห้ามใส่ข้อมูลลับ/คีย์/ข้อมูลส่วนตัว
+  (ไฟล์นี้ถูก commit ขึ้น GitHub)
+- ถ้า `verify` ไม่ผ่าน → หยุดงานทันทีและแจ้งผู้ใช้ (อาจมีคนแก้ ledger)
+
+### ไฟล์หลัก
+`ledger.jsonl` (hash chain) · `sessions/<เดือน>/` (บันทึกงานราย session) ·
+`releases/vX.Y.Z.json` (hash ตัวติดตั้ง) · `anchors/` + `manifest.txt` (หัว chain)
+· `AUTHORSHIP.md` (คำแถลงเจ้าของ) · `README.md` (วิธีตรวจ/ใช้ในศาล)
+
 ## ก่อนจบ session (สำคัญ เพื่อ session ถัดไป)
 อัปเดต `.AGENT/HANDOFF.md` (หัวข้อ กำลังทำ/ค้าง + ขั้นถัดไป + วันที่) และต่อท้าย `.AGENT/LOG.md`
 รายละเอียดโปรโตคอลอยู่ใน `.AGENT/HANDOFF.md` ภาคผนวก
