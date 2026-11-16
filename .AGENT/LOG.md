@@ -2001,6 +2001,26 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   · `npm test` **64 scripts ผ่าน** · geometry 8 ตัวผ่านหมด (sidebar 305 · ชื่อแชท [42,42,42] · pill · โฆษณา · transcript)
 - **FAIL 2 ครั้งจากเทสต์ของผมเอง:** `lastIndexOf('@media (prefers-reduced-motion…)')` เจอบล็อกอื่น
   → เปลี่ยนเป็นค้นทุกบล็อก · **บทเรียนซ้ำ:** selector/ชื่อที่ซ้ําได้ ห้ามใช้ indexOf/lastIndexOf หาตําแหน่ง
+**รอบ 0.5.7 (2026-11-15):** ปิดช่องว่างของสเปก UI polish 2 ข้อ + แก้โฆษณาที่ผู้ใช้แจ้ง
+- **ข้อ 2 fade ตอนปิด:** เปิดมีอนิเมชันแต่ปิดหายวับ → ตาอ่านเป็น "กระพริบ"
+  · ใช้ `allow-discrete` + `@starting-style` (เบราว์เซอร์เก่า = ปิดทันทีเหมือนเดิม ไม่พัง)
+  · **ctx-menu เป็นข้อยกเว้น:** node ถูก `.remove()` ทันที → ต้องเติม class `is-closing` ใน JS
+    → ต้องตั้ง `openMenuEl = null` ก่อน (กัน close ซ้ำ) และลบเมนูที่จางค้างก่อนเปิดอันใหม่
+- **ข้อ 4 model row:** สเปกเขียน 1.035 + ตัวหนา แต่รอบแรกผมทำ 1.012 แล้วไม่บอกผู้ใช้ (ผิด)
+  → รอบนี้ตามสเปก แต่ใช้ `-webkit-text-stroke` แทน `font-weight` เพราะเปลี่ยนน้ำหนัก = รีโฟลว์ = แถวกระตุก
+- **โฆษณา "ภาพหลุดเฟรม ตัวหนังสือหาย":** ผู้ใช้เทียบว่า ADS ไม่เป็น แต่ NTAPI เป็น
+  · **วินิจฉัย:** ไม่ใช่ overflow — เป็นการ **ครอป** · feed จริง (ดึงจาก GitHub) มี c1 `1:1` และ tip1 `4:5`
+    → ช่องจอง = min = 4:5 (270×338) → ครีเอทีฟ 1:1 ถูก `cover` ตัดข้างละ ~27px
+  · **เชิงโครงสร้าง:** ADS ใช้ `frameSize()` ตามอัตราส่วนครีเอทีฟเอง แต่ NTAPI ใช้เฟรมร่วม 1 เฟรม
+  · **ผู้ใช้เลือกแบบ ข** (เฟรมตามครีเอทีฟ) เพราะตรงกับ ADS ที่เขาชอบ
+  · **เทคนิคสําคัญ:** `reserved = min(ทุกสล็อต)` ⇒ `slotRatio >= reserved` เสมอ ⇒ **ความกว้างเป็นตัวบังคับเสมอ**
+    → `.sponsor-frame { width:100%; aspect-ratio: var(--slot-r) }` เต็มความกว้าง ความสูงสั้นกว่าช่องจอง ⇒ cover ไม่ครอป
+  · **เทสต์เก่าที่ต้องกลับด้าน:** `every creative fills the reserved band, cropped on purpose`
+    → เปลี่ยนเป็น "each creative keeps its own shape, so nothing is cropped" (สัญญาเปลี่ยนโดยตั้งใจ)
+- **ผลวัด:** `ratios [2, 0.8]` · `heights [338,338]` (ไม่กระตุก) · `fits [true,true]` · `widths [270,270]`
+
+**บทเรียนซ้ํา (2026-11-15):** อย่าลดค่าที่ตกลงไว้ในสเปกโดยไม่บอกผู้ใช้ — เคส 1.012 vs 1.035
+
 - **ปล่อยแล้ว v0.5.6** (2026-11-15): commit `0ba9e0f` (UI polish + ตัวหมุน) · `c718bd2` · `5e92443` (bump)
   · CI run `43712252312` success ทุก step (build 3 นาที) · asset 3 ไฟล์ใน `Cheumklang/NTAPI-releases`
   · `latest.yml` → `version: 0.5.6` `path: NTAPI-Setup-0.5.6.exe` (118 MB) · แจ้งเตือนผู้ใช้ทาง `ntfy.sh/NTAPI`
