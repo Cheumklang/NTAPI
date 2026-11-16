@@ -82,7 +82,11 @@ check('the jump ignores its own scroll events', /if \(jumpingToBottom\) return;/
 
 const scrollBody = body(app, 'scrollToBottom');
 check('scrollToBottom refuses to move a reader', /if \(!force && !pinnedToBottom\)/.test(scrollBody));
-check('a forced scroll rebuilds the follow state', /if \(force\) pinnedToBottom = true;/.test(scrollBody));
+check('a forced scroll rebuilds the follow state',
+  /if \(force\) \{[\s\S]{0,80}?pinnedToBottom = true;/.test(scrollBody));
+// A forced jump keeps re-asserting the bottom for a moment, because the repaint it
+// starts is still growing the transcript after this call returns.
+check('a forced scroll holds the bottom while it draws', /holdBottom\(\)/.test(scrollBody));
 check('scrollToBottom hides the button at the bottom', /syncJumpToBottom\(\)/.test(scrollBody));
 
 // --- 3. output arriving no longer forces the view -----------------------

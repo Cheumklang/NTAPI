@@ -1914,6 +1914,9 @@ async function attachTab(tabId, manager, cwd) {
     // every route at zero, so this list is the only thing keeping the picker
     // from calling a Claude route free.
     coarenaFreeTier: Array.isArray(readPrefs().coarenaFreeTier) ? readPrefs().coarenaFreeTier : null,
+    // Provider folders the model picker was left closed, so a folded Coarena
+    // stays folded after a restart.
+    collapsedProviders: Array.isArray(readPrefs().collapsedProviders) ? readPrefs().collapsedProviders : null,
     // Zro's key works the same way; its catalog is static and DeepSeek-only.
     zroKey: zroKeys.read(),
     // NVIDIA's catalog is text-only and re-resolved against /v1/models.
@@ -2279,6 +2282,18 @@ ipcMain.handle('prefs:set', async (_e, patch = {}) => {
       .filter((name) => typeof name === 'string' && name.trim())
       .map((name) => name.trim().slice(0, 60))
       .slice(0, 40);
+  }
+  /*
+   * Which provider folders the model picker was left closed.
+   *
+   * Provider ids, not display names: capped the same way, so prefs stays a
+   * settings file. Nothing outside the picker reads it.
+   */
+  if (Array.isArray(patch.collapsedProviders)) {
+    allowed.collapsedProviders = patch.collapsedProviders
+      .filter((id) => typeof id === 'string' && id.trim())
+      .map((id) => id.trim().slice(0, 40))
+      .slice(0, 30);
   }
   if (Object.keys(allowed).length) writePrefs(allowed);
   return readPrefs();

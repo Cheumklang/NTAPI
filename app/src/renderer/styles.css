@@ -979,7 +979,30 @@ button { font-family: inherit; }
   gap: 8px;
   padding: 7px 8px 5px;
   background: #171b24;
+  /* The header is a button: clicking it folds the provider away. It still has to
+     read as a heading, so the browser chrome is stripped and nothing moves. */
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.model-group-head:hover { background: #1c2231; }
+.model-group-head:focus-visible { outline: 2px solid #7c5cff; outline-offset: -2px; }
+.model-group-chev {
+  flex: 0 0 10px;
+  width: 10px;
+  font-size: 9px;
+  line-height: 1;
+  color: #6f7891;
+  transition: transform .14s ease;
+}
+.model-group.collapsed .model-group-chev { transform: rotate(-90deg); }
+.model-group-body[hidden] { display: none; }
+/* A closed folder keeps its header readable and shows how many models it holds. */
+.model-group.collapsed .model-group-name { color: #97a0b5; }
 .model-group-mark {
   width: 20px;
   height: 20px;

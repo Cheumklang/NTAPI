@@ -993,6 +993,71 @@ let pinnedToBottom = true;
 /** True during an explicit jump, so the in-between scroll events are ignored. */
 let jumpingToBottom = false;
 
+/**
+ * How long a forced jump keeps re-asserting the bottom, in ms.
+ *
+ * A repaint is not one layout. The tail is drawn first, the rest of the history is
+ * inserted above it chunk by chunk, and images, code blocks and the highlighter
+ * finish laying out after that. Each of those grows the transcript below the
+ * viewport and fires a scroll event, and the handler read that as "the reader
+ * scrolled away" — so opening a chat, or coming back to one, often stopped a
+ * screen or two short of the newest message while the chat looked like it had
+ * simply stayed where the other one was.
+ */
+const BOTTOM_HOLD_MS = 900;
+let bottomHoldUntil = 0;
+let bottomHoldTimer = 0;
+/** The offset this code last wrote, so a move by anyone else is recognisable. */
+let lastScrollSet = -1;
+
+/**
+ * Put the view at the newest message and remember where that was.
+ *
+ * The remembered offset is how the hold below tells its own scrolling apart from
+ * the reader's: text arriving under the viewport does not move `scrollTop`, so a
+ * changed offset with a large gap means somebody else moved it.
+ */
+function pinScrollTop() {
+  transcript.scrollTop = transcript.scrollHeight;
+  lastScrollSet = transcript.scrollTop;
+}
+
+/** Keep the newest message in view while a repaint is still adding to the chat. */
+function holdBottom() {
+  bottomHoldUntil = Date.now() + BOTTOM_HOLD_MS;
+  pinnedToBottom = true;
+  if (bottomHoldTimer) return;
+  bottomHoldTimer = setInterval(() => {
+    const moved = lastScrollSet >= 0 && transcript.scrollTop !== lastScrollSet;
+    if (Date.now() > bottomHoldUntil || !pinnedToBottom || (moved && distanceFromBottom() > NEAR_BOTTOM_PX)) {
+      // Out of time, or the reader took the view somewhere else: either way the
+      // jump is over and nudging the offset again would fight them.
+      if (moved && distanceFromBottom() > NEAR_BOTTOM_PX) pinnedToBottom = false;
+      clearInterval(bottomHoldTimer);
+      bottomHoldTimer = 0;
+      bottomHoldUntil = 0;
+      syncJumpToBottom();
+      return;
+    }
+    if (distanceFromBottom() > 1) pinScrollTop();
+    syncJumpToBottom();
+  }, 50);
+}
+
+/**
+ * A deliberate scroll ends the hold.
+ *
+ * The hold has to lose to a wheel, a drag of the scrollbar, a touch or a key:
+ * those are the reader saying they want to look somewhere else, and a timer that
+ * keeps pulling them down would be the same bug in the other direction.
+ */
+function releaseBottomHold() {
+  if (!bottomHoldUntil) return;
+  bottomHoldUntil = 0;
+  clearInterval(bottomHoldTimer);
+  bottomHoldTimer = 0;
+}
+
 /** The gap still left below the viewport. */
 function distanceFromBottom() {
   return transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight;
@@ -1008,6 +1073,23 @@ function syncFollow() {
   // A scroll event during our own smooth scroll can report an intermediate
   // position. Treating that as "the reader left" would unpin them mid-jump.
   if (jumpingToBottom) return;
+  // Same for the growth a repaint causes: nothing the reader did moved them, so
+  // the follow state stays on until the hold ends. But a scroll that actually
+  // lands somewhere else is a deliberate move (a drag, a key, a programmatic
+  // jump) — that ends the hold, even mid-window.
+  if (Date.now() < bottomHoldUntil) {
+    if (distanceFromBottom() > NEAR_BOTTOM_PX) {
+      bottomHoldUntil = 0;
+      clearInterval(bottomHoldTimer);
+      bottomHoldTimer = 0;
+      pinnedToBottom = false;
+      syncJumpToBottom();
+      return;
+    }
+    pinnedToBottom = true;
+    syncJumpToBottom();
+    return;
+  }
   pinnedToBottom = distanceFromBottom() <= NEAR_BOTTOM_PX;
   syncJumpToBottom();
 }
@@ -1036,8 +1118,11 @@ function scrollToBottom(force = false) {
     syncJumpToBottom();
     return;
   }
-  if (force) pinnedToBottom = true;
-  transcript.scrollTop = transcript.scrollHeight;
+  if (force) {
+    pinnedToBottom = true;
+    holdBottom();
+  }
+  pinScrollTop();
   syncJumpToBottom();
 }
 
@@ -2021,6 +2106,7 @@ function modelOptionButton(model, current) {
 function renderModelMenu(models, current) {
   modelList.replaceChildren();
   const list = Array.isArray(models) ? models : [];
+  loadCollapsedProviders();
 
   // Favourites sit in their own folder on top so a starred model is one click
   // away regardless of provider. It is a shortcut: the model still appears
@@ -2031,12 +2117,20 @@ function renderModelMenu(models, current) {
   const groups = FPProvider.groupModelsByProvider(list);
   for (const group of groups) {
     const section = document.createElement('div');
-    section.className = 'model-group';
+    section.className = 'model-group collapsible';
+    section.dataset.provider = group.provider;
     section.setAttribute('role', 'group');
     section.setAttribute('aria-label', group.label);
 
-    const head = document.createElement('div');
+    // The header is the handle. Eighteen Coarena models plus seventeen FreePI
+    // ones is a long scroll, and reaching the third provider meant passing every
+    // row of the first two. Closed, a provider costs one row instead of ten — and
+    // it remembers being closed, so the folders you never use stay out of the way.
+    const head = document.createElement('button');
+    head.type = 'button';
     head.className = 'model-group-head';
+    head.title = t('groupToggleTitle', { name: group.label });
+    head.setAttribute('aria-controls', `model-group-${group.provider}`);
 
     const mark = document.createElement('span');
     mark.className = 'model-group-mark';
@@ -2046,12 +2140,21 @@ function renderModelMenu(models, current) {
     label.className = 'model-group-name';
     label.textContent = group.label;
 
+    const chev = document.createElement('span');
+    chev.className = 'model-group-chev';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.textContent = '\u25BC';
+
     const count = document.createElement('span');
     count.className = 'model-group-count';
     count.textContent = String(group.models.length);
 
-    head.append(mark, label, count);
+    head.append(mark, label, chev, count);
     section.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'model-group-body';
+    body.id = `model-group-${group.provider}`;
 
     // Every provider gets its free / paid headings, even when only one kind is
     // present: a paid row must never sit unlabelled among free ones, and an
@@ -2073,10 +2176,55 @@ function renderModelMenu(models, current) {
       for (const model of part.models) {
         bucket.appendChild(modelOptionButton(model, current));
       }
-      section.appendChild(bucket);
+      body.appendChild(bucket);
     }
+    section.appendChild(body);
+
+    const applyState = () => setGroupOpen(section, !collapsedProviders.has(group.provider));
+    applyState();
+    head.addEventListener('click', () => {
+      if (collapsedProviders.has(group.provider)) collapsedProviders.delete(group.provider);
+      else collapsedProviders.add(group.provider);
+      applyState();
+      saveCollapsedProviders();
+    });
+
     modelList.appendChild(section);
   }
+}
+
+/**
+ * Which provider folders are closed, remembered across windows.
+ *
+ * Kept in prefs rather than in memory so a folder the reader closed stays closed
+ * after a restart: reopening everything on every launch would make the choice
+ * look like it did nothing.
+ */
+const collapsedProviders = new Set();
+let collapsedProvidersLoaded = false;
+
+function loadCollapsedProviders() {
+  if (collapsedProvidersLoaded) return;
+  collapsedProvidersLoaded = true;
+  const saved = appPrefs && appPrefs.collapsedProviders;
+  if (!Array.isArray(saved)) return;
+  for (const key of saved) {
+    if (typeof key === 'string' && key) collapsedProviders.add(key);
+  }
+}
+
+function saveCollapsedProviders() {
+  api.setPrefs({ collapsedProviders: [...collapsedProviders].filter(Boolean).slice(0, 30) }).catch(() => {});
+}
+
+/** Open or close one provider folder, keeping the header's state in sync. */
+function setGroupOpen(section, open) {
+  const body = section.querySelector('.model-group-body');
+  const head = section.querySelector('.model-group-head');
+  if (!body || !head) return;
+  section.classList.toggle('collapsed', !open);
+  body.hidden = !open;
+  head.setAttribute('aria-expanded', String(open));
 }
 
 function visibleModelOptions() {
@@ -2085,6 +2233,7 @@ function visibleModelOptions() {
       !row.hidden &&
       !row.closest('.model-row')?.hidden &&
       !row.closest('.model-section')?.hidden &&
+      !row.closest('.model-group-body')?.hidden &&
       !row.closest('.model-group')?.hidden
   );
 }
@@ -2092,6 +2241,7 @@ function visibleModelOptions() {
 function filterModelMenu() {
   const query = modelSearch.value.trim().toLowerCase();
   const freeOnly = Boolean(modelFreeOnly?.checked);
+  const searching = Boolean(query) || freeOnly;
   let visible = 0;
   for (const group of modelList.querySelectorAll('.model-group')) {
     let shown = 0;
@@ -2109,6 +2259,12 @@ function filterModelMenu() {
     }
     group.hidden = shown === 0;
     visible += shown;
+    // Typing is a search, not a browse: a closed folder would hide the very row
+    // the query found. Open every folder while a filter is on, and hand the
+    // reader's own choice back as soon as the search is cleared.
+    if (group.classList.contains('collapsible')) {
+      setGroupOpen(group, searching || !collapsedProviders.has(group.dataset.provider));
+    }
   }
   modelMenuEmpty.hidden = visible > 0;
   modelMenuEmpty.textContent = t('noModelsMatch');
@@ -4876,6 +5032,12 @@ jumpToBottom?.addEventListener('click', () => {
 });
 
 transcript.addEventListener('scroll', syncFollow, { passive: true });
+// A real gesture means the reader is taking over, so a forced jump stops fighting
+// them. Passive: none of these handlers change the event.
+for (const ev of ['wheel', 'touchmove', 'pointerdown']) {
+  transcript.addEventListener(ev, releaseBottomHold, { passive: true });
+}
+transcript.addEventListener('keydown', releaseBottomHold);
 
 // A resize can make the transcript short enough that there is nothing below to
 // jump to, so the button has to be re-checked rather than left showing.
@@ -7998,6 +8160,7 @@ Object.assign(STRINGS.en, {
   mentionHint: '↑↓ choose · Tab/Enter insert · Esc close',
   model: 'Model',
   searchModels: 'Search models...',
+  groupToggleTitle: 'Show or hide {name}',
   noModelsMatch: 'No models match',
   planFree: 'Free',
   planPaid: 'Paid',
@@ -8059,6 +8222,7 @@ Object.assign(STRINGS.th, {
   mentionHint: '↑↓ เลือก · Tab/Enter แทรก · Esc ปิด',
   model: 'โมเดล',
   searchModels: 'ค้นหาโมเดล...',
+  groupToggleTitle: 'ย่อ/ขยาย {name}',
   noModelsMatch: 'ไม่พบโมเดลที่ตรงกัน',
   planFree: 'ฟรี',
   planPaid: 'เสียเงิน',
