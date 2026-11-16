@@ -1,0 +1,27 @@
+{
+  "version": "0.5.12",
+  "tag": "v0.5.12",
+  "recordedAt": "2026-11-16T16:07:06.247Z",
+  "git": {
+    "head": "65e695c6af36cbb5ed887b90641276d5d94dd956",
+    "branch": "master",
+    "tree": "0ed5cec34c2b6085767c38c34c3ad87d9c5d98a8",
+    "subject": "internal: ให้ ledger ตรวจได้บน Linux CI และกันการแปลง line ending",
+    "authorDate": "2026-11-16T23:04:05+07:00",
+    "commitCount": 284
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/43901561617",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.12.exe",
+      "size": 118268821,
+      "sha256": "8f53c20e83f0a997d69b757d8f24354184bd0b5424df65abb0265c4b54f0aa91"
+    },
+    {
+      "name": "latest.yml",
+      "size": 342,
+      "sha256": null
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.12"
+}

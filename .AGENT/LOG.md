@@ -2278,3 +2278,12 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 
 ขั้นตอน: bump `0.5.11`→`0.5.12` → commit + tag + push → poll CI → ตรวจ asset + sha256 ของ exe
 → `record-release` + `anchor` → ลบ `v0.5.11` ให้เหลือรุ่นเดียว
+
+**ผลปล่อย v0.5.12 (ยืนยันแล้ว)**
+- tag `v0.5.12` · CI `43903354841` **success** (หลังแก้ให้ ledger ใช้ path แบบ `/` + `.gitattributes`)
+- Release run `43901561617` success · asset: `NTAPI-Setup-0.5.12.exe` 118,268,821B ·
+  `latest.yml` (0.5.12) · blockmap · ลิงก์โหลดใช้ได้
+- **sha256 ของตัวติดตั้ง** `8f53c20e83f0a997d69b757d8f24354184bd0b5424df65abb0265c4b54f0aa91`
+  (บันทึกใน `PROVENANCE/releases/v0.5.12.json` seq 11)
+- แก้ release body ให้เหลือเฉพาะสิ่งที่ผู้ใช้เห็น (ตัดเรื่อง ledger/hook ออกตามกฎ)
+- ลบ `v0.5.11` แล้ว → เหลือ `v0.5.12` รุ่นเดียว · รอบถัดไป = `0.5.13`

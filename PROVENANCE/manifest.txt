@@ -1,11 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-16T15:48:19.946Z
-entries 4
-head_hash 1711450cdb06b8a4085dd03a364bff55f4508ef69fe607720d3f74e9af78a0c8
-git b9de399d4ca9edf17c3d897197604c0723c4140b
+updated 2026-11-16T16:07:06.336Z
+entries 11
+head_hash 324717fab2eb95fcc27c0d9153ac017b927f5f9ffb4a5dfc4f1461b46862c0af
+git 65e695c6af36cbb5ed887b90641276d5d94dd956
 
 latest entries:
-  #1 2026-11-16T15:47:03.453Z genesis — Authorship ledger opened for the NTAPI project
-  #2 2026-11-16T15:47:04.045Z session — เปิดระบบหลักฐานการเป็นผู้สร้าง: ledger + hook + กติกา
-  #3 2026-11-16T15:48:19.017Z commit — เพิ่มระบบหลักฐานการเป็นผู้สร้าง: ledger แบบ hash chain + git hook + ตรวจบน CI
   #4 2026-11-16T15:48:19.854Z session — สร้างระบบ PROVENANCE + ผูกกติกา AGENTS.md + CI verify
+  #5 2026-11-16T15:48:36.770Z commit — internal: บันทึกหลักฐานการทำงานและหัว chain
+  #6 2026-11-16T15:49:37.022Z commit — internal: ปิด chain หลัง commit
+  #7 2026-11-16T15:49:55.445Z session — ตรวจระบบ PROVENANCE ครบวงจร: hook, tamper detection, CI job
+  #8 2026-11-16T15:54:28.824Z commit — internal: บันทึกการปล่อย v0.5.12
+  #9 2026-11-16T15:54:29.393Z commit — internal: bump 0.5.12
+  #10 2026-11-16T16:04:05.932Z commit — internal: ให้ ledger ตรวจได้บน Linux CI และกันการแปลง line ending
+  #11 2026-11-16T16:07:06.251Z release — Released version 0.5.12
