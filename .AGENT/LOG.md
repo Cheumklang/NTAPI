@@ -2187,3 +2187,10 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 ## ผลเทสต์ + ปล่อย
 - `npm test` **69/69** · `check:chips` · `check:marks` · `check:busy-state` ผ่าน
 - รอบปล่อย = `0.5.11`
+
+**ปล่อย v0.5.11 แล้ว (2026-11-17 · build)**
+- commits `c71ca11` (บันทึก) · `34a674c` (งาน) · `439bff1` (bump) → tag `v0.5.11` push สำเร็จ
+- CI: `CI` `43888633709` success · `Release` `43888640783` **success**
+- assets: `NTAPI-Setup-0.5.11.exe` 118,266,209B + `latest.yml` (0.5.11) + blockmap · ลิงก์โหลด HTTP 206
+- ลบ `v0.5.10` แล้ว (release + tag ทั้ง 2 repo + tag ในเครื่อง) → เหลือ `v0.5.11` รุ่นเดียว
+- รอบปล่อยครั้งถัดไป = `0.5.12`
