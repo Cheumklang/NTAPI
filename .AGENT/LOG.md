@@ -2267,3 +2267,14 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   ห้ามแก้ ledger มือ, ห้ามใส่ข้อมูลลับ
 
 **เริ่มใช้งานแล้ว:** genesis seq 1 · session seq 2 · anchor 2026-11-16 · `verify` = OK 2 entries
+
+## ปล่อย v0.5.12 (2026-11-17 · build)
+
+รุ่นนี้รวม 4 เรื่อง:
+- สลับแชทแล้วไปที่ข้อความล่าสุดเสมอ (`holdBottom()` + `pinScrollTop()`, `check:scroll`)
+- รายการโมเดลย่อ/ขยายแต่ละบริษัทได้ + จำค่าใน prefs (`check:fold`)
+- คิวไม่ค้าง: `settleStaleTurn()` ปลด busy ที่ค้างทุกแท็บแล้ว `drainQueue` (`check:stale-queue`)
+- ระบบหลักฐานการเป็นผู้สร้าง `PROVENANCE/` (ledger hash chain + git hook + CI verify)
+
+ขั้นตอน: bump `0.5.11`→`0.5.12` → commit + tag + push → poll CI → ตรวจ asset + sha256 ของ exe
+→ `record-release` + `anchor` → ลบ `v0.5.11` ให้เหลือรุ่นเดียว

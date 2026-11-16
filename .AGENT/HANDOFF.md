@@ -1,6 +1,9 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **สถานะ ณ 2026-11-17 (ยังไม่ปล่อย — งานค้างรอ `0.5.12`):**
+> **สถานะ ณ 2026-11-17 (ปล่อย `0.5.12` แล้ว):**
+> - **`v0.5.12` ปล่อยแล้ว** — 4 เรื่อง: scroll to latest · fold provider groups · queue release ·
+>   PROVENANCE ledger · **รอบปล่อยครั้งถัดไป = `0.5.13`**
+
 > - **ระบบหลักฐานการเป็นผู้สร้าง:** `PROVENANCE/` + `app/scripts/provenance.js` + git hook
 >   · กติกาอยู่ใน `AGENTS.md` หัวข้อ “หลักฐานการเป็นผู้สร้าง”
 >   · **ทุกเทิร์น:** `record-session` · **ทุกการปล่อย:** `record-release` + `anchor` · `verify` ต้อง OK
