@@ -2162,3 +2162,28 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - ทดสอบลิงก์โหลด: HTTP 206 (partial 1024B) ใช้ได้
 - **ลบ `v0.5.9` แล้ว** (release + tag ทั้ง 2 repo + tag ในเครื่อง) → เหลือ `v0.5.10` รุ่นเดียว
 - รอบปล่อยครั้งถัดไป = **`0.5.11`**
+
+## 2026-11-17 — ปุ่ม ส่ง/หยุด ค้าง · ชิปสถานะค้าง/หลุดก้อน · ป้าย “เปิดอยู่” (ปล่อย 0.5.11)
+
+**(ก) ปุ่ม ส่ง ไม่กลับมา หลังเทิร์นจบ** — ต้นเหตุ: `paintBusyFromViews()` ถูกเรียกเฉพาะเมื่อ
+`payloadTabIsActive(view)` แต่ปุ่มเป็น element เดียวที่ทุกแท็บใช้ร่วม → เทิร์นจบตอน payload ไม่ตรงแท็บ
+= state ถูกแต่ DOM ไม่ถูกวาด และ watchdog ก็มีเงื่อนไข `if (!view.busy) return;` จึงไม่ซ่อม
+· แก้: onBusy/onSettled/onError วาดปุ่มทุกครั้ง · onError ย้าย paint ขึ้นก่อน early return
+· `reconcileBusy()` เทียบ `Boolean(view.busy) !== !sendBtn.hidden` แล้ววาดใหม่ + ไม่มีแท็บ → setBusy(false)
+· เพิ่มซ่อมตอน `visibilitychange` และ `focus` · เทสต์ `selftest-busy-state.js` 15 checks
+
+**(ข) ชิป “กำลังใช้เครื่องมือ” ค้างหลังงานจบ + หลุดไปคนละก้อนตอนสลับแชท**
+· ต้นเหตุ 1: `onToolEnd` `return` ออกก่อนลด `runningTools` เมื่อแท็บไม่ active → `act.tools` ค้าง true
+  → ภายหลังวาดลงบับเบิ้ลที่จบแล้ว · แก้: ลดตัวนับ + ล้าง `actTool`/`act.tools` **ก่อน** guard
+· ต้นเหตุ 2: `applyTabState` ตั้ง `liveAssistant = null` แล้วไม่มีใครผูกกลับ → tool ถัดไปสร้างบับเบิ้ลใหม่ท้ายแชท
+  → แก้: `adoptLiveBubble(view)` ท้าย `renderActiveTab()` ผูกกลับบับเบิ้ล assistant อันสุดท้าย + `syncActivity`
+· `clearViewActivity()` ล้าง `.msg-activity` ทุกอันใน transcript (ไม่ใช่แค่ที่ชี้อยู่)
+· เทสต์ใหม่ `scripts/selftest-activity-state.js` 5 checks · `check:chips` 10 checks ผ่าน
+
+**(ค) ป้าย “เปิดอยู่” ในรายการแชทที่บันทึกไว้** (ผู้ใช้สั่งเอาออก — ซ้ำกับป้าย “ปัจจุบัน”)
+· ตัด `${open ? " · เปิดอยู่" : ""}` ออกจาก `.s-meta` · ลบคีย์ i18n `openBadge` ทั้ง en/th
+· เพิ่มเช็คใน `selftest-session-marks-ui.js` กันถอย
+
+## ผลเทสต์ + ปล่อย
+- `npm test` **69/69** · `check:chips` · `check:marks` · `check:busy-state` ผ่าน
+- รอบปล่อย = `0.5.11`
