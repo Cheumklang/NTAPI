@@ -234,7 +234,9 @@ function build() {
 if (require.main === module) {
   const wanted = build();
   if (process.argv.includes('--check')) {
-    const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
+    // The working copy's line endings are a git artifact (`core.autocrlf`), not a
+    // difference in content: a checkout on Windows turns every line into CRLF.
+    const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n') : '';
     if (current !== wanted) {
       console.error('THIRD-PARTY-NOTICES.md is out of date — run: node app/scripts/gen-notices.js');
       process.exit(1);

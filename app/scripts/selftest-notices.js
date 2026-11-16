@@ -37,7 +37,10 @@ check('the notices file exists at the repo root', () => {
 
 check('the notices file matches what is installed', () => {
   const { build, OUT } = require('./gen-notices.js');
-  assert.strictEqual(fs.readFileSync(OUT, 'utf8'), build(), 'run: npm run notices');
+  // Compared with line endings normalised: the checkout on CI is CRLF and that is
+  // git's doing, not a different document.
+  const onDisk = fs.readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n');
+  assert.strictEqual(onDisk, build(), 'run: npm run notices');
 });
 
 check('the MIT packages carry their licence text', () => {
