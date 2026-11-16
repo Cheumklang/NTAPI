@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-16T16:39:42.170Z
-entries 15
-head_hash b3817d7a87a0bbb85c3ac6c08b1b6572eb9802c53ac4f69520ac4f0ea3a97263
-git 500f4e68e414223e5066e7ebb13f3a55430d3eca
+updated 2026-11-16T17:04:44.120Z
+entries 22
+head_hash 7fb839ee8d707d4b9380fcb871bb2c388c8ca99941afc9bfd9972aaaf5d7e9fb
+git 635055ad7bd6eb56d04496b59964c2ed34d75b06
 
 latest entries:
-  #8 2026-11-16T15:54:28.824Z commit — internal: บันทึกการปล่อย v0.5.12
-  #9 2026-11-16T15:54:29.393Z commit — internal: bump 0.5.12
-  #10 2026-11-16T16:04:05.932Z commit — internal: ให้ ledger ตรวจได้บน Linux CI และกันการแปลง line ending
-  #11 2026-11-16T16:07:06.251Z release — Released version 0.5.12
-  #12 2026-11-16T16:08:09.712Z commit — internal: บันทึกหลักฐานการปล่อย v0.5.12
-  #13 2026-11-16T16:13:08.842Z session — แก้ลำดับข้อความของผู้ใช้หลังสลับแชท + เทสต์ check:order
-  #14 2026-11-16T16:13:09.666Z commit — ข้อความของเราอยู่เหนือคำตอบเสมอ แม้สลับแชทกลับมา
   #15 2026-11-16T16:39:42.068Z session — ปุ่มซื้อเครดิต 5 เจ้า + THIRD-PARTY-NOTICES + not-affiliated + แก้ reconcileBusy hidden
+  #16 2026-11-16T16:39:42.930Z commit — บอกผู้ใช้ที่เติมเครดิตได้ + แนบสัญญาอนุญาตซอฟต์แวร์ + ปลดคิวค้างตอนหน้าต่างอยู่เบื้องหลัง
+  #17 2026-11-16T16:43:05.500Z commit — internal: bump 0.5.13
+  #18 2026-11-16T16:43:06.113Z commit — internal: บันทึกการปล่อย v0.5.13
+  #19 2026-11-16T16:50:23.790Z commit — internal: สร้างรายการสัญญาอนุญาตจาก lockfile ให้เหมือนกันทุกเครื่อง
+  #20 2026-11-16T16:53:48.430Z commit — internal: ทำให้ไฟล์สัญญาอนุญาตเหมือนกันทุกเครื่อง (line ending)
+  #21 2026-11-16T16:57:22.201Z commit — internal: เทียบไฟล์สัญญาอนุญาตโดยไม่สน line ending ของ checkout
+  #22 2026-11-16T17:04:44.032Z release — Released version 0.5.13

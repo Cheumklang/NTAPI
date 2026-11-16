@@ -2340,3 +2340,12 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 **แก้หลัง CI แดง (v0.5.13):** `selftest-notices` ล้มบน CI เพราะรายการ license สร้างจาก `node_modules`
 ที่แต่ละเครื่องติดตั้งไม่เหมือนกัน → เปลี่ยน `gen-notices.js` ให้อ่านจาก `package-lock.json` (137 แพ็กเกจ runtime)
 ไฟล์จึงเหมือนกันทุกเครื่อง · `notices:check` เขียว · `npm test` 71/71
+
+**ผลปล่อย v0.5.13 (ยืนยันแล้ว)**
+- tag `v0.5.13` ที่ commit สุดท้าย (635055a) · CI `43913167041` **success**
+- **retag หนึ่งรอบ**: รอบแรก build จาก tag ที่ยังมี notices ไม่ครบ (สร้างจาก node_modules ของเครื่องผม)
+  → ลบ release/tag แล้ว retag ที่ HEAD เพื่อให้ installer มี `THIRD-PARTY-NOTICES.md` ครบ 137 แพ็กเกจ
+- Release run `43913596867` success · asset: `NTAPI-Setup-0.5.13.exe` 118,287,081B · `latest.yml` (0.5.13) · blockmap
+- **sha256** `205ccbd2f5c3b44d694b9baf0a04a71d7caf41e7779abe39f41a0be66624ebe3` · range download HTTP 206
+- บันทึก `PROVENANCE/releases/v0.5.13.json` (seq 22) + anchor · ลบ `v0.5.12` แล้ว → เหลือรุ่นเดียว
+- รอบถัดไป = `0.5.14`

@@ -1,0 +1,27 @@
+{
+  "version": "0.5.13",
+  "tag": "v0.5.13",
+  "recordedAt": "2026-11-16T17:04:44.028Z",
+  "git": {
+    "head": "635055ad7bd6eb56d04496b59964c2ed34d75b06",
+    "branch": "master",
+    "tree": "7aca786d1d160370ceb332339d6f695e2c6fe0c4",
+    "subject": "internal: เทียบไฟล์สัญญาอนุญาตโดยไม่สน line ending ของ checkout",
+    "authorDate": "2026-11-16T23:57:21+07:00",
+    "commitCount": 292
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/43913596867",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.13.exe",
+      "size": 118287081,
+      "sha256": "205ccbd2f5c3b44d694b9baf0a04a71d7caf41e7779abe39f41a0be66624ebe3"
+    },
+    {
+      "name": "latest.yml",
+      "size": 342,
+      "sha256": null
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.13"
+}
