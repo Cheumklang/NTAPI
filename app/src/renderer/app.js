@@ -316,6 +316,16 @@ const STRINGS = {
     clearAction: 'Clear chat',
     clearDone: 'Chat cleared — messages and attached images were deleted.',
     clearKeptName: 'Chat cleared. The name and model were kept.',
+    deleteFailed: 'Could not delete: {error}',
+    deletedFromDisk: 'Deleted this chat from disk.',
+    attachPathFailed: 'Could not read the path of “{name}”. Use the Attach button instead.',
+    modelSwitchFailed: 'Could not switch model: {error}',
+    unknownError: 'unknown cause',
+    noticeReasoningOverflow:
+      'The model spent its whole output limit on reasoning and never answered. Retry, or pick a model that does not think first.',
+    noticeClearUnlink: 'Chat closed, but its history file could not be deleted: {error}',
+    noticeClearOutsideStore:
+      'Chat closed, but its history file is outside the app session store and was left on disk.',
     pinChat: 'Pin chat',
     unpinChat: 'Unpin chat',
     chatColor: 'Chat colour',
@@ -666,6 +676,16 @@ const STRINGS = {
     clearAction: 'ล้างแชท',
     clearDone: 'ล้างแชทแล้ว — ลบข้อความและรูปที่แนบเรียบร้อย',
     clearKeptName: 'ล้างแชทแล้ว — เก็บชื่อและ model เดิมไว้ให้',
+    deleteFailed: 'ลบไม่ได้: {error}',
+    deletedFromDisk: 'ลบแชทนี้ออกจากเครื่องแล้ว',
+    attachPathFailed: 'อ่านที่อยู่ไฟล์ “{name}” ไม่ได้ — ใช้ปุ่มแนบไฟล์แทน',
+    modelSwitchFailed: 'สลับ model ไม่ได้: {error}',
+    unknownError: 'ไม่ทราบสาเหตุ',
+    noticeReasoningOverflow:
+      'model ใช้เพดานผลลัพธ์หมดไปกับการคิดแล้วไม่ได้ตอบเลย — ลองส่งอีกครั้ง หรือเปลี่ยนไปใช้ model ที่ไม่ใช่สายคิดก่อนตอบ',
+    noticeClearUnlink: 'ปิดแชทแล้ว แต่ลบไฟล์ประวัติไม่ได้: {error}',
+    noticeClearOutsideStore:
+      'ปิดแชทแล้ว แต่ไฟล์ประวัติอยู่นอกโฟลเดอร์ของแอป จึงยังค้างอยู่ในเครื่อง',
     pinChat: 'ปักหมุดแชท',
     unpinChat: 'เอาหมุดออก',
     chatColor: 'สีของแชท',
@@ -1018,6 +1038,42 @@ let noticeIsRetry = false;
  * which read as a glitch. Nothing needs dismissing either way: this is a passing
  * remark ("sent into the running turn"), not a dialog.
  */
+/**
+ * What the network stack said, in Thai.
+ *
+ * Provider failures arrive as raw prose from outside the app: `fetch failed`,
+ * `net::ERR_CONNECTION_RESET`, `401 Unauthorized`. Nothing can translate those
+ * at the source — so they are mapped here, locally, before the notice is
+ * painted. This costs no tokens and no time: it is a table lookup.
+ *
+ * The patterns are deliberately narrow. A broad rule such as /not found/ would
+ * also rewrite "model not found", which is a different problem with a different
+ * fix, so each rule matches only the technical token itself.
+ */
+const TECHNICAL_ERRORS = [
+  [/fetch failed|socket hang up|network error|net::ERR_[A-Z_]+/gi,
+    'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — เช็คอินเทอร์เน็ตแล้วลองใหม่'],
+  [/\b(ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN)\b/g,
+    'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — เช็คอินเทอร์เน็ตแล้วลองใหม่'],
+  [/\bETIMEDOUT\b|timed out/gi, 'หมดเวลารอคำตอบ — ลองใหม่'],
+  [/\b429\b|rate.?limit/gi, 'ส่งคำขวเร็วเกินไป — รอสักครู่แล้วลองใหม่'],
+  [/\b401\b|unauthori[sz]ed|invalid api key/gi, 'คีย์ไม่ถูกต้องหรือหมดอายุ'],
+  [/\b403\b|forbidden/gi, 'ถูกปฏิเสธสิทธิ์ (403)'],
+  [/\b404\b/g, 'ไม่พบปลายทาง (404)'],
+  [/\b50[0234]\b/g, 'เซิร์ฟเวอร์ผู้ให้บริการมีปัญหา — ลองใหม่ภายหลัง'],
+  [/\bENOSPC\b/g, 'ดิสก์เต็ม'],
+  [/\bEACCES\b|\bEPERM\b/g, 'ไม่มีสิทธิ์เข้าถึงไฟล์'],
+  [/\bENOENT\b/g, 'ไม่พบไฟล์หรือโฟลเดอร์'],
+];
+
+/** Rewrite the technical fragments in a notice, leaving everything else alone. */
+function softenTechnical(text) {
+  let out = String(text || '');
+  if (lang !== 'th') return out;
+  for (const [pattern, thai] of TECHNICAL_ERRORS) out = out.replace(pattern, thai);
+  return out;
+}
+
 function showNotice(text, ms) {
   clearTimeout(noticeTimer);
   if (!text) {
@@ -1027,7 +1083,7 @@ function showNotice(text, ms) {
   }
   noticeEl.classList.remove('out');
   noticeEl.hidden = false;
-  noticeEl.textContent = text;
+  noticeEl.textContent = softenTechnical(text);
   // Restart the entrance animation even when a notice replaces another one.
   noticeEl.classList.remove('in');
   void noticeEl.offsetWidth;
@@ -3248,7 +3304,13 @@ async function clearSession(tabId) {
     renderAttachments();
     input.value = '';
     autoGrow();
-    showNotice(res?.warning || (res?.keptName ? t('clearKeptName') : t('clearDone')));
+    showNotice(
+      res?.warningKey
+        ? t(res.warningKey, res.warningParams || null)
+        : res?.keptName
+          ? t('clearKeptName')
+          : t('clearDone'),
+    );
     setTimeout(() => showNotice(null), 3200);
   } catch (err) {
     showNotice(errorText(err));
@@ -4448,7 +4510,7 @@ el('confirmDelete').addEventListener('click', async () => {
 
   const res = await api.deleteSession(state.cwd, state.session.path);
   if (!res?.ok) {
-    showNotice(`Could not delete: ${res?.error || 'unknown error'}`);
+    showNotice(t('deleteFailed', { error: res?.error || t('unknownError') }));
     return;
   }
 
@@ -4464,7 +4526,7 @@ el('confirmDelete').addEventListener('click', async () => {
     }
   }
 
-  showNotice(`Deleted session from disk.`);
+  showNotice(t('deletedFromDisk'));
   setTimeout(() => showNotice(null), 2500);
 
   // The chat is gone, so its pin/colour has nothing left to mark.
@@ -4555,7 +4617,7 @@ async function addAttachmentsFromFiles(files) {
     // Non-image: resolve the real path through the preload (File.path is gone in Electron 32+).
     const fullPath = api.pathForFile(file);
     if (!fullPath) {
-      showNotice(`Could not read the path of "${file.name}". Try the Attach button instead.`);
+      showNotice(t('attachPathFailed', { name: file.name }));
       continue;
     }
     pendingImages.push({
@@ -5046,7 +5108,7 @@ modelSelect.addEventListener('change', async () => {
     statusHint.textContent = `Model: ${m.name || m.id}`;
     refreshMessageAuthors();
   } catch (err) {
-    showNotice(`Could not switch model: ${err.message || err}`);
+    showNotice(t('modelSwitchFailed', { error: err.message || err }));
   }
 });
 
@@ -5123,6 +5185,20 @@ const SLASH_COMMANDS = [
       input.focus();
     },
   },
+  {
+    // Discovery only: once `/skill` is in the box the palette switches to the
+    // skill list, so this entry exists to make that reachable without knowing
+    // the word in advance.
+    name: '/skill',
+    en: 'Search the skills installed on this machine',
+    th: 'ค้นหารายชื่อทักษะที่ติดตั้งไว้',
+    run: () => {
+      input.value = '/skill ';
+      autoGrow();
+      updateSlashMenu();
+      input.focus();
+    },
+  },
 ];
 
 const slashState = { open: false, index: 0, items: [] };
@@ -5131,27 +5207,81 @@ function slashDescription(cmd) {
   return (lang === 'th' ? cmd.th : cmd.en) || cmd.en || '';
 }
 
+/**
+ * `/skill` lists what is installed on this machine, so nobody has to remember
+ * the name of all forty-odd of them.
+ *
+ * Bare `/` stays the command palette: burying twelve commands under forty skills
+ * would make both harder to find. The chosen entry is inserted as `@name` — the
+ * shorthand people already type — which the send path rewrites to `/skill:name`.
+ *
+ * Descriptions are shown exactly as the skill's own SKILL.md writes them. They
+ * are English because the skills are, and translating them here would need
+ * updating every time a skill is installed.
+ */
+const SKILL_SLASH_RE = /^\/skill(?:\s+(.*))?$/is;
+
+function skillSlashItems(query) {
+  const q = String(query || '').trim().toLowerCase();
+  return (Array.isArray(skillsCache) ? skillsCache : [])
+    .filter(
+      (skill) =>
+        !q ||
+        String(skill.name || '').toLowerCase().includes(q) ||
+        String(skill.description || '').toLowerCase().includes(q),
+    )
+    .map((skill) => ({
+      name: `@${skill.name}`,
+      en: skill.description || '',
+      th: skill.description || '',
+      run: () => {
+        input.value = `@${skill.name} `;
+        autoGrow();
+      },
+    }));
+}
+
+function applySlashItems(items) {
+  if (!items.length) {
+    hideSlashMenu();
+    return;
+  }
+  // Compared by name, not by identity: the skill entries are rebuilt on every
+  // keystroke, so an identity test would reset the highlight each time.
+  const same =
+    slashState.items.length === items.length &&
+    slashState.items.every((cmd, i) => cmd.name === items[i].name);
+  slashState.items = items;
+  if (!same) slashState.index = 0;
+  slashState.index = Math.min(slashState.index, items.length - 1);
+  renderSlashMenu();
+}
+
 function updateSlashMenu() {
   const text = input.value;
+  const skillMatch = SKILL_SLASH_RE.exec(text);
+  if (skillMatch) {
+    if (!skillsCache) {
+      // First time in this run the scan crosses IPC, so paint the list as soon
+      // as it lands rather than leaving the menu empty under the cursor.
+      loadSkills().then(() => {
+        if (SKILL_SLASH_RE.test(input.value)) updateSlashMenu();
+      });
+    }
+    applySlashItems(skillSlashItems(skillMatch[1]));
+    return;
+  }
   if (!text.startsWith('/') || /\s/.test(text)) {
     hideSlashMenu();
     return;
   }
   const query = text.slice(1).toLowerCase();
-  const items = SLASH_COMMANDS.filter((cmd) => {
-    const name = cmd.name.slice(1).toLowerCase();
-    return name.startsWith(query) || slashDescription(cmd).toLowerCase().includes(query);
-  });
-  if (!items.length) {
-    hideSlashMenu();
-    return;
-  }
-  const same =
-    slashState.items.length === items.length && slashState.items.every((cmd, i) => cmd === items[i]);
-  slashState.items = items;
-  if (!same) slashState.index = 0;
-  slashState.index = Math.min(slashState.index, items.length - 1);
-  renderSlashMenu();
+  applySlashItems(
+    SLASH_COMMANDS.filter((cmd) => {
+      const name = cmd.name.slice(1).toLowerCase();
+      return name.startsWith(query) || slashDescription(cmd).toLowerCase().includes(query);
+    }),
+  );
 }
 
 function renderSlashMenu() {
@@ -8519,6 +8649,10 @@ api.onChanges((p) => {
 /* ------------------------------ skills menu ------------------------- */
 
 let skillsCache = null;
+// Warm the list once this script has finished evaluating. The first `/skill`
+// then opens with the skills already in hand instead of waiting on an IPC scan,
+// and a failure is silent — the menu simply loads on demand as before.
+setTimeout(() => loadSkills(), 0);
 let skillsAt = 0;
 let skillsPromise = null;
 const SKILLS_TTL_MS = 60_000;

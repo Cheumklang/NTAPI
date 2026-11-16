@@ -19,6 +19,8 @@ const fs = require('node:fs');
  * those still run by hand (see .AGENT/HANDOFF.md).
  */
 const TESTS = [
+  'selftest-notice-i18n.js',
+  'selftest-skill-menu.js',
   'selftest-approval-policy.js',
   'selftest-approval-ui.js',
   'selftest-compact-queue.js',

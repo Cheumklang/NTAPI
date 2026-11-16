@@ -1263,6 +1263,9 @@ function planEmptyAnswerRetry(tabId, tab, message) {
     text:
       'The model used its whole output limit on reasoning and never answered. ' +
       'Retry, or pick another model — a non-reasoning one is more reliable here.',
+    // The renderer owns the wording: a sentence baked in here could only ever be
+    // English, and this notice sits right under a Thai composer.
+    key: 'noticeReasoningOverflow',
   });
 }
 
@@ -2987,6 +2990,8 @@ ipcMain.handle('session:clear', async (_e, tabId) => {
   if (activeTabId === tabId) activeTabId = tabs.keys().next().value || null;
 
   let warning = null;
+  let warningKey = null;
+  let warningParams = null;
   if (file) {
     const target = path.resolve(file);
     const root = path.resolve(SESSIONS_ROOT);
@@ -2995,12 +3000,13 @@ ipcMain.handle('session:clear', async (_e, tabId) => {
         await fs.promises.unlink(target);
       } catch (err) {
         if (err.code !== 'ENOENT') {
-          warning = `Chat closed, but the history file could not be deleted: ${
-            err instanceof Error ? err.message : String(err)
-          }`;
+          warningParams = { error: err instanceof Error ? err.message : String(err) };
+          warningKey = 'noticeClearUnlink';
+          warning = `Chat closed, but the history file could not be deleted: ${warningParams.error}`;
         }
       }
     } else {
+      warningKey = 'noticeClearOutsideStore';
       warning = 'Chat closed, but its history file is outside the app session store and was left on disk.';
     }
   }
@@ -3044,6 +3050,8 @@ ipcMain.handle('session:clear', async (_e, tabId) => {
       keptName: Boolean(keepName),
       keptModel: Boolean(state.model && keepModel),
       warning,
+      warningKey,
+      warningParams,
     };
   } catch (err) {
     persistTabs();
@@ -3051,6 +3059,8 @@ ipcMain.handle('session:clear', async (_e, tabId) => {
       ok: false,
       closed: true,
       warning,
+      warningKey,
+      warningParams,
       error: err instanceof Error ? err.message : String(err),
     };
   }
