@@ -1,0 +1,22 @@
+{
+  "version": "0.5.20",
+  "tag": "v0.5.20",
+  "recordedAt": "2026-11-17T08:48:14.535Z",
+  "git": {
+    "head": "6940ecf94d145a1f7825c312948a31214b21a043",
+    "branch": "master",
+    "tree": "f3604cf5498218799c7b1cb520efa480091828f9",
+    "subject": "คิว: ปุ่มแนบไฟล์ขึ้นชื่อคีย์ดิบ — เพิ่มข้อความ EN/TH ที่ขาด",
+    "authorDate": "2026-11-17T15:45:20+07:00",
+    "commitCount": 324
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44049457614",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.20.exe",
+      "size": 118337999,
+      "sha256": "8da9ea0ba36741120412d1cf58c896cea54d64e4c19a2f8d2f15ed03c5d171a5"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.20"
+}

@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-17T08:38:29.399Z
-entries 102
-head_hash aa2d7e1a1471d3ced66b4c9bf41f24fef6f85ec095d0b34d5a7df23f4d9caf3f
-git 4b0b22e91d817153ad306fdc3b610f933b9fddd9
+updated 2026-11-17T08:48:14.658Z
+entries 106
+head_hash de355f40bcd93a6aa398359b30acb6fab11735d542680194c7c046ffbc726fc0
+git 6940ecf94d145a1f7825c312948a31214b21a043
 
 latest entries:
-  #95 2026-11-17T07:38:12.897Z commit — Gemini มีโควต้าฟรี · ย้อนกลับและเปลี่ยนโมเดลได้ระหว่าง AI ทํางาน
-  #96 2026-11-17T08:19:35.381Z commit — internal: กันเทสต์ป้ายสถานะพังบน checkout แบบ CRLF
-  #97 2026-11-17T08:30:49.762Z release — Released version 0.5.18
-  #98 2026-11-17T08:30:50.650Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.18
   #99 2026-11-17T08:31:13.577Z commit — internal: บันทึกบทเรียนการปล่อยรุ่น 0.5.18
   #100 2026-11-17T08:34:30.096Z session — v0.5.19 saved-chat clock colon and 12-hour English
   #101 2026-11-17T08:34:30.752Z commit — เวลาในรายการแชทใช้เครื่องหมาย : และภาษาอังกฤษเป็น 12 ชั่วโมง
   #102 2026-11-17T08:38:29.273Z release — Released version 0.5.19
+  #103 2026-11-17T08:38:30.193Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.19
+  #104 2026-11-17T08:45:20.671Z session — v0.5.20 missing i18n keys and prune
+  #105 2026-11-17T08:45:21.316Z commit — คิว: ปุ่มแนบไฟล์ขึ้นชื่อคีย์ดิบ — เพิ่มข้อความ EN/TH ที่ขาด
+  #106 2026-11-17T08:48:14.542Z release — Released version 0.5.20
