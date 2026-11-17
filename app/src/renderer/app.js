@@ -2664,9 +2664,7 @@ function paintModelTrigger(model) {
   modelPickerPlan.className = `model-picker-plan ${plan}`;
   modelPickerPlan.textContent = model ? planText(model) : '';
   modelPickerPlan.title = model ? planTitle(model) : '';
-  // A row can be both: the price is what one more request costs, and the quota
-  // chip says the first ones are covered. The price alone would overstate a
-  // model that runs on the free daily allowance.
+  // A row can be both: the price badge and the free-allowance chip.
   if (modelPickerFreeTier) {
     const freeTier = Boolean(model?.freeTier);
     modelPickerFreeTier.hidden = !freeTier;

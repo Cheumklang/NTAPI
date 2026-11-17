@@ -177,7 +177,10 @@ check('the pill changes what it shows for a non-FreePi provider', () => {
   // same function so they cannot drift apart. The name line shows the company
   // that is answering; the model name is one hover away in its tooltip.
   assert.match(app, /function paintProviderMeter[\s\S]{0,1800}?pillName\.textContent = company/);
-  assert.match(app, /function paintProviderMeter[\s\S]{0,6000}?mirror\(\);[\s\S]{0,40}?\n\}/);
+  // The window is generous on purpose: the branches grow one provider at a time,
+  // and a checkout with CRLF line endings spends part of it on the extra byte.
+  // What matters is that mirror() is still the last thing the function does.
+  assert.match(app, /function paintProviderMeter[\s\S]{0,9000}?mirror\(\);[\s\S]{0,40}?\n\}/);
 });
 
 check('the pill percentage is bare, the sentence moved to the popover', () => {
