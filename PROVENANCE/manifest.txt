@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-17T09:37:28.483Z
-entries 111
-head_hash b9cae12850baf4f9b69a3d6a5e14a119b89b7fb04d20b2f26bb77f1cb61a0850
-git 5959276c31b4c68d9bfa253e495eb42949a67bb7
+updated 2026-11-17T09:57:14.340Z
+entries 116
+head_hash 252d48c584f7cda41ac7103b73c6668b20b6c130dd4936b976c3455a59d98a3d
+git a850d27c3c41a4bcf4d54651a3203076914f999c
 
 latest entries:
-  #104 2026-11-17T08:45:20.671Z session — v0.5.20 missing i18n keys and prune
-  #105 2026-11-17T08:45:21.316Z commit — คิว: ปุ่มแนบไฟล์ขึ้นชื่อคีย์ดิบ — เพิ่มข้อความ EN/TH ที่ขาด
-  #106 2026-11-17T08:48:14.542Z release — Released version 0.5.20
-  #107 2026-11-17T08:48:15.495Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.20
-  #108 2026-11-17T08:48:18.808Z commit — internal: [prune-releases keep=v0.5.20 apply tags] ลบรุ่นเก่าออกจากหน้าโหลด
   #109 2026-11-17T09:34:16.537Z session — v0.5.21 terms card language switch
   #110 2026-11-17T09:34:17.200Z commit — การณ์: สลับภาษาในกล่องยอมรับเงื่อนไข และภาษาเริ่มต้นตาม Windows
   #111 2026-11-17T09:37:28.363Z release — Released version 0.5.21
+  #112 2026-11-17T09:37:29.296Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.21
+  #113 2026-11-17T09:37:32.477Z commit — internal: [prune-releases keep=v0.5.21 apply tags] ลบรุ่นเก่าออกจากหน้าโหลด
+  #114 2026-11-17T09:53:13.450Z session — v0.5.22 wider terms card
+  #115 2026-11-17T09:53:14.035Z commit — การณ์: ขยายกล่องก่อนเริ่มใช้งานให้ข้อความไม่ตัดบรรทัด
+  #116 2026-11-17T09:57:14.221Z release — Released version 0.5.22

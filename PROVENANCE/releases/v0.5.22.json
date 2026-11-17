@@ -1,0 +1,22 @@
+{
+  "version": "0.5.22",
+  "tag": "v0.5.22",
+  "recordedAt": "2026-11-17T09:57:14.216Z",
+  "git": {
+    "head": "a850d27c3c41a4bcf4d54651a3203076914f999c",
+    "branch": "master",
+    "tree": "e02cb6ad4300c4aac6e798ba7e839be697dd70e4",
+    "subject": "การณ์: ขยายกล่องก่อนเริ่มใช้งานให้ข้อความไม่ตัดบรรทัด",
+    "authorDate": "2026-11-17T16:53:13+07:00",
+    "commitCount": 330
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44059694856",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.22.exe",
+      "size": 118338476,
+      "sha256": "481c08f672b58d9519625abab1636e547706723fa66c96d67bb7a06caff4c7fd"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.22"
+}
