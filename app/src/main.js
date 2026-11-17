@@ -477,6 +477,24 @@ function ensureWorkspaceFolders(cwd) {
 const prefsPath = () => path.join(DATA_ROOT, 'prefs.json');
 
 /**
+ * Which language the window opens in on a machine that has never chosen one.
+ *
+ * A fresh install used to open in English regardless, which put the terms card
+ * and the first-run guide in front of a Thai reader in a language they may not
+ * read — and agreeing to text you cannot read is not consent worth recording.
+ * Windows already knows the answer, so the first guess comes from its display
+ * language; only `th` is matched, because English is the safer guess for every
+ * other locale. A choice made in the app wins from then on.
+ */
+function initialLang(prefs) {
+  if (prefs.lang === 'en' || prefs.lang === 'th') return prefs.lang;
+  try {
+    if (String(app.getLocale() || '').toLowerCase().startsWith('th')) return 'th';
+  } catch {}
+  return 'en';
+}
+
+/**
  * The sponsor config that ships with the build.
  *
  * It is the fallback, not the source of truth: the live list comes from the feed
@@ -2193,7 +2211,7 @@ ipcMain.handle('app:boot', async () => {
     version: app.getVersion(),
     sessions: lastCwd ? await listSessions(lastCwd) : [],
     openTabs: Array.isArray(prefs.openTabs) ? prefs.openTabs : [],
-    lang: prefs.lang === 'th' ? 'th' : 'en',
+    lang: initialLang(prefs),
     theme: readTheme(),
     // Fixed identity — never read from prefs so it cannot be edited.
     profile: {

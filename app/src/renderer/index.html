@@ -1148,6 +1148,16 @@
     -->
     <div id="termsOverlay" class="overlay" hidden>
       <div class="dialog terms-dialog" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
+        <!--
+          The language switch has to live inside this card. It covers the whole
+          window, so the button in the title bar is unreachable exactly when the
+          wording matters most — and agreeing to text you cannot read is neither
+          consent nor fair. Two words, the same two the title bar shows.
+        -->
+        <div class="terms-lang" role="group" aria-label="Language">
+          <button type="button" class="terms-lang-btn" id="termsLangTh" lang="th" aria-pressed="false">ไทย</button>
+          <button type="button" class="terms-lang-btn" id="termsLangEn" lang="en" aria-pressed="false">EN</button>
+        </div>
         <h2 id="termsTitle" data-i18n="termsTitle">ก่อนเริ่มใช้งาน</h2>
         <p class="dialog-sub" data-i18n="termsIntro">
           NTAPI ทํางานด้วยคีย์ API ของคุณเอง และเก็บแชทไว้ในเครื่องนี้

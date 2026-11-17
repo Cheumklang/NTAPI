@@ -3215,3 +3215,16 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
   normalize เฉพาะคีย์ที่แตะ · `selftest-queue-edit.js` เป็นตัวจับ
 - ลบรุ่นเก่าบน GitHub ด้วย workflow prune (marker ใน commit message) เหลือ `v0.5.20` รุ่นเดียว
 - ปล่อย `0.5.20`: commit + tag + push · provenance record-release + anchor + verify
+
+## 2026-11-17 — v0.5.21: ภาษาในกล่องข้อกําหนด + ภาษาเริ่มต้นตามระบบ
+
+- ผู้ใช้ขอ: ให้เลือกภาษาได้ตอนติดตั้ง / อย่างน้อยในกล่องยอมรับเงื่อนไข — คุยกันแล้วเลือก **ทาง A**
+  (ชิปสลับภาษาในกล่อง + ค่าเริ่มต้นตาม Windows) ไม่ทํา NSIS language selector
+- `index.html`: `.terms-lang` + ปุ่ม `#termsLangTh`/`#termsLangEn` (`aria-pressed`)
+- `app.js`: `paintTermsLang()` ใน `showTerms()` + `applyLanguage()` · ปุ่มเรียก `setLanguage()`
+- `styles.css`: `.terms-lang-btn` + สถานะ active
+- `main.js`: `initialLang(prefs)` → `prefs.lang` มาก่อน, ไม่งั้น `app.getLocale()` เริ่มด้วย `th`
+- **ทดสอบจริงบนเครื่องผู้ใช้:** เปิด source run ด้วย `NTAPI_DATA_DIR` ใหม่ → กล่องขึ้น, ชิปทํางาน
+  · เครื่องนี้ `app.getLocale()` = en-US (แม้ display language = th-TH) → ผู้ใช้เลือก “คงตามระบบ”
+- เทสต์ใหม่ `scripts/selftest-first-run-lang.js` (13 เช็ค, source-level) → `npm test` 87/87
+- ปล่อย `0.5.21` + prune เหลือรุ่นเดียว

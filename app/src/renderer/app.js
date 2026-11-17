@@ -1110,6 +1110,8 @@ function applyLanguage() {
     btn.textContent = lang === 'en' ? 'EN' : 'TH';
     btn.title = lang === 'en' ? 'Switch to Thai' : 'เปลี่ยนเป็นภาษาอังกฤษ';
   }
+  // The terms card carries its own switch, since it covers the title bar.
+  if (typeof paintTermsLang === 'function') paintTermsLang();
   // The theme chip's tooltip is translated too.
   if (typeof paintThemeButton === 'function') paintThemeButton();
   const online = el('brandOnline');
@@ -6739,8 +6741,25 @@ function showTerms() {
   const overlay = el('termsOverlay');
   if (!overlay) return;
   overlay.hidden = false;
+  paintTermsLang();
   el('termsAccept')?.focus();
 }
+
+/**
+ * Mark which language the terms card is showing.
+ *
+ * The card can be the very first thing a new install paints, so its wording has
+ * to be switchable without leaving it — the title-bar switch is behind it.
+ */
+function paintTermsLang() {
+  const th = el('termsLangTh');
+  const en = el('termsLangEn');
+  if (th) th.setAttribute('aria-pressed', String(lang === 'th'));
+  if (en) en.setAttribute('aria-pressed', String(lang === 'en'));
+}
+
+el('termsLangTh')?.addEventListener('click', () => setLanguage('th'));
+el('termsLangEn')?.addEventListener('click', () => setLanguage('en'));
 
 function acceptTerms() {
   const overlay = el('termsOverlay');

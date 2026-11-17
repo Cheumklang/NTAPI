@@ -1,5 +1,19 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **⚠️ ล่าสุด (2026-11-17): v0.5.21 — สลับภาษาได้ในกล่อง “ก่อนเริ่มใช้งาน” + ภาษาเริ่มต้นตาม Windows**
+> - **ปัญหา:** กล่องข้อกําหนดทับทั้งหน้าจอ ปุ่มสลับภาษาอยู่ข้างหลัง → คนที่อ่านอังกฤษไม่ออกติดอยู่ตรงนั้น
+>   และเครื่องใหม่เปิดเป็นอังกฤษเสมอ (`lang: prefs.lang === 'th' ? 'th' : 'en'`)
+> - **แก้ (`app/src/renderer/index.html` + `app.js` + `styles.css`):**
+>   ชิป `ไทย` / `EN` มุมขวาบนของการ์ด (`#termsLangTh` / `#termsLangEn`, `aria-pressed`)
+>   · `paintTermsLang()` เรียกใน `showTerms()` และ `applyLanguage()` · สไตล์ `.terms-lang-btn[aria-pressed="true"]`
+> - **แก้ (`app/src/main.js`):** `initialLang(prefs)` — ใช้ `prefs.lang` ถ้ามี ไม่งั้นดู `app.getLocale()`
+>   เริ่มต้นด้วย `th` → ไทย, locale อื่นทั้งหมด → อังกฤษ (มี try/catch กัน boot พัง)
+>   · **ผู้ใช้ตัดสินใจ 2026-11-17: คงค่าเริ่มต้นตามระบบไว้** (ไม่บังคับไทยทุกเครื่อง) เพราะชิปในกล่องทํางานดี
+> - **ข้อเท็จจริงที่เจอตอนทดสอบ:** เครื่องผู้ใช้ `Get-Culture = en-US` แต่ Windows display language = `th-TH`
+>   → `app.getLocale()` คืน `en-US` จึงเปิดเป็นอังกฤษตามระบบ (ยืนยันด้วยภาพหน้าจอ + PowerShell)
+> - **เทสต์:** `scripts/selftest-first-run-lang.js` (ใหม่ 13 เช็ค) ลงทะเบียนใน `run-unit-tests.js` → **87/87**
+> - **เวอร์ชัน:** `0.5.21` · prune เก็บรุ่นเดียว
+
 > **⚠️ ล่าสุด (2026-11-17): v0.5.20 — แก้ปุ่ม “แนบไฟล์ในคิว” ที่ขึ้นชื่อคีย์ดิบ**
 > - **อาการ:** กดแก้ไขคิวแล้วปุ่มแนบไฟล์ขึ้น `queueAttach` (ชื่อคีย์) แทนข้อความไทย
 > - **ต้นเหตุ:** ใช้ `t('queueAttach')` / `t('queueAttachTitle')` / `t('queueRemoveImage')`
