@@ -3203,3 +3203,15 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - `formatSessionDate` และ `formatShortDateTime` เรียก `clockText` — ไม่มี `getHours()` เหลือในไฟล์
 - `scripts/selftest-session-date.js`: `loadFormatter` ใส่ `clockText` เข้า sandbox + เพิ่มเคส 7 ข้อ (บ่าย/ตี 2/เที่ยงคืน/เที่ยงวัน/ไม่มีจุด)
 - `npm test` 85/85 · ปล่อย `0.5.19` (commit + tag + push ตามคําสั่ง “ส่งแค่อัปเดต”)
+
+## 2026-11-17 — v0.5.20: คีย์ i18n ที่ขาด (queueAttach) + ลบรุ่นเก่า
+
+- ผู้ใช้เจอ: กดแก้ไขคิวแล้วปุ่มขึ้น `queueAttach` → คีย์ไม่มีในพจนานุกรมทั้ง EN/TH
+- เพิ่ม `queueAttach`, `queueAttachTitle`, `queueRemoveImage` (ไทย: แนบไฟล์ในคิว / แนบไฟล์ให้ข้อความที่อยู่ในคิวนี้ / เอาไฟล์นี้ออก)
+- สแกนทั้งไฟล์เพิ่ม: เจอคีย์ขาดอีก 3 ตัวที่ใช้ผ่าน `data-i18n` — `approvalKeys`, `browserPairCode`, `guestBadge` → เพิ่มครบ
+- เทสต์ใหม่ `scripts/selftest-i18n-keys.js` (86 ตัวในชุด): เทียบคีย์ที่ใช้กับพจนานุกรมทั้งสองภาษา
+  + ตรวจความเท่ากันของชุดคีย์ + คีย์ของคิว 3 ตัว
+- บทเรียน: `edit` บล็อกภาษาไทยทําให้ `ำ` กลายเป็น U+0E4D+U+0E32 (3 บรรทัดในคิว) → แก้ด้วย node
+  normalize เฉพาะคีย์ที่แตะ · `selftest-queue-edit.js` เป็นตัวจับ
+- ลบรุ่นเก่าบน GitHub ด้วย workflow prune (marker ใน commit message) เหลือ `v0.5.20` รุ่นเดียว
+- ปล่อย `0.5.20`: commit + tag + push · provenance record-release + anchor + verify

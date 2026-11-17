@@ -82,6 +82,7 @@ const TESTS = [
   'selftest-follow-stream.js',
   'selftest-queue-edit-media.js',
   'selftest-session-date.js',
+  'selftest-i18n-keys.js',
   'selftest-theme.js',
   'selftest-markup-structure.js',
   'selftest-notice-countdown.js',
