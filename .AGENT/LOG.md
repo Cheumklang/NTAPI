@@ -3146,3 +3146,12 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - สแกนทั้ง repo: 242 จุดใน 19 ไฟล์ (`.AGENT/LOG.md` 61, `HANDOFF.md` 56, `TERMS.md` 22,
   `app/src/renderer/app.js` 21 = ข้อความ UI ที่ผู้ใช้เห็น, `PRIVACY.md` 10, `index.html` 7)
 - ผู้ใช้บอกของเก่าไม่ต้องไล่แก้ — รอคำสั่งว่าจะเก็บ UI/เอกสารที่ผู้ใช้เห็นก่อนหรือไม่
+
+## 2026-11-17 — ปิดงานวัน (commit กฎสระอำ)
+
+- commit `8346de8` = กฎสระอำใน `AGENTS.md` + `check-sara-am.js` + `npm run check:sara`
+- เก็บขยะ: ไฟล์ข้อความชั่วคราวหลุดเข้า repo ตอน commit → ลบใน `732f4f4` (บทเรียน:
+  เขียนไฟล์ commit message ไว้นอก repo เสมอ เช่น `C:\NTAPI\outputs\`)
+- ผู้ใช้สั่ง **ไม่ต้องไล่แก้ ํา ในไฟล์เก่า** — session หน้าจะเห็นแล้วแก้เอง
+- สถานะปิดงาน: source `master` = origin (0/0) · releases `main` = origin (0/0) ·
+  `npm test` 84/84 · provenance verify OK · เหลือค้างตามดีไซน์แค่ `PROVENANCE/ledger.jsonl` 1 บรรทัด
