@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-17T08:30:49.864Z
-entries 97
-head_hash a50b6756b8074bb9bd4d5bd5dd2e66bc9135ec512dc42ff97656275af02dab96
-git 515f110eb2dd2e3746f0e95365d6b119f299c87b
+updated 2026-11-17T08:38:29.399Z
+entries 102
+head_hash aa2d7e1a1471d3ced66b4c9bf41f24fef6f85ec095d0b34d5a7df23f4d9caf3f
+git 4b0b22e91d817153ad306fdc3b610f933b9fddd9
 
 latest entries:
-  #90 2026-11-17T07:17:47.819Z commit — internal: ลบไฟล์ชั่วคราวและบันทึก ledger
-  #91 2026-11-17T07:18:03.576Z commit — internal: ลบไฟล์ชั่วคราวออกจาก repo และบันทึก ledger
-  #92 2026-11-17T07:19:18.902Z commit — internal: บันทึกปิดงานรอบกฎสระอำ
-  #93 2026-11-17T07:27:38.759Z session — Gemini: tag flash/flash-lite as free quota, pro paid; meter + default model
-  #94 2026-11-17T07:38:12.273Z session — v0.5.18 quad free tier chip, undo and model switch while busy
   #95 2026-11-17T07:38:12.897Z commit — Gemini มีโควต้าฟรี · ย้อนกลับและเปลี่ยนโมเดลได้ระหว่าง AI ทํางาน
   #96 2026-11-17T08:19:35.381Z commit — internal: กันเทสต์ป้ายสถานะพังบน checkout แบบ CRLF
   #97 2026-11-17T08:30:49.762Z release — Released version 0.5.18
+  #98 2026-11-17T08:30:50.650Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.18
+  #99 2026-11-17T08:31:13.577Z commit — internal: บันทึกบทเรียนการปล่อยรุ่น 0.5.18
+  #100 2026-11-17T08:34:30.096Z session — v0.5.19 saved-chat clock colon and 12-hour English
+  #101 2026-11-17T08:34:30.752Z commit — เวลาในรายการแชทใช้เครื่องหมาย : และภาษาอังกฤษเป็น 12 ชั่วโมง
+  #102 2026-11-17T08:38:29.273Z release — Released version 0.5.19

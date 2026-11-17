@@ -1,0 +1,22 @@
+{
+  "version": "0.5.19",
+  "tag": "v0.5.19",
+  "recordedAt": "2026-11-17T08:38:29.267Z",
+  "git": {
+    "head": "4b0b22e91d817153ad306fdc3b610f933b9fddd9",
+    "branch": "master",
+    "tree": "2a19c7fc7512dc52716f092c6a0a49361d7aaa2b",
+    "subject": "เวลาในรายการแชทใช้เครื่องหมาย : และภาษาอังกฤษเป็น 12 ชั่วโมง",
+    "authorDate": "2026-11-17T15:34:30+07:00",
+    "commitCount": 322
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44047919147",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.19.exe",
+      "size": 118337464,
+      "sha256": "2408bfd858f638c2a9857a61fa3debbf04f60ab02d13c3c3edb3cbc31a1a8bf6"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.19"
+}
