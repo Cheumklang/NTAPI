@@ -1,5 +1,13 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **⚠️ ล่าสุด (2026-11-17): ปรับ README ของ repo ปล่อยให้ตรงรุ่น 0.5.17**
+> - โลโก้ใหญ่เกิน → `<img width="88">` ใน `<div align="center">` (เดิม `![NTAPI](icon.png)` เต็มความกว้าง)
+> - **ผู้ให้บริการ 9 ราย** (เดิมขาด DeepSeek / Claude / Gemini) + คอลัมน์ฟรี-เสียเงิน
+> - จุดเด่นอัปเดต: Chrome/ส่วนขยาย, ระดับความคิด, แนบรูป, คิวข้อความ, อนุมัติก่อนรัน,
+>   MCP + สกิล `@ชื่อ`, คำสั่งลัด, ราคา ฿/$, ปักหมุด/ใส่สีแชท · EN section ปรับตาม
+> - repo ปล่อย commit `4b632f5` push แล้ว · `main...origin/main` สะอาด
+>   · raw.githubusercontent มี cache ค้าง — หน้าเว็บ GitHub เห็นเนื้อหาใหม่แล้ว (ปกติ)
+
 > **⚠️ ล่าสุด (2026-11-17): ปล่อย v0.5.17 + เก็บงานค้างใน NTAPI-releases**
 > - **v0.5.17 ปล่อยแล้ว** · `latest.yml` = 0.5.17 · `NTAPI-Setup-0.5.17.exe` 118,334,466 bytes
 >   sha256 `4e9103b0…e775a` · prune เหลือรุ่นเดียวบน GitHub · provenance record-release + anchor + verify OK
