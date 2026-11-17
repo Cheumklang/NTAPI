@@ -128,6 +128,7 @@ const STRINGS = {
     holdEdit: 'Edit',
     holdCancel: 'Cancel',
     holdDropped: 'Dropped.',
+    undoSendPartial: 'Stopped the answer, but the message could not be removed from this chat.',
     undoCountdown: 'Editable for {n}s',
     guideSkip: 'Skip',
     guideNext: 'Next',
@@ -261,6 +262,42 @@ const STRINGS = {
     deepseekRemoved: 'DeepSeek key removed.',
     deepseekMeterLabel: 'Pay per token',
     deepseekLimits: 'peak $0.30 in / $1.20 out per 1M',
+    anthropicSection: 'Claude',
+    anthropicSave: 'Save',
+    anthropicRemove: 'Remove',
+    anthropicRemoveTitle: 'Remove the Claude key?',
+    anthropicRemoveSub:
+      'Claude models leave the dropdown. A turn already running finishes; the chat stays on Claude until you switch.',
+    anthropicConfigured: 'Configured',
+    anthropicUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    anthropicNotConfigured: 'No key yet — Claude models stay hidden.',
+    anthropicGetKey: 'Get a key at platform.claude.com',
+    anthropicBuy: 'Top up the balance at platform.claude.com',
+    anthropicSaved: 'Claude key saved.',
+    anthropicUnverified: 'Anthropic could not be reached — the key was saved unverified.',
+    anthropicSaveFailed: 'Could not save the key:',
+    anthropicRemoved: 'Claude key removed.',
+    anthropicMeterLabel: 'Pay per token',
+    anthropicPrice: '{in} in / {out} out per 1M',
+    anthropicLimits: 'Claude Opus 4.5 $5 in / $25 out per 1M',
+    googleSection: 'Gemini',
+    googleSave: 'Save',
+    googleRemove: 'Remove',
+    googleRemoveTitle: 'Remove the Gemini key?',
+    googleRemoveSub:
+      'Gemini models leave the dropdown. A turn already running finishes; the chat stays on Gemini until you switch.',
+    googleConfigured: 'Configured',
+    googleUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    googleNotConfigured: 'No key yet — Gemini models stay hidden.',
+    googleGetKey: 'Get a key at aistudio.google.com',
+    googleBuy: 'Manage billing at aistudio.google.com',
+    googleSaved: 'Gemini key saved.',
+    googleUnverified: 'Gemini could not be reached — the key was saved unverified.',
+    googleSaveFailed: 'Could not save the key:',
+    googleRemoved: 'Gemini key removed.',
+    googleMeterLabel: 'Pay per token',
+    googlePrice: '{in} in / {out} out per 1M',
+    googleLimits: 'Gemini 2.5 Pro $1.25 in / $10 out per 1M',
     mcpSection: 'MCP',
     mcpHead: 'MCP servers',
     mcpIntro:
@@ -485,6 +522,8 @@ const STRINGS = {
     tokUnit: 'tokens',
     tokUnitCache: 'tokens · cache',
     tokUnitMoney: 'USD',
+    tokUnitBaht: 'baht',
+    deepseekPrice: 'peak {in} in / {out} out per 1M',
     tokGroupSession: 'Session total',
     tokGroupSent: 'What was sent',
     tokCompare: 'Last two turns',
@@ -585,6 +624,7 @@ const STRINGS = {
     holdEdit: 'แก้ไข',
     holdCancel: 'ยกเลิก',
     holdDropped: 'ยกเลิกแล้ว',
+    undoSendPartial: 'หยุดคำตอบแล้ว แต่ลบข้อความออกจากแชทนี้ไม่ได้',
     undoCountdown: 'แก้ไขได้อีก {n} วิ',
     guideSkip: 'ข้าม',
     guideNext: 'ถัดไป',
@@ -713,6 +753,42 @@ const STRINGS = {
     deepseekRemoved: 'ลบคีย์ DeepSeek แล้ว',
     deepseekMeterLabel: 'จ่ายตามโทเคน',
     deepseekLimits: 'ราคา peak $0.30 เข้า / $1.20 ออก ต่อ 1M',
+    anthropicSection: 'Claude',
+    anthropicSave: 'บันทึก',
+    anthropicRemove: 'ลบออก',
+    anthropicRemoveTitle: 'ลบคีย์ Claude?',
+    anthropicRemoveSub:
+      'โมเดล Claude จะหายจากรายการ เทิร์นที่กําลังทําอยู่จะจบก่อน และแชทนี้จะอยู่กับ Claude จนกว่าคุณจะเปลี่ยนเอง',
+    anthropicConfigured: 'ตั้งค่าแล้ว',
+    anthropicUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    anthropicNotConfigured: 'ยังไม่มีคีย์ — โมเดล Claude จะไม่แสดง',
+    anthropicGetKey: 'ขอคีย์ที่ platform.claude.com',
+    anthropicBuy: 'เติมเครดิตที่ platform.claude.com',
+    anthropicSaved: 'บันทึกคีย์ Claude แล้ว',
+    anthropicUnverified: 'ติดต่อ Anthropic ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
+    anthropicSaveFailed: 'บันทึกคีย์ไม่สําเร็จ:',
+    anthropicRemoved: 'ลบคีย์ Claude แล้ว',
+    anthropicMeterLabel: 'จ่ายตามโทเคน',
+    anthropicPrice: '{in} เข้า / {out} ออก ต่อ 1M',
+    anthropicLimits: 'Claude Opus 4.5 $5 เข้า / $25 ออก ต่อ 1M',
+    googleSection: 'Gemini',
+    googleSave: 'บันทึก',
+    googleRemove: 'ลบออก',
+    googleRemoveTitle: 'ลบคีย์ Gemini?',
+    googleRemoveSub:
+      'โมเดล Gemini จะหายจากรายการ เทิร์นที่กําลังทําอยู่จะจบก่อน และแชทนี้จะอยู่กับ Gemini จนกว่าคุณจะเปลี่ยนเอง',
+    googleConfigured: 'ตั้งค่าแล้ว',
+    googleUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    googleNotConfigured: 'ยังไม่มีคีย์ — โมเดล Gemini จะไม่แสดง',
+    googleGetKey: 'ขอคีย์ที่ aistudio.google.com',
+    googleBuy: 'จัดการการชําระเงินที่ aistudio.google.com',
+    googleSaved: 'บันทึกคีย์ Gemini แล้ว',
+    googleUnverified: 'ติดต่อ Gemini ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
+    googleSaveFailed: 'บันทึกคีย์ไม่สําเร็จ:',
+    googleRemoved: 'ลบคีย์ Gemini แล้ว',
+    googleMeterLabel: 'จ่ายตามโทเคน',
+    googlePrice: '{in} เข้า / {out} ออก ต่อ 1M',
+    googleLimits: 'Gemini 2.5 Pro $1.25 เข้า / $10 ออก ต่อ 1M',
     mcpSection: 'MCP',
     mcpHead: 'เซิร์ฟเวอร์ MCP',
     mcpIntro:
@@ -935,7 +1011,9 @@ const STRINGS = {
     tokCost: 'ค่าใช้จ่าย',
     tokUnit: 'โทเคน',
     tokUnitCache: 'โทเคน · แคช',
-    tokUnitMoney: 'USD',
+    tokUnitMoney: 'บาท',
+    tokUnitBaht: 'บาท',
+    deepseekPrice: 'ราคา peak {in} เข้า / {out} ออก ต่อ 1M',
     tokGroupSession: 'รวมทั้งเซสชัน',
     tokGroupSent: 'แยกที่ส่งไป',
     tokCompare: 'เทียบ 2 รอบ',
@@ -1013,6 +1091,11 @@ function applyLanguage() {
   for (const node of document.querySelectorAll('[data-i18n-title]')) {
     node.title = t(node.getAttribute('data-i18n-title'));
   }
+  // Icon-only buttons have no visible word: their accessible name is the only
+  // thing a screen reader has, so it is translated from the same table.
+  for (const node of document.querySelectorAll('[data-i18n-aria]')) {
+    node.setAttribute('aria-label', t(node.getAttribute('data-i18n-aria')));
+  }
   const btn = el('langBtn');
   if (btn) {
     btn.textContent = lang === 'en' ? 'EN' : 'TH';
@@ -1067,6 +1150,30 @@ function applyLanguage() {
   if (typeof renderBrowserDialog === 'function') renderBrowserDialog();
   // Re-render the status legend so "18% used" follows the language too.
   if (lastUsage) applyUsageLabels(lastUsage);
+  /*
+   * Money follows the language: Thai reads baht. The rate is fetched once and
+   * then reused, so this costs one request in a session; `ensureUsdThb` repaints
+   * the figures when the answer lands, and a failure leaves the dollar amount
+   * (which is what the provider actually charged) on screen.
+   */
+  if (typeof ensureUsdThb === 'function') {
+    if (lang === 'th') ensureUsdThb();
+    if (typeof paintTokenUsage === 'function') paintTokenUsage();
+    if (typeof paintProviderMeter === 'function') paintProviderMeter(activeView());
+  }
+  /* Two tooltips are written in JS rather than marked up (the approval chip and
+   * its three positions), so they are repainted here as well. */
+  if (typeof applyApprovalMode === 'function' && typeof currentApprovalPolicy === 'function') {
+    try {
+      applyApprovalMode({ policy: currentApprovalPolicy() });
+    } catch {}
+  }
+  /* The saved-chat rows are built in JS, so their "Current" badge would keep the
+   * language it was drawn in until something else refreshed the list. */
+  if (typeof renderSessions === 'function') {
+    const cwd = activeView()?.cwd || lastWorkspace;
+    if (cwd) renderSessions(cwd);
+  }
   if (settingsData && !el('settingsOverlay').hidden) renderSettings();
   if (slashState.open) updateSlashMenu();
 }
@@ -2522,7 +2629,21 @@ function paintProviderMark(mark, provider) {
   mark.appendChild(letter);
 }
 
+/**
+ * The catalog entry for a model. pi's `view.model` only carries id/name, so the
+ * plan/price live on the matching entry in the model list — otherwise a paid
+ * model would draw with a "free" badge. Falls back to the bare model when the
+ * entry is gone (resumed session, removed key).
+ */
+function modelEntryFor(model) {
+  if (!model) return null;
+  const list = (menuModels.length ? menuModels : activeView()?.models || []).filter(Boolean);
+  const entry = list.find((m) => m.id === model.id && m.provider === model.provider);
+  return entry || model;
+}
+
 function paintModelTrigger(model) {
+  model = modelEntryFor(model);
   const provider = model?.provider || '';
   const name = model?.name || model?.id || '';
   paintProviderMark(modelPickerMark, provider);
@@ -2887,9 +3008,9 @@ function renderModelPicker(view) {
   }
 
   modelPickerBtn.disabled = models.length === 0;
-  paintModelTrigger(current);
   menuModels = models;
   menuCurrent = current;
+  paintModelTrigger(current);
   renderModelMenu(models, current);
   syncModelMenuSelection();
 
@@ -3107,6 +3228,19 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+/**
+ * The workspace chip: the folder's own name in the row, the whole path on hover.
+ * A full path never fits a 30px chip anyway, and the tooltip is one hover away.
+ */
+function paintWorkspaceChip(cwd) {
+  const label = el('cwdLabel');
+  const btn = el('pickFolder');
+  const full = String(cwd || '');
+  const name = full.split(/[\\/]+/).filter(Boolean).pop() || full;
+  if (label) label.textContent = full ? name : '…';
+  if (btn) btn.title = full || t('chooseWorkspace');
+}
+
 function renderActiveTab() {
   const view = activeView();
   if (!view) {
@@ -3127,7 +3261,7 @@ function renderActiveTab() {
   sessionTitle.placeholder = view.sessionId
     ? `Session ${String(view.sessionId).slice(0, 8)}`
     : t('untitled');
-  el('cwdLabel').textContent = view.cwd || '…';
+  paintWorkspaceChip(view.cwd);
   el('guestBadge').hidden = !view.guest;
 
   renderModelPicker(view);
@@ -3392,12 +3526,24 @@ function paintProviderMeter(view) {
   const pillName = el('statusProviderName');
   const pillMeter = el('statusProviderMeter');
   const mirror = () => {
-    if (pillName) pillName.textContent = name.textContent;
+    if (pillName) {
+      /*
+       * The tab names the company that is answering, not the model id: the pill
+       * is narrow, and the brand is what tells you at a glance whether this turn
+       * is spending money (Claude, Gemini, DeepSeek) or riding a free lane. The
+       * model name stays one hover away in the tooltip and full-size in the
+       * popover, which is where you look when you need the exact one.
+       */
+      const company = FPProvider.providerLabel(view?.model?.provider) || name.textContent;
+      const modelName = view?.model?.name || '';
+      pillName.textContent = company;
+      pillName.title = modelName ? `${company} · ${modelName}` : company;
+    }
     if (pillMeter) {
-      // The tab is narrower than some model names, and CSS ends the overflow in
-      // an ellipsis. The full sentence still has to be reachable on hover.
       pillMeter.textContent = text.textContent;
       pillMeter.title = text.textContent || '';
+      // Parked here for the popover mirror only; the pill does not show it.
+      pillMeter.hidden = true;
     }
   };
   if (!name || !text || !label) return;
@@ -3446,8 +3592,38 @@ function paintProviderMeter(view) {
   } else if (chrome.meter === 'deepseek') {
     // The balance is only in DeepSeek's own dashboard, and this is a paid route:
     // name the price rather than inventing a meter the API does not provide.
+    // The figures come from the model's own cost table, and are shown in the
+    // language's currency (฿ in Thai, $ in English).
     label.textContent = t('deepseekMeterLabel');
-    text.textContent = `${t('deepseekLimits')} · ${view?.model?.name || '—'}`;
+    // `view.model` is only the id/name pi selected; the price table lives on the
+    // entry in `view.models`.
+    const entry = (view?.models || []).find(
+      (m) => m && m.id === view?.model?.id && m.provider === view?.model?.provider
+    );
+    const cost = entry?.cost || view?.model?.cost;
+    const inUsd = Number(cost?.input);
+    const outUsd = Number(cost?.output);
+    const price =
+      Number.isFinite(inUsd) && Number.isFinite(outUsd)
+        ? t('deepseekPrice', { in: moneyText(inUsd), out: moneyText(outUsd) })
+        : t('deepseekLimits');
+    text.textContent = `${price} · ${view?.model?.name || '—'}`;
+  } else if (chrome.meter === 'anthropic' || chrome.meter === 'google') {
+    // Both are first-party paid routes: the balance lives in the vendor's own
+    // console, so the useful thing here is the price this model charges.
+    const paid = chrome.meter;
+    label.textContent = t(`${paid}MeterLabel`);
+    const entry = (view?.models || []).find(
+      (m) => m && m.id === view?.model?.id && m.provider === view?.model?.provider
+    );
+    const cost = entry?.cost || view?.model?.cost;
+    const inUsd = Number(cost?.input);
+    const outUsd = Number(cost?.output);
+    const price =
+      Number.isFinite(inUsd) && Number.isFinite(outUsd)
+        ? t(`${paid}Price`, { in: moneyText(inUsd), out: moneyText(outUsd) })
+        : t(`${paid}Limits`);
+    text.textContent = `${price} · ${view?.model?.name || '—'}`;
   } else {
     label.textContent = t('model');
     text.textContent = view?.model?.name || '—';
@@ -3593,6 +3769,8 @@ async function refreshTokenharborStatus() {
    store's own state, exactly like Token Harbor's. */
 let llm7Status = null;
 let deepseekStatus = null;
+let anthropicStatus = null;
+let googleStatus = null;
 
 function paintLlm7Settings() {
   const node = el('llm7Status');
@@ -3653,6 +3831,68 @@ async function refreshDeepSeekStatus() {
   }
   paintDeepSeekSettings();
   return deepseekStatus;
+}
+
+/** Settings copy for the Claude key: the shape, never the key. */
+function paintAnthropicSettings() {
+  const node = el('anthropicStatus');
+  const remove = el('anthropicRemove');
+  if (!node) return;
+
+  const s = anthropicStatus;
+  let text = t('anthropicNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('anthropicConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('anthropicUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+}
+
+async function refreshAnthropicStatus() {
+  try {
+    anthropicStatus = await api.anthropicStatus();
+  } catch {
+    anthropicStatus = null;
+  }
+  paintAnthropicSettings();
+  return anthropicStatus;
+}
+
+/** Settings copy for the Gemini key: the shape, never the key. */
+function paintGoogleSettings() {
+  const node = el('googleStatus');
+  const remove = el('googleRemove');
+  if (!node) return;
+
+  const s = googleStatus;
+  let text = t('googleNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('googleConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('googleUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+}
+
+async function refreshGoogleStatus() {
+  try {
+    googleStatus = await api.googleStatus();
+  } catch {
+    googleStatus = null;
+  }
+  paintGoogleSettings();
+  return googleStatus;
 }
 
 /**
@@ -4450,12 +4690,16 @@ async function openSettings() {
   tokenharborStatus = settingsData?.tokenharbor || null;
   llm7Status = settingsData?.llm7 || null;
   deepseekStatus = settingsData?.deepseek || null;
+  anthropicStatus = settingsData?.anthropic || null;
+  googleStatus = settingsData?.google || null;
   paintCoarenaSettings();
   paintZroSettings();
   paintNvidiaSettings();
   paintTokenharborSettings();
   paintLlm7Settings();
   paintDeepSeekSettings();
+  paintAnthropicSettings();
+  paintGoogleSettings();
   paintMcpSettings();
   paintProviderMeter(activeView());
   renderSettings();
@@ -4895,15 +5139,13 @@ const SIDEBAR_MAX = 520;
 const SIDEBAR_DEFAULT = 268;
 
 /**
- * How narrow the sidebar may become: wide enough for its widest single line.
+ * How narrow the sidebar may become: wide enough for its widest row.
  *
- * Two things set the floor. The top row (icon, name, badges, chips) used to slide
- * under itself at a fixed 200px, so its natural width is measured — every child
- * reports its own content width through `scrollWidth` even while flex squeezes
- * it. The approval note is the other: it is the longest fixed sentence in the
- * column, it is never allowed to wrap to a second line (that is what turns a
- * three-word explanation into a paragraph), so the column may not be dragged
- * narrower than the line it has to show.
+ * The top row (icon, name, badges, chips) used to slide under itself at a fixed
+ * 200px, so its natural width is measured — every child reports its own content
+ * width through `scrollWidth` even while flex squeezes it — and the row's own
+ * `scrollWidth` covers anything that still overflows (the presence badge, which
+ * can appear after the first measurement).
  */
 function sidebarMinWidth() {
   const brand = document.querySelector('#sidebar .brand');
@@ -4924,6 +5166,10 @@ function sidebarMinWidth() {
     row = kids.length
       ? kids.reduce((sum, n) => sum + Math.max(n.scrollWidth, n.offsetWidth), 0) + gap * (kids.length - 1)
       : 0;
+    // The row can overflow the column once the presence badge appears (the sum
+    // above is taken while it is still hidden). Its own scrollWidth is the
+    // width it really needs, so the last chip is never clipped below the edge.
+    row = Math.max(row, brand.scrollWidth);
   } finally {
     if (prev) root.style.setProperty('--sidebar-w', prev);
     else root.style.removeProperty('--sidebar-w');
@@ -5240,6 +5486,94 @@ el('deepseekBuy')?.addEventListener('click', () => {
   api.openExternal('https://platform.deepseek.com/top_up').catch(() => {});
 });
 
+/* ------------------------- Claude key ------------------------- */
+
+el('anthropicSave')?.addEventListener('click', async () => {
+  const inputEl = el('anthropicKeyInput');
+  const button = el('anthropicSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.anthropicSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      anthropicStatus = res.status || null;
+      paintAnthropicSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('anthropicUnverified') : t('anthropicSaved'));
+    } else {
+      showNotice(`${t('anthropicSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('anthropicSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('anthropicRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'anthropicRemove',
+    title: t('anthropicRemoveTitle'),
+    sub: t('anthropicRemoveSub'),
+    action: t('anthropicRemove'),
+  });
+});
+
+el('anthropicGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://platform.claude.com/settings/keys').catch(() => {});
+});
+
+el('anthropicBuy')?.addEventListener('click', () => {
+  api.openExternal('https://platform.claude.com/settings/billing').catch(() => {});
+});
+
+/* ------------------------- Gemini key ------------------------- */
+
+el('googleSave')?.addEventListener('click', async () => {
+  const inputEl = el('googleKeyInput');
+  const button = el('googleSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.googleSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      googleStatus = res.status || null;
+      paintGoogleSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('googleUnverified') : t('googleSaved'));
+    } else {
+      showNotice(`${t('googleSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('googleSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('googleRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'googleRemove',
+    title: t('googleRemoveTitle'),
+    sub: t('googleRemoveSub'),
+    action: t('googleRemove'),
+  });
+});
+
+el('googleGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://aistudio.google.com/apikey').catch(() => {});
+});
+
+el('googleBuy')?.addEventListener('click', () => {
+  api.openExternal('https://aistudio.google.com/apikey').catch(() => {});
+});
+
 el('settingsReset').addEventListener('click', async () => {
   const view = activeView();
   const cleared = {};
@@ -5392,6 +5726,10 @@ function paintPresence(s) {
       ? `ออนไลน์ตอนนี้ ${s.online.toLocaleString()} คน`
       : `${s.online.toLocaleString()} online now`;
   badge.hidden = false;
+  // The badge is part of the top row's width. Measuring the column before it
+  // appears made the row overflow its own padding by a few pixels once it did,
+  // so the chips below looked off by that much. Re-measure now that it is real.
+  applySidebarWidth();
 }
 
 // ---- account panel ----
@@ -5712,6 +6050,32 @@ el('confirmDelete').addEventListener('click', async () => {
     return;
   }
 
+  if (state.kind === 'anthropicRemove') {
+    const res = await api.anthropicClearKey();
+    if (res?.ok) {
+      anthropicStatus = res.status || null;
+      paintAnthropicSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('anthropicRemoved'));
+    } else {
+      showNotice(`${t('anthropicSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
+  if (state.kind === 'googleRemove') {
+    const res = await api.googleClearKey();
+    if (res?.ok) {
+      googleStatus = res.status || null;
+      paintGoogleSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('googleRemoved'));
+    } else {
+      showNotice(`${t('googleSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
   const res = await api.deleteSession(state.cwd, state.session.path);
   if (!res?.ok) {
     showNotice(t('deleteFailed', { error: res?.error || t('unknownError') }));
@@ -5783,7 +6147,7 @@ function renderAttachments() {
 
     const rm = document.createElement('button');
     rm.textContent = '×';
-    rm.title = 'Remove';
+    rm.title = t('removeTitle');
     rm.addEventListener('click', () => {
       pendingImages.splice(i, 1);
       renderAttachments();
@@ -6363,10 +6727,12 @@ async function boot() {
   refreshTokenharborStatus().catch(() => {});
   refreshLlm7Status().catch(() => {});
   refreshDeepSeekStatus().catch(() => {});
+  refreshAnthropicStatus().catch(() => {});
+  refreshGoogleStatus().catch(() => {});
   applySidebarWidth();
   if (info.lastCwd) {
     lastWorkspace = info.lastCwd;
-    el('cwdLabel').textContent = info.lastCwd;
+    paintWorkspaceChip(info.lastCwd);
   }
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});
   initSponsor();
@@ -7742,8 +8108,18 @@ function offerUndoSend(view, wrap, entry, { text, images }) {
       return;
     }
     stop();
+    /*
+     * Stop the turn *and* take the prompt back out of the session.
+     *
+     * Aborting alone left the message in the session, so the next repaint drew
+     * it again under an"stopped responding" banner that described an abort the
+     * user had asked for. Main owns both halves now, so what is on screen and what
+     * is stored agree.
+     */
+    let removed = true;
     try {
-      await api.abort(view.tabId);
+      const res = await api.takeBackPrompt(view.tabId);
+      removed = res?.ok !== false;
     } catch {
       // Nothing running yet is not an error.
     }
@@ -7751,6 +8127,12 @@ function offerUndoSend(view, wrap, entry, { text, images }) {
     if (at !== -1) view.messages.splice(at, 1);
     wrap.remove();
     emptyState.hidden = (view.messages || []).length > 0;
+    if (!removed) {
+      // Saying nothing here would leave a message the reader believes they
+      // cancelled; the words still come back below, which is the same promise
+      // the Cancel row made.
+      showNotice(t('undoSendPartial'), 2600);
+    }
     if (taken) {
       input.value = text || '';
       pendingImages = (images || []).slice();
@@ -7947,22 +8329,39 @@ const STATUS_CLOSE_DELAY_MS = 260;
  * periodic call to a currency service.
  */
 let usdThb = null;
-let usdThbAsked = false;
+/** When the rate on screen was fetched, and when the last attempt was made. */
+let usdThbAt = 0;
+let usdThbTriedAt = 0;
+/** The rate moves slowly; six hours is what the main process caches anyway. */
+const USD_THB_TTL = 6 * 60 * 60 * 1000;
+/** A failed lookup retries after a minute, not on every repaint. */
+const USD_THB_RETRY = 60 * 1000;
 
-async function ensureUsdThb() {
-  if (usdThb || usdThbAsked) return;
-  usdThbAsked = true;
+async function ensureUsdThb({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && usdThb && now - usdThbAt < USD_THB_TTL) return;
+  if (!force && now - usdThbTriedAt < USD_THB_RETRY) return;
+  usdThbTriedAt = now;
   try {
     const res = await api.getUsdThb?.();
     const rate = Number(res && res.rate);
-    if (Number.isFinite(rate) && rate > 0) usdThb = rate;
-    else usdThbAsked = false;
+    if (Number.isFinite(rate) && rate > 0) {
+      usdThb = rate;
+      usdThbAt = now;
+    }
   } catch {
-    // The dollar figure already on screen is still true; try again next time.
-    usdThbAsked = false;
+    // The dollar figure already on screen is still true; retry later.
   }
-  if (usdThb && statusPopoverOpen()) paintTokenUsage();
+  if (usdThb) {
+    if (statusPopoverOpen()) paintTokenUsage();
+    if (typeof paintProviderMeter === 'function') paintProviderMeter(activeView());
+  }
 }
+
+// A window left open for days should follow the market rather than a rate from
+// the morning it was launched. One request every six hours, the same interval
+// the main process caches for.
+setInterval(() => ensureUsdThb({ force: true }), USD_THB_TTL);
 
 /** A price the provider charged: baht when the program speaks Thai, dollars otherwise. */
 function costText(usage) {
@@ -7982,6 +8381,26 @@ function costText(usage) {
   return t('tokNoPrice');
 }
 
+/**
+ * The same money rule for figures quoted outside a usage total — a provider's
+ * published price, for instance. Thai readers get baht once the rate is known;
+ * until then the dollar figure is still true, so it stays.
+ */
+function moneyText(usd) {
+  const value = Number(usd);
+  if (!Number.isFinite(value)) return '—';
+  if (lang === 'th') {
+    if (usdThb) return `฿${(value * usdThb).toFixed(2)}`;
+    ensureUsdThb();
+  }
+  return `$${value.toFixed(2)}`;
+}
+
+/** Which symbol the figures on screen are in, for the unit label beside them. */
+function moneyUnit() {
+  return lang === 'th' && usdThb ? t('tokUnitBaht') : 'USD';
+}
+
 function paintTokenUsage(view = activeView()) {
   const set = (id, text) => { const node = el(id); if (node) node.textContent = text; };
   const num = (value) => Number(value || 0).toLocaleString('en-US');
@@ -7993,6 +8412,7 @@ function paintTokenUsage(view = activeView()) {
     for (const id of ['tokTotal', 'tokSent', 'tokSentNew', 'tokSentCache', 'tokReceived', 'tokSentPlus', 'tokCost']) {
       set(id, '—');
     }
+    set('tokCostUnit', moneyUnit());
     set('tokCalls', t('tokNone'));
     if (head) head.hidden = true;
     if (list) list.replaceChildren();
@@ -8007,6 +8427,8 @@ function paintTokenUsage(view = activeView()) {
   set('tokReceived', num(usage.received));
   set('tokSentPlus', num(usage.sentPlusReplied));
   set('tokCost', costText(usage));
+  // The unit follows the figure: baht when the amount is in baht, USD otherwise.
+  set('tokCostUnit', moneyUnit());
 
   // The turn on screen against the one before it. The main process already
   // worked out what changed, so this only has to put it on the line.
@@ -9310,11 +9732,12 @@ el('approvalDeny').addEventListener('click', () => answerApproval(false));
  * is deliberately ask -> allow -> deny, so the thumb moves left to right as the
  * setting gets more permissive and then to the far right for "never".
  */
-const APPROVAL_TITLES = {
-  ask: 'ถามเสมอ — ถามทุกครั้งก่อนให้ AI รันคำสั่ง',
-  allow: 'อนุมัติเสมอ — ไม่ถามเลย AI รันคำสั่งได้ทันที',
-  deny: 'ไม่อนุมัติเลย — ไม่ถามเลย AI รันคำสั่งไม่ได้',
-};
+/** Tooltips for the three positions, in the reader's language. */
+function approvalTitle(mode) {
+  if (mode === 'allow') return t('approvalAllowTitle');
+  if (mode === 'deny') return t('approvalDenyTitle');
+  return t('approvalAskTitle');
+}
 
 /** The three positions, in the order they appear on the switch. */
 const APPROVAL_ORDER = ['ask', 'allow', 'deny'];
@@ -9334,7 +9757,7 @@ function applyApprovalMode({ policy } = {}) {
   const mode = policy === 'allow' || policy === 'deny' ? policy : 'ask';
   for (const radio of approvalRadios()) {
     radio.checked = radio.value === mode;
-    radio.title = APPROVAL_TITLES[radio.value];
+    radio.title = approvalTitle(radio.value);
   }
   // Drive the thumb. The index, not a class per position, so adding a position
   // later only means adding one more radio and one more entry in the order.
@@ -9342,17 +9765,19 @@ function applyApprovalMode({ policy } = {}) {
   if (group) {
     const at = APPROVAL_ORDER.indexOf(mode);
     group.style.setProperty('--at', String(at === -1 ? 0 : at));
-    group.title = APPROVAL_TITLES[mode];
+    group.title = approvalTitle(mode);
   }
-  // The chip shows the current position without opening anything: the popover
-  // is where the choice lives, but the state must be readable at a glance.
+  // The chip is an icon now; its colour and label carry the mode.
   const chip = el('approvalBtnText');
-  if (chip) {
-    const radio = approvalRadios().find((r) => r.value === mode);
-    chip.textContent = (radio && radio.dataset.short) || mode;
-  }
+  const radio = approvalRadios().find((r) => r.value === mode);
+  const label = (radio && radio.dataset.short) || mode;
+  if (chip) chip.textContent = label;
   const btn = el('approvalBtn');
-  if (btn) btn.title = APPROVAL_TITLES[mode];
+  if (btn) {
+    btn.dataset.policy = mode;
+    btn.title = `${t('approvalTitle')}: ${approvalTitle(mode)}`;
+    btn.setAttribute('aria-label', btn.title);
+  }
   // No banner and no body class: the switch shows its own state, and a second
   // warning that says the same thing is just something else to read.
 }
@@ -9412,6 +9837,8 @@ for (const radio of approvalRadios()) {
     // The chip answers the click at once; the reply from main confirms it.
     const chip = el('approvalBtnText');
     if (chip) chip.textContent = e.target.dataset.short || e.target.value;
+    const btn = el('approvalBtn');
+    if (btn) btn.dataset.policy = e.target.value;
     const res = await api.setApprovalMode({ policy: e.target.value }).catch(() => null);
     if (res && res.policy) applyApprovalMode(res);
     // The choice is made; the popover goes back to being a chip.
@@ -9538,6 +9965,27 @@ Object.assign(STRINGS.en, {
   planNoteRouted: 'routed model',
   planNotePaidOnly: 'needs credits',
   freeOnly: 'Free only',
+  winMin: 'Minimize',
+  winMax: 'Maximize',
+  winClose: 'Close',
+  languageBtn: 'Switch language',
+  browserBtn: 'Browser control',
+  settingsBtn: 'Settings',
+  workspaceTitle: 'Choose a folder',
+  themeTitle: 'Light / dark theme',
+  approvalTitle: 'Tool approval',
+  approvalAskTitle: 'Ask every time — tools wait for you before running',
+  approvalAllowTitle: 'Approve automatically — tools run without asking',
+  approvalDenyTitle: 'Never approve — tools cannot run',
+  reasoningTitle: 'Reasoning effort',
+  modelTitle: 'Model',
+  freeOnlyTitle: 'Free only',
+  jumpLatest: 'Jump to the newest message',
+  attachTitle: 'Attach files (Ctrl+V to paste)',
+  findPrev: 'Previous match',
+  findNext: 'Next match',
+  findClose: 'Close',
+  removeTitle: 'Remove',
   favorites: 'Favorites',
   star: 'Add to favorites',
   unstar: 'Remove from favorites',
@@ -9601,6 +10049,27 @@ Object.assign(STRINGS.th, {
   planNoteRouted: 'ตามโมเดล',
   planNotePaidOnly: 'ต้องเติมเครดิต',
   freeOnly: 'เฉพาะฟรี',
+  winMin: 'ย่อหน้าต่าง',
+  winMax: 'ขยายหน้าต่าง',
+  winClose: 'ปิดหน้าต่าง',
+  languageBtn: 'เปลี่ยนภาษา',
+  browserBtn: 'ควบคุมเบราว์เซอร์',
+  settingsBtn: 'ตั้งค่า',
+  workspaceTitle: 'เลือกโฟลเดอร์งาน',
+  themeTitle: 'ธีมสว่าง / มืด',
+  approvalTitle: 'การอนุมัติเครื่องมือ',
+  approvalAskTitle: 'ถามเสมอ — ถามทุกครั้งก่อนให้ AI รันคำสั่ง',
+  approvalAllowTitle: 'อนุมัติเสมอ — ไม่ถามเลย AI รันคำสั่งได้ทันที',
+  approvalDenyTitle: 'ไม่อนุมัติเลย — ไม่ถามเลย AI รันคำสั่งไม่ได้',
+  reasoningTitle: 'ระดับความคิด',
+  modelTitle: 'โมเดล',
+  freeOnlyTitle: 'เฉพาะฟรี',
+  jumpLatest: 'ไปข้อความล่าสุด',
+  attachTitle: 'แนบไฟล์ (Ctrl+V เพื่อวาง)',
+  findPrev: 'ผลก่อนหน้า',
+  findNext: 'ผลถัดไป',
+  findClose: 'ปิด',
+  removeTitle: 'นำออก',
   favorites: 'รายการโปรด',
   star: 'เพิ่มในรายการโปรด',
   unstar: 'เอาออกจากรายการโปรด',
@@ -10234,16 +10703,17 @@ function thinkingLevelsFor(thinking) {
 }
 
 function paintThinking(thinking) {
-  const wrap = el('thinkingSwitch');
+  const btn = el('thinkingBtn');
+  const menu = el('thinkingMenu');
   const note = el('thinkingNote');
-  if (!wrap) return;
+  if (!btn || !menu) return;
   const select = el('thinkingSelect');
 
   const levels = thinkingLevelsFor(thinking);
   const unsupported = !levels;
 
-  // The hidden select stays the value source so the existing change handler and
-  // any test that drives it keep working.
+  // The hidden select stays the value source so the change handler and any test
+  // that drives it keep working.
   if (!unsupported && select) {
     const key = levels.join(',');
     if (select.dataset.levels !== key) {
@@ -10255,52 +10725,59 @@ function paintThinking(thinking) {
     select.value = thinking.level || levels[0];
   }
 
-  // Rebuild only when the level set changes or the language does: rebuilding on
-  // every paint would reset focus and make clicking feel like it did not take,
-  // but the labels are translated, so a language switch must rebuild.
-  const key = `${unsupported ? 'unsupported' : levels.join(',')}|${lang}`;
-  if (wrap.dataset.levels !== key) {
-    wrap.dataset.levels = key;
-    wrap.replaceChildren(
-      Object.assign(document.createElement('span'), { className: 'think-thumb', ariaHidden: 'true' })
-    );
-    const shown = unsupported ? ['off'] : levels;
-    shown.forEach((level, i) => {
-      const label = document.createElement('label');
-      label.className = 'think-opt';
-      // Position along the ramp: 0 at the green end, 1 at the red end.
-      label.style.setProperty('--p', shown.length > 1 ? String(i / (shown.length - 1)) : '0');
-      const input = document.createElement('input');
-      input.type = 'radio';
-      input.name = 'thinkingLevel';
-      input.value = level;
-      input.disabled = unsupported;
-      if (unsupported) label.title = t('thinkingUnsupported');
-      label.append(input, Object.assign(document.createElement('span'), { textContent: thinkingLevelLabel(level) }));
-      wrap.appendChild(label);
-    });
-    wrap.style.setProperty('--count', String(shown.length));
-  }
-
   const chosen = unsupported ? 'off' : thinking.level || levels[0];
-  const options = [...wrap.querySelectorAll('.think-opt')];
-  let at = options.findIndex((o) => o.querySelector('input')?.value === chosen);
-  if (at < 0) at = 0;
-  for (const opt of options) {
-    const input = opt.querySelector('input');
-    if (input) input.checked = input.value === chosen;
-  }
-  wrap.style.setProperty('--at', String(at));
-  // The thumb takes the colour of the selected level, so the switch's own `--p`
-  // must follow the choice (the per-label `--p` only tints the text).
-  wrap.style.setProperty('--p', options.length > 1 ? String(at / (options.length - 1)) : '0');
-  wrap.classList.toggle('is-locked', unsupported);
-  wrap.setAttribute('aria-disabled', String(unsupported));
+  const valueEl = el('thinkingValue');
+  if (valueEl) valueEl.textContent = thinkingLevelLabel(chosen);
 
+  // Rebuild the rows only when the level set changes or the language does:
+  // rebuilding on every paint would reset focus, but the labels are translated,
+  // so a language switch must rebuild.
+  const key = `${unsupported ? 'unsupported' : levels.join(',')}|${lang}`;
+  if (menu.dataset.levels !== key) {
+    menu.dataset.levels = key;
+    const shown = unsupported ? ['off'] : levels;
+    menu.replaceChildren(
+      ...shown.map((level) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'think-item';
+        row.dataset.level = level;
+        row.setAttribute('role', 'option');
+        row.textContent = thinkingLevelLabel(level);
+        row.disabled = unsupported;
+        row.addEventListener('click', () => {
+          const sel = el('thinkingSelect');
+          setThinkingMenu(false);
+          // Clicking the level already chosen is a no-op: the SDK call costs a
+          // round trip and changes nothing.
+          if (!sel || sel.value === level) return;
+          sel.value = level;
+          sel.dispatchEvent(new Event('change'));
+        });
+        return row;
+      })
+    );
+  }
+
+  for (const row of menu.querySelectorAll('.think-item')) {
+    row.setAttribute('aria-selected', String(row.dataset.level === chosen));
+  }
+  btn.disabled = unsupported;
+  btn.classList.toggle('is-locked', unsupported);
+  btn.setAttribute('aria-disabled', String(unsupported));
   if (note) {
     note.hidden = !unsupported;
     note.textContent = unsupported ? t('thinkingUnsupported') : '';
   }
+}
+
+/** Open or close the reasoning list. */
+function setThinkingMenu(open) {
+  const menu = el('thinkingMenu');
+  const btn = el('thinkingBtn');
+  if (!menu || !btn) return;
+  menu.hidden = !open;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
 /* --------------------------- wiring: compose ------------------------ */
@@ -10326,15 +10803,41 @@ el('thinkingSelect')?.addEventListener('change', async (e) => {
   paintThinking(thinking);
 });
 
-// The switch picks a level, then hands it to the hidden select so there is one
-// path into `setThinking`. Clicking the already-chosen level is a no-op rather
-// than a re-send: the SDK call costs a round trip and changes nothing.
-el('thinkingSwitch')?.addEventListener('change', (e) => {
-  const level = e.target?.value;
-  const select = el('thinkingSelect');
-  if (!level || !select || select.value === level) return;
-  select.value = level;
-  select.dispatchEvent(new Event('change'));
+// The dropdown opens on hover — one gesture, no click — and stays open while the
+// pointer is anywhere in the slot, the list included. Click and keyboard still
+// work, and Escape or a click elsewhere closes it.
+let thinkHideTimer = 0;
+const thinkSlot = document.querySelector('.think-slot');
+thinkSlot?.addEventListener('pointerenter', () => {
+  clearTimeout(thinkHideTimer);
+  setThinkingMenu(true);
+});
+thinkSlot?.addEventListener('pointerleave', () => {
+  clearTimeout(thinkHideTimer);
+  thinkHideTimer = setTimeout(() => {
+    if (!thinkSlot.contains(document.activeElement)) setThinkingMenu(false);
+  }, 160);
+});
+thinkSlot?.addEventListener('focusin', () => setThinkingMenu(true));
+thinkSlot?.addEventListener('focusout', () => {
+  setTimeout(() => {
+    if (!thinkSlot.contains(document.activeElement)) setThinkingMenu(false);
+  }, 0);
+});
+el('thinkingBtn')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  setThinkingMenu(el('thinkingMenu')?.hidden !== false);
+});
+document.addEventListener('click', (e) => {
+  const menu = el('thinkingMenu');
+  if (!menu || menu.hidden) return;
+  if (!e.target.closest('.think-slot')) setThinkingMenu(false);
+});
+document.addEventListener('keydown', (e) => {
+  const menu = el('thinkingMenu');
+  if (e.key !== 'Escape' || !menu || menu.hidden) return;
+  setThinkingMenu(false);
+  el('thinkingBtn')?.focus();
 });
 el('undoBtn')?.addEventListener('click', undoLastMessage);
 

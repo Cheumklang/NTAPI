@@ -3019,6 +3019,47 @@ boot วาดครั้งเดียว, ย้าย `resolveSdk()` ไป
 - เทสต์ผ่าน: npm test 81/81 · check:approval 22 · sidebar 2 ตัว · shell 31
 - **ปล่อย v0.5.16** (118,324,689 bytes) + prune เหลือรุ่นเดียว
 
+## 2026-11-17 — จัดแถวบน sidebar + ซ่อมเกจ %
+
+- โฟลเดอร์งาน: ย้ายเข้าแถวเดียวกับธีม/อนุมัติเป็นชิป (`paintWorkspaceChip`) ลบ section เดิม
+- จัดแถว: 3 ชิปสูง 30px เท่ากัน เว้น 8px · `.chip-btn.workspace-chip` ต้อง 2 คลาสถึงจะชนะ `width:30px`
+- เกจ %: `.usage-bar-fill` เป็น span inline → width ไม่ทำงาน · แก้เป็น `display:block`
+- แถวล่างตรงคอลัมน์แถวบน: ชิปอนุมัติเป็นไอคอน 30px · `sidebarMinWidth()` ใช้ `brand.scrollWidth`
+  + วัดใหม่เมื่อ badge โผล่ (เดิมล้น 6px)
+- ยังไม่ commit / ยังไม่ bump
+
+## 2026-11-17 — จอเล็ก: ระดับความคิดเป็น dropdown + topbar ไม่ล้น
+
+- `#thinkingSwitch` (5 ช่อง ~194px) → dropdown `#thinkingBtn`/`#thinkingMenu` เปิดเมื่อ hover
+- `#statusProviderMeter` ellipsis + ซ่อน ≤1240 · media ใหม่ 1240/1120/1000/960 ย้ายไปท้ายไฟล์
+- `check-thinking-switch.js` เขียนใหม่ 17 checks · npm test 81/81
+- ยังไม่ commit / ยังไม่ bump
+
+## 2026-11-17 — ป๊อปอัปสถานะบรรทัดเดียว + ชิปบอกชื่อโมเดล + สกุลเงินตามภาษา
+
+- `.status-popover`: `max-content` + กึ่งกลางใต้แท็บ + `max-width min(560px, 100vw-40px)`, แถว nowrap
+- ชิปสถานะ: แสดง `model.name` ("DeepSeek V4.1 Flash") แทนประโยคราคา; meter ซ่อนในชิป
+- สกุลเงิน: `moneyText()`/`moneyUnit()` → ไทย ฿ (เมื่อมีเรต FX) / อังกฤษ $ ·
+  `deepseekPrice` i18n สร้างจาก `view.model.cost` · หน่วย `tokCostUnit` = บาท/USD
+- แก้เทสต์: `check-status-pill` (ป๊อปอัปกึ่งกลาง), `selftest-usage-pill` (left 50%, pillName=modelName)
+- ยังไม่ commit / ยังไม่ bump
+
+## 2026-11-17 — tooltip ตามภาษา + ค่าเงิน ฿/$ ตามภาษา
+
+- `title` hardcode ~20 จุด → `data-i18n-title` + `data-i18n-aria`; `applyLanguage` แปลทั้งคู่
+- `APPROVAL_TITLES` → `approvalTitle(mode)` ใช้ `t()`; ปุ่มลบไฟล์แนบ `removeTitle`
+- ราคา DeepSeek: เพิ่ม `cost` ใน `modelEntry()`/`deepseekModelEntries()` → ไทย ฿ อังกฤษ $
+- `ensureUsdThb()`: TTL 6 ชม. + retry 60 วิ + รีเฟรชทุก 6 ชม.
+- ยังไม่ commit / ยังไม่ bump
+
+## 2026-11-17 — ป้ายปัจจุบันตามภาษา + ปุ่มโมเดลไม่ล้นกรอบตอน EN
+
+- `applyLanguage()` เรียก `renderSessions()` ใหม่ → ป้าย "ปัจจุบัน/Current" เปลี่ยนตามภาษา
+- `.model-picker-btn`: `max-width: min(310px, 100%)` แทน `width:100%` (เดิมบีบช่องความคิดจนค่า "Off" ถูกตัด)
+- `.think-slot` กลับเป็น `flex: 0 0 auto`; ซ่อนคำ "การคิด/Reasoning" ที่ ≤1280
+- ตรวจด้วยภาพหน้าจอ TH/EN ที่ 1240px: ไม่มีอะไรล้น
+- ยังไม่ commit / ยังไม่ bump
+
 ## 2026-11-17 — แชทใหม่ช้า + ข้อความลบแชทหายตอน hover
 
 **แชทใหม่ช้า:** ทุก session ใหม่ยิงเน็ตใหม่ทั้งชุด (`fetchMe`, `/client-version`,
@@ -3031,3 +3072,35 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 → ลบออก ใช้ clock 5 วิ + pause ตามปกติ · เพิ่ม check กันกลับมา
 
 **ค้าง:** ยังไม่ commit · 0.5.15
+
+## 2026-11-17 — ป้าย "ฟรี" โผล่บนโมเดลที่เสียเงิน (ตอนเลือกโมเดล)
+
+- ต้นเหตุ: `paintModelTrigger()` อ่าน `plan` จาก `view.model` (pi ส่งแค่ id/name) → โมเดล paid ขึ้น "ฟรี"
+- แก้: `modelEntryFor()` ดึง entry จาก `menuModels`/`activeView().models` + ย้าย `menuModels=models` มาก่อน `paintModelTrigger()`
+- เทสต์: เพิ่ม check `paidBadge` ใน `selftest-model-picker.js` · `npm test` 81/81 · picker selftest ผ่าน
+- ยังไม่ commit / ยังไม่ bump
+
+## 2026-11-17 — ขนาดหน้าต่างขั้นต่ำ
+
+- `minWidth`/`minHeight` = `1240×840` (เดิม `900×560`) — ย่อเล็กกว่าตอนเปิดมาไม่ได้ แต่ขยายได้ · `app/src/main.js`
+- ตรวจยืนยัน tooltip i18n (`data-i18n-title`) และสกุลเงิน ฿/$ (`moneyText`/`ensureUsdThb`/`fx-rate.js`) อยู่ในโค้ดครบแล้ว — ยังไม่ commit (ติดในชุดงานค้าง)
+
+## 2026-11-17 — บั๊กระบบคิวส่งพร้อมกัน 2 ข้อความ
+
+- ต้นเหตุ: `reconcileBusy` (วิ่งทุก 4 วิ) เห็น `view.busy=true` แต่ `tab.busy=false` (เพราะ `tab.busy` ตั้งที่ `agent_start` ทีหลัง) → เข้าใจผิดว่ามี settle หลุด → drain คิวข้อถัดไปทั้งที่เทิร์นแรกยังไม่เริ่ม
+- แก้: `prompt:send` ตั้ง `tab.busy=true` + `agent:busy(true)` ทันทีตอนรับ prompt
+- ปุ่มอัปเดต: ไม่ใช่บั๊ก — ใช้ได้เฉพาะตัวติดตั้ง (`setUpdates` return เมื่อ `!app.isPackaged`)
+- ยังไม่ commit / ยังไม่ bump
+
+## 2026-11-17 — เพิ่ม provider Claude + Gemini
+
+- `app/src/anthropic.js`: `anthropic-messages` API, `x-api-key` + `anthropic-version`,
+  family opus-4-5 / sonnet-4-5 / haiku-4-5 ตัดกับ `GET /v1/models`
+- `app/src/google-ai.js`: `google-generative-ai`, `x-goog-api-key`, family 2.5-pro/-flash/-flash-lite
+  ตัดกับ `GET /v1beta/models` (เฉพาะ generateContent)
+- ต่อสาย: provider-plan, freepi-bridge, main (key store anthropic.json/google.json + ipc + settings:get),
+  preload, index.html, app.js (i18n/status/handler/meter), provider-ui (label/logo/chrome)
+- เทสต์ใหม่ selftest-anthropic / selftest-google-ai + เคสใน provider-plan/provider-ui/check-buy
+- npm test 83/83 · check:buy ผ่าน
+- ชิปสถานะเปลี่ยนเป็นชื่อบริษัท (tooltip = บริษัท · โมเดล) แทนชื่อโมเดล
+- ยังไม่ commit / ยังไม่ bump

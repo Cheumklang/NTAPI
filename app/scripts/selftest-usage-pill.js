@@ -135,12 +135,16 @@ check('the strip is a positioning context for the popover', () => {
   assert.match(rule, /position:\s*relative/);
 });
 
-check('the popover is anchored under the pill, on the right', () => {
+check('the popover is anchored under the pill, on its left edge', () => {
   const at = css.indexOf('.status-popover {');
   assert.ok(at > -1, 'no popover style');
   const rule = css.slice(at, css.indexOf('\n}', at));
   assert.match(rule, /position:\s*absolute/);
-  assert.match(rule, /right:\s*0/);
+  // It is centred under the tab and sized to its content, so a row never wraps.
+  assert.match(rule, /left:\s*50%/);
+  assert.match(rule, /translateX\(-50%\)/);
+  assert.match(rule, /width:\s*max-content/);
+  assert.match(rule, /max-width:/);
   assert.match(rule, /z-index:\s*\d+/);
 });
 
@@ -160,16 +164,20 @@ check('the pill fits the topbar at one fixed height', () => {
 });
 
 check('narrow windows drop the words, not the numbers', () => {
-  assert.match(css, /@media \(max-width: 1080px\)[\s\S]{0,200}?\.status-pill \.status-label \{ display: none; \}/);
+  // The breakpoint moved to 1120 when this row also had to hold the reasoning
+  // dropdown and the model picker, and only the FreePi words go now: a
+  // provider's name stays, because it says who is paying.
+  assert.match(css, /@media \(max-width: 1120px\)[\s\S]{0,200}?#statusFree \.status-label \{ display: none; \}/);
 });
 
 check('the pill changes what it shows for a non-FreePi provider', () => {
   assert.match(app, /stripFree\.hidden = chrome\.meter !== null/);
   assert.match(app, /stripProvider\.hidden = chrome\.meter === null/);
   // The two lines in the pill are mirrors of the popover's rows, written in the
-  // same function so they cannot drift apart.
-  assert.match(app, /function paintProviderMeter[\s\S]{0,900}?pillName\.textContent = name\.textContent/);
-  assert.match(app, /function paintProviderMeter[\s\S]{0,4000}?mirror\(\);[\s\S]{0,40}?\n\}/);
+  // same function so they cannot drift apart. The name line shows the company
+  // that is answering; the model name is one hover away in its tooltip.
+  assert.match(app, /function paintProviderMeter[\s\S]{0,1800}?pillName\.textContent = company/);
+  assert.match(app, /function paintProviderMeter[\s\S]{0,6000}?mirror\(\);[\s\S]{0,40}?\n\}/);
 });
 
 check('the pill percentage is bare, the sentence moved to the popover', () => {
@@ -244,8 +252,10 @@ check('a model name too long for the tab ends in an ellipsis', () => {
   assert.match(rule, /white-space:\s*nowrap/);
   assert.match(rule, /min-width:\s*0/);
   const nameAt = css.indexOf('#statusProviderName {');
-  assert.ok(nameAt > -1, 'no rule for the provider name');
-  assert.match(css.slice(nameAt, css.indexOf('\n}', nameAt)), /flex:\s*none/);
+  assert.ok(nameAt > -1, 'no rule for the model name in the pill');
+  const nameRule = css.slice(nameAt, css.indexOf('\n}', nameAt));
+  assert.match(nameRule, /min-width:\s*0/);
+  assert.match(nameRule, /text-overflow:\s*ellipsis/);
   // Truncated on screen is only honest if the whole name is reachable.
   assert.match(app, /pillMeter\.title = text\.textContent/);
 });
@@ -256,8 +266,8 @@ check('the popover is wide enough for its longest row on one line', () => {
   const rule = css.slice(at, css.indexOf('\n}', at));
   const min = Number((rule.match(/min-width:\s*(\d+)px/) || [])[1]);
   assert.ok(min >= 220, `min-width is ${min}px`);
-  // Still anchored to the tab's left edge, so growing only moves the right side.
-  assert.match(rule, /left:\s*0/);
+  // Centred under the tab, so it stays inside the window at either end of the row.
+  assert.match(rule, /left:\s*50%/);
 });
 
 check('a hidden usage row is really hidden', () => {

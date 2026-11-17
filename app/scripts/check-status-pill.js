@@ -221,8 +221,9 @@ async function atSize(win, label, width, height) {
   // to the right only (its left edge is checked separately below).
   check(`${label}: the popover is as wide as its tab, or wide enough to read a row`,
     m.open.box.w >= m.open.pill.w - 1 && m.open.box.w >= 232, { panel: m.open.box.w, tab: m.open.pill.w });
-  check(`${label}: the popover is flush with the tab's left edge`,
-    Math.abs(m.open.box.x - m.open.pill.x) <= 1, { panel: m.open.box.x, tab: m.open.pill.x });
+  check(`${label}: the popover is centred under the tab`,
+    Math.abs((m.open.box.x + m.open.box.w / 2) - (m.open.pill.x + m.open.pill.w / 2)) <= 2,
+    { panel: m.open.box.x + m.open.box.w / 2, tab: m.open.pill.x + m.open.pill.w / 2 });
   check(`${label}: a wider tab widens the panel with it`,
     m.grown.box.w >= m.grown.pill.w - 1 && m.grown.box.w >= m.open.box.w - 1,
     { panel: m.grown.box.w, tab: m.grown.pill.w, before: m.open.box.w });

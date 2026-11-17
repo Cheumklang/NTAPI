@@ -136,7 +136,10 @@ const { checkNvidiaKey } = require('./nvidia');
 const { checkTokenHarborKey } = require('./tokenharbor');
 const { checkLlm7Key } = require('./llm7');
 const { checkDeepSeekKey } = require('./deepseek');
+const { checkAnthropicKey } = require('./anthropic');
+const { checkGoogleKey } = require('./google-ai');
 const { focusExistingWindow } = require('./single-instance');
+const { isUserAbort } = require('./turn-abort');
 const { promptOptionsFor } = require('./prompt-mode');
 const { usageTotals } = require('./usage-totals');
 const { fetchUsdThb } = require('./fx-rate');
@@ -366,6 +369,16 @@ const deepseekKeys = createProviderKeyStore({
   dir: DATA_ROOT,
   safeStorage,
   fileName: 'deepseek.json',
+});
+const anthropicKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'anthropic.json',
+});
+const googleKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'google.json',
 });
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
@@ -1272,6 +1285,15 @@ function relabelCoarenaModels(names) {
  */
 function reportTabError(tabId, raw) {
   const tab = tabs.get(tabId);
+  /*
+   * A stop the user asked for is not a provider failure.
+   *
+   * Pressing Stop — or the Cancel row under a message that was just sent — ends
+   * the request, and pi reports that as an abort. Left alone, "abort" matched the
+   * stall wording and the window said "Token Harbor stopped responding" under a
+   * message the person had just cancelled, with a working model selected.
+   */
+  if (isUserAbort({ raw, seq: tab?.promptSeq, userAbort: tab?.userAbort })) return;
   const provider = tab?.handle?.session?.model?.provider;
   const { text, code, key: messageKey, status, freeModels } = friendlyProviderError(raw, { provider });
   const dedupe = `${code || ''}|${messageKey || text}`;
@@ -1842,6 +1864,10 @@ async function attachTab(tabId, manager, cwd) {
     // DeepSeek is the first-party paid endpoint: the key is the whole account,
     // and its catalog is two ids that are intersected with /models per session.
     deepseekKey: deepseekKeys.read(),
+    // Claude and Gemini are first-party paid endpoints too; each catalog is the
+    // API's own /models list intersected with the families this app offers.
+    anthropicKey: anthropicKeys.read(),
+    googleKey: googleKeys.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -1984,8 +2010,8 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1240,
     height: 840,
-    minWidth: 900,
-    minHeight: 560,
+    minWidth: 1240,
+    minHeight: 840,
     backgroundColor: readTheme() === 'light' ? '#f5f6fa' : '#0f1115',
     title: 'NTAPI',
     // electron-builder stamps the packaged .exe; this covers unpackaged runs.
@@ -2371,6 +2397,24 @@ function applyDeepSeekKeyToTabs(key) {
   });
 }
 
+function applyAnthropicKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'anthropic',
+    label: 'Claude',
+    key,
+    apply: (handle, next) => handle.applyAnthropicKey(next),
+  });
+}
+
+function applyGoogleKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'google',
+    label: 'Gemini',
+    key,
+    apply: (handle, next) => handle.applyGoogleKey(next),
+  });
+}
+
 ipcMain.handle('coarena:status', async () => coarenaStatus());
 
 ipcMain.handle('coarena:setKey', async (_e, { key } = {}) => {
@@ -2681,6 +2725,118 @@ ipcMain.handle('deepseek:clearKey', async () => {
   return { ok: true, status: deepseekKeys.status(), applied };
 });
 
+/**
+ * Claude publishes no per-key usage endpoint; the status is the store's own
+ * state. SetKey also proves the key and learns which model ids this account can
+ * reach.
+ */
+async function anthropicStatus() {
+  return anthropicKeys.status();
+}
+
+ipcMain.handle('anthropic:status', async () => anthropicStatus());
+
+ipcMain.handle('anthropic:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: anthropicKeys.status(), error: 'Enter a Claude API key first.' };
+  }
+
+  // A rejected key never touches the disk. A rate limit or an unreachable API
+  // is not a wrong key, so the key is saved and marked unverified.
+  const check = await checkAnthropicKey(raw);
+  if (!check.ok && !check.offline && check.status !== 429) {
+    return { ok: false, status: anthropicKeys.status(), error: check.error };
+  }
+
+  try {
+    anthropicKeys.save(raw);
+    const applied = await applyAnthropicKeyToTabs(raw);
+    return {
+      ok: true,
+      status: anthropicKeys.status(),
+      unverified: Boolean(check.offline || check.status === 429),
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: anthropicKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('anthropic:clearKey', async () => {
+  try {
+    anthropicKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: anthropicKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyAnthropicKeyToTabs(null);
+  return { ok: true, status: anthropicKeys.status(), applied };
+});
+
+/**
+ * Gemini exposes no per-key usage endpoint either; the status is the store's
+ * own state. SetKey also proves the key and learns which ids it can generate
+ * with.
+ */
+async function googleStatus() {
+  return googleKeys.status();
+}
+
+ipcMain.handle('google:status', async () => googleStatus());
+
+ipcMain.handle('google:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: googleKeys.status(), error: 'Enter a Gemini API key first.' };
+  }
+
+  // Only Google saying the key itself is wrong refuses it. A quota error or an
+  // unreachable API is inconclusive, so the key is saved and marked unverified.
+  const check = await checkGoogleKey(raw);
+  if (!check.ok && !check.offline && check.status !== 429) {
+    return { ok: false, status: googleKeys.status(), error: check.error };
+  }
+
+  try {
+    googleKeys.save(raw);
+    const applied = await applyGoogleKeyToTabs(raw);
+    return {
+      ok: true,
+      status: googleKeys.status(),
+      unverified: Boolean(check.offline || check.status === 429),
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: googleKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('google:clearKey', async () => {
+  try {
+    googleKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: googleKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyGoogleKeyToTabs(null);
+  return { ok: true, status: googleKeys.status(), applied };
+});
+
 ipcMain.handle('app:systemInfo', () => {
   const active = activeTabId ? tabs.get(activeTabId) : null;
   const info = {
@@ -2765,6 +2921,8 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     tokenharbor: await tokenharborStatus(),
     llm7: await llm7Status(),
     deepseek: await deepseekStatus(),
+    anthropic: await anthropicStatus(),
+    google: await googleStatus(),
   };
 });
 
@@ -3244,6 +3402,13 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
   // 'steer' joins this turn, 'followUp' waits for the run to finish. Idle
   // prompts carry no option at all.
   const options = promptOptionsFor(Boolean(tab.handle.session.isStreaming), passedMode);
+  // Mark busy the moment the prompt is accepted, not when the agent's
+  // `agent_start` event lands. Between those two there is a window where the
+  // renderer already says "working" but this process still reports idle; the
+  // renderer's busy-heal (reconcileBusy) read that as a missed settle and drained
+  // the next queued message early, so two queued prompts went out at once.
+  tab.busy = true;
+  sendTab(tabFor(tabId).tabId, 'agent:busy', { busy: true });
   const run = tab.handle.session.prompt(promptText, options);
 
   run.catch((err) => {
@@ -3277,6 +3442,10 @@ ipcMain.handle('prompt:abort', async (_e, tabId) => {
   // The user asked for this stop; it is not a spent allowance and must not send
   // the turn to another model behind their back.
   tab.limitFailure = null;
+  // Remembered so the abort-shaped failure this stop produces is not reported as
+  // "the provider went quiet". Keyed by prompt number: a later turn's failure is
+  // its own.
+  tab.userAbort = { seq: tab.promptSeq || 0, at: Date.now() };
   sendTab(id, 'agent:busy', { busy: false });
   try {
     await Promise.race([
@@ -3310,6 +3479,56 @@ ipcMain.handle('model:set', async (_e, { tabId, provider, id }) => {
 });
 
 /* ------------------------- session toolbox (undo etc.) ------------------ */
+
+/**
+ * Take back a message that was just sent.
+ *
+ * The Cancel row under a fresh message promises the words are the user's again.
+ * Stopping the turn alone was not enough: the prompt had already been written
+ * into the session, so the next repaint put the message straight back on screen
+ * and the thing the user cancelled stayed in the transcript — worse, the abort
+ * that stopped it was reported as "the provider stopped responding".
+ *
+ * So this stops the turn and then steps the session back over that user message.
+ * A session still finishing its abort is retried briefly; if it cannot be
+ * removed the window is told, instead of quietly keeping a message the reader
+ * believes they cancelled.
+ */
+ipcMain.handle('prompt:takeBack', async (_e, tabId) => {
+  const { tabId: id, tab } = tabFor(tabId);
+
+  // Same rule as Stop: this is the user's own cancel, so its abort is not a
+  // provider failure and not a spent allowance.
+  tab.busy = false;
+  tab.limitFailure = null;
+  tab.userAbort = { seq: tab.promptSeq || 0, at: Date.now() };
+  sendTab(id, 'agent:busy', { busy: false });
+
+  try {
+    await Promise.race([
+      tab.handle.session.abort(),
+      new Promise((resolve) => {
+        setTimeout(resolve, 4000).unref?.();
+      }),
+    ]);
+  } catch {}
+
+  // The session refuses to step back while it is still streaming, so give the
+  // abort a moment to land rather than reporting a cancel that did not happen.
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      if (!tab.handle.session.isStreaming) break;
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  const res = await tab.handle.undo().catch((err) => ({
+    ok: false,
+    reason: err instanceof Error ? err.message : String(err),
+  }));
+  if (res?.ok) afterHistoryChange(id);
+  return { ok: Boolean(res?.ok), reason: res?.ok ? null : res?.reason || 'busy' };
+});
 
 /** Tokens/context for the meter. Cheap: no network, reads the session in memory. */
 ipcMain.handle('session:stats', async (_e, tabId) => {

@@ -120,7 +120,7 @@ check('the renderer drives the thumb position', /style\.setProperty\('--at'/.tes
 check('the third choice reads ไม่อนุมัติเลย', /name="approvalPolicy" value="deny"[\s\S]{0,80}ไม่อนุมัติเลย/.test(html));
 check('the old ไม่อนุมัติเสมอ wording is gone', !/ไม่อนุมัติเสมอ/.test(html));
 const appSrc = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-check('the tooltip agrees with the new wording', /deny: 'ไม่อนุมัติเลย/.test(appSrc));
+check('the tooltip agrees with the new wording', /approvalDenyTitle: 'ไม่อนุมัติเลย/.test(appSrc));
 check('no stale wording is left in the renderer', !/ไม่อนุมัติเสมอ/.test(appSrc));
 
 if (failures) {

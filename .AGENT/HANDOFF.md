@@ -1,5 +1,89 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **⚠️ ล่าสุด (2026-11-17): เพิ่ม provider Claude + Gemini และชิปบอกชื่อบริษัท**
+> - **Claude** (`app/src/anthropic.js`): `api: 'anthropic-messages'`, base `https://api.anthropic.com`,
+>   คีย์ส่งทาง `x-api-key` + `anthropic-version: 2023-06-01` · family ที่รองรับ
+>   `claude-opus-4-5` / `claude-sonnet-4-5` / `claude-haiku-4-5` — ตัดกับ `GET /v1/models` จริง
+>   (alias มาก่อน, ไม่มีค่อยใช้ dated snapshot, family ที่ปลดระวางหายจากรายการ)
+> - **Gemini** (`app/src/google-ai.js`): `api: 'google-generative-ai'`, base `.../v1beta`,
+>   คีย์ส่งทาง `x-goog-api-key` (ไม่ใส่ใน URL) · family `gemini-2.5-pro` / `-flash` / `-flash-lite`
+>   ตัดกับ `GET /v1beta/models` (เอาเฉพาะที่ `generateContent`, ใช้ cap ที่ API รายงาน)
+> - **ต่อสายครบ:** `provider-plan.js` (default หลัง DeepSeek), `freepi-bridge.js`
+>   (register/apply/entries/log), `main.js` (key store `anthropic.json`/`google.json`,
+>   ipc `anthropic:*`/`google:*`, `settings:get`), `preload.js`, `index.html` (การ์ด),
+>   `app.js` (i18n EN/TH, status, handler, meter แสดงราคา ฿/$), `provider-ui.js` (label/logo/chrome)
+> - **โลโก้:** `assets/providers/anthropic.svg`, `google.svg`
+> - **เทสต์ใหม่:** `selftest-anthropic.js` (23) · `selftest-google-ai.js` (22) — ลงทะเบียนใน
+>   `run-unit-tests.js` · เพิ่มเคสใน `selftest-provider-plan.js`, `selftest-provider-ui.js`,
+>   `check-provider-buy-links.js` · `npm test` **83/83** · `check:buy` ผ่าน
+> - **ชิปสถานะ = ชื่อบริษัท** (แทนชื่อโมเดล): `pillName.textContent = company` (เช่น Token Harbor)
+>   · tooltip ยังเป็น `company · model` · แก้เทสต์ `selftest-usage-pill.js` ตาม
+> - ยังไม่ commit / ยังไม่ bump
+
+> **⚠️ ล่าสุด (2026-11-17): แก้บั๊กระบบคิวส่งพร้อมกัน 2 ข้อความ**
+> - **ต้นเหตุ:** `reconcileBusy` (heal ที่วิ่งทุก 4 วิ) เห็น renderer `view.busy=true` แต่ main `tab.busy=false` เพราะ `tab.busy` ถูกตั้งที่ `agent_start` (ทีหลัง) → เข้าใจผิดว่ามี settle หลุดแล้ว drain คิวข้อถัดไปออกไปทั้งที่เทิร์นแรกยังไม่เริ่ม → คิว 2 อันส่งพร้อมกัน
+> - **แก้:** `prompt:send` (main.js) ตั้ง `tab.busy = true` + ส่ง `agent:busy(true)` ทันทีตอนรับ prompt (ก่อน `session.prompt`) — ปิดหน้าต่าง race
+> - **ปุ่มอัปเดต:** ไม่ใช่บั๊ก — `setUpdates()` return ทันทีเมื่อ `!app.isPackaged` (ตอนรันจากซอร์สไม่มี updater) · ปุ่มจะขึ้น `updateDev` "ระบบอัปเดตใช้ได้กับเวอร์ชันที่ติดตั้งแล้วเท่านั้น" · publish config ชี้ `Cheumklang/NTAPI-releases` ถูกแล้ว → ใช้ได้เฉพาะตัวติดตั้ง
+> - **ไฟล์:** `app/src/main.js`
+> - ยังไม่ commit / ยังไม่ bump
+
+> **⚠️ ล่าสุด (2026-11-17): ป้าย "ฟรี" โผล่บนโมเดลที่เสียเงิน — แก้แล้ว**
+> - **ต้นเหตุ:** `paintModelTrigger()` อ่าน `plan` จาก `view.model` แต่ pi ส่งมาแค่ `{provider,id,name}` (ไม่มี `plan`) → `FPProvider.modelPlan()` คืน "free" เสมอสำหรับโมเดลที่เลือกอยู่ (รายการในเมนูถูกอยู่แล้ว เพราะอ่านจาก entry ที่มี `plan`)
+> - **แก้:** เพิ่ม `modelEntryFor(model)` ดึง entry จริงจาก `menuModels` / `activeView().models` ตาม provider+id แล้วใช้ `plan`/`planNote`/`cost` จากนั้น · ย้าย `menuModels = models` มาก่อน `paintModelTrigger()` ใน `renderModelPicker()` (เดิมตั้งทีหลัง → เห็น list เก่า)
+> - **เทสต์:** `selftest-model-picker.js` เพิ่ม check `paidBadge` (โมเดล paid → badge `paid` + `$0.30/$1.20`) · `npm test` 81/81 · picker selftest ผ่าน
+> - **ไฟล์:** `app/src/renderer/app.js`, `app/scripts/selftest-model-picker.js`
+> - **หน้าต่าง:** `minWidth`/`minHeight` = `1240×840` (เดิม `900×560`) — ย่อเล็กกว่าตอนเปิดมาไม่ได้ ขยายได้ · `app/src/main.js`
+> - ยังไม่ commit / ยังไม่ bump
+
+> **⚠️ ล่าสุด (2026-11-17): จัดแถวบน sidebar + ซ่อมเกจ % — ยังไม่ commit / ยังไม่ออกเวอร์ชัน**
+> - **โฟลเดอร์งาน (ที่ผู้ใช้วงสีแดง)** ย้ายขึ้นแถวเดียวกับปุ่มธีม/อนุมัติ → อยู่ใน `.sidebar-tools`
+>   เป็นชิป แสดงชื่อโฟลเดอร์ + tooltip เป็น path เต็ม (`paintWorkspaceChip()`)
+>   · ลบ section "โฟลเดอร์งาน" เดิมออก (ประหยัด 2 บรรทัด)
+> - **จัดแถวให้เท่ากัน:** โฟลเดอร์/ธีม/ถาม สูง 30px เท่ากัน เว้น 8px เท่ากัน
+>   · selector ต้องเป็น `.chip-btn.workspace-chip` (2 คลาส) เพราะ `.chip-btn` ประกาศทีหลังและตั้ง `width:30px`
+> - **เกจ % (โควตาวันนี้):** ต้นเหตุจริง `.usage-bar-fill` เป็น `<span>` inline → `width:45%` ไม่มีผล
+>   (computed ค้าง ~8%) · แก้ `display:block` ให้ `.usage-bar` และ `.usage-bar-fill`
+>   · วัดจริง: track 46px / fill 21px ที่ 45%
+> - **แถวล่างตรงคอลัมน์กับแถวบน:** ชิปอนุมัติเปลี่ยนเป็นไอคอน 30px (โหมดดูจากสีไอคอน + tooltip/aria-label)
+>   → ธีมอยู่ใต้ปุ่มโกลบ (x=204) และอนุมัติอยู่ใต้เฟือง (x=242) ตรงกันเป๊ะ
+> - **ความกว้างขั้นต่ำ:** `sidebarMinWidth()` ใช้ `brand.scrollWidth` ด้วย + วัดใหม่เมื่อ badge
+>   ผู้ใช้ออนไลน์โผล่ (`paintPresence` → `applySidebarWidth()`) — เดิมแถวบนล้นขอบ 6px ทำให้สองแถวไม่ตรงกัน
+> - เทสต์: `npm test` 81/81 · shell 31 · approval 21 · sidebar reset 7 · sidebar note 17 · restore 9
+> - **แถบสถานะช่วงจอเล็ก (1200/1100/1000/900):** ไม่มีอะไรล้นออกนอกหน้าต่างแล้ว
+>   · "ระดับความคิด" เป็น **dropdown** (`#thinkingBtn` + `#thinkingMenu`) เปิดเมื่อ **ชี้เมาส์**
+>     (เดิม `#thinkingSwitch` 5 ช่อง กว้าง ~194px) · เลือกแล้วส่งค่าเดิมทาง `#thinkingSelect`
+>   · `#statusProviderMeter` ตัดด้วย ellipsis + ซ่อนที่ ≤1240 (ข้อความราคาเก็บในป๊อปอัป)
+>   · breakpoint ใหม่ 1240/1120/1000/960 วางไว้ **ท้ายไฟล์** เพื่อชนะ base rules
+>   (บทเรียน: media query ที่อยู่ก่อนกฎ base จะแพ้ — เคยทำให้ `min-width` ไม่ทำงาน)
+> - **เทสต์:** `check-thinking-switch.js` เขียนใหม่ 17 checks (hover เปิด, เลือกแล้วถึง main 1 ครั้ง,
+>   โมเดลไม่รองรับ = ล็อก) · `npm test` 81/81 · shell 31 · approval 21 · sidebar 7+17
+> - **ป๊อปอัปสถานะกว้างตามข้อความ:** `width: max-content` + `left: 50%`/`translateX(-50%)`
+>   + `max-width: min(560px, 100vw - 40px)` · แถว `flex-wrap: nowrap` + `white-space: nowrap`
+>   → ทุกแถวบรรทัดเดียว (วัดจริง กว้าง 496px, แถวราคาสูง 17px)
+> - **ชิปสถานะแสดง "ชื่อโมเดล"** (`view.model.name` เช่น DeepSeek V4.1 Flash) แทนประโยคราคา
+>   · `#statusProviderMeter` ถูกซ่อนในชิป (เก็บไว้ mirror ให้ป๊อปอัป) · `title` มีชื่อเต็ม
+> - **สกุลเงินตามภาษา:** `moneyText(usd)` / `moneyUnit()` — ไทยได้ `฿` เมื่อรู้เรต (FX),
+>   อังกฤษได้ `$` · ราคา DeepSeek สร้างจาก `view.model.cost` ผ่าน `t('deepseekPrice', {in,out})`
+>   · หน่วยท้ายค่าใช้จ่าย: `tokCostUnit` = "บาท" / "USD"
+> - **บทเรียน:** media query ต้องอยู่หลังกฎ base ไม่งั้นแพ้ (เจอซ้ำสองรอบ) — ชุด responsive
+>   ของ topbar อยู่ท้าย `styles.css` แล้ว
+> - **tooltip ทั้งแอปตามภาษา:** ย้าย `title` ที่ hardcode อยู่ (~20 จุด) → `data-i18n-title`
+>   และเพิ่ม `data-i18n-aria` ให้ปุ่มไอคอน · `applyLanguage()` แปลงทั้งชื่อที่มองเห็นและ aria-label
+>   · `APPROVAL_TITLES` (ไทยล้วน) → `approvalTitle(mode)` ใช้ `t()` · ปุ่มลบไฟล์แนบใช้ `t('removeTitle')`
+>   · วัดจริง: สลับ TH/EN แล้ว tooltip เปลี่ยนครบ (เหลือแต่ path โฟลเดอร์ที่เป็นข้อมูล ไม่แปล)
+> - **สกุลเงินตามภาษา (ต่อ):** ราคา DeepSeek สร้างจาก `cost` ของโมเดล → ไทยได้
+>   `ราคา peak ฿10.17 เข้า / ฿40.66 ออก ต่อ 1M` · อังกฤษ `$0.30 / $1.20`
+>   · เพิ่ม `cost` ใน `modelEntry()` และ `deepseekModelEntries()` (เดิมถูกตัดทิ้ง ทำให้แปลงไม่ได้)
+> - **เรตค่าเงิน:** `ensureUsdThb()` ใหม่ — TTL 6 ชม. ต่อการเรียก, retry 60 วิเมื่อล้มเหลว,
+>   รีเฟรชอัตโนมัติทุก 6 ชม. (`setInterval`) · เรียกตอนเปิดโปรแกรม/สลับภาษา
+> - **ป้าย "ปัจจุบัน/Current" ตามภาษา:** `renderSessions()` ถูกเรียกใหม่ใน `applyLanguage()`
+>   (เดิมแถวถูกวาดใน JS แล้วค้างภาษาตอนที่วาด)
+> - **ปุ่มโมเดลล้นกรอบตอนภาษาอังกฤษ:** `.model-picker-btn` ใช้ `max-width: min(310px, 100%)`
+>   (ไม่ใช้ `width:100%` ที่ทำให้ช่องความคิดถูกบีบ) · `.think-slot` กลับเป็น `flex: 0 0 auto`
+>   ให้ picker เป็นตัวยอมหด · ซ่อนคำ "Reasoning/การคิด" ที่ ≤1280 เหลือค่า + ลูกศร
+>   → ที่หน้าต่าง 1240 ทั้ง TH/EN ไม่มีอะไรล้น (ตรวจด้วยภาพหน้าจอทั้งสองภาษา)
+> - **ยังไม่ commit · ยังไม่ bump** (ผู้ใช้ขอดู source ก่อน)
+
 > **⚠️ ล่าสุด (2026-11-17): ปรับ UI รอบใช้ + ปล่อย v0.5.16**
 > - **โมเดล:** ปุ่ม "เฉพาะฟรี" ไม่กางโฟลเดอร์ทุกบริษัทแล้ว — เป็นตัวกรองอย่างเดียว
 >   (เดิม `searching = query || freeOnly` ทำให้เปิดทุกกลุ่ม)

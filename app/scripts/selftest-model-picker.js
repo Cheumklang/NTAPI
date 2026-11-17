@@ -293,6 +293,30 @@ const FAKE_CATALOG = `
       true
     );
 
+    // A paid model selected as current must badge the trigger as paid, not free.
+    // `view.model` is only id/name; the plan lives on the catalog entry, so the
+    // trigger has to look it up rather than read the bare model's missing plan.
+    const paidCatalog = await evaluate(
+      ws,
+      `(() => ({
+         models: [
+           { provider: 'deepseek', id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash', plan: 'paid', planNote: '$0.30/$1.20' },
+         ],
+         model: { provider: 'deepseek', id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash' },
+       }))()`,
+      false
+    );
+    await evaluate(ws, `renderModelPicker(${JSON.stringify(paidCatalog)}); true`, true);
+    await sleep(200);
+    const paidBadge = await evaluate(
+      ws,
+      `(() => {
+         const p = document.getElementById('modelPickerPlan');
+         return { hidden: p.hidden, text: p.textContent, cls: p.className };
+       })()`,
+      true
+    );
+
     const report = {
       trigger,
       menuOpen: open.menuHidden === false && open.expanded === 'true',
@@ -306,6 +330,7 @@ const FAKE_CATALOG = `
       searchZro: filtered,
       searchNoMatch: noMatch,
       esc: closed,
+      paidBadge,
       screenshots: [openPath],
     };
     console.log(JSON.stringify(report, null, 2));
@@ -337,7 +362,10 @@ const FAKE_CATALOG = `
       noMatch.emptyHidden === false &&
       closed.hidden === true &&
       closed.expanded === 'false' &&
-      closed.focus === 'modelPickerBtn';
+      closed.focus === 'modelPickerBtn' &&
+      paidBadge.hidden === false &&
+      paidBadge.cls.includes('paid') &&
+      paidBadge.text === '$0.30/$1.20';
     process.exitCode = ok ? 0 : 1;
   } catch (err) {
     console.error('PICKER FAIL:', err.message);

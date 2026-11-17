@@ -55,6 +55,8 @@ app.whenReady().then(async () => {
     ['nvidia', 'build.nvidia.com'],
     ['tokenharbor', 'tokenharbor.ai'],
     ['llm7', 'dash.llm7.io'],
+    ['anthropic', 'platform.claude.com'],
+    ['google', 'aistudio.google.com'],
   ];
 
   for (const [pid, domain] of providers) {
@@ -85,12 +87,15 @@ app.whenReady().then(async () => {
     nvidia: document.getElementById('nvidiaBuy').textContent,
     tokenharbor: document.getElementById('tokenharborBuy').textContent,
     llm7: document.getElementById('llm7Buy').textContent,
+    anthropic: document.getElementById('anthropicBuy').textContent,
+    google: document.getElementById('googleBuy').textContent,
   }))()`);
   check('thai buy labels are fully Thai', Object.values(th).every((v) => /[ก-๙]/.test(v)), th);
   check('thai buy labels still name the site',
     th.coarena.includes('coarena.ai') && th.zro.includes('zro.moonmath.ai') &&
     th.nvidia.includes('build.nvidia.com') && th.tokenharbor.includes('tokenharbor.ai') &&
-    th.llm7.includes('dash.llm7.io'), th);
+    th.llm7.includes('dash.llm7.io') && th.anthropic.includes('platform.claude.com') &&
+    th.google.includes('aistudio.google.com'), th);
 
   // About: the licence statement and its button exist, in both languages.
   await run(`setLanguage('en')`);

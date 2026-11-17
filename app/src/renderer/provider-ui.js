@@ -21,6 +21,8 @@
   const TOKENHARBOR_PROVIDER = 'tokenharbor';
   const LLM7_PROVIDER = 'llm7';
   const DEEPSEEK_PROVIDER = 'deepseek';
+  const ANTHROPIC_PROVIDER = 'anthropic';
+  const GOOGLE_PROVIDER = 'google';
   const SEPARATOR = ' \u00b7 ';
 
   /** Bundled marks, resolved relative to the renderer page. */
@@ -33,6 +35,8 @@
     tokenharbor: 'assets/providers/tokenharbor.svg',
     llm7: 'assets/providers/llm7.png',
     deepseek: 'assets/providers/deepseek.svg',
+    anthropic: 'assets/providers/anthropic.svg',
+    google: 'assets/providers/google.svg',
   };
 
   /** Human-facing provider name; unknown providers pass through unchanged. */
@@ -48,6 +52,8 @@
     if (provider === TOKENHARBOR_PROVIDER) return 'Token Harbor';
     if (provider === LLM7_PROVIDER) return 'LLM7.io';
     if (provider === DEEPSEEK_PROVIDER) return 'DeepSeek';
+    if (provider === ANTHROPIC_PROVIDER) return 'Claude';
+    if (provider === GOOGLE_PROVIDER) return 'Gemini';
     return String(provider || '');
   }
 
@@ -149,6 +155,8 @@
     if (provider === TOKENHARBOR_PROVIDER) return { showAds: false, meter: 'tokenharbor' };
     if (provider === LLM7_PROVIDER) return { showAds: false, meter: 'llm7' };
     if (provider === DEEPSEEK_PROVIDER) return { showAds: false, meter: 'deepseek' };
+    if (provider === ANTHROPIC_PROVIDER) return { showAds: false, meter: 'anthropic' };
+    if (provider === GOOGLE_PROVIDER) return { showAds: false, meter: 'google' };
     return { showAds: false, meter: null };
   }
 

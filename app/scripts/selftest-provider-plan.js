@@ -234,6 +234,44 @@ const rwNoKey = planProviders({
 check('no key means no llm7', rwNoKey.llm7 === false);
 check('nothing at all stays unavailable', rwNoKey.available === false);
 
+// Claude and Gemini join as first-party paid providers, last in the default
+// order for the same reason DeepSeek is: a saved key must not start spending.
+const ant = [{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }];
+const gem = [{ id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' }];
+
+const antOnly = planProviders({ anthropicKey: 'k', anthropicModels: ant });
+check('anthropic-only works', antOnly.available && antOnly.anthropic && !antOnly.google);
+check(
+  'anthropic-only defaults to its first model',
+  antOnly.defaultProvider === 'anthropic' && antOnly.defaultModel === 'claude-sonnet-4-5'
+);
+check('anthropic brings no ads and no free-pi tools', antOnly.ads === false && antOnly.freePiTools === false);
+
+const gemOnly = planProviders({ googleKey: 'k', googleModels: gem });
+check('google-only works', gemOnly.available && gemOnly.google && !gemOnly.anthropic);
+check(
+  'google-only defaults to its first model',
+  gemOnly.defaultProvider === 'google' && gemOnly.defaultModel === 'gemini-2.5-pro'
+);
+
+const antNoKey = planProviders({ anthropicKey: null, anthropicModels: ant });
+check('a catalog without a key is not a provider', antNoKey.anthropic === false && antNoKey.available === false);
+const antNoModels = planProviders({ anthropicKey: 'k', anthropicModels: [] });
+check('a key with an empty catalog is not a provider', antNoModels.anthropic === false);
+
+const allPaid = planProviders({
+  deepseekKey: 'k',
+  deepseekModels: [{ id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash' }],
+  anthropicKey: 'k',
+  anthropicModels: ant,
+  googleKey: 'k',
+  googleModels: gem,
+});
+check(
+  'with every paid key saved, DeepSeek still opens first',
+  allPaid.defaultProvider === 'deepseek' && allPaid.available === true
+);
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

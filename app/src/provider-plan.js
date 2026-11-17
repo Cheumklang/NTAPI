@@ -10,7 +10,7 @@
  *
  * Pure on purpose: no SDK, no network, no fs. The tests pin down the states the
  * UI can be in (any combination of FreePi, Coarena, Zro, NVIDIA, Token Harbor,
- * LLM7.io and DeepSeek).
+ * LLM7.io, DeepSeek, Claude and Gemini).
  */
 
 const { preferredLlm7Model } = require('./llm7');
@@ -22,6 +22,8 @@ const NVIDIA_PROVIDER = 'nvidia';
 const TOKENHARBOR_PROVIDER = 'tokenharbor';
 const LLM7_PROVIDER = 'llm7';
 const DEEPSEEK_PROVIDER = 'deepseek';
+const ANTHROPIC_PROVIDER = 'anthropic';
+const GOOGLE_PROVIDER = 'google';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
 /**
@@ -41,7 +43,7 @@ const FREE_PI_TOOL_NAMES = ['web_search', 'docs_lookup', 'generate_image', 'free
  *   coarena: boolean,
  *   ads: boolean,
  *   freePiTools: boolean,
- *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'llm7'|'deepseek'|null,
+ *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'llm7'|'deepseek'|'anthropic'|'google'|null,
  *   defaultModel: string|null,
  *   available: boolean,
  * }}
@@ -54,6 +56,8 @@ function planProviders({
   tokenharborKey,
   llm7Key,
   deepseekKey,
+  anthropicKey,
+  googleKey,
   freePiModels,
   coarenaModels,
   zroModels,
@@ -61,6 +65,8 @@ function planProviders({
   tokenharborModels,
   llm7Models,
   deepseekModels,
+  anthropicModels,
+  googleModels,
 }) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
   const coarenaList = Array.isArray(coarenaModels) ? coarenaModels : [];
@@ -69,6 +75,8 @@ function planProviders({
   const tokenharborList = Array.isArray(tokenharborModels) ? tokenharborModels : [];
   const llm7List = Array.isArray(llm7Models) ? llm7Models : [];
   const deepseekList = Array.isArray(deepseekModels) ? deepseekModels : [];
+  const anthropicList = Array.isArray(anthropicModels) ? anthropicModels : [];
+  const googleList = Array.isArray(googleModels) ? googleModels : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
   // empty and a session could not pick a model at all.
@@ -79,6 +87,8 @@ function planProviders({
   const tokenharbor = Boolean(tokenharborKey) && tokenharborList.length > 0;
   const llm7 = Boolean(llm7Key) && llm7List.length > 0;
   const deepseek = Boolean(deepseekKey) && deepseekList.length > 0;
+  const anthropic = Boolean(anthropicKey) && anthropicList.length > 0;
+  const google = Boolean(googleKey) && googleList.length > 0;
 
   let defaultProvider = null;
   let defaultModel = null;
@@ -115,6 +125,13 @@ function planProviders({
     // start spending because a key happens to be saved.
     defaultProvider = DEEPSEEK_PROVIDER;
     defaultModel = deepseekList[0].id;
+  } else if (anthropic) {
+    // Same rule as DeepSeek: a prepaid balance, billed from the first token.
+    defaultProvider = ANTHROPIC_PROVIDER;
+    defaultModel = anthropicList[0].id;
+  } else if (google) {
+    defaultProvider = GOOGLE_PROVIDER;
+    defaultModel = googleList[0].id;
   }
 
   return {
@@ -125,11 +142,22 @@ function planProviders({
     tokenharbor,
     llm7,
     deepseek,
+    anthropic,
+    google,
     ads: freePi,
     freePiTools: freePi,
     defaultProvider,
     defaultModel,
-    available: freePi || coarena || zro || nvidia || tokenharbor || llm7 || deepseek,
+    available:
+      freePi ||
+      coarena ||
+      zro ||
+      nvidia ||
+      tokenharbor ||
+      llm7 ||
+      deepseek ||
+      anthropic ||
+      google,
   };
 }
 
@@ -142,6 +170,8 @@ module.exports = {
   TOKENHARBOR_PROVIDER,
   LLM7_PROVIDER,
   DEEPSEEK_PROVIDER,
+  ANTHROPIC_PROVIDER,
+  GOOGLE_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
 };

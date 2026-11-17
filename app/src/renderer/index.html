@@ -15,17 +15,17 @@
         <span class="tb-brand">NTAPI</span>
       </div>
       <div class="tb-controls">
-        <button id="winMin" class="tb-btn" title="Minimize" aria-label="Minimize">
+        <button id="winMin" class="tb-btn" data-i18n-title="winMin" data-i18n-aria="winMin">
           <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
             <path d="M2.5 6h7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
           </svg>
         </button>
-        <button id="winMax" class="tb-btn" title="Maximize" aria-label="Maximize">
+        <button id="winMax" class="tb-btn" data-i18n-title="winMax" data-i18n-aria="winMax">
           <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
             <rect x="2.6" y="2.6" width="6.8" height="6.8" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.1"/>
           </svg>
         </button>
-        <button id="winClose" class="tb-btn tb-close" title="Close" aria-label="Close">
+        <button id="winClose" class="tb-btn tb-close" data-i18n-title="winClose" data-i18n-aria="winClose">
           <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
             <path d="M3.2 3.2l5.6 5.6M8.8 3.2l-5.6 5.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
           </svg>
@@ -39,15 +39,15 @@
           <span>NTAPI</span>
           <span class="brand-count online" id="brandOnline" hidden></span>
           <span class="badge" id="guestBadge" hidden data-i18n="guestBadge">guest</span>
-          <button id="langBtn" class="chip-btn" title="Language / ภาษา">EN</button>
-          <button id="browserBtn" class="chip-btn" title="Browser control" aria-label="Browser control" aria-pressed="false">
+          <button id="langBtn" class="chip-btn" data-i18n-title="languageBtn">EN</button>
+          <button id="browserBtn" class="chip-btn" data-i18n-title="browserBtn" data-i18n-aria="browserBtn" aria-pressed="false">
             <span class="dot" aria-hidden="true"></span>
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
               <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
               <path d="M3 12h18M12 3c2.6 2.6 4 5.6 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.6-4-9s1.4-6.4 4-9z" fill="none" stroke="currentColor" stroke-width="2"/>
             </svg>
           </button>
-          <button id="settingsBtn" class="chip-btn" title="Settings" aria-label="Settings">
+          <button id="settingsBtn" class="chip-btn" data-i18n-title="settingsBtn" data-i18n-aria="settingsBtn">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="2"/>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -55,12 +55,21 @@
           </button>
         </div>
 
-        <!-- Directly below the Settings button, on its own row: the brand row
-             already holds four chips, and a fifth would widen the column's
-             measured floor. Keeping it here leaves the sidebar's width — and
-             everything already on it — exactly where it was. -->
+        <!--
+          One compact row: the workspace, the theme and tool approval. The
+          workspace used to be a section of its own (label + a full-width path
+          button) and cost two lines of the column for something touched once a
+          session; it is a chip now, with the full path in its tooltip.
+        -->
         <div class="sidebar-tools">
-          <button id="themeBtn" class="chip-btn" title="Theme" aria-label="Theme" aria-pressed="false">
+          <button id="pickFolder" class="chip-btn workspace-chip" data-i18n-title="workspaceTitle">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <path d="M4 6h6l2 2h8v10H4z" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            </svg>
+            <span id="cwdLabel">…</span>
+          </button>
+
+          <button id="themeBtn" class="chip-btn" data-i18n-title="themeTitle" data-i18n-aria="themeTitle" aria-pressed="false">
             <svg id="themeIconMoon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
               <path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
             </svg>
@@ -83,7 +92,7 @@
               aria-haspopup="true"
               aria-expanded="false"
               aria-controls="approvalPopover"
-              title="การอนุมัติเครื่องมือ"
+              data-i18n-title="approvalTitle"
             >
               <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
@@ -111,15 +120,15 @@
                 role="radiogroup"
                 aria-labelledby="approvalLabel"
               >
-                <label class="approval-opt" title="ถามทุกครั้งก่อนรันเครื่องมือ">
+                <label class="approval-opt" data-i18n-title="approvalAskTitle">
                   <input type="radio" name="approvalPolicy" value="ask" data-short="ถาม" />
                   <span>ถามเสมอ</span>
                 </label>
-                <label class="approval-opt" title="อนุมัติเครื่องมือให้ทันที">
+                <label class="approval-opt" data-i18n-title="approvalAllowTitle">
                   <input type="radio" name="approvalPolicy" value="allow" data-short="อนุมัติ" />
                   <span>อนุมัติเสมอ</span>
                 </label>
-                <label class="approval-opt" title="ไม่อนุมัติเครื่องมือใด ๆ">
+                <label class="approval-opt" data-i18n-title="approvalDenyTitle">
                   <input type="radio" name="approvalPolicy" value="deny" data-short="ปฏิเสธ" />
                   <span>ไม่อนุมัติเลย</span>
                 </label>
@@ -128,14 +137,6 @@
               <p class="approval-note" id="approvalNote">เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์</p>
             </div>
           </div>
-        </div>
-
-        <div class="section">
-          <label data-i18n="workspace">Workspace</label>
-          <button id="pickFolder" class="path-btn" title="Choose a folder">
-            <span id="cwdLabel">…</span>
-            <svg viewBox="0 0 24 24" width="14" height="14"><path d="M4 6h6l2 2h8v10H4z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-          </button>
         </div>
 
         <div class="section grow">
@@ -344,7 +345,7 @@
                     <span class="tok-label" data-i18n="tokCost">ค่าใช้จ่าย</span>
                     <span class="tok-amount"
                       ><span id="tokCost" class="tok-value mono">—</span
-                      ><span class="tok-unit" data-i18n="tokUnitMoney">USD</span></span
+                      ><span class="tok-unit" id="tokCostUnit" data-i18n="tokUnitMoney">บาท</span></span
                     >
                   </div>
                 </div>
@@ -388,9 +389,11 @@
           </div>
           <div class="controls">
             <!--
-              Reasoning effort. A three-to-five position switch, built like the
-              approval switch in the sidebar: one visible control, current state
-              shown at a glance rather than hidden behind a dropdown click.
+              Reasoning effort, as a compact dropdown: five positions on a
+              segmented switch took ~190px of a row that also holds the status
+              pill and the model picker, and at a narrow window it was the switch
+              that forced the picker past the edge. The button shows the current
+              level; the list opens under it.
 
               It is always on screen. It used to be hidden whenever the model
               reported no reasoning support, so it blinked in and out as models
@@ -398,18 +401,24 @@
               control stays where the eye expects it and still says why it is off.
             -->
             <div class="think-slot">
-              <span class="think-label" id="thinkingLabel" data-i18n="thinking">Reasoning</span>
-              <!-- The value source for IPC and tests; the visible control is the
-                   switch below, exactly as the model picker does it. -->
-              <select id="thinkingSelect" class="think-value" tabindex="-1" aria-hidden="true" hidden></select>
-              <div
-                class="think-switch"
-                id="thinkingSwitch"
-                role="radiogroup"
-                aria-labelledby="thinkingLabel"
+              <button
+                id="thinkingBtn"
+                class="think-btn"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                data-i18n-title="reasoningTitle"
               >
-                <span class="think-thumb" aria-hidden="true"></span>
-              </div>
+                <span class="think-btn-label" id="thinkingLabel" data-i18n="thinking">การคิด</span>
+                <span id="thinkingValue" class="think-btn-value">—</span>
+                <svg class="think-btn-chevron" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <!-- The value source for IPC and tests; the visible control is the
+                   dropdown above, exactly as the model picker does it. -->
+              <select id="thinkingSelect" class="think-value" tabindex="-1" aria-hidden="true" hidden></select>
+              <div class="think-menu" id="thinkingMenu" role="listbox" aria-labelledby="thinkingLabel" hidden></div>
               <span class="think-note" id="thinkingNote" hidden></span>
             </div>
             <div class="model-picker" id="modelPicker">
@@ -420,7 +429,7 @@
                 id="modelPickerBtn"
                 class="model-picker-btn"
                 type="button"
-                title="Model"
+                data-i18n-title="modelTitle"
                 aria-haspopup="listbox"
                 aria-expanded="false"
                 aria-controls="modelMenu"
@@ -450,7 +459,7 @@
                        clicked: the label is not a control, and without it the
                        press dropped focus on <body>, which closed the menu
                        before the checkbox could be ticked. -->
-                  <label class="model-free-toggle" title="Free only" tabindex="-1">
+                  <label class="model-free-toggle" data-i18n-title="freeOnlyTitle" tabindex="-1">
                     <input id="modelFreeOnly" type="checkbox" />
                     <span id="modelFreeOnlyLabel">Free only</span>
                   </label>
@@ -517,7 +526,7 @@
           type="button"
           hidden
           aria-label="Jump to the newest message"
-          title="Jump to the newest message"
+          data-i18n-title="jumpLatest"
           data-i18n="jumpToBottom"
         >Newest</button>
         </div>
@@ -547,7 +556,7 @@
             <textarea id="input" rows="1" placeholder="Ask NTAPI to build, fix, or explain… (Enter to send, Shift+Enter for newline)"></textarea>
             <div class="composer-side">
               <div class="composer-actions">
-                <button id="attachBtn" class="attach" title="Attach files (Ctrl+V to paste)" data-i18n="attach">Attach</button>
+                <button id="attachBtn" class="attach" data-i18n-title="attachTitle" data-i18n="attach">Attach</button>
                 <button id="undoBtn" class="attach" title="Undo the last message" data-i18n="undo" data-i18n-title="undoTitle">Undo</button>
                 <button id="stopBtn" class="stop" hidden data-i18n="stop">Stop</button>
                 <button id="sendBtn" class="send" disabled data-i18n="send">Send</button>
@@ -594,9 +603,9 @@
     <div id="findBar" class="find-bar" hidden>
       <input id="findInput" type="text" placeholder="Search this conversation" aria-label="Search this conversation" />
       <span id="findCount" class="find-count">0/0</span>
-      <button id="findPrev" class="ghost small" title="Previous match">↑</button>
-      <button id="findNext" class="ghost small" title="Next match">↓</button>
-      <button id="findClose" class="ghost small" title="Close">✕</button>
+      <button id="findPrev" class="ghost small" data-i18n-title="findPrev">↑</button>
+      <button id="findNext" class="ghost small" data-i18n-title="findNext">↓</button>
+      <button id="findClose" class="ghost small" data-i18n-title="findClose">✕</button>
     </div>
 
     <div id="paletteOverlay" class="overlay palette-overlay" hidden>
@@ -931,6 +940,46 @@
                       <button id="deepseekGetKey" class="link-btn" data-i18n="deepseekGetKey">Get a key at platform.deepseek.com</button>
                       <span class="link-sep" aria-hidden="true">·</span>
                       <button id="deepseekBuy" class="link-btn" data-i18n="deepseekBuy"></button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="anthropicRow" data-provider="anthropic">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/anthropic.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="anthropicSection">Claude</span>
+                        <p id="anthropicStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="anthropicKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-&hellip;" aria-label="Claude API key" />
+                      <button id="anthropicSave" class="ghost small" data-i18n="anthropicSave">Save</button>
+                      <button id="anthropicRemove" class="ghost small danger" data-i18n="anthropicRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="anthropicGetKey" class="link-btn" data-i18n="anthropicGetKey">Get a key at platform.claude.com</button>
+                      <span class="link-sep" aria-hidden="true">·</span>
+                      <button id="anthropicBuy" class="link-btn" data-i18n="anthropicBuy"></button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="googleRow" data-provider="google">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/google.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="googleSection">Gemini</span>
+                        <p id="googleStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="googleKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="AIza&hellip;" aria-label="Gemini API key" />
+                      <button id="googleSave" class="ghost small" data-i18n="googleSave">Save</button>
+                      <button id="googleRemove" class="ghost small danger" data-i18n="googleRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="googleGetKey" class="link-btn" data-i18n="googleGetKey">Get a key at aistudio.google.com</button>
+                      <span class="link-sep" aria-hidden="true">·</span>
+                      <button id="googleBuy" class="link-btn" data-i18n="googleBuy"></button>
                     </div>
                   </div>
                 </div>

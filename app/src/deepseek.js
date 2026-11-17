@@ -88,6 +88,9 @@ function deepseekModelEntries(models) {
     name: m.name,
     plan: DEEPSEEK_PLAN,
     planNote: priceNote(m.cost),
+    // The raw table as well: the window shows the price in the language's
+    // currency, and a pre-formatted dollar string cannot be converted.
+    cost: m.cost || null,
   }));
 }
 

@@ -95,6 +95,12 @@ contextBridge.exposeInMainWorld('freepi', {
   deepseekStatus: () => ipcRenderer.invoke('deepseek:status'),
   deepseekSetKey: (key) => ipcRenderer.invoke('deepseek:setKey', { key }),
   deepseekClearKey: () => ipcRenderer.invoke('deepseek:clearKey'),
+  anthropicStatus: () => ipcRenderer.invoke('anthropic:status'),
+  anthropicSetKey: (key) => ipcRenderer.invoke('anthropic:setKey', { key }),
+  anthropicClearKey: () => ipcRenderer.invoke('anthropic:clearKey'),
+  googleStatus: () => ipcRenderer.invoke('google:status'),
+  googleSetKey: (key) => ipcRenderer.invoke('google:setKey', { key }),
+  googleClearKey: () => ipcRenderer.invoke('google:clearKey'),
   listSkills: () => ipcRenderer.invoke('skills:list'),
   pickSettingsFolder: () => ipcRenderer.invoke('settings:pickFolder'),
   revealPath: (p) => ipcRenderer.invoke('settings:reveal', p),
@@ -120,6 +126,7 @@ contextBridge.exposeInMainWorld('freepi', {
   sendPrompt: (tabId, text, images, mode) =>
     ipcRenderer.invoke('prompt:send', { tabId, text, images, mode }),
   abort: (tabId) => ipcRenderer.invoke('prompt:abort', tabId),
+  takeBackPrompt: (tabId) => ipcRenderer.invoke('prompt:takeBack', tabId),
   setModel: (tabId, provider, id) => ipcRenderer.invoke('model:set', { tabId, provider, id }),
   fetchUsage: () => ipcRenderer.invoke('usage:fetch'),
   // USD → THB for the token panel's cost line (memoised for six hours).

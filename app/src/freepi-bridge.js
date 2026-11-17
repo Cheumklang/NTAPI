@@ -17,7 +17,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
-const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER } = require('./provider-plan');
+const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER, ANTHROPIC_PROVIDER, GOOGLE_PROVIDER } = require('./provider-plan');
 const { detectClientVersion, upgradedClientVersion, FALLBACK_CLIENT_VERSION } = require('./client-version');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels, retagModels, setCoarenaFreeTier } = require('./coarena');
 const {
@@ -47,6 +47,16 @@ const {
   deepseekProviderConfig,
   deepseekModelEntries,
 } = require('./deepseek');
+const {
+  resolveAnthropicModels,
+  anthropicProviderConfig,
+  anthropicModelEntries,
+} = require('./anthropic');
+const {
+  resolveGoogleModels,
+  googleProviderConfig,
+  googleModelEntries,
+} = require('./google-ai');
 const { providerIdleTimeoutMs } = require('./provider-timeout');
 const { tagPlans } = require('./model-filter');
 const { pruneImages } = require('./image-history');
@@ -202,6 +212,9 @@ function modelEntry(provider, model) {
     name: model.name,
     plan: model.plan === 'paid' ? 'paid' : 'free',
     planNote: model.planNote || '',
+    // The price per million tokens, when the provider publishes one. The window
+    // shows it in the language's currency, so it has to reach the renderer.
+    cost: model.cost || null,
   };
 }
 
@@ -660,6 +673,10 @@ async function createFreePiSession(options) {
     /** LLM7 API token, or null. Free turbo models plus the paid pro lane. */
     llm7Key = null,
     deepseekKey = null,
+    /** Claude API key, or null. Native Messages API, paid per token. */
+    anthropicKey = null,
+    /** Gemini API key, or null. Native Generative Language API, paid. */
+    googleKey = null,
     /**
      * Injectable so tests can simulate "no FreePi login" without touching the
      * real credentials file. Production uses the normal resolver.
@@ -673,6 +690,8 @@ async function createFreePiSession(options) {
   let activeTokenHarborKey = tokenharborKey ? String(tokenharborKey).trim() : null;
   let activeLlm7Key = llm7Key ? String(llm7Key).trim() : null;
   let activeDeepseekKey = deepseekKey ? String(deepseekKey).trim() : null;
+  let activeAnthropicKey = anthropicKey ? String(anthropicKey).trim() : null;
+  let activeGoogleKey = googleKey ? String(googleKey).trim() : null;
 
   const downloadsDirAbs = path.isAbsolute(downloadsDir)
     ? downloadsDir
@@ -732,14 +751,19 @@ async function createFreePiSession(options) {
    * is kept for ten minutes. A key the user just saved is a different entry, so
    * saving one still reads its catalog immediately.
    */
-  const [nvidiaModels, tokenharborModels, llm7Catalog, deepseekModels] = await Promise.all([
-    cachedCatalog('nvidia', activeNvidiaKey, () => resolveNvidiaModels(activeNvidiaKey)),
-    cachedCatalog('tokenharbor', activeTokenHarborKey, () => resolveTokenHarborModels(activeTokenHarborKey)),
-    activeLlm7Key
-      ? cachedCatalog('llm7', activeLlm7Key, () => fetchLlm7Models(), { models: [], source: 'none' })
-      : Promise.resolve({ models: [], source: 'none' }),
-    cachedCatalog('deepseek', activeDeepseekKey, () => resolveDeepSeekModels(activeDeepseekKey)),
-  ]);
+  const [nvidiaModels, tokenharborModels, llm7Catalog, deepseekModels, anthropicModels, googleModels] =
+    await Promise.all([
+      cachedCatalog('nvidia', activeNvidiaKey, () => resolveNvidiaModels(activeNvidiaKey)),
+      cachedCatalog('tokenharbor', activeTokenHarborKey, () =>
+        resolveTokenHarborModels(activeTokenHarborKey)
+      ),
+      activeLlm7Key
+        ? cachedCatalog('llm7', activeLlm7Key, () => fetchLlm7Models(), { models: [], source: 'none' })
+        : Promise.resolve({ models: [], source: 'none' }),
+      cachedCatalog('deepseek', activeDeepseekKey, () => resolveDeepSeekModels(activeDeepseekKey)),
+      cachedCatalog('anthropic', activeAnthropicKey, () => resolveAnthropicModels(activeAnthropicKey)),
+      cachedCatalog('google', activeGoogleKey, () => resolveGoogleModels(activeGoogleKey)),
+    ]);
   const llm7Models = activeLlm7Key ? tagPlans(llm7Catalog.models) : [];
 
   const sessionId = sessionManager.getSessionId();
@@ -751,6 +775,8 @@ async function createFreePiSession(options) {
     tokenharborKey: activeTokenHarborKey,
     llm7Key: activeLlm7Key,
     deepseekKey: activeDeepseekKey,
+    anthropicKey: activeAnthropicKey,
+    googleKey: activeGoogleKey,
     freePiModels: models,
     coarenaModels,
     zroModels,
@@ -758,6 +784,8 @@ async function createFreePiSession(options) {
     tokenharborModels,
     llm7Models,
     deepseekModels,
+    anthropicModels,
+    googleModels,
   });
   if (!plan.available) {
     throw new Error(
@@ -771,7 +799,9 @@ async function createFreePiSession(options) {
       `nvidia=${plan.nvidia ? nvidiaModels.length : 0}, ` +
       `tokenharbor=${plan.tokenharbor ? tokenharborModels.length : 0}, ` +
       `llm7=${plan.llm7 ? llm7Models.length : 0} (catalog ${llm7Catalog.source}), ` +
-      `deepseek=${plan.deepseek ? deepseekModels.length : 0}`
+      `deepseek=${plan.deepseek ? deepseekModels.length : 0}, ` +
+      `anthropic=${plan.anthropic ? anthropicModels.length : 0}, ` +
+      `google=${plan.google ? googleModels.length : 0}`
   );
 
   // Ads: one per user turn, tagged with the turn id the completion carries.
@@ -844,6 +874,18 @@ async function createFreePiSession(options) {
         pi.registerProvider(
           DEEPSEEK_PROVIDER,
           deepseekProviderConfig({ apiKey: activeDeepseekKey, models: deepseekModels })
+        );
+      }
+      if (plan.anthropic) {
+        pi.registerProvider(
+          ANTHROPIC_PROVIDER,
+          anthropicProviderConfig({ apiKey: activeAnthropicKey, models: anthropicModels })
+        );
+      }
+      if (plan.google) {
+        pi.registerProvider(
+          GOOGLE_PROVIDER,
+          googleProviderConfig({ apiKey: activeGoogleKey, models: googleModels })
         );
       }
       // Images accumulate in history every time a model reads one. Trim before
@@ -1664,6 +1706,8 @@ async function createFreePiSession(options) {
   let tokenharborEntries = plan.tokenharbor ? tokenharborModelEntries(tokenharborModels) : [];
   let llm7Entries = plan.llm7 ? llm7ModelEntries(llm7Models) : [];
   let deepseekEntries = plan.deepseek ? deepseekModelEntries(deepseekModels) : [];
+  let anthropicEntries = plan.anthropic ? anthropicModelEntries(anthropicModels) : [];
+  let googleEntries = plan.google ? googleModelEntries(googleModels) : [];
   let modelList = [];
 
   /**
@@ -1680,6 +1724,8 @@ async function createFreePiSession(options) {
       ...tokenharborEntries,
       ...llm7Entries,
       ...deepseekEntries,
+      ...anthropicEntries,
+      ...googleEntries,
     ];
     return modelList;
   }
@@ -1876,6 +1922,63 @@ async function createFreePiSession(options) {
   }
 
   /**
+   * Swap the Claude key while the tab is open. The live `/v1/models` list decides
+   * which families are offered, so a retired one leaves the dropdown instead of
+   * failing every turn.
+   */
+  async function applyAnthropicKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(ANTHROPIC_PROVIDER);
+      } catch {}
+    }
+
+    activeAnthropicKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeAnthropicKey) {
+      anthropicEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolveAnthropicModels(activeAnthropicKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        ANTHROPIC_PROVIDER,
+        anthropicProviderConfig({ apiKey: activeAnthropicKey, models })
+      );
+    }
+    anthropicEntries = anthropicModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
+  /**
+   * Swap the Gemini key while the tab is open. The catalog is the API's own
+   * model list, filtered to the ids this key can actually generate with.
+   */
+  async function applyGoogleKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(GOOGLE_PROVIDER);
+      } catch {}
+    }
+
+    activeGoogleKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeGoogleKey) {
+      googleEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolveGoogleModels(activeGoogleKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        GOOGLE_PROVIDER,
+        googleProviderConfig({ apiKey: activeGoogleKey, models })
+      );
+    }
+    googleEntries = googleModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
+  /**
    * Re-register the free-pi provider after the backend says our version header
    * is too old. The header is resolved per call now (see currentClientVersion),
    * so this exists for the case where a *newer* CLI appeared on disk while the
@@ -1941,6 +2044,8 @@ async function createFreePiSession(options) {
     applyTokenHarborKey,
     applyLlm7Key,
     applyDeepSeekKey,
+    applyAnthropicKey,
+    applyGoogleKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
 
