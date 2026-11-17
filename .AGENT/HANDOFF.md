@@ -19,6 +19,13 @@
 >   + chip) ลงทะเบียนใน `run-unit-tests.js` · อัปเดต `selftest-google-ai.js`, `selftest-provider-plan.js`
 >   → `npm test` **85/85**
 > - **เวอร์ชัน:** `0.5.18` · commit + tag + push แล้ว (CI ปล่อยรุ่น)
+> - **ตรวจรุ่นที่ปล่อย:** `latest.yml` ไม่ได้อยู่ใน git ของ repo ปล่อย — เป็น **release asset**
+>   ต้องอ่านจาก `GET /repos/Cheumklang/NTAPI-releases/releases/latest` (โทเคนจาก `git credential fill`)
+>   · รุ่นนี้: exe 118,337,255 bytes sha256 `1939349e…3721a1` · provenance record-release seq 97 + anchor + verify OK
+> - **CI ไม่ผ่านรอบแรก:** `selftest-usage-pill.js` ใช้หน้าต่าง regex 6,000 ตัวอักษรจาก
+>   `function paintProviderMeter` ถึง `mirror();` — checkout บน runner เป็น CRLF ทำให้ยาวเกิน
+>   → ขยายเป็น 9,000 + ย่อคอมเมนต์ที่เพิ่ม · commit `515f110` (`internal:`) · CI เขียวแล้ว
+>   (รุ่นที่ปล่อยไม่มีอะไรเปลี่ยนเชิงพฤติกรรม — แก้เทสต์/คอมเมนต์อย่างเดียว)
 
 > **⚠️ ล่าสุด (2026-11-17): Gemini มีโมเดลฟรีแล้ว (Flash / Flash Lite)**
 > - **ปัญหาเดิม:** `google-ai.js` ติด `GOOGLE_PLAN = 'paid'` ทุกแถว → ไม่มีโมเดลฟรีให้เลือกเลย

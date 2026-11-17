@@ -3183,3 +3183,14 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ปล่อยรุ่น `0.5.18` (commit + tag v0.5.18 + push) ตามคําสั่ง “ส่งอัปเดต”
 - บทเรียน: `edit` ที่มี oldText เป็นภาษาไทยเสี่ยงไม่แมตช์ (สระอําเขียนได้หลายรหัส)
   → ใช้ `node -e` ตัดบรรทัดตามคีย์ภาษาอังกฤษแทน (ใช้แล้วกับ `googleFreeLimits`)
+
+## 2026-11-17 — ปิดงาน v0.5.18 (บทเรียน)
+
+- `latest.yml` ของรุ่นที่ปล่อยอยู่เป็น **release asset** ไม่ใช่ไฟล์ใน git ของ repo ปล่อย
+  → poll `git show origin/main:latest.yml` ไม่มีวันเจอ · ต้องใช้ GitHub API `/releases/latest`
+  (โทเคนเอาได้จาก `git credential fill` — ไม่ต้องติดตั้ง `gh`)
+- CI ล้มเงียบเรื่อง `selftest-usage-pill.js`: regex หน้าต่าง 6,000 ตัวอักษรพอดีบน LF แต่ checkout
+  ของ runner เป็น CRLF → ยาวเกิน 21 ตัวอักษร → ขยายเป็น 9,000 + ย่อคอมเมนต์
+  (รันเทสต์ในเครื่องผ่านแต่ CI ไม่ผ่าน = ตรวจ line ending ของ checkout ด้วย)
+- `node require()` ใช้ path MSYS `/tmp/...` ไม่ได้ — เขียนไป `C:/NTAPI/outputs/` เท่านั้น
+- ปล่อยรุ่นเสร็จ: `record-release` + `anchor` + `verify` OK (seq 97) · CI เขียว · แจ้ง ntfy แล้ว
