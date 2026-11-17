@@ -3450,7 +3450,25 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .about-copyright { margin: 4px 0 0; font-size: 11.5px; color: var(--muted, var(--muted-soft)); opacity: 0.85; }
 
 /* First run: the terms card. Reads as a short statement, not a wall of text. */
-.terms-dialog { max-width: 520px; }
+/*
+ * Wide enough that the intro sentence fits on one line in both languages, even
+ * though Thai is the longer of the two. Every extra 100px is a line the wording
+ * does not wrap onto, and a line that does not wrap is a line that cannot push
+ * the buttons around when the reader switches language.
+ *
+ * The fixed height does the same job for whatever still wraps (the bullet list
+ * is the one that moves between the two languages): Thai and English never break
+ * in the same place, so without a floor the card grows and shrinks as the reader
+ * switches and the buttons jump under the pointer. The actions row is pushed to
+ * the bottom, so the same height always puts them in the same place.
+ */
+.terms-dialog {
+  max-width: min(920px, 92vw);
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+.terms-dialog .dialog-actions { margin-top: auto; padding-top: 16px; }
 /* The language chips sit in the corner of the card, above the title. */
 .terms-lang { display: flex; justify-content: flex-end; gap: 4px; margin-bottom: 4px; }
 .terms-lang-btn {
@@ -3476,7 +3494,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .terms-legal-links .link-btn { font-size: 12.8px; }
 .terms-legal-links .link-sep { color: var(--muted, var(--muted-soft)); font-size: 12px; }
 .terms-agree-hint { margin: 10px 0 0; font-size: 12px; line-height: 1.55; color: var(--muted, var(--muted-soft)); }
-.terms-dialog .dialog-actions { margin-top: 14px; }
 
 /*
  * Token block in the status panel.
