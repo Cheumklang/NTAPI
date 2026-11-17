@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-17T08:48:14.658Z
-entries 106
-head_hash de355f40bcd93a6aa398359b30acb6fab11735d542680194c7c046ffbc726fc0
-git 6940ecf94d145a1f7825c312948a31214b21a043
+updated 2026-11-17T09:37:28.483Z
+entries 111
+head_hash b9cae12850baf4f9b69a3d6a5e14a119b89b7fb04d20b2f26bb77f1cb61a0850
+git 5959276c31b4c68d9bfa253e495eb42949a67bb7
 
 latest entries:
-  #99 2026-11-17T08:31:13.577Z commit — internal: บันทึกบทเรียนการปล่อยรุ่น 0.5.18
-  #100 2026-11-17T08:34:30.096Z session — v0.5.19 saved-chat clock colon and 12-hour English
-  #101 2026-11-17T08:34:30.752Z commit — เวลาในรายการแชทใช้เครื่องหมาย : และภาษาอังกฤษเป็น 12 ชั่วโมง
-  #102 2026-11-17T08:38:29.273Z release — Released version 0.5.19
-  #103 2026-11-17T08:38:30.193Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.19
   #104 2026-11-17T08:45:20.671Z session — v0.5.20 missing i18n keys and prune
   #105 2026-11-17T08:45:21.316Z commit — คิว: ปุ่มแนบไฟล์ขึ้นชื่อคีย์ดิบ — เพิ่มข้อความ EN/TH ที่ขาด
   #106 2026-11-17T08:48:14.542Z release — Released version 0.5.20
+  #107 2026-11-17T08:48:15.495Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.20
+  #108 2026-11-17T08:48:18.808Z commit — internal: [prune-releases keep=v0.5.20 apply tags] ลบรุ่นเก่าออกจากหน้าโหลด
+  #109 2026-11-17T09:34:16.537Z session — v0.5.21 terms card language switch
+  #110 2026-11-17T09:34:17.200Z commit — การณ์: สลับภาษาในกล่องยอมรับเงื่อนไข และภาษาเริ่มต้นตาม Windows
+  #111 2026-11-17T09:37:28.363Z release — Released version 0.5.21

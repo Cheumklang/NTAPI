@@ -1,0 +1,22 @@
+{
+  "version": "0.5.21",
+  "tag": "v0.5.21",
+  "recordedAt": "2026-11-17T09:37:28.357Z",
+  "git": {
+    "head": "5959276c31b4c68d9bfa253e495eb42949a67bb7",
+    "branch": "master",
+    "tree": "cbdf644cfc540af17736e7cb7b33d5292ec94d92",
+    "subject": "การณ์: สลับภาษาในกล่องยอมรับเงื่อนไข และภาษาเริ่มต้นตาม Windows",
+    "authorDate": "2026-11-17T16:34:16+07:00",
+    "commitCount": 327
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44056790198",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.21.exe",
+      "size": 118338207,
+      "sha256": "9ffcccdcaf22e5c6b0714761929303ea28a0e0759dcc2339521b37522ed3268c"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.21"
+}
