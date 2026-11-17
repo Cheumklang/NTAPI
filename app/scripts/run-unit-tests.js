@@ -95,6 +95,7 @@ const TESTS = [
   'selftest-reset-session.js',
   'selftest-provider-key.js',
   'selftest-provider-plan.js',
+  'selftest-busy-guards.js',
   'selftest-provider-timeout.js',
   'selftest-resolve-sdk.js',
   'selftest-session-paths.js',

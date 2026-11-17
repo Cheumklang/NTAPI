@@ -14,9 +14,13 @@
  * candidate families below are matched against that list, and a family with no
  * live id disappears from the dropdown instead of failing a turn.
  *
- * Plan tags: the Gemini API bills per token from the first request, and its
- * free tier is an allowance on the *account* rather than a per-model flag, so
- * every row is `paid` with the published price.
+ * Plan tags: the free tier is an allowance on the *account* (a daily request
+ * count, rate limited, and not offered in the EEA, UK or Switzerland) rather
+ * than a separate model id — the same `gemini-2.5-flash` id serves both. So
+ * every row is `paid` with the published price, and the rows that can run on
+ * that allowance carry `freeTier: true` instead of a second plan value: the
+ * price is still what an extra request costs, and hiding it would make the
+ * badge a promise the account cannot always keep.
  */
 
 const GOOGLE_PROVIDER = 'google';
@@ -31,8 +35,8 @@ const DEFAULT_MAX_TOKENS = 65536;
 /**
  * The families this app offers, newest first. `family` is matched against the
  * live ids (`gemini-2.5-flash` and `gemini-2.5-flash-001` are the same model).
- * Prices are the published per-million-token rates for the paid tier and double
- * as the badge on a paid row.
+ * Prices are the published per-million-token rates, doubled as the badge on the
+ * row; `freeTier` says whether the account's free daily allowance can run it.
  */
 const GOOGLE_MODEL_CANDIDATES = [
   {
@@ -41,6 +45,8 @@ const GOOGLE_MODEL_CANDIDATES = [
     contextWindow: 1048576,
     maxTokens: 65536,
     vision: true,
+    plan: GOOGLE_PLAN,
+    freeTier: false,
     cost: { input: 1.25, output: 10, cacheRead: 0.31, cacheWrite: 0 },
   },
   {
@@ -49,6 +55,8 @@ const GOOGLE_MODEL_CANDIDATES = [
     contextWindow: 1048576,
     maxTokens: 65536,
     vision: true,
+    plan: GOOGLE_PLAN,
+    freeTier: true,
     cost: { input: 0.3, output: 2.5, cacheRead: 0.075, cacheWrite: 0 },
   },
   {
@@ -57,6 +65,8 @@ const GOOGLE_MODEL_CANDIDATES = [
     contextWindow: 1048576,
     maxTokens: 65536,
     vision: true,
+    plan: GOOGLE_PLAN,
+    freeTier: true,
     cost: { input: 0.1, output: 0.4, cacheRead: 0.025, cacheWrite: 0 },
   },
 ];
@@ -98,7 +108,12 @@ function googleModelEntries(models) {
     id: m.id,
     name: m.name,
     plan: GOOGLE_PLAN,
+    // The price the badge shows: what one more request costs once the daily
+    // allowance is gone.
     planNote: priceNote(m.cost),
+    // Whether this row can run on the account's free daily allowance. The row
+    // keeps both facts — a fee and a quota — because they are both true.
+    freeTier: Boolean(m.freeTier),
     // The raw table as well: the window shows the price in the language's
     // currency, and a pre-formatted dollar string cannot be converted.
     cost: m.cost || null,
@@ -217,6 +232,8 @@ function toModel(candidate, id, overrides = {}) {
     contextWindow: overrides.contextWindow || candidate.contextWindow,
     maxTokens: overrides.maxTokens || candidate.maxTokens,
     vision: candidate.vision,
+    plan: GOOGLE_PLAN,
+    freeTier: Boolean(candidate.freeTier),
     cost: candidate.cost,
   };
 }

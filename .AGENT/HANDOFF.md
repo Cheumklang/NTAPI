@@ -1,5 +1,42 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **⚠️ ล่าสุด (2026-11-17): ส่งอัปเดต v0.5.18 — Gemini มีโควต้าฟรี + ย้อนกลับ/เปลี่ยนโมเดลระหว่าง AI ทํางาน**
+> - **แทนที่แนวทางก่อนหน้า** (ที่ติด `plan: 'free'` ให้ Flash/Flash Lite) — ผู้ใช้เลือก **แผน 2**:
+>   โมเดลยังเป็น `paid` พร้อมราคา และเพิ่มธง `freeTier: true` แยกต่างหาก
+>   → UI โชว์ **chip “มีโควต้าฟรี”** คู่กับราคา (ไม่ซ่อนราคา)
+> - **Gemini** (`app/src/google-ai.js`): `freeTier` ราย candidate (flash / flash-lite = true, pro = false)
+>   · `googleModelEntries` ส่ง `freeTier` + `planNote` ราคาตามเดิม · `toModel` พา `freeTier` ผ่าน live catalog
+>   · `provider-plan.js` เลือกแถว `freeTier === true` เป็นโมเดลเริ่มต้น (เข้ม ไม่เดาจากการไม่มีธง)
+> - **UI** (`app/src/renderer/`): `index.html` เพิ่ม `#modelPickerFreeTier` · `styles.css` `.model-plan.free`
+>   · `app.js`: chip ในแถวตัวเลือก + บนปุ่มที่ปิดอยู่ · มิเตอร์ล่างแชทขึ้น “มีโควต้าฟรีรายวัน” แต่ยังโชว์ราคา
+>   · i18n EN/TH: `planFreeTier`, `planFreeTierTitle`, `googleFreeTier`
+> - **ย้อนกลับระหว่าง AI ทํางานได้แล้ว** (เดิมขึ้น “รอให้รอบนี้ทํางานเสร็จก่อน”):
+>   `undoLastMessage` เปิด dialog ยืนยัน (`kind: 'undoBusy'`) → ยืนยันแล้วเรียก `api.takeBackPrompt`
+>   (หยุดเทิร์นด้วยเส้นทางเดียวกับปุ่มยกเลิก แล้ว undo) → ข้อความล่าสุดกลับเข้าช่องพิมพ์ผ่าน `finishUndo`
+> - **เปลี่ยนโมเดลระหว่าง AI ทํางานมีคําเตือน**: `chooseModel` เห็น `view.busy` → dialog
+>   (`kind: 'modelBusy'`) ปุ่ม “เปลี่ยนโมเดล / ยกเลิก” · ยืนยันแล้ว `applyModelChoice` ทํางานต่อ
+> - **เทสต์:** `scripts/selftest-busy-guards.js` (ใหม่ 20 เช็ค ตรวจสายไฟของ dialog + i18n ทั้งสองภาษา
+>   + chip) ลงทะเบียนใน `run-unit-tests.js` · อัปเดต `selftest-google-ai.js`, `selftest-provider-plan.js`
+>   → `npm test` **85/85**
+> - **เวอร์ชัน:** `0.5.18` · commit + tag + push แล้ว (CI ปล่อยรุ่น)
+
+> **⚠️ ล่าสุด (2026-11-17): Gemini มีโมเดลฟรีแล้ว (Flash / Flash Lite)**
+> - **ปัญหาเดิม:** `google-ai.js` ติด `GOOGLE_PLAN = 'paid'` ทุกแถว → ไม่มีโมเดลฟรีให้เลือกเลย
+>   ทั้งที่ Gemini API มีโควต้าฟรีรายวัน (ไม่มีใน EEA/UK/CH)
+> - **แก้:** `plan` รายโมเดล — `gemini-2.5-flash` / `-flash-lite` = `free`, `gemini-2.5-pro` = `paid`
+>   · `googleModelEntries` ให้ `planNote: ''` บนแถวฟรี (ราคายังอยู่ใน `cost` เพื่อคิดเงินเมื่อโควต้าหมด)
+>   · `toModel` พา `plan` ผ่าน `resolveGoogleModels` มาด้วย
+> - **มิเตอร์ล่างแชท:** ถ้าโมเดลที่เลือกเป็นแถวฟรี → `googleFreeTier` + `googleFreeLimits`
+>   (เดิมโชว์ราคา $ ซึ่งขัดกับป้ายฟรี) · i18n EN/TH เพิ่ม 2 คีย์
+> - **โมเดลเริ่มต้นของแชทใหม่:** `provider-plan.js` เลือกแถวที่มี `plan === 'free'` ก่อน
+>   (เดิมเอา `googleList[0]` = Pro) — เช็คแบบเข้ม ไม่อิง `planOf` ที่เดา "ฟรี" เมื่อไม่มีธง
+> - **เทสต์:** `selftest-google-ai.js` (+5) · `selftest-provider-plan.js` (+2 เคส) · `npm test` **84/84**
+>   · `check:sara` ผ่านสําหรับคีย์ใหม่
+> - **ยังไม่ commit / ยังไม่ bump** (ไฟล์ที่แก้: `app/src/google-ai.js`, `app/src/provider-plan.js`,
+>   `app/src/renderer/app.js`, `app/scripts/selftest-google-ai.js`, `app/scripts/selftest-provider-plan.js`)
+> - **ยังไม่ตอบ:** ลําดับความสําคัญ provider — ตอนนี้ google อยู่ท้ายสุด (หลัง DeepSeek/Anthropic)
+>   ทั้งที่มีเลนฟรีแล้ว ถ้าจะย้ายขึ้นมาก่อน DeepSeek ต้องให้ผู้ใช้สั่ง
+
 > **⚠️ ล่าสุด (2026-11-17): กฎสระอำ (U+0E33) + ตัวตรวจ `check:sara`**
 > - **กฎอยู่ใน `AGENTS.md` หัวข้อ 0) ภาษา:** ใช้ `ำ` ตัวเดียว (แป้น E) ห้าม U+0E4D + U+0E32
 > - **เครื่องมือ:** `cd app && npm run check:sara` รายงาน · `-- --fix` แก้ในไฟล์

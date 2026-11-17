@@ -19,6 +19,7 @@ const modelPickerMark = el('modelPickerMark');
 const modelPickerProvider = el('modelPickerProvider');
 const modelPickerName = el('modelPickerName');
 const modelPickerPlan = el('modelPickerPlan');
+const modelPickerFreeTier = el('modelPickerFreeTier');
 const modelMenu = el('modelMenu');
 const modelSearch = el('modelSearch');
 const modelFreeOnly = el('modelFreeOnly');
@@ -298,6 +299,7 @@ const STRINGS = {
     googleMeterLabel: 'Pay per token',
     googlePrice: '{in} in / {out} out per 1M',
     googleLimits: 'Gemini 2.5 Pro $1.25 in / $10 out per 1M',
+    googleFreeTier: 'Free daily quota',
     mcpSection: 'MCP',
     mcpHead: 'MCP servers',
     mcpIntro:
@@ -789,6 +791,7 @@ const STRINGS = {
     googleMeterLabel: 'จ่ายตามโทเคน',
     googlePrice: '{in} เข้า / {out} ออก ต่อ 1M',
     googleLimits: 'Gemini 2.5 Pro $1.25 เข้า / $10 ออก ต่อ 1M',
+    googleFreeTier: 'โควต้าฟรีรายวัน',
     mcpSection: 'MCP',
     mcpHead: 'เซิร์ฟเวอร์ MCP',
     mcpIntro:
@@ -2661,6 +2664,15 @@ function paintModelTrigger(model) {
   modelPickerPlan.className = `model-picker-plan ${plan}`;
   modelPickerPlan.textContent = model ? planText(model) : '';
   modelPickerPlan.title = model ? planTitle(model) : '';
+  // A row can be both: the price is what one more request costs, and the quota
+  // chip says the first ones are covered. The price alone would overstate a
+  // model that runs on the free daily allowance.
+  if (modelPickerFreeTier) {
+    const freeTier = Boolean(model?.freeTier);
+    modelPickerFreeTier.hidden = !freeTier;
+    modelPickerFreeTier.textContent = freeTier ? t('planFreeTier') : '';
+    modelPickerFreeTier.title = freeTier ? t('planFreeTierTitle') : '';
+  }
 }
 
 /* ------------------------------ free vs paid ------------------------------ */
@@ -2733,6 +2745,16 @@ function modelOptionButton(model, current) {
   // The heading above already says the row is free, so only a row that spends
   // money carries a badge — and it carries the cost when the catalog knew one.
   row.append(check, label);
+  // The daily allowance is a second fact about the row, not a replacement for
+  // the price: the quota chip says the first requests are covered, the price
+  // badge says what the ones after that cost.
+  if (model.freeTier) {
+    const quota = document.createElement('span');
+    quota.className = 'model-plan free';
+    quota.textContent = t('planFreeTier');
+    quota.title = t('planFreeTierTitle');
+    row.appendChild(quota);
+  }
   if (plan === 'paid') {
     const badge = document.createElement('span');
     badge.className = 'model-plan paid';
@@ -2979,6 +3001,31 @@ function chooseModel(provider, id) {
   if (!provider || !id) return;
   closeModelMenu({ focus: true });
   const next = `${provider}||${id}`;
+  if (modelSelect.value === next) return;
+  // A model change made while a turn is running is not reversible: the reply in
+  // progress already belongs to the old model and its cost is already spent. A
+  // stray click on a long list should not move the next turn silently, so ask.
+  const view = activeView();
+  if (view?.busy) {
+    const entry = (view.models || []).find((m) => m && m.provider === provider && m.id === id);
+    showConfirmDialog({
+      kind: 'modelBusy',
+      state: { provider, id },
+      title: t('modelBusyTitle'),
+      sub: t('modelBusySub'),
+      target: entry ? FPProvider.modelOptionLabel(entry) : `${provider}/${id}`,
+      meta: t('modelBusyMeta'),
+      action: t('modelBusyAction'),
+    });
+    return;
+  }
+  applyModelChoice(provider, id);
+}
+
+/** Point the hidden <select> at a model and let its change handler do the work. */
+function applyModelChoice(provider, id) {
+  const next = `${provider}||${id}`;
+  if (!provider || !id) return;
   if (modelSelect.value === next) return;
   modelSelect.value = next;
   if (modelSelect.value !== next) return;
@@ -3609,13 +3656,17 @@ function paintProviderMeter(view) {
         : t('deepseekLimits');
     text.textContent = `${price} · ${view?.model?.name || '—'}`;
   } else if (chrome.meter === 'anthropic' || chrome.meter === 'google') {
-    // Both are first-party paid routes: the balance lives in the vendor's own
-    // console, so the useful thing here is the price this model charges.
+    // Both are first-party routes: the balance lives in the vendor's own
+    // console, so the useful thing here is what this model charges.
     const paid = chrome.meter;
-    label.textContent = t(`${paid}MeterLabel`);
     const entry = (view?.models || []).find(
       (m) => m && m.id === view?.model?.id && m.provider === view?.model?.provider
     );
+    // Gemini's Flash rows carry a free daily allowance. The label says so and
+    // the price stays beside it: that number is what one more request costs once
+    // the allowance is spent.
+    const onFreeTier = paid === 'google' && Boolean(entry?.freeTier ?? view?.model?.freeTier);
+    label.textContent = onFreeTier ? t('googleFreeTier') : t(`${paid}MeterLabel`);
     const cost = entry?.cost || view?.model?.cost;
     const inUsd = Number(cost?.input);
     const outUsd = Number(cost?.output);
@@ -5960,6 +6011,18 @@ el('confirmDelete').addEventListener('click', async () => {
   const state = confirmState;
   if (!state) return;
   hideConfirm();
+
+  // The two "AI is working" warnings: both need the tab that asked, because the
+  // reader may have switched tabs while the dialog was open.
+  if (state.kind === 'undoBusy') {
+    await undoWhileBusy(state.tabId);
+    return;
+  }
+
+  if (state.kind === 'modelBusy') {
+    applyModelChoice(state.provider, state.id);
+    return;
+  }
 
   if (state.kind === 'clear') {
     await clearSession(state.tabId);
@@ -9941,7 +10004,17 @@ Object.assign(STRINGS.en, {
   skip: 'Skip',
   noMatches: 'No matches',
   undoEmpty: 'Nothing to undo',
-  undoBusy: 'Wait for this turn to finish',
+  undoBusy: 'Could not step back — try again',
+  undoBusyTitle: 'Stop this turn and step back?',
+  undoBusySub:
+    'The answer being written is thrown away, and the tokens this turn already spent cannot be recovered. Your message comes back in the composer so you can send it again.',
+  undoBusyMeta: 'The turn is stopped first, then your last message is removed',
+  undoBusyAction: 'Stop and step back',
+  modelBusyTitle: 'Switch model while the AI is working?',
+  modelBusySub:
+    'This turn is still running. The new model applies from your next message, and what this turn already spent stays spent.',
+  modelBusyMeta: 'The running turn finishes on the model it started with',
+  modelBusyAction: 'Switch model',
   undoDone: 'Back to before your last message — the text is in the composer',
   redoEmpty: 'Nothing to redo',
   compactDone: 'Conversation compacted',
@@ -9955,6 +10028,8 @@ Object.assign(STRINGS.en, {
   noModelsMatch: 'No models match',
   planFree: 'Free',
   planPaid: 'Paid',
+  planFreeTier: 'free daily quota',
+  planFreeTierTitle: 'Runs on the account\u2019s free daily allowance; billed per token after it is spent',
   planLabel: 'Cost',
   planSectionFree: 'Free',
   planSectionPaid: 'Paid',
@@ -10025,7 +10100,17 @@ Object.assign(STRINGS.th, {
   skip: 'ข้าม',
   noMatches: 'ไม่พบ',
   undoEmpty: 'ไม่มีอะไรให้ย้อน',
-  undoBusy: 'รอให้รอบนี้ทำงานเสร็จก่อน',
+  undoBusy: 'ย้อนกลับไม่สำเร็จ — ลองอีกครั้ง',
+  undoBusyTitle: 'หยุดรอบนี้แล้วย้อนกลับไหม',
+  undoBusySub:
+    'คําตอบที่กําลังเขียนอยู่จะถูกทิ้ง และโทเคนที่รอบนี้ใช้ไปแล้วไม่ได้คืน · ข้อความของคุณจะกลับมาอยู่ในช่องพิมพ์เพื่อส่งใหม่ได้',
+  undoBusyMeta: 'ระบบจะหยุดรอบนี้ก่อน แล้วจึงลบข้อความล่าสุดของคุณ',
+  undoBusyAction: 'หยุดและย้อนกลับ',
+  modelBusyTitle: 'เปลี่ยนโมเดลระหว่างที่ AI ทำงานอยู่ไหม',
+  modelBusySub:
+    'รอบนี้ยังทํางานไม่เสร็จ · โมเดลใหม่จะมีผลตั้งแต่ข้อความถัดไป และโทเคนที่รอบนี้ใช้ไปแล้วไม่ได้คืน',
+  modelBusyMeta: 'รอบที่กำลังทำอยู่จะจบด้วยโมเดลเดิม',
+  modelBusyAction: 'เปลี่ยนโมเดล',
   undoDone: 'ย้อนกลับไปก่อนข้อความล่าสุด — ข้อความอยู่ในช่องพิมพ์แล้ว',
   redoEmpty: 'ไม่มีอะไรให้ทำซ้ำ',
   compactDone: 'ย่อประวัติแล้ว',
@@ -10039,6 +10124,8 @@ Object.assign(STRINGS.th, {
   noModelsMatch: 'ไม่พบโมเดลที่ตรงกัน',
   planFree: 'ฟรี',
   planPaid: 'เสียเงิน',
+  planFreeTier: 'มีโควต้าฟรี',
+  planFreeTierTitle: 'ใช้โควต้าฟรีรายวันของบัญชี · เกินแล้วคิดตามโทเคน',
   planLabel: 'ค่าใช้จ่าย',
   planSectionFree: 'ฟรี',
   planSectionPaid: 'เสียเงิน',
@@ -10543,24 +10630,71 @@ function focusFindMatch(index) {
 async function undoLastMessage() {
   const view = activeView();
   if (!view) return;
-  if (view.busy) return showNotice(t('undoBusy'));
+  // A running turn used to refuse the step back outright, which is exactly the
+  // moment people want it: they see the answer heading the wrong way and want to
+  // rephrase. Nothing is recoverable either way — the tokens this turn already
+  // spent are gone and its work is thrown away — so the cost is named and the
+  // turn is stopped first.
+  if (view.busy) {
+    showConfirmDialog({
+      kind: 'undoBusy',
+      state: { tabId: view.tabId },
+      title: t('undoBusyTitle'),
+      sub: t('undoBusySub'),
+      target: t('undoBusyMeta'),
+      action: t('undoBusyAction'),
+    });
+    return;
+  }
   const res = await api.undo(view.tabId);
   if (!res?.ok) return showNotice(res?.reason === 'busy' ? t('undoBusy') : t('undoEmpty'));
-  view.undoEntryId = res.entryId;
-  if (res.text) {
+  finishUndo(view, res.entryId, res.text);
+}
+
+/** Shared tail of both undo paths: the redo handle, the composer text, the notice. */
+function finishUndo(view, entryId, text) {
+  view.undoEntryId = entryId || null;
+  if (text) {
     // The session no longer holds this message. Any pending copy of the same
     // text that is still floating on the renderer side (a history event that
     // never got to claim it — a send that errored midway, a rewritten prompt
     // that broke the prefix match) would be re-inserted by the incoming merge
     // on the repaint that follows the undo. The text is back in the input now,
     // so that copy is stale; drop it or the bubble never disappears.
-    dropStalePending(view, res.text);
-    input.value = res.text;
+    dropStalePending(view, text);
+    input.value = text;
     autoGrow();
     updateSendState();
     input.focus();
   }
   showNotice(t('undoDone'), 4200);
+}
+
+/**
+ * Step back while the tab is busy: stop the turn the way Cancel does, then undo.
+ * `prompt:takeBack` already does exactly that pair, so there stays one abort path
+ * and one place where "the user stopped this themselves" is recorded — otherwise
+ * the stop would be reported as the provider failing.
+ */
+async function undoWhileBusy(tabId) {
+  const view = views.get(tabId);
+  if (!view) return;
+  // `takeBack` reports only success; the text to restore is the newest user
+  // message, which is on screen already.
+  const text = lastUserText(view);
+  const res = await api.takeBackPrompt(view.tabId);
+  if (!res?.ok) return showNotice(t('undoBusy'));
+  finishUndo(view, null, text);
+}
+
+/** The newest user message in a view, for putting back in the composer. */
+function lastUserText(view) {
+  const msgs = view && Array.isArray(view.messages) ? view.messages : [];
+  for (let i = msgs.length - 1; i >= 0; i -= 1) {
+    const m = msgs[i];
+    if (m && m.kind === 'user' && typeof m.text === 'string' && m.text) return m.text;
+  }
+  return '';
 }
 
 /**

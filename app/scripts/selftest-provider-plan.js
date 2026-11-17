@@ -254,6 +254,26 @@ check(
   gemOnly.defaultProvider === 'google' && gemOnly.defaultModel === 'gemini-2.5-pro'
 );
 
+const gemFree = [
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', plan: 'paid', freeTier: true },
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', plan: 'paid', freeTier: false },
+];
+const gemFreeOnly = planProviders({ googleKey: 'k', googleModels: gemFree });
+check(
+  'a new Gemini chat opens on the row with a free allowance',
+  gemFreeOnly.defaultProvider === 'google' && gemFreeOnly.defaultModel === 'gemini-2.5-flash',
+  gemFreeOnly.defaultModel
+);
+
+const gemProFirst = [
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', plan: 'paid', freeTier: false },
+  { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', plan: 'paid', freeTier: true },
+];
+check(
+  'the free-allowance row wins even when it is listed last',
+  planProviders({ googleKey: 'k', googleModels: gemProFirst }).defaultModel === 'gemini-2.5-flash-lite'
+);
+
 const antNoKey = planProviders({ anthropicKey: null, anthropicModels: ant });
 check('a catalog without a key is not a provider', antNoKey.anthropic === false && antNoKey.available === false);
 const antNoModels = planProviders({ anthropicKey: 'k', anthropicModels: [] });

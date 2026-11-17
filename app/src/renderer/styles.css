@@ -1378,6 +1378,16 @@ button { font-family: inherit; }
   font-family: var(--mono);
   font-size: 12px;
 }
+/* "free daily quota": the row is still priced, the first requests are covered. */
+.model-plan.free {
+  color: #46d39a;
+  background: rgba(70, 211, 154, .1);
+  border-color: rgba(70, 211, 154, .28);
+  font-family: inherit;
+}
+.model-plan.free + .model-plan.paid {
+  margin-left: 6px;
+}
 
 /* The same badge, scaled down for the closed picker button. */
 .model-picker-plan {

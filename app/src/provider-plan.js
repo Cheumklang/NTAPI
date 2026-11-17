@@ -131,7 +131,12 @@ function planProviders({
     defaultModel = anthropicList[0].id;
   } else if (google) {
     defaultProvider = GOOGLE_PROVIDER;
-    defaultModel = googleList[0].id;
+    // Flash and Flash Lite run on the account's free daily allowance, Pro bills
+    // from the first token. A new chat opens on a row with a free allowance when
+    // the catalog has one, so a saved key never starts spending by itself. The
+    // flag has to be explicit — an untagged entry proves nothing.
+    const freeRow = googleList.find((m) => m.freeTier === true);
+    defaultModel = (freeRow || googleList[0]).id;
   }
 
   return {

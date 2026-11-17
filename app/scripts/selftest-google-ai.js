@@ -46,7 +46,15 @@ function fakeFetch({ status = 200, body = {}, throws = null } = {}) {
 (async () => {
   check('provider id', GOOGLE_PROVIDER === 'google');
   check('versioned base url', GOOGLE_BASE_URL.endsWith('/v1beta'));
-  check('every candidate is paid and priced', GOOGLE_MODEL_CANDIDATES.every((m) => m.cost?.input > 0));
+  check('flash and flash-lite carry the free allowance',
+    GOOGLE_MODEL_CANDIDATES.filter((m) => m.freeTier === true).length === 2 &&
+      GOOGLE_MODEL_CANDIDATES.find((m) => m.family === 'gemini-2.5-flash')?.freeTier === true &&
+      GOOGLE_MODEL_CANDIDATES.find((m) => m.family === 'gemini-2.5-flash-lite')?.freeTier === true,
+    JSON.stringify(GOOGLE_MODEL_CANDIDATES.map((m) => `${m.family}:${m.freeTier}`)));
+  check('pro has no free allowance',
+    GOOGLE_MODEL_CANDIDATES.find((m) => m.family === 'gemini-2.5-pro')?.freeTier === false);
+  check('every row is still paid and priced',
+    GOOGLE_MODEL_CANDIDATES.every((m) => m.plan === 'paid' && m.cost?.input > 0));
   check('price note format', priceNote({ input: 0.3, output: 2.5 }) === '$0.30/$2.50', priceNote({ input: 0.3, output: 2.5 }));
   check('models/ prefix is stripped', bareId('models/gemini-2.5-pro') === 'gemini-2.5-pro');
 
@@ -60,6 +68,15 @@ function fakeFetch({ status = 200, body = {}, throws = null } = {}) {
   check('entry is paid', entries[0].plan === 'paid');
   check('entry badge is the price', entries[0].planNote === '$1.25/$10.00');
   check('entry keeps the raw cost', entries[0].cost.output === 10);
+
+  const freeEntry = googleModelEntries([
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', freeTier: true, cost: { input: 0.3, output: 2.5 } },
+  ]);
+  check('a quota row is still paid', freeEntry[0].plan === 'paid');
+  check('a quota row still shows its price', freeEntry[0].planNote === '$0.30/$2.50', freeEntry[0].planNote);
+  check('the free allowance reaches the picker', freeEntry[0].freeTier === true);
+  check('a plain row has no allowance',
+    googleModelEntries([{ id: 'x', cost: { input: 1, output: 2 } }])[0].freeTier === false);
 
   const ok = fakeFetch({
     body: { models: [{ name: 'models/gemini-2.5-pro', supportedGenerationMethods: ['generateContent'] }] },
@@ -92,6 +109,8 @@ function fakeFetch({ status = 200, body = {}, throws = null } = {}) {
   check('only generateContent models are offered', models.length === 2, JSON.stringify(models.map((m) => m.id)));
   check('embedding models are dropped', !models.some((m) => m.id.includes('embedding')));
   check('the live caps are used', models[0].contextWindow === 1048576 && models[0].maxTokens === 65536);
+  check('the free allowance survives the live catalog', models[0].freeTier === false && models[1].freeTier === true,
+    JSON.stringify(models.map((m) => `${m.id}:${m.freeTier}`)));
 
   const numbered = await resolveGoogleModels('k', {
     fetchImpl: fakeFetch({

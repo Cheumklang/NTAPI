@@ -3155,3 +3155,31 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ผู้ใช้สั่ง **ไม่ต้องไล่แก้ ํา ในไฟล์เก่า** — session หน้าจะเห็นแล้วแก้เอง
 - สถานะปิดงาน: source `master` = origin (0/0) · releases `main` = origin (0/0) ·
   `npm test` 84/84 · provenance verify OK · เหลือค้างตามดีไซน์แค่ `PROVENANCE/ledger.jsonl` 1 บรรทัด
+
+## 2026-11-17 — Gemini: ติดป้ายโมเดลฟรี
+
+- ผู้ใช้ถามว่า "ทําไม gemini ไม่มีโมเดลฟรี" → ต้นเหตุคือ `GOOGLE_PLAN = 'paid'` ตายตัวใน
+  `app/src/google-ai.js` ไม่ใช่ข้อจํากัดของ API (Gemini มีโควต้าฟรีรายวัน ยกเว้น EEA/UK/CH)
+- ผู้ใช้เลือกแนวทาง 1: ติดป้าย `free` ให้ Flash + Flash Lite พร้อมโควต้าฟรี, Pro คงไว้ `paid`
+- แก้ `google-ai.js` (`plan` ราย candidate, `planNote: ''` บนแถวฟรี, `toModel` พา plan ไปด้วย)
+  · `provider-plan.js` (default = แถวฟรีตัวแรก `plan === 'free'` เข้ม)
+  · `renderer/app.js` (มิเตอร์ฟรี + คีย์ i18n `googleFreeTier`/`googleFreeLimits` EN/TH)
+- เทสต์: `selftest-google-ai.js` +5, `selftest-provider-plan.js` +2 → `npm test` 84/84
+- ยังไม่ commit / ยังไม่ bump
+
+## 2026-11-17 — v0.5.18: โควต้าฟรี Gemini (แผน 2) + ย้อนกลับ/เปลี่ยนโมเดลระหว่าง AI ทํางาน
+
+- ผู้ใช้เปลี่ยนจากแนวทาง 1 (ติดป้าย `free`) มาเป็น **แนวทาง 2**: คง `plan: 'paid'` + ราคา แล้วเพิ่ม
+  `freeTier: true` แยก → chip “มีโควต้าฟรี” อยู่ข้างราคา ทั้งในเมนูและบนปุ่มที่ปิดอยู่
+- `app/src/google-ai.js`: `freeTier` ราย candidate + ส่งผ่าน `googleModelEntries`/`toModel`
+- `app/src/provider-plan.js`: โมเดลเริ่มต้นของ Gemini = แถว `freeTier === true` ตัวแรก
+- `app/src/renderer/index.html` + `styles.css`: chip `#modelPickerFreeTier` และสไตล์ `.model-plan.free`
+- `app/src/renderer/app.js`:
+  - มิเตอร์: `googleFreeTier` + ราคาต่อ (ไม่ซ่อนราคาแล้ว) — ลบคีย์ `googleFreeLimits` ที่เคยเพิ่มไว้
+  - `undoLastMessage`: busy → dialog `undoBusy` → `api.takeBackPrompt` + `finishUndo` (แชร์ท้ายกับ `api.undo`)
+  - `chooseModel`: busy → dialog `modelBusy` → `applyModelChoice` (แยกจาก handler ของ `<select>`)
+  - i18n EN/TH: `undoBusyTitle/Sub/Meta/Action`, `modelBusyTitle/Sub/Meta/Action`, `planFreeTier*`
+- เทสต์ใหม่ `scripts/selftest-busy-guards.js` (ตรวจ source + i18n ทั้งสองภาษา) → `npm test` **85/85**
+- ปล่อยรุ่น `0.5.18` (commit + tag v0.5.18 + push) ตามคําสั่ง “ส่งอัปเดต”
+- บทเรียน: `edit` ที่มี oldText เป็นภาษาไทยเสี่ยงไม่แมตช์ (สระอําเขียนได้หลายรหัส)
+  → ใช้ `node -e` ตัดบรรทัดตามคีย์ภาษาอังกฤษแทน (ใช้แล้วกับ `googleFreeLimits`)
