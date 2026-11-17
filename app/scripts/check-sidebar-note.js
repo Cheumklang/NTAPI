@@ -36,6 +36,8 @@ const measure = (language) => `(async () => {
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   lang = '${language}';
   applyLanguage();
+  // The note lives in the approval popover now: open it so its box is real.
+  setApprovalPopover(true);
   await frame();
 
   const note = document.querySelector('#sidebar .approval-note');
@@ -89,22 +91,19 @@ app
       console.log('forced 40 ', JSON.stringify(out.after));
       console.log('reset     ', out.reset);
 
-      check(`${language}: the note never wraps`, out.before.whiteSpace === 'nowrap', out.before.whiteSpace);
-      check(`${language}: the note is one line as drawn`,
-        out.before.height <= Math.ceil(out.before.oneLine * 1.4),
-        { height: out.before.height, line: out.before.oneLine });
+      check(`${language}: the note is shown`, out.before.height > 0, out.before.height);
       check(`${language}: the note is not clipped as drawn`, out.before.scroll <= out.before.client + 1, {
         scroll: out.before.scroll,
         client: out.before.client,
       });
-      // Dragging to 40px must land on the floor, and the floor has to be wide
-      // enough for the whole sentence.
-      check(`${language}: the column refuses to go below its text`, out.after.width > 40, out.after.width);
+      // The column no longer takes its width from this sentence: the note wraps
+      // inside a fixed-width popover, so the floor is the brand row's.
+      check(`${language}: the column refuses to go below its content`, out.after.width > 40, out.after.width);
       check(`${language}: the sidebar really is that wide`, out.after.sidebar >= out.after.width - 1, {
         sidebar: out.after.sidebar,
         applied: out.after.width,
       });
-      check(`${language}: the note still fits on one line at the floor`, out.after.fits === true && out.after.height <= Math.ceil(out.before.oneLine * 1.4), out.after);
+      check(`${language}: the note still fits inside its popover`, out.after.fits === true, out.after);
       check(`${language}: the floor is written to --sidebar-w`, out.after.cssVar === out.after.width, {
         cssVar: out.after.cssVar,
         applied: out.after.width,
@@ -113,7 +112,7 @@ app
         applied: out.after.cssVar,
         expected: out.after.width,
       });
-      check(`${language}: the reset keeps one line`, out.resetHeight <= Math.ceil(out.before.oneLine * 1.4), out.resetHeight);
+      check(`${language}: the reset keeps the note visible`, out.resetHeight > 0, out.resetHeight);
     }
 
     win.destroy();

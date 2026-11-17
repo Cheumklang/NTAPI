@@ -243,6 +243,24 @@ const STRINGS = {
     llm7Removed: 'LLM7.io token removed.',
     llm7FreeTier: 'Free turbo models',
     llm7Limits: '100K tokens/day · 60/min',
+    deepseekSection: 'DeepSeek',
+    deepseekKeyLabel: 'API key',
+    deepseekSave: 'Save',
+    deepseekRemove: 'Remove',
+    deepseekRemoveTitle: 'Remove the DeepSeek key?',
+    deepseekRemoveSub:
+      'DeepSeek models leave the dropdown. A turn already running finishes; the chat stays on DeepSeek until you switch.',
+    deepseekConfigured: 'Configured',
+    deepseekUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    deepseekNotConfigured: 'No key yet — DeepSeek models stay hidden.',
+    deepseekGetKey: 'Get a key at platform.deepseek.com',
+    deepseekBuy: 'Top up the balance at platform.deepseek.com',
+    deepseekSaved: 'DeepSeek key saved.',
+    deepseekUnverified: 'DeepSeek could not be reached — the key was saved unverified.',
+    deepseekSaveFailed: 'Could not save the key:',
+    deepseekRemoved: 'DeepSeek key removed.',
+    deepseekMeterLabel: 'Pay per token',
+    deepseekLimits: 'peak $0.30 in / $1.20 out per 1M',
     mcpSection: 'MCP',
     mcpHead: 'MCP servers',
     mcpIntro:
@@ -271,6 +289,11 @@ const STRINGS = {
     providersIntro: 'One card per company. Each key is only used by the service named on its card.',
     freepiSection: 'FreePi',
     freepiGetKey: 'Sign in at freepi.ai',
+    resetOtherSession: 'Clear stuck session',
+    resetSessionDone: 'Cleared the other session — start a new chat now.',
+    resetSessionNone: 'No other session was running.',
+    resetSessionFailed: 'Could not clear the stuck session — check your connection and try again.',
+    resetSessionSignedOut: 'Sign in to free-pi first — Settings → Sign in…',
     accountSettings: 'Account',
     ntapiSection: 'NTAPI',
     ntapiHint: 'Uses your NTAPI account (GitHub sign-in) instead of an API key.',
@@ -412,6 +435,11 @@ const STRINGS = {
     waitingForYou: 'Waiting for you — nothing runs until you choose',
     thinkingShow: 'Show thinking',
     thinkingHide: 'Hide thinking',
+    noticeCountdown: '{n}s',
+    themeToLight: 'Switch to light theme',
+    themeToDark: 'Switch to dark theme',
+    imageViewerLabel: 'Picture',
+    imageViewerClose: 'Close picture',
     you: 'You',
     assistant: 'NTAPI',
     system: 'System',
@@ -434,6 +462,39 @@ const STRINGS = {
     aboutTermsOpen: 'Terms of use',
     aboutPrivacyOpen: 'Privacy notice',
     aboutLicenceOpen: 'Program licence',
+    termsTitle: 'Before you start',
+    termsIntro: 'NTAPI runs on your own API keys and keeps your chats on this machine. Two short documents explain the rest — please read them once.',
+    termsPointKeys: 'Your keys and your chats stay on this computer; the program keeps no copy on a server.',
+    termsPointProviders: 'Answers come straight from the AI provider you choose, under that provider\'s own terms.',
+    termsPointPrivacy: 'The only automatic call is a random ID used to count how many people are online.',
+    termsReadTerms: 'Terms of use',
+    termsReadPrivacy: 'Privacy notice',
+    termsAgreeHint: 'Choosing “Accept and start” means you accept the terms of use.',
+    termsAccept: 'Accept and start',
+    termsDecline: 'Decline and close',
+    tokTitle: 'Tokens',
+    tokNone: 'no data yet',
+    tokCalls: '{n} calls',
+    tokTotal: 'Used in this session',
+    tokSent: 'Sent to the AI',
+    tokSentNew: 'New tokens',
+    tokSentCache: 'Tokens from cache',
+    tokReceived: 'AI replied',
+    tokSentPlus: 'Sent + replied',
+    tokCost: 'Cost',
+    tokUnit: 'tokens',
+    tokUnitCache: 'tokens · cache',
+    tokUnitMoney: 'USD',
+    tokGroupSession: 'Session total',
+    tokGroupSent: 'What was sent',
+    tokCompare: 'Last two turns',
+    tokTurnCol: 'Turn',
+    tokTotalCol: 'Total',
+    tokDeltaCol: 'vs prev',
+    tokTurnPrev: 'Previous turn',
+    tokTurnNow: 'Current turn',
+    tokFree: 'Free',
+    tokNoPrice: 'unknown price',
     updatesSection: 'Updates',
     updateCurrent: 'Current version',
     checkUpdates: 'Check for updates',
@@ -634,6 +695,24 @@ const STRINGS = {
     llm7Removed: 'ลบโทเคน LLM7.io แล้ว',
     llm7FreeTier: 'โมเดลฟรี (turbo)',
     llm7Limits: '100K โทเคน/วัน · 60/นาที',
+    deepseekSection: 'DeepSeek',
+    deepseekKeyLabel: 'คีย์ API',
+    deepseekSave: 'บันทึก',
+    deepseekRemove: 'ลบออก',
+    deepseekRemoveTitle: 'ลบคีย์ DeepSeek?',
+    deepseekRemoveSub:
+      'โมเดล DeepSeek จะหายจากรายการ เทิร์นที่กำลังทำอยู่จะจบก่อน และแชทนี้จะอยู่กับ DeepSeek จนกว่าคุณจะเปลี่ยนเอง',
+    deepseekConfigured: 'ตั้งค่าแล้ว',
+    deepseekUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    deepseekNotConfigured: 'ยังไม่มีคีย์ — โมเดล DeepSeek จะไม่แสดง',
+    deepseekGetKey: 'ขอคีย์ที่ platform.deepseek.com',
+    deepseekBuy: 'เติมเครดิตที่ platform.deepseek.com',
+    deepseekSaved: 'บันทึกคีย์ DeepSeek แล้ว',
+    deepseekUnverified: 'ติดต่อ DeepSeek ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
+    deepseekSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    deepseekRemoved: 'ลบคีย์ DeepSeek แล้ว',
+    deepseekMeterLabel: 'จ่ายตามโทเคน',
+    deepseekLimits: 'ราคา peak $0.30 เข้า / $1.20 ออก ต่อ 1M',
     mcpSection: 'MCP',
     mcpHead: 'เซิร์ฟเวอร์ MCP',
     mcpIntro:
@@ -681,6 +760,11 @@ const STRINGS = {
     acctMember: 'บัญชีของคุณเอง',
     signIn: 'เข้าสู่ระบบ…',
     refreshAccount: 'รีเฟรช',
+    resetOtherSession: 'ปิดเซสชันที่ค้าง',
+    resetSessionDone: 'ปิดเซสชันอื่นที่ค้างแล้ว — เปิดแชทใหม่ได้เลย',
+    resetSessionNone: 'ไม่มีเซสชันอื่นค้างอยู่',
+    resetSessionFailed: 'ปิดเซสชันค้างไม่สำเร็จ — เช็คการเชื่อมต่อแล้วลองใหม่',
+    resetSessionSignedOut: 'เข้าสู่ระบบ free-pi ก่อน — การตั้งค่า → เข้าสู่ระบบ…',
     signedIn: 'ล็อกอินแล้ว — กำลังเปิดแชทให้…',
     loginTitle: 'เข้าสู่ระบบ FreePi',
     loginSub: 'ใช้บัญชี GitHub ของคุณ — เบราว์เซอร์จะเปิดขึ้นอัตโนมัติ ยืนยันรหัสด้านล่าง',
@@ -802,6 +886,11 @@ const STRINGS = {
     waitingForYou: 'กำลังรอคุณตัดสินใจ — ยังไม่มีอะไรถูกทำจนคุณเลือก',
     thinkingShow: 'ดูความคิด',
     thinkingHide: 'ซ่อนความคิด',
+    noticeCountdown: 'อีก {n} วิ',
+    themeToLight: 'เปลี่ยนเป็นธีมสว่าง',
+    themeToDark: 'เปลี่ยนเป็นธีมมืด',
+    imageViewerLabel: 'รูปภาพ',
+    imageViewerClose: 'ปิดรูป',
     you: 'คุณ',
     assistant: 'NTAPI',
     system: 'ระบบ',
@@ -824,6 +913,39 @@ const STRINGS = {
     aboutTermsOpen: 'ข้อกำหนดการใช้งาน',
     aboutPrivacyOpen: 'ความเป็นส่วนตัว',
     aboutLicenceOpen: 'สัญญาอนุญาตโปรแกรม',
+    termsTitle: 'ก่อนเริ่มใช้งาน',
+    termsIntro: 'NTAPI ทํางานด้วยคีย์ API ของคุณเอง และเก็บแชทไว้ในเครื่องนี้ สองเอกสารสั้น ๆ ด้านล่างอธิบายส่วนที่เหลือ — อ่านสักครั้งก่อนเริ่มใช้',
+    termsPointKeys: 'คีย์และประวัติแชทอยู่ในเครื่องคุณเท่านั้น โปรแกรมไม่ได้เก็บไว้บนเซิร์ฟเวอร์',
+    termsPointProviders: 'คําตอบมาจากบริษัท AI ที่คุณเลือกโดยตรง ภายใต้ข้อกําหนดของบริษัทนั้น',
+    termsPointPrivacy: 'การเชื่อมต่ออัตโนมัติอย่างเดียวคือรหัสสุ่มสําหรับนับจํานวนคนออนไลน์',
+    termsReadTerms: 'ข้อกําหนดการใช้งาน',
+    termsReadPrivacy: 'ประกาศความเป็นส่วนตัว',
+    termsAgreeHint: 'การกด “ยอมรับและเริ่มใช้” ถือว่าคุณยอมรับข้อกําหนดการใช้งาน',
+    termsAccept: 'ยอมรับและเริ่มใช้',
+    termsDecline: 'ปฏิเสธและปิดโปรแกรม',
+    tokTitle: 'โทเคน',
+    tokNone: 'ยังไม่มีข้อมูล',
+    tokCalls: '{n} ครั้ง',
+    tokTotal: 'ใช้ไปทั้งหมด',
+    tokSent: 'ส่งให้ AI',
+    tokSentNew: 'โทเคนใหม่',
+    tokSentCache: 'โทเคนจากแคช',
+    tokReceived: 'AI ตอบกลับ',
+    tokSentPlus: 'ส่ง + ตอบ',
+    tokCost: 'ค่าใช้จ่าย',
+    tokUnit: 'โทเคน',
+    tokUnitCache: 'โทเคน · แคช',
+    tokUnitMoney: 'USD',
+    tokGroupSession: 'รวมทั้งเซสชัน',
+    tokGroupSent: 'แยกที่ส่งไป',
+    tokCompare: 'เทียบ 2 รอบ',
+    tokTurnCol: 'รอบ',
+    tokTotalCol: 'รวม',
+    tokDeltaCol: 'เทียบก่อน',
+    tokTurnPrev: 'รอบก่อน',
+    tokTurnNow: 'รอบปัจจุบัน',
+    tokFree: 'ฟรี',
+    tokNoPrice: 'ไม่ทราบราคา',
     updatesSection: 'อัปเดต',
     updateCurrent: 'เวอร์ชันปัจจุบัน',
     checkUpdates: 'ตรวจหาอัปเดต',
@@ -896,6 +1018,8 @@ function applyLanguage() {
     btn.textContent = lang === 'en' ? 'EN' : 'TH';
     btn.title = lang === 'en' ? 'Switch to Thai' : 'เปลี่ยนเป็นภาษาอังกฤษ';
   }
+  // The theme chip's tooltip is translated too.
+  if (typeof paintThemeButton === 'function') paintThemeButton();
   const online = el('brandOnline');
   if (online?.dataset.count) {
     const n = Number(online.dataset.count);
@@ -955,6 +1079,47 @@ async function setLanguage(next) {
   applyLanguage();
 }
 
+/* -------------------------------- theme -------------------------------- */
+
+/**
+ * Light or dark, chosen by hand and remembered.
+ *
+ * Dark is the default and what a fresh install opens in; this only ever carries a
+ * deliberate switch. The value lives on <html> as `data-theme`, which is what the
+ * stylesheet keys off, so applying it is one attribute write — no rule is
+ * recomputed and nothing re-renders.
+ */
+let theme = 'dark';
+
+function currentTheme() {
+  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+}
+
+/** Paint the toggle to match the theme that is actually in force. */
+function paintThemeButton() {
+  const btn = el('themeBtn');
+  if (!btn) return;
+  const light = currentTheme() === 'light';
+  // The glyph shows the theme you would get, the way a mute button shows a
+  // crossed-out speaker: a moon means "switch to dark", a sun "switch to light".
+  const moon = el('themeIconMoon');
+  const sun = el('themeIconSun');
+  if (moon) moon.hidden = light;
+  if (sun) sun.hidden = !light;
+  btn.title = light ? t('themeToDark') : t('themeToLight');
+  btn.setAttribute('aria-label', btn.title);
+  btn.setAttribute('aria-pressed', light ? 'true' : 'false');
+}
+
+async function setTheme(next) {
+  theme = next === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = theme;
+  paintThemeButton();
+  try {
+    await api.setPrefs({ theme });
+  } catch {}
+}
+
 /**
  * One view object per tab. Holding DOM nodes per tab keeps scroll position,
  * streaming text and tool cards intact while you switch between sessions.
@@ -977,12 +1142,22 @@ const activeView = () => (activeTabId ? views.get(activeTabId) : null);
 /**
  * Repaint the session rows so the running spinner tracks the turn.
  *
- * `renderSessions()` is otherwise rebuilt only when the list itself changes, so a
- * turn that had already finished left the spinner turning on that row until
- * something else happened to redraw the sidebar.
+ * Only the classes on the one row change: `renderSessions()` reads the chat
+ * list from disk, and doing that on every busy/settled event of every tab made
+ * the window stutter right when a turn starts or ends.
  */
 function refreshSessionBusy() {
-  if (state.cwd) renderSessions(state.cwd);
+  const view = activeView();
+  const list = el('sessionList');
+  if (!view?.sessionId || !list) return;
+  const row = list.querySelector(`.session-item[data-session-id="${CSS.escape(String(view.sessionId))}"]`);
+  if (!row) return;
+  const busy = Boolean(view.busy);
+  row.classList.toggle('busy', busy);
+  const slot = row.querySelector('.s-pin-slot');
+  if (!slot) return;
+  if (busy && view.tabId !== activeTabId) slot.innerHTML = '<span class="s-spin"></span>';
+  else slot.textContent = row.classList.contains('pinned') ? '\u{1F4CC}' : '';
 }
 
 function createView(tabId) {
@@ -993,9 +1168,40 @@ function createView(tabId) {
     liveAssistant: null,
     liveTools: null,
     queue: [],
+    // The composer belongs to this chat: the words being typed and the pictures
+    // staged for the next message stay here while another tab is on screen.
+    composerText: '',
+    composerImages: [],
+    // The turn that is running right now, as blocks the transcript draws.
+    // Kept apart from `messages` because the session file only gains a step
+    // once it is finished; this is what the window has actually shown.
+    liveMessages: [],
   };
   views.set(tabId, view);
   return view;
+}
+
+/**
+ * The composer belongs to the chat it was typed in.
+ *
+ * The half-typed words and the staged pictures used to live in single module-wide
+ * variables, so switching chats carried them across: a picture attached in one
+ * conversation was still attached in the next, and the words never went back to
+ * where they were typed. Stash the leaving tab's composer on the way out and
+ * restore the arriving one's on the way in.
+ */
+function stashComposer(view) {
+  if (!view) return;
+  view.composerText = input.value;
+  view.composerImages = pendingImages.slice();
+}
+
+function loadComposer(view) {
+  input.value = (view && view.composerText) || '';
+  pendingImages = ((view && view.composerImages) || []).slice();
+  autoGrow();
+  renderAttachments();
+  updateSendState();
 }
 
 /**
@@ -1103,6 +1309,18 @@ function syncFollow() {
   // A scroll event during our own smooth scroll can report an intermediate
   // position. Treating that as "the reader left" would unpin them mid-jump.
   if (jumpingToBottom) return;
+  // Our own pin, recognised by the offset this code last wrote. During a stream
+  // the transcript grows under the viewport (a thinking box expanding, an image
+  // finishing, a markdown block re-rendering), so the scroll event that follows
+  // a pin can already be more than a screenful away from the bottom. Reading
+  // that as "the reader scrolled away" is what used to unpin someone who never
+  // touched the scrollbar, and it stayed unpinned for the rest of the answer.
+  if (lastScrollSet >= 0 && Math.abs(transcript.scrollTop - lastScrollSet) < 1) {
+    if (distanceFromBottom() > 1) pinScrollTop();
+    pinnedToBottom = true;
+    syncJumpToBottom();
+    return;
+  }
   // Same for the growth a repaint causes: nothing the reader did moved them, so
   // the follow state stays on until the hold ends. But a scroll that actually
   // lands somewhere else is a deliberate move (a drag, a key, a programmatic
@@ -1153,6 +1371,29 @@ function scrollToBottom(force = false) {
     holdBottom();
   }
   pinScrollTop();
+  syncJumpToBottom();
+}
+
+/**
+ * Keep the answer in view while it arrives.
+ *
+ * A delta is not the only thing that grows the transcript: the thinking box
+ * expands, an inline image finishes decoding, a table lays out. None of those
+ * fire a scroll event and none of them arrive with a delta, so pinning once per
+ * delta lands short and leaves a gap — and the gap used to be mistaken for the
+ * reader leaving.
+ *
+ * The bottom hold already knows how to re-assert for a short while; borrowing it
+ * means following stops on its own 900ms after the last delta, and never fights a
+ * reader who scrolled up (that case returns immediately).
+ */
+function followStream() {
+  if (!pinnedToBottom) {
+    syncJumpToBottom();
+    return;
+  }
+  holdBottom();
+  if (distanceFromBottom() > 1) pinScrollTop();
   syncJumpToBottom();
 }
 
@@ -1241,6 +1482,142 @@ function paintBusyFromViews() {
 }
 
 let noticeTimer = null;
+
+/**
+ * A notice hides itself after this long, unless a caller asks for something else.
+ *
+ * Long enough to read a sentence and copy it, short enough that it is gone before
+ * it becomes clutter. Hovering pauses the clock (see noticeHoverOn), because the
+ * one moment a notice matters is the moment somebody is reading it.
+ */
+const NOTICE_DEFAULT_MS = 5000;
+/** How often the countdown label is repainted; four ticks a second reads as a clock. */
+const NOTICE_TICK_MS = 200;
+let noticeDeadline = 0;
+let noticeDuration = 0;
+let noticeClock = 0;
+let noticePaused = false;
+let noticePausedLeft = 0;
+let noticeHover = false;
+
+/** Milliseconds left on the notice clock (never negative). */
+function noticeLeftMs() {
+  const left = noticePaused ? noticePausedLeft : noticeDeadline - Date.now();
+  return Math.max(0, left);
+}
+
+/**
+ * Redraw the countdown.
+ *
+ * It is always visible rather than appearing on hover: the point of the number is
+ * to tell someone who is about to copy the sentence how long they have, and that
+ * is exactly when they are not hovering yet.
+ */
+function paintNoticeCount() {
+  const node = el('noticeCount');
+  if (!node) return;
+  if (!noticeDuration) {
+    node.hidden = true;
+    node.textContent = '';
+    return;
+  }
+  node.hidden = false;
+  node.textContent = t('noticeCountdown', { n: Math.max(1, Math.ceil(noticeLeftMs() / 1000)) });
+  node.classList.toggle('paused', noticePaused);
+}
+
+/** Start (or restart) the countdown for the notice on screen. */
+function startNoticeClock(ms) {
+  stopNoticeClock();
+  noticeDuration = ms > 0 ? ms : 0;
+  noticePaused = false;
+  noticePausedLeft = 0;
+  noticeDeadline = Date.now() + noticeDuration;
+  paintNoticeCount();
+  if (!noticeDuration) return;
+  noticeClock = setInterval(() => {
+    if (noticePaused) return;
+    if (noticeLeftMs() <= 0) {
+      stopNoticeClock();
+      hideNotice();
+      return;
+    }
+    paintNoticeCount();
+  }, NOTICE_TICK_MS);
+}
+
+function stopNoticeClock() {
+  if (noticeClock) clearInterval(noticeClock);
+  noticeClock = 0;
+  noticeDeadline = 0;
+  noticeDuration = 0;
+  noticePaused = false;
+  noticePausedLeft = 0;
+}
+
+/** Stop the clock where it is. The notice stays exactly as long as the pointer reads it. */
+function pauseNoticeClock() {
+  if (!noticeDuration || noticePaused) return;
+  noticePausedLeft = noticeLeftMs();
+  noticePaused = true;
+  paintNoticeCount();
+}
+
+/** Resume from the moment it was paused, not from the start. */
+function resumeNoticeClock() {
+  if (!noticePaused) return;
+  noticePaused = false;
+  noticeDeadline = Date.now() + noticePausedLeft;
+  paintNoticeCount();
+}
+
+/** True when there is text selected inside the notice, which a reader wants kept. */
+function noticeHasSelection() {
+  try {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
+    return noticeEl.contains(sel.getRangeAt(0).commonAncestorContainer);
+  } catch {
+    return false;
+  }
+}
+
+/** The pointer, or a selection, is on the notice: hold the clock. */
+function noticeHoverOn() {
+  noticeHover = true;
+  pauseNoticeClock();
+}
+
+function noticeHoverOff() {
+  noticeHover = false;
+  // A selection left behind by a drag that ended outside the notice would
+  // otherwise keep it on screen forever.
+  if (noticeHasSelection()) return;
+  resumeNoticeClock();
+}
+
+/*
+ * The clock stops for a reader, and only for a reader.
+ *
+ * Three ways to be reading it, and all three pause: the pointer resting on the
+ * notice, keyboard focus inside it, and text selected in it. The countdown keeps
+ * saying how long is left, so the pause is visible rather than looking like the
+ * bug this replaces (a notice that never went away).
+ */
+noticeEl?.addEventListener('pointerenter', noticeHoverOn);
+noticeEl?.addEventListener('mouseenter', noticeHoverOn);
+noticeEl?.addEventListener('pointerleave', noticeHoverOff);
+noticeEl?.addEventListener('mouseleave', noticeHoverOff);
+noticeEl?.addEventListener('focusin', pauseNoticeClock);
+noticeEl?.addEventListener('focusout', () => {
+  if (!noticeHover) noticeHoverOff();
+});
+document.addEventListener('selectionchange', () => {
+  if (!noticeDuration) return;
+  if (noticeHasSelection()) pauseNoticeClock();
+  else if (!noticeHover) resumeNoticeClock();
+});
+
 /**
  * True while the notice on screen is the "retrying" one. That notice is a passing
  * state, not something the reader has to dismiss: a 503 that retried
@@ -1292,32 +1669,92 @@ function softenTechnical(text) {
   return out;
 }
 
-function showNotice(text, ms) {
+/**
+ * A notice belongs to the chat that raised it.
+ *
+ * The bar is one element, but its content is parked per tab. The most visible
+ * case: /compact shows “กำลังย่อบทสนทนา…” with no timeout — switching tabs used
+ * to let that message stare back from the other chat. Now the notice is saved on
+ * the owner view, rendered on screen only while that tab is active, and restored
+ * (with its remaining time) when the person comes back.
+ */
+function showNotice(text, ms, ownerTabId) {
+  const owner = ownerTabId !== undefined ? ownerTabId : activeTabId;
+  const owns = views.get(owner);
+  /*
+   * How long a notice stays, when the caller does not say.
+   *
+   * Every caller that meant "show this briefly" had to remember to pass a number,
+   * and the ones that forgot (`showNotice(t('deepseekSaved'))`) left a yellow bar
+   * on screen until the next notice replaced it — which read as a message that
+   * would not go away. Five seconds is now the default, `0` still means "stay until
+   * something else happens", and a caller with a shorter reason passes its own.
+   */
+  const duration = ms === undefined ? NOTICE_DEFAULT_MS : Number(ms) > 0 ? Number(ms) : 0;
+  if (owns) owns.notice = text ? { text: String(text), ms: duration, at: Date.now() } : null;
   clearTimeout(noticeTimer);
   if (!text) {
     noticeIsRetry = false;
     hideNotice();
     return;
   }
+  // Parked, not shown: the notice belongs to a tab that is not on screen. It will
+  // be restored by restoreTabNotice() when that tab becomes active again.
+  if (owner !== activeTabId) return;
   noticeEl.classList.remove('out');
   noticeEl.hidden = false;
-  noticeEl.textContent = softenTechnical(text);
+  const textNode = el('noticeText') || noticeEl;
+  textNode.textContent = softenTechnical(text);
   // Restart the entrance animation even when a notice replaces another one.
   noticeEl.classList.remove('in');
   void noticeEl.offsetWidth;
   noticeEl.classList.add('in');
-  if (ms > 0) noticeTimer = setTimeout(hideNotice, ms);
+  startNoticeClock(duration);
 }
 
 /** Fade the notice out, then take it out of the layout. */
 function hideNotice() {
   if (!noticeEl || noticeEl.hidden) return;
+  stopNoticeClock();
   noticeEl.classList.add('out');
   noticeTimer = setTimeout(() => {
     noticeEl.hidden = true;
-    noticeEl.textContent = '';
+    const textNode = el('noticeText') || noticeEl;
+    textNode.textContent = '';
+    const count = el('noticeCount');
+    if (count) {
+      count.textContent = '';
+      count.hidden = true;
+    }
     noticeEl.classList.remove('in', 'out');
   }, 200);
+}
+
+/** Drop the notice bar instantly, no fade — used when a tab leaves the screen. */
+function hideNoticeNow() {
+  clearTimeout(noticeTimer);
+  stopNoticeClock();
+  noticeEl.classList.remove('in', 'out');
+  noticeEl.hidden = true;
+  const textNode = el('noticeText') || noticeEl;
+  textNode.textContent = '';
+  const count = el('noticeCount');
+  if (count) {
+    count.textContent = '';
+    count.hidden = true;
+  }
+}
+
+/** Put back the notice that belongs to the tab now on screen, if it still counts. */
+function restoreTabNotice(view) {
+  if (!view || !view.notice) return;
+  const n = view.notice;
+  const left = n.ms - (Date.now() - n.at);
+  if (n.ms > 0 && left <= 0) {
+    view.notice = null;
+    return;
+  }
+  showNotice(n.text, n.ms > 0 ? left : 0);
 }
 
 /* --------------------------- sounds & toasts --------------------------- */
@@ -1532,6 +1969,67 @@ function messageAuthor(view = activeView()) {
   return `${provider} | ${t('model')}: ${name}`;
 }
 
+/**
+ * One thumbnail that opens the in-app viewer.
+ *
+ * Every picture in a chat goes through this, because clicking one used to hand
+ * the file to Windows Photos — the app disappeared behind another program just
+ * to look at something it was already showing. The viewer opens it in place, so
+ * a person can check that the picture they attached is the right one without
+ * cancelling the attachment and picking it again.
+ */
+function galleryImage(src, alt = '', title = '') {
+  const im = document.createElement('img');
+  im.src = src;
+  im.alt = alt;
+  if (title) im.title = title;
+  return im;
+}
+
+/**
+ * Fill a strip with pictures that live on disk.
+ *
+ * Each read is validated in main against the workspace and the chat attachment
+ * folder; anything missing, too large or outside those simply produces no
+ * thumbnail, so a deleted attachment cannot break the message it was sent in.
+ */
+async function paintStoredImages(strip, paths, cwd) {
+  if (!cwd) return;
+  for (const rel of paths) {
+    const res = await api.readImage(cwd, rel).catch(() => null);
+    if (res?.ok) strip.appendChild(galleryImage(res.dataUri, rel, rel));
+  }
+}
+
+/**
+ * Keep the newest line of reasoning in view.
+ *
+ * The thinking box is capped at 320px and scrolls on its own, so reasoning that
+ * ran past that height put every new line below the fold. Watching what the
+ * model is thinking then meant scrolling a box that was already being written
+ * into, several times per turn. The box follows its tail until the reader
+ * scrolls it themselves, and stops following from then on — the same rule the
+ * transcript uses, so nobody is dragged back down mid-read.
+ */
+function pinThinkingScroll(box) {
+  if (!box || box.hidden) return;
+  if (box.__fpFollow === false) return;
+  box.scrollTop = box.scrollHeight;
+}
+
+/** Attach the follow state once, where the box is created. */
+function followThinkingScroll(box) {
+  box.__fpFollow = true;
+  box.addEventListener(
+    'scroll',
+    () => {
+      // 8px of slack: a fractional layout height otherwise reads as "scrolled".
+      box.__fpFollow = box.scrollHeight - box.scrollTop - box.clientHeight > 8;
+    },
+    { passive: true }
+  );
+}
+
 function addMessage(kind) {
   emptyState.hidden = true;
   const wrap = document.createElement('div');
@@ -1579,6 +2077,7 @@ function addMessage(kind) {
     const thinking = document.createElement('div');
     thinking.className = 'thinking';
     thinking.hidden = true;
+    followThinkingScroll(thinking);
 
     toggle.addEventListener('click', () => {
       const open = thinking.hidden;
@@ -1633,21 +2132,22 @@ function addMessage(kind) {
   return wrap;
 }
 
-function renderUserMessage(text, attachments) {
+function renderUserMessage(text, attachments, extra = {}) {
   const wrap = addMessage('user');
   const bubble = wrap.querySelector('.bubble');
   const imgs = (attachments || []).filter((a) => a.kind !== 'file' && a.dataUri);
   const files = (attachments || []).filter((a) => a.kind === 'file');
+  // Pictures this message carried, as paths to files that are still saved. Main
+  // takes the "[Attached image saved to: …]" note back out of the stored text and
+  // returns those paths beside it, because the session holds the note and not the
+  // picture: a chat switch away and back used to show that note as prose.
+  const stored = Array.isArray(extra.imagePaths) ? extra.imagePaths : [];
 
-  if (imgs.length) {
+  if (imgs.length || stored.length) {
     const strip = document.createElement('div');
     strip.className = 'bubble-images';
-    for (const img of imgs) {
-      const im = document.createElement('img');
-      im.src = img.dataUri;
-      im.alt = '';
-      strip.appendChild(im);
-    }
+    for (const img of imgs) strip.appendChild(galleryImage(img.dataUri, '', img.name || ''));
+    if (stored.length) paintStoredImages(strip, stored, extra.cwd);
     bubble.appendChild(strip);
   }
 
@@ -2271,7 +2771,13 @@ function visibleModelOptions() {
 function filterModelMenu() {
   const query = modelSearch.value.trim().toLowerCase();
   const freeOnly = Boolean(modelFreeOnly?.checked);
-  const searching = Boolean(query) || freeOnly;
+  /*
+   * Only typing opens folders. "Free only" used to count as a search too, so one
+   * tick sprang every provider open — including the ones the reader had folded
+   * away. It is a filter now: it hides paid rows and leaves the folders as they
+   * were left.
+   */
+  const searching = Boolean(query);
   let visible = 0;
   for (const group of modelList.querySelectorAll('.model-group')) {
     let shown = 0;
@@ -2628,7 +3134,9 @@ function renderActiveTab() {
 
   transcript.innerHTML = '';
   transcript.appendChild(emptyState);
-  const messages = view.messages || [];
+  const messages = view.liveMessages && view.liveMessages.length
+    ? mergeLiveTurn(view.messages || [], view.liveMessages)
+    : view.messages || [];
   emptyState.hidden = messages.length > 0;
   hideSkeleton();
   const generation = ++renderGeneration;
@@ -2642,7 +3150,7 @@ function renderActiveTab() {
   const gaps = [];
   const draw = (m) => {
     if (m.kind === 'user') {
-      renderUserMessage(m.text, m.images);
+      renderUserMessage(m.text, m.images, { imagePaths: m.imagePaths, cwd: view.cwd });
       currentAssistant = null;
     } else if (m.kind === 'assistant') {
       const text = m.text || '';
@@ -2663,6 +3171,7 @@ function renderActiveTab() {
         const toggle = wrap.querySelector('.thinking-toggle');
         if (th && toggle) {
           th.textContent = m.thinking;
+          pinThinkingScroll(th);
           toggle.hidden = false;
           toggle.textContent = `\u25b8 ${t('thinkingShow')}`;
         }
@@ -2934,6 +3443,11 @@ function paintProviderMeter(view) {
     // worth naming here, since a zero balance still leaves it usable.
     label.textContent = t('llm7FreeTier');
     text.textContent = `${t('llm7Limits')} · ${view?.model?.name || '—'}`;
+  } else if (chrome.meter === 'deepseek') {
+    // The balance is only in DeepSeek's own dashboard, and this is a paid route:
+    // name the price rather than inventing a meter the API does not provide.
+    label.textContent = t('deepseekMeterLabel');
+    text.textContent = `${t('deepseekLimits')} · ${view?.model?.name || '—'}`;
   } else {
     label.textContent = t('model');
     text.textContent = view?.model?.name || '—';
@@ -3078,6 +3592,7 @@ async function refreshTokenharborStatus() {
 /* LLM7.io shows balance only in its own dashboard, so the status is the key
    store's own state, exactly like Token Harbor's. */
 let llm7Status = null;
+let deepseekStatus = null;
 
 function paintLlm7Settings() {
   const node = el('llm7Status');
@@ -3107,6 +3622,37 @@ async function refreshLlm7Status() {
   }
   paintLlm7Settings();
   return llm7Status;
+}
+
+/** Settings copy for the DeepSeek key: the shape, never the key. */
+function paintDeepSeekSettings() {
+  const node = el('deepseekStatus');
+  const remove = el('deepseekRemove');
+  if (!node) return;
+
+  const s = deepseekStatus;
+  let text = t('deepseekNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('deepseekConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('deepseekUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+}
+
+async function refreshDeepSeekStatus() {
+  try {
+    deepseekStatus = await api.deepseekStatus();
+  } catch {
+    deepseekStatus = null;
+  }
+  paintDeepSeekSettings();
+  return deepseekStatus;
 }
 
 /**
@@ -3192,6 +3738,53 @@ function mergeIncomingMessages(view, incoming) {
   return out;
 }
 
+/**
+ * Combine the history with the turn that is still running.
+ *
+ * While a turn streams, the session file gains a step only once it is finished
+ * (a text block ends, a tool returns). The block that is being typed right now
+ * — and everything typed before the reader switched chats and came back —
+ * exists only in `view.liveMessages`. Both lists describe the same turn in the
+ * same order, so they are paired step by step: the longer text wins, tool calls
+ * are united by id, and nothing either side has is dropped.
+ *
+ * Tool *result* entries are left out of the pairing: the live cards already
+ * draw their result from `view.toolResults`, and pairing them would shift every
+ * later step by one.
+ */
+function mergeLiveTurn(messages, live) {
+  const history = Array.isArray(messages) ? messages : [];
+  if (!live || !live.length) return history;
+
+  // Everything after the last user message belongs to this turn.
+  let from = history.length;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i] && history[i].kind === 'user') {
+      from = i + 1;
+      break;
+    }
+  }
+  const head = history.slice(0, from);
+  const tail = history.slice(from).filter((m) => m && m.kind === 'assistant');
+  const out = [];
+  const n = Math.max(tail.length, live.length);
+  for (let i = 0; i < n; i += 1) {
+    const a = tail[i];
+    const b = live[i];
+    if (!a) out.push(b);
+    else if (!b) out.push(a);
+    else if (a.kind !== b.kind) out.push(b);
+    else {
+      const text = (a.text || '').length >= (b.text || '').length ? a.text : b.text;
+      const thinking = (a.thinking || '').length >= (b.thinking || '').length ? a.thinking : b.thinking;
+      const tools = [...(a.tools || [])];
+      for (const t of b.tools || []) if (!tools.some((x) => x && x.id === t.id)) tools.push(t);
+      out.push({ ...a, ...b, text, thinking, tools });
+    }
+  }
+  return [...head, ...out];
+}
+
 /*
  * Which conversation the window is on, remembered across launches.
  *
@@ -3227,9 +3820,49 @@ function pickRestoreTarget(tabs, wanted) {
   return match || list[0];
 }
 
-function applyTabState(state) {  if (!state) return;
+function applyTabState(state, options = {}) {  if (!state) return;
   let view = views.get(state.tabId);
   if (!view) view = createView(state.tabId);
+
+  /*
+   * History for a chat that is not on screen must not pull the window to it.
+   *
+   * `agent:history` reports one tab at a time — compact, undo/redo, a key
+   * change — and this function used to make the reporter the active tab every
+   * time. Nothing on screen had asked for that chat, so the conversation the
+   * reader was in simply vanished and another took its place. The listener that
+   * knows why says `show: false`; the tab's own data is still stored, so
+   * switching to it later is instant and correct.
+   */
+  if (options.show === false) {
+    Object.assign(view, {
+      cwd: state.cwd || view.cwd,
+      sessionId: state.sessionId,
+      sessionFile: state.sessionFile,
+      name: state.name,
+      model: state.model,
+      models: state.models || view.models || [],
+      guest: state.guest,
+      busy: Boolean(state.busy),
+      messages: mergeIncomingMessages(view, state.messages),
+      modelFallback: state.modelFallback || null,
+      usage: state.usage || null,
+    });
+    if (!state.busy) view.liveMessages = [];
+    if (state.cwd) lastWorkspace = state.cwd;
+    if (!view.label) view.label = state.name || deriveLabel(state);
+    view.changes = state.changes || [];
+    return;
+  }
+
+  // A composer that is leaving goes back to the chat it belongs to before the
+  // arriving chat's own words and pictures take its place. Its notice goes too:
+  // one chat's “กำลังย่อบทสนทนา…” must not stare back from the chat it switched to.
+  const tabChanged = activeTabId !== state.tabId;
+  if (tabChanged) {
+    stashComposer(views.get(activeTabId));
+    hideNoticeNow();
+  }
 
   Object.assign(view, {
     cwd: state.cwd,
@@ -3244,10 +3877,19 @@ function applyTabState(state) {  if (!state) return;
     modelFallback: state.modelFallback || null,
     liveAssistant: null,
     liveTools: null,
+    // Token accounting, computed in the main process from the same messages.
+    usage: state.usage || null,
   });
+  // A turn that just ended is the session's business now: the real history is
+  // about to arrive (or has), so the live overlay is no longer the truth.
+  if (!state.busy) view.liveMessages = [];
   if (state.cwd) lastWorkspace = state.cwd;
   if (!view.label) view.label = state.name || deriveLabel(state);
   activeTabId = state.tabId;
+  if (tabChanged) {
+    loadComposer(view);
+    restoreTabNotice(view);
+  }
   renderActiveTab();
   rememberActiveTab(view);
   // A turn may still be running in this tab: after a window reload the renderer
@@ -3270,6 +3912,9 @@ function applyTabState(state) {  if (!state) return;
     showNotice(`${t('coarenaModelSwitched')} ${to ? `${to.provider}/${to.id}` : '—'}`);
   }
   syncProviderChrome(view);
+  // A turn that just finished changes the figures; repaint only if the panel
+  // is actually open, so a long run costs nothing on screen.
+  if (statusPopoverOpen()) paintTokenUsage(view);
 }
 
 function deriveLabel(state) {  const firstUser = (state.messages || []).find((m) => m.kind === 'user' && m.text);
@@ -3287,11 +3932,19 @@ async function closeTab(tabId) {
   const res = await api.closeTab(tabId);
   views.delete(tabId);
   if (activeTabId === tabId) {
-    activeTabId = res.activeTabId;
-    if (activeTabId && views.has(activeTabId)) {
-      await activateTabDirect(activeTabId);
+    // The closed chat takes its composer with it: staged pictures and half-typed
+    // words must not reappear in the chat that replaces it.
+    pendingImages = [];
+    input.value = '';
+    autoGrow();
+    renderAttachments();
+    if (res.activeTabId && views.has(res.activeTabId)) {
+      // activeTabId is left pointing at the closed tab on purpose, so applyTabState
+      // sees the change and restores the arriving chat's own composer.
+      await activateTabDirect(res.activeTabId);
       return;
     }
+    activeTabId = res.activeTabId || null;
     renderActiveTab();
   }
 }
@@ -3368,24 +4021,26 @@ async function renderSessions(cwd) {
   const list = el('sessionList');
   let sessions = await api.listSessions(cwd);
   
-  // Include active session even if not yet persisted to disk
-  const active = activeView();
-  if (active?.sessionId && !sessions.some(s => s.id === active.sessionId)) {
-    const known = sessionMarkOf(active.sessionFile);
-    sessions = [
-      {
-        id: active.sessionId,
-        path: active.sessionFile || '',
-        created: new Date().toISOString(),
-        modified: new Date().toISOString(),
-        firstMessage: active.name || active.label || t('untitled'),
-        messageCount: (active.messages || []).filter(m => m.kind === 'user').length,
-        pinned: known.pinned,
-        color: known.color,
-      },
-      ...sessions,
-    ];
+  // Include open chats that are not on disk yet. A chat has no file until its
+  // first message is written, so a freshly opened tab used to be missing from
+  // the sidebar unless it was the one on screen — a second new tab looked like
+  // it had vanished.
+  const opened = [];
+  for (const v of views.values()) {
+    if (!v.sessionId || sessions.some((s) => s.id === v.sessionId)) continue;
+    const known = sessionMarkOf(v.sessionFile);
+    opened.push({
+      id: v.sessionId,
+      path: v.sessionFile || '',
+      created: new Date().toISOString(),
+      modified: new Date().toISOString(),
+      firstMessage: v.name || v.label || t('untitled'),
+      messageCount: (v.messages || []).filter((m) => m.kind === 'user').length,
+      pinned: known.pinned,
+      color: known.color,
+    });
   }
+  if (opened.length) sessions = [...opened, ...sessions];
 
   // Marks set in this window are mirrored to the main process, but the reply may
   // not have caught up with the render that follows it. Overlay the local copy
@@ -3415,7 +4070,10 @@ async function renderSessions(cwd) {
   list.innerHTML = '';
   if (!sessions.length) {
     const p = document.createElement('div');
-    p.style.cssText = 'font-size:11.5px;color:#8b93a7;padding:6px 4px';
+    p.style.cssText = 'font-size:11.5px;padding:6px 4px';
+    // A literal grey here ignored the theme: in light mode this empty-state line
+    // was pale on pale. The token follows whichever palette is in force.
+    p.style.color = 'var(--muted)';
     p.textContent = t('noSessions');
     list.appendChild(p);
     return;
@@ -3444,7 +4102,7 @@ async function renderSessions(cwd) {
         <span class="s-title">${escapeHtml(title)}</span>
         ${isActive ? `<span class="s-current">${t('currentBadge')}</span>` : ''}
       </span>
-      <span class="s-meta">${escapeHtml(new Date(s.created || s.modified).toLocaleString())}</span>
+      <span class="s-meta">${escapeHtml(formatSessionDate(new Date(s.created || s.modified)))}</span>
     `;
     btn.title = isActive
       ? `${title} \u2014 ${t('currentBadge')}`
@@ -3679,7 +4337,7 @@ function showConfirmDelete(cwd, session) {
     title: t('deleteTitle'),
     sub: t('deleteSub'),
     target: session.name || session.firstMessage || t('untitled'),
-    meta: new Date(session.modified).toLocaleString(),
+    meta: formatSessionDate(new Date(session.modified)),
     path: session.path || '',
     action: t('delete'),
   });
@@ -3731,11 +4389,18 @@ async function clearSession(tabId) {
       if (next) next.label = res.state.name || '';
       applyTabState(res.state);
     } else {
+      // No state came back for the new empty session, so there is no composer to
+      // restore: clear this one before drawing, or the cleared chat's pictures and
+      // words would still be on screen.
+      pendingImages = [];
+      input.value = '';
+      autoGrow();
+      renderAttachments();
       activeTabId = [...views.keys()][0] || null;
       renderActiveTab();
       renderSessions(cwd);
     }
-    pendingImages = [];
+    autoGrow();
     renderAttachments();
     input.value = '';
     autoGrow();
@@ -3784,11 +4449,13 @@ async function openSettings() {
   nvidiaStatus = settingsData?.nvidia || null;
   tokenharborStatus = settingsData?.tokenharbor || null;
   llm7Status = settingsData?.llm7 || null;
+  deepseekStatus = settingsData?.deepseek || null;
   paintCoarenaSettings();
   paintZroSettings();
   paintNvidiaSettings();
   paintTokenharborSettings();
   paintLlm7Settings();
+  paintDeepSeekSettings();
   paintMcpSettings();
   paintProviderMeter(activeView());
   renderSettings();
@@ -4240,7 +4907,6 @@ const SIDEBAR_DEFAULT = 268;
  */
 function sidebarMinWidth() {
   const brand = document.querySelector('#sidebar .brand');
-  const note = document.querySelector('#sidebar .approval-note');
   // 12px padding each side, 1px border, and a little breathing room.
   const chrome = 24 + 2 + 6;
   if (!brand) return SIDEBAR_MIN;
@@ -4252,21 +4918,19 @@ function sidebarMinWidth() {
   const prev = root.style.getPropertyValue('--sidebar-w');
   root.style.setProperty('--sidebar-w', `${SIDEBAR_MIN}px`);
   let row = 0;
-  let sentence = 0;
   try {
     const gap = parseFloat(getComputedStyle(brand).columnGap) || 0;
     const kids = [...brand.children].filter((n) => !n.hidden);
     row = kids.length
       ? kids.reduce((sum, n) => sum + Math.max(n.scrollWidth, n.offsetWidth), 0) + gap * (kids.length - 1)
       : 0;
-    // `scrollWidth` is the unwrapped width even with `white-space: nowrap` and
-    // `overflow: hidden`, which is exactly the number this needs.
-    sentence = note ? note.scrollWidth : 0;
   } finally {
     if (prev) root.style.setProperty('--sidebar-w', prev);
     else root.style.removeProperty('--sidebar-w');
   }
-  return Math.max(SIDEBAR_MIN, Math.ceil(Math.max(row, sentence)) + chrome);
+  // The approval note used to set this floor. It lives in a fixed-width popover
+  // now, so it no longer decides how narrow the column may be.
+  return Math.max(SIDEBAR_MIN, Math.ceil(row) + chrome);
 }
 
 /**
@@ -4296,8 +4960,12 @@ el('settingsClose').addEventListener('click', closeSettings);
 
 /* The licence notice the installer must be able to show (MIT condition), and the
    documents the licence points at: terms, privacy notice, the licence itself. One
-   delegated handler, because the buttons are a list and a list grows. */
-for (const button of [...document.querySelectorAll('.about-legal-links .link-btn')]) {
+   delegated handler, because the buttons are a list and a list grows.
+   The first-run card offers the same two documents, so it shares the handler. */
+for (const button of [
+  ...document.querySelectorAll('.about-legal-links .link-btn'),
+  ...document.querySelectorAll('.terms-legal-links .link-btn'),
+]) {
   button.addEventListener('click', () => {
     const doc = button.dataset.doc;
     if (!doc) return;
@@ -4530,6 +5198,48 @@ el('llm7Buy')?.addEventListener('click', () => {
   api.openExternal('https://dash.llm7.io/').catch(() => {});
 });
 
+el('deepseekSave')?.addEventListener('click', async () => {
+  const inputEl = el('deepseekKeyInput');
+  const button = el('deepseekSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.deepseekSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      deepseekStatus = res.status || null;
+      paintDeepSeekSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('deepseekUnverified') : t('deepseekSaved'));
+    } else {
+      showNotice(`${t('deepseekSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('deepseekSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('deepseekRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'deepseekRemove',
+    title: t('deepseekRemoveTitle'),
+    sub: t('deepseekRemoveSub'),
+    action: t('deepseekRemove'),
+  });
+});
+
+el('deepseekGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://platform.deepseek.com/api_keys').catch(() => {});
+});
+
+el('deepseekBuy')?.addEventListener('click', () => {
+  api.openExternal('https://platform.deepseek.com/top_up').catch(() => {});
+});
+
 el('settingsReset').addEventListener('click', async () => {
   const view = activeView();
   const cleared = {};
@@ -4700,6 +5410,10 @@ async function renderAccount() {
   const st = await api.accountStatus();
   accountData = st;
 
+  // Reset sessions needs a sign-in: with no token it has nothing to clear.
+  const resetBtn = el('accountResetSession');
+  if (resetBtn) resetBtn.hidden = !st.hasToken;
+
   const kind = !st.hasToken ? 'none' : st.guest ? 'guest' : 'member';
   status.replaceChildren();
   const kindSpan = document.createElement('span');
@@ -4813,6 +5527,15 @@ el('accountSignIn').addEventListener('click', async () => {
     return;
   }
   await startInAppLogin();
+});
+
+el('accountResetSession')?.addEventListener('click', async () => {
+  const res = await api.resetFreePiSession();
+  if (!res?.ok) {
+    showNotice(t(res?.code === 'signed_out' ? 'resetSessionSignedOut' : 'resetSessionFailed'), 5000);
+    return;
+  }
+  showNotice(t(res.released ? 'resetSessionDone' : 'resetSessionNone'), 5000);
 });
 
 loginOpen?.addEventListener('click', async () => {
@@ -4976,6 +5699,19 @@ el('confirmDelete').addEventListener('click', async () => {
     return;
   }
 
+  if (state.kind === 'deepseekRemove') {
+    const res = await api.deepseekClearKey();
+    if (res?.ok) {
+      deepseekStatus = res.status || null;
+      paintDeepSeekSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('deepseekRemoved'));
+    } else {
+      showNotice(`${t('deepseekSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
   const res = await api.deleteSession(state.cwd, state.session.path);
   if (!res?.ok) {
     showNotice(t('deleteFailed', { error: res?.error || t('unknownError') }));
@@ -4987,15 +5723,23 @@ el('confirmDelete').addEventListener('click', async () => {
     if (view.sessionId === state.session.id) {
       views.delete(tabId);
       if (activeTabId === tabId) {
-        activeTabId = res.activeTabId || [...views.keys()][0] || null;
-        if (activeTabId) await activateTabDirect(activeTabId);
-        else renderActiveTab();
+        // The deleted chat's composer goes with it, and activeTabId keeps pointing
+        // at it so applyTabState restores the next chat's own composer.
+        pendingImages = [];
+        input.value = '';
+        autoGrow();
+        renderAttachments();
+        const next = res.activeTabId || [...views.keys()][0] || null;
+        if (next) await activateTabDirect(next);
+        else {
+          activeTabId = null;
+          renderActiveTab();
+        }
       }
     }
   }
 
   showNotice(t('deletedFromDisk'));
-  setTimeout(() => showNotice(null), 2500);
 
   // The chat is gone, so its pin/colour has nothing left to mark.
   const deletedKey = sessionMarkKey(state.session.path);
@@ -5098,15 +5842,100 @@ async function addAttachmentsFromFiles(files) {
   renderAttachments();
 }
 
+/* ---------------------------- image viewer --------------------------- */
+
+/**
+ * One picture, opened on top of the chat instead of in another program.
+ *
+ * Three ways out, because none of them is guessable on its own: the × in the
+ * corner, a click anywhere that is not the picture, and Escape.
+ */
+const imageViewer = el('imageViewer');
+const imageViewerImg = el('imageViewerImg');
+const imageViewerCaption = el('imageViewerCaption');
+const imageViewerClose = el('imageViewerClose');
+/** The control to hand focus back to when the picture closes. */
+let viewerReturnFocus = null;
+
+function openImageViewer(src, caption = '') {
+  if (!src || !imageViewer) return;
+  viewerReturnFocus = document.activeElement;
+  imageViewer.setAttribute('aria-label', t('imageViewerLabel'));
+  imageViewerClose?.setAttribute('aria-label', t('imageViewerClose'));
+  imageViewerImg.src = src;
+  imageViewerImg.alt = caption || '';
+  imageViewerCaption.textContent = caption || '';
+  imageViewerCaption.hidden = !caption;
+  imageViewer.hidden = false;
+  // Focus lands on the close button: the picture is a dialog, and a dialog that
+  // leaves focus behind it is one you can only leave with a mouse.
+  imageViewerClose?.focus();
+}
+
+function closeImageViewer() {
+  if (!imageViewer || imageViewer.hidden) return;
+  imageViewer.hidden = true;
+  // Drop the data URI: a full-size screenshot is megabytes, and keeping it after
+  // the picture is gone holds that memory for the rest of the session.
+  imageViewerImg.removeAttribute('src');
+  imageViewerCaption.textContent = '';
+  const back = viewerReturnFocus;
+  viewerReturnFocus = null;
+  if (back && typeof back.focus === 'function' && document.contains(back)) back.focus();
+}
+
+imageViewerClose?.addEventListener('click', closeImageViewer);
+
+// Anywhere that is not the picture closes it: the dimmed space around it, the
+// caption, the padding. The picture itself stays.
+imageViewer?.addEventListener('click', (e) => {
+  if (e.target === imageViewerImg) return;
+  closeImageViewer();
+});
+
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if (!imageViewer || imageViewer.hidden) return;
+    if (e.key !== 'Escape' && e.key !== 'Esc') return;
+    // Capture phase, so the chat's own Escape handlers do not also act on the
+    // keypress that was meant to close the picture.
+    e.preventDefault();
+    e.stopPropagation();
+    closeImageViewer();
+  },
+  true
+);
+
+/**
+ * Any picture in the transcript or the composer opens the viewer.
+ *
+ * Delegated rather than attached per image: thumbnails are created in five
+ * places — a message being sent, a replayed message, a tool result, an image a
+ * message mentions by path, and the pending attachment strip — and the one that
+ * was forgotten is exactly the one that does nothing when clicked.
+ */
+document.addEventListener('click', (e) => {
+  const target = e.target;
+  if (!target || target.tagName !== 'IMG') return;
+  if (target.id === 'imageViewerImg') return;
+  if (!target.closest('#transcript, #attachments')) return;
+  const src = target.currentSrc || target.src;
+  if (!src) return;
+  e.preventDefault();
+  openImageViewer(src, target.title || target.alt || '');
+});
+
 /* --------------------------- jump to newest --------------------------- */
 
 /**
  * The reader decides when to follow new output.
  *
  * Two things happen here: the button appears and disappears as you scroll, and a
- * click puts you back at the newest message. `scroll-behavior: smooth` on the
- * transcript animates it, and the button hides once the smooth scroll lands —
- * the scroll event does that, so no timer is needed and nothing can race.
+ * click puts you back at the newest message. The jump is instant: an animated
+ * glide across a chat that is thousands of pixels long reads as wasted motion,
+ * and the same scroll event that a programmatic jump fires hides the button, so
+ * no timer is needed and nothing can race.
  */
 jumpToBottom?.addEventListener('click', () => {
   // The smooth scroll fires many scroll events on the way down. None of them means
@@ -5462,13 +6291,68 @@ document.addEventListener('visibilitychange', syncSponsorPlayback);
 window.addEventListener('focus', syncSponsorPlayback);
 window.addEventListener('blur', syncSponsorPlayback);
 
+/*
+ * The date printed at the top of TERMS.md and PRIVACY.md ("ปรับปรุงล่าสุด").
+ * Storing it in prefs after someone accepts is what turns "we changed the
+ * wording" into a reason to ask again — and keeps anything else from asking
+ * twice. Change this string in the same commit as the documents' date line;
+ * `selftest-legal-docs.js` fails if the two disagree.
+ */
+const TERMS_VERSION = '2026-11-17';
+
+function termsAccepted() {
+  return appPrefs?.termsAccepted === TERMS_VERSION;
+}
+
+function showTerms() {
+  const overlay = el('termsOverlay');
+  if (!overlay) return;
+  overlay.hidden = false;
+  el('termsAccept')?.focus();
+}
+
+function acceptTerms() {
+  const overlay = el('termsOverlay');
+  if (overlay) overlay.hidden = true;
+  // Only the date may be written, and only one the main process will accept.
+  api.setPrefs({ termsAccepted: TERMS_VERSION }).catch(() => {});
+  // The first-run guide measures real controls, so it must not start while
+  // this card is still covering them.
+  maybeShowGuide();
+}
+
+el('termsAccept')?.addEventListener('click', acceptTerms);
+
+/*
+ * Refusing is a real answer, so it has a real effect: the program closes.
+ * Nothing was accepted, so nothing behind the card has a reason to stay open —
+ * the presence timer included. Both buttons are disarmed so a second click
+ * cannot race the quit.
+ */
+el('termsDecline')?.addEventListener('click', () => {
+  for (const id of ['termsAccept', 'termsDecline']) {
+    const button = el(id);
+    if (button) button.disabled = true;
+  }
+  api.quitApp?.().catch(() => {});
+});
+
 async function boot() {
   const info = await api.boot();
   appPrefs = info.prefs || info;
   profile = info.profile || {};
   if (info.lang) lang = info.lang === 'th' ? 'th' : 'en';
+  // The attribute is already set by theme-boot.js before the first paint; this
+  // keeps the in-memory copy and the button in step with it. Re-applying the same
+  // theme is a no-op, so a boot after theme-boot.js does not flash.
+  theme = info.theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = theme;
+  paintThemeButton();
   if (typeof refreshBrowserStatus === 'function') refreshBrowserStatus();
   applyLanguage();
+  // Before anything else: the terms are shown, not just linked. A person who
+  // has already accepted this exact wording never sees it again.
+  if (!termsAccepted()) showTerms();
   loadProfile();
   initUpdates();
   api.onPresence(paintPresence);
@@ -5478,6 +6362,7 @@ async function boot() {
   refreshNvidiaStatus().catch(() => {});
   refreshTokenharborStatus().catch(() => {});
   refreshLlm7Status().catch(() => {});
+  refreshDeepSeekStatus().catch(() => {});
   applySidebarWidth();
   if (info.lastCwd) {
     lastWorkspace = info.lastCwd;
@@ -5507,7 +6392,10 @@ async function boot() {
         // Apply the state we were handed. Creating an empty view here threw the
         // state away, so after a reload the window showed a blank tab until
         // the next event happened to refresh it.
-        applyTabState(res.state);
+        // No paint yet: every restored tab used to build its whole transcript
+        // (tail first) and rescan the chat list, and only the last one was ever
+        // seen. The remembered tab is activated once, below.
+        applyTabState(res.state, { show: false });
         restored += 1;
       } catch {}
     }
@@ -5532,11 +6420,12 @@ async function boot() {
   }
 
   const tabs = await api.listTabs();
-  if (tabs.length) {
+  const targetTab = tabs.length ? pickRestoreTarget(tabs, wanted) : null;
+  if (targetTab) {
     // Reopen on the conversation the window was on, not on the first tab in the
     // list: with two chats open, closing the app kept jumping back to the other
     // one.
-    await activateTabDirect(pickRestoreTarget(tabs, wanted).tabId);
+    await activateTabDirect(targetTab.tabId);
   } else {
     statusHint.textContent = info.lastCwd
       ? t('readyHint')
@@ -6006,12 +6895,10 @@ async function appendImagePreviews(container, text, cwd) {
   for (const rel of paths) {
     const res = await api.readImage(cwd, rel).catch(() => null);
     if (!res?.ok) continue;
-    const im = document.createElement('img');
-    im.src = res.dataUri;
-    im.alt = rel;
-    im.title = rel;
-    im.addEventListener('click', () => api.openPath(cwd, rel).catch(() => {}));
-    strip.appendChild(im);
+    // No click handler here: every picture in the transcript opens the viewer
+    // through the delegated handler below, so one image cannot be left opening
+    // Windows Photos while the rest open in place.
+    strip.appendChild(galleryImage(res.dataUri, rel, rel));
   }
   if (strip.children.length) container.appendChild(strip);
   container.__fpImagesPending = false;
@@ -6478,14 +7365,25 @@ function saveQueueEdit(view, item) {
 function cancelQueueEdit(view, item) {
   const at = (view?.queue || []).findIndex((q) => q.queueId === item.queueId);
   if (at === -1) return;
-  view.queue[at].editing = false;
-  delete view.queue[at].draft;
-  // Put the pictures that were there when Edit was pressed back.
-  view.queue[at].images = view.queue[at].savedImages;
-  delete view.queue[at].savedImages;
+  const [removed] = view.queue.splice(at, 1);
   renderQueue();
   updateSendState();
+  // Removing the head may unblock the queue.
   drainQueue(view);
+  if (view !== activeView()) return;
+  // "ยกเลิก" must never ship anything: the wording the AI ends up answering is
+  // the editor's job to approve. Instead of lowering the message back into the
+  // queue (where a finished turn picks it up at once), take it out entirely and
+  // hand the words to the composer — the person decides there, Send or delete.
+  // What comes back is what the field shows (the unsaved draft), not the stored
+  // original, so dropping the row never eats what was being typed.
+  input.value = String(removed.draft ?? removed.text ?? '');
+  pendingImages = (removed.images || []).slice();
+  renderAttachments();
+  autoGrow();
+  updateSendState();
+  input.focus();
+  showNotice(t('holdDropped'), 1800);
 }
 
 /**
@@ -6709,6 +7607,12 @@ async function submit() {
   // instruction after the current step, before its next call. Ctrl+Enter is
   // the queue path instead.
   if (view.busy) {
+    // Blocks the answer already produced sit above this new message; hand them
+    // to the history so the steer message cannot end up in the middle of them.
+    if (view.liveMessages && view.liveMessages.length) {
+      view.messages.push(...view.liveMessages);
+      view.liveMessages = [];
+    }
     const steerWrap = renderUserMessage(outgoing, pendingImages);
     const steerImages = pendingImages.slice();
     const steerSend = async () => {
@@ -6765,6 +7669,7 @@ async function submit() {
   hideSlashMenu();
   view.liveAssistant = null;
   view.liveTools = null;
+  view.liveMessages = [];
   setBusy(true);
 
   // Five seconds of grace on a message that has already gone: Enter is easy to
@@ -6916,6 +7821,25 @@ function formatShortDateTime(date) {
   return lang === 'th' ? `${d} ${t} น.` : `${d} ${t}`;
 }
 
+/**
+ * A saved chat's date, written the same way in every locale.
+ *
+ * The list used `toLocaleString()`, which follows whatever Windows is set to:
+ * the same chat read "11/17/2026" on one machine and "17/11/2026" on another, and
+ * in Thai it printed a Gregorian year in the middle of Thai text. Day/month/year
+ * is what the rest of the app already uses, and Thai readers count the year in the
+ * Buddhist era — 2026 is 2569 — so the year is converted for `th` only. English
+ * keeps the calendar year, and both keep the order.
+ */
+function formatSessionDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  const year = date.getFullYear() + (lang === 'th' ? 543 : 0);
+  const d = `${p(date.getDate())}/${p(date.getMonth() + 1)}/${year}`;
+  const t = `${p(date.getHours())}.${p(date.getMinutes())}`;
+  return lang === 'th' ? `${d} ${t} น.` : `${d} ${t}`;
+}
+
 /** Paint the credits / percentage / bar from a /me/stats payload. */
 function applyUsageLabels(d) {
   const remaining = d.remaining_credits_today;
@@ -7013,6 +7937,112 @@ el('refreshUsage').addEventListener('click', () => refreshUsage());
  */
 const STATUS_OPEN_DELAY_MS = 110;
 const STATUS_CLOSE_DELAY_MS = 260;
+
+/* --------------------------- token usage --------------------------- */
+
+/*
+ * The figures arrive from the main process with every tab state; this only
+ * formats them. USD → THB is fetched lazily — the first time a paid figure has
+ * to be shown — and kept for the session, so the panel never turns into a
+ * periodic call to a currency service.
+ */
+let usdThb = null;
+let usdThbAsked = false;
+
+async function ensureUsdThb() {
+  if (usdThb || usdThbAsked) return;
+  usdThbAsked = true;
+  try {
+    const res = await api.getUsdThb?.();
+    const rate = Number(res && res.rate);
+    if (Number.isFinite(rate) && rate > 0) usdThb = rate;
+    else usdThbAsked = false;
+  } catch {
+    // The dollar figure already on screen is still true; try again next time.
+    usdThbAsked = false;
+  }
+  if (usdThb && statusPopoverOpen()) paintTokenUsage();
+}
+
+/** A price the provider charged: baht when the program speaks Thai, dollars otherwise. */
+function costText(usage) {
+  const usd = Number(usage.costUsd || 0);
+  if (usd > 0) {
+    if (lang === 'th') {
+      if (usdThb) return `฿${(usd * usdThb).toFixed(2)}`;
+      ensureUsdThb();
+      return `$${usd.toFixed(2)}`;
+    }
+    return `$${usd.toFixed(2)}`;
+  }
+  // A zero is only "free" when we know why: either the provider is free by
+  // design, or it told us a price and that price was zero. Otherwise the price
+  // is simply unknown, and saying "free" would be a lie.
+  if (usage.free || usage.costReported) return t('tokFree');
+  return t('tokNoPrice');
+}
+
+function paintTokenUsage(view = activeView()) {
+  const set = (id, text) => { const node = el(id); if (node) node.textContent = text; };
+  const num = (value) => Number(value || 0).toLocaleString('en-US');
+  const usage = view && view.usage ? view.usage : null;
+  const head = el('tokPrevHead');
+  const list = el('tokPrevList');
+
+  if (!usage || !usage.calls) {
+    for (const id of ['tokTotal', 'tokSent', 'tokSentNew', 'tokSentCache', 'tokReceived', 'tokSentPlus', 'tokCost']) {
+      set(id, '—');
+    }
+    set('tokCalls', t('tokNone'));
+    if (head) head.hidden = true;
+    if (list) list.replaceChildren();
+    return;
+  }
+
+  set('tokCalls', t('tokCalls', { n: usage.calls }));
+  set('tokTotal', num(usage.total));
+  set('tokSent', num(usage.sentAll));
+  set('tokSentNew', num(usage.input));
+  set('tokSentCache', num(usage.cache));
+  set('tokReceived', num(usage.received));
+  set('tokSentPlus', num(usage.sentPlusReplied));
+  set('tokCost', costText(usage));
+
+  // The turn on screen against the one before it. The main process already
+  // worked out what changed, so this only has to put it on the line.
+  const recent = Array.isArray(usage.recent) ? usage.recent : [];
+  if (head) head.hidden = recent.length === 0;
+  if (!list) return;
+  list.replaceChildren(
+    ...recent.map((turn, index) => {
+      const isNow = index === recent.length - 1;
+      const row = document.createElement('div');
+      row.className = 'tok-row tok-turn-row' + (isNow ? ' tok-turn-now' : '');
+      const label = document.createElement('span');
+      label.className = 'tok-label';
+      label.textContent = isNow ? t('tokTurnNow') : t('tokTurnPrev');
+      const value = document.createElement('span');
+      value.className = 'tok-value mono';
+      value.textContent = num(turn.total);
+      const delta = document.createElement('span');
+      delta.className = 'tok-delta mono';
+      delta.textContent = deltaText(turn.delta && turn.delta.total);
+      if (turn.delta) {
+        delta.classList.add(turn.delta.total < 0 ? 'down' : 'up');
+        delta.title = `${t('tokSent')} ${deltaText(turn.delta.sentAll)} · ${t('tokReceived')} ${deltaText(turn.delta.received)}`;
+      }
+      row.append(label, value, delta);
+      return row;
+    }),
+  );
+}
+
+/** `+1,204` when the turn grew, `−318` when it shrank, `—` when there is nothing to compare. */
+function deltaText(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return n === 0 ? '±0' : '—';
+  return `${n > 0 ? '+' : '−'}${Math.abs(n).toLocaleString('en-US')}`;
+}
 let statusHoverTimer = null;
 let statusPinned = false;
 
@@ -7027,6 +8057,9 @@ function setStatusPopover(open) {
   if (!pop || !pill) return;
   pop.hidden = !open;
   pill.setAttribute('aria-expanded', open ? 'true' : 'false');
+  // Painted on open rather than on every event: the panel is the only place
+  // these numbers are visible, so nothing else has to keep them current.
+  if (open) paintTokenUsage();
   if (!open) statusPinned = false;
 }
 
@@ -7088,6 +8121,21 @@ document.addEventListener('keydown', (e) => {
 
 // Language toggle: saves the choice so it survives a restart.
 el('langBtn').addEventListener('click', () => setLanguage(lang === 'en' ? 'th' : 'en'));
+
+// Theme toggle, right below Settings: one click, remembered across restarts.
+el('themeBtn')?.addEventListener('click', () => setTheme(currentTheme() === 'light' ? 'dark' : 'light'));
+// A shortcut, because the chip is small and the sidebar can be narrow. `T` alone
+// is typing, so this needs the modifier every keyboard already has.
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+  if (e.key !== 't' && e.key !== 'T') return;
+  const target = e.target;
+  // Not while typing, and not inside the settings overlay where T means nothing.
+  if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
+  if (target && target.isContentEditable) return;
+  e.preventDefault();
+  setTheme(currentTheme() === 'light' ? 'dark' : 'light');
+});
 
 /* ------------------------- browser control chip ------------------------- */
 
@@ -7597,26 +8645,38 @@ function currentBody(wrap) {
   return created;
 }
 
+/**
+ * The live block a delta belongs to: the last one unless it was sealed by a
+ * text end or a tool call, in which case a new block starts below.
+ *
+ * Everything the stream produces is recorded here, even while the tab is on
+ * screen. The DOM is only a drawing of this, so a repaint — a chat switch, a
+ * history event — rebuilds the unfinished answer instead of losing it.
+ */
+function liveEntry(view) {
+  const live = (view.liveMessages = view.liveMessages || []);
+  const last = live[live.length - 1];
+  if (last && last.kind === 'assistant' && !last.sealed) return last;
+  const made = { kind: 'assistant', text: '', thinking: '', tools: [] };
+  live.push(made);
+  return made;
+}
+
 api.onDelta((p) => {
   const view = viewFor(p);
   if (!view) return;
-  const active = payloadTabIsActive(view);
-  if (!active) {
-    // Accumulate into the stored message instead of the DOM.
-    const last = view.messages[view.messages.length - 1];
-    if (p.channel === 'text') {
-      if (last?.kind === 'assistant') last.text = (last.text || '') + p.delta;
-      else view.messages.push({ kind: 'assistant', text: p.delta, thinking: '', tools: [] });
-    }
-    return;
-  }
+  const entry = liveEntry(view);
+  if (p.channel === 'thinking') entry.thinking = (entry.thinking || '') + p.delta;
+  else entry.text = (entry.text || '') + p.delta;
+
+  if (!payloadTabIsActive(view)) return;
   const wrap = ensureLive(view);
   if (p.channel === 'thinking') {
     const th = wrap.querySelector('.thinking');
     const toggle = wrap.querySelector('.thinking-toggle');
     if (th) {
       th.textContent += p.delta;
-      // Show the toggle only once there is something to read.
+      pinThinkingScroll(th);      // Show the toggle only once there is something to read.
       if (toggle && th.textContent.trim().length > 0) {
         toggle.hidden = false;
         if (th.hidden) toggle.textContent = `\u25b8 ${t('thinkingShow')}`;
@@ -7639,12 +8699,16 @@ api.onDelta((p) => {
       MD.renderInto(body, body.__fpText, { streaming: true, copiedLabel: t('copied') });
     }
   }
-  scrollToBottom();
+  followStream();
 });
 
 api.onTextEnd((p) => {
   const view = viewFor(p);
-  if (!view || !payloadTabIsActive(view)) return;
+  if (!view) return;
+  const entry = liveEntry(view);
+  if (p.text) entry.text = p.text;
+  entry.sealed = true;
+  if (!payloadTabIsActive(view)) return;
   const wrap = ensureLive(view);
   wrap.classList.remove('streaming');
   if (p.text) {
@@ -7660,7 +8724,7 @@ api.onTextEnd((p) => {
     MD.renderInto(body, p.text, { copiedLabel: t('copied') });
   }
   // Streaming output follows only a reader who is already at the bottom.
-  scrollToBottom();
+  followStream();
 });
 
 api.onToolStart((p) => {
@@ -7670,9 +8734,23 @@ api.onToolStart((p) => {
   // state when the tab comes back, and a switch mid-tool must not lose it.
   view.runningTools = (view.runningTools || 0) + 1;
   view.actTool = p.name || '';
+  // A tool call ends the prose before it and opens a block of its own, exactly
+  // as the DOM does. Recording it keeps a repaint from merging the next answer
+  // into the block above the tool.
+  const live = (view.liveMessages = view.liveMessages || []);
+  const last = live[live.length - 1];
+  if (last && last.kind === 'assistant' && !last.sealed && String(last.text || '').trim()) {
+    last.sealed = true;
+  }
+  live.push({
+    kind: 'assistant',
+    text: '',
+    thinking: '',
+    tools: [{ id: p.id, name: p.name, args: p.args }],
+    sealed: true,
+  });
   if (!payloadTabIsActive(view)) {
     view.act = { ...(view.act || {}), tools: true, think: false, notes: false };
-    view.messages.push({ kind: 'assistant', text: '', thinking: '', tools: [{ id: p.id, name: p.name, args: p.args }] });
     return;
   }
   const wrap = ensureLive(view);
@@ -7910,6 +8988,21 @@ api.onSettled((p) => {
 
   // A repaint between turns can leave chips behind; the state is authoritative.
   clearViewActivity(view);
+
+  /*
+   * The session is the authority once the turn ends. Re-read it, so an answer
+   * that a repaint cut short — the reader switched chats while it streamed —
+   * is restored in full instead of staying truncated until the next switch.
+   */
+  if (!hadQueue) {
+    api
+      .getTabState(view.tabId)
+      .then((state) => {
+        if (!state) return;
+        applyTabState(state, { show: state.tabId === activeTabId });
+      })
+      .catch(() => {});
+  }
 
   try {
     // Nothing is producing output any more.
@@ -8251,9 +9344,61 @@ function applyApprovalMode({ policy } = {}) {
     group.style.setProperty('--at', String(at === -1 ? 0 : at));
     group.title = APPROVAL_TITLES[mode];
   }
+  // The chip shows the current position without opening anything: the popover
+  // is where the choice lives, but the state must be readable at a glance.
+  const chip = el('approvalBtnText');
+  if (chip) {
+    const radio = approvalRadios().find((r) => r.value === mode);
+    chip.textContent = (radio && radio.dataset.short) || mode;
+  }
+  const btn = el('approvalBtn');
+  if (btn) btn.title = APPROVAL_TITLES[mode];
   // No banner and no body class: the switch shows its own state, and a second
   // warning that says the same thing is just something else to read.
 }
+
+/* The approval popover: hover, click, or keyboard focus opens it. */
+let approvalHideTimer = 0;
+
+function setApprovalPopover(open) {
+  const wrap = el('approvalWrap');
+  const pop = el('approvalPopover');
+  const btn = el('approvalBtn');
+  if (!wrap || !pop || !btn) return;
+  clearTimeout(approvalHideTimer);
+  pop.hidden = !open;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function closeApprovalPopoverSoon() {
+  const wrap = el('approvalWrap');
+  clearTimeout(approvalHideTimer);
+  approvalHideTimer = setTimeout(() => {
+    if (wrap && wrap.contains(document.activeElement)) return;
+    setApprovalPopover(false);
+  }, 180);
+}
+
+el('approvalBtn')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  setApprovalPopover(el('approvalPopover')?.hidden !== false);
+});
+el('approvalWrap')?.addEventListener('pointerenter', () => setApprovalPopover(true));
+el('approvalWrap')?.addEventListener('pointerleave', closeApprovalPopoverSoon);
+el('approvalWrap')?.addEventListener('focusin', () => setApprovalPopover(true));
+el('approvalWrap')?.addEventListener('focusout', closeApprovalPopoverSoon);
+document.addEventListener('click', (e) => {
+  const wrap = el('approvalWrap');
+  const pop = el('approvalPopover');
+  if (!wrap || !pop || pop.hidden) return;
+  if (!wrap.contains(e.target)) setApprovalPopover(false);
+});
+document.addEventListener('keydown', (e) => {
+  const pop = el('approvalPopover');
+  if (e.key !== 'Escape' || !pop || pop.hidden) return;
+  setApprovalPopover(false);
+  el('approvalBtn')?.focus();
+});
 
 api.onApprovalMode(applyApprovalMode);
 
@@ -8264,8 +9409,13 @@ for (const radio of approvalRadios()) {
     // the save fails, applyApprovalMode() puts the thumb back where it belongs.
     const group = el('approvalPolicy');
     group?.style.setProperty('--at', String(APPROVAL_ORDER.indexOf(e.target.value)));
+    // The chip answers the click at once; the reply from main confirms it.
+    const chip = el('approvalBtnText');
+    if (chip) chip.textContent = e.target.dataset.short || e.target.value;
     const res = await api.setApprovalMode({ policy: e.target.value }).catch(() => null);
     if (res && res.policy) applyApprovalMode(res);
+    // The choice is made; the popover goes back to being a chip.
+    setApprovalPopover(false);
   });
 }
 
@@ -8467,11 +9617,13 @@ Object.assign(STRINGS.th, {
 
 function paintContext(stats) {
   const pctEl = el('contextPct');
+  const barPct = el('contextBarPct');
   const fill = el('contextFill');
   if (!pctEl || !fill) return;
   const used = stats?.context?.percent;
   if (typeof used !== 'number' || !Number.isFinite(used)) {
     pctEl.textContent = '—';
+    if (barPct) barPct.textContent = '—';
     fill.style.width = '0%';
     fill.className = 'ctx-bar-fill';
     pctEl.title = t('contextHint');
@@ -8479,6 +9631,7 @@ function paintContext(stats) {
   }
   const pct = Math.max(0, Math.min(100, used));
   pctEl.textContent = `${Math.round(pct)}%`;
+  if (barPct) barPct.textContent = `${Math.round(pct)}%`;
   pctEl.title = stats?.context?.tokens
     ? `${stats.context.tokens.toLocaleString()} / ${(stats.context.contextWindow || 0).toLocaleString()} tokens`
     : t('contextHint');
@@ -8926,12 +10079,45 @@ async function undoLastMessage() {
   if (!res?.ok) return showNotice(res?.reason === 'busy' ? t('undoBusy') : t('undoEmpty'));
   view.undoEntryId = res.entryId;
   if (res.text) {
+    // The session no longer holds this message. Any pending copy of the same
+    // text that is still floating on the renderer side (a history event that
+    // never got to claim it — a send that errored midway, a rewritten prompt
+    // that broke the prefix match) would be re-inserted by the incoming merge
+    // on the repaint that follows the undo. The text is back in the input now,
+    // so that copy is stale; drop it or the bubble never disappears.
+    dropStalePending(view, res.text);
     input.value = res.text;
     autoGrow();
     updateSendState();
     input.focus();
   }
   showNotice(t('undoDone'), 4200);
+}
+
+/**
+ * Drop pending user copies that the session just stopped holding.
+ *
+ * Mirrors the boundary rule the incoming merge uses to claim a pending copy, so
+ * a message whose session text was rewritten (template, `/skill:` prefix) is
+ * still caught: prefix match counts when what follows is a text boundary.
+ */
+function dropStalePending(view, undoneText) {
+  const msgs = view && Array.isArray(view.messages) ? view.messages : [];
+  if (!msgs.length) return;
+  const mine = String(undoneText || '').trim();
+  if (!mine) return;
+  const sameText = (m) => {
+    const theirs = String(m.text || '').trim();
+    if (theirs === mine) return true;
+    const [pre, post] = theirs.length >= mine.length ? [mine, theirs] : [theirs, mine];
+    if (!post.startsWith(pre)) return false;
+    const nextChar = post.charAt(pre.length);
+    return nextChar === '\n' || nextChar === ' ' || nextChar === '\t';
+  };
+  for (let i = msgs.length - 1; i >= 0; i -= 1) {
+    const m = msgs[i];
+    if (m && m.pending && m.kind === 'user' && sameText(m)) msgs.splice(i, 1);
+  }
 }
 
 async function redoLastMessage() {
@@ -8958,9 +10144,9 @@ async function compactConversation() {
 
 async function runCompact(view) {
   if (!view) return;
-  showNotice(`${t('compact')}…`, 0);
+  showNotice(`${t('compact')}…`, 0, view.tabId);
   const res = await api.compact(view.tabId);
-  showNotice(res?.ok ? t('compactDone') : t('compactFailed'), 3200);
+  showNotice(res?.ok ? t('compactDone') : t('compactFailed'), 3200, view.tabId);
   refreshContextMeter();
   // Running the command does not produce a turn, so nothing else would notice
   // that the queue can move again.
@@ -9212,7 +10398,10 @@ api.onQuestion((p) => {
 
 api.onHistory((p) => {
   if (!p?.state) return;
-  applyTabState(p.state);
+  // Only the chat on screen is repainted. History for another tab (compact,
+  // undo/redo, a provider key change) updates that tab's stored state and
+  // leaves the reader where they are.
+  applyTabState(p.state, { show: p.state.tabId === activeTabId });
 });
 
 api.onSettled(() => {
@@ -9735,6 +10924,7 @@ function startGuide() {
  */
 function maybeShowGuide() {
   if (!appPrefs || appPrefs.guideDone) return;
+  if (!termsAccepted()) return;
   setTimeout(() => {
     if (!document.hidden) startGuide();
   }, 1500);

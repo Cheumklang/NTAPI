@@ -74,16 +74,39 @@ check('/clear reports whether the name was kept', () => {
 
 /* ------------------------------ list/serve ----------------------------- */
 
+/** Whole body of a named function, so a comment cannot push a needle out of range. */
+function functionBody(source, name) {
+  const start = source.indexOf(`async function ${name}(`);
+  if (start === -1) return '';
+  let i = source.indexOf('(', start);
+  let parens = 0;
+  for (; i < source.length; i += 1) {
+    if (source[i] === '(') parens += 1;
+    else if (source[i] === ')') {
+      parens -= 1;
+      if (parens === 0) break;
+    }
+  }
+  i = source.indexOf('{', i);
+  let depth = 0;
+  for (let j = i; j < source.length; j += 1) {
+    if (source[j] === '{') depth += 1;
+    else if (source[j] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(i, j + 1);
+    }
+  }
+  return '';
+}
+
 check('listSessions ships pinned and color with each row', () => {
-  const start = mainJs.indexOf('async function listSessions');
-  const body = mainJs.slice(start, start + 2200);
+  const body = functionBody(mainJs, 'listSessions');
   must(body, 'pinned: mark.pinned');
   must(body, 'color: mark.color');
 });
 
 check('pinned chats are sorted to the top of the list', () => {
-  const start = mainJs.indexOf('async function listSessions');
-  const body = mainJs.slice(start, start + 2200);
+  const body = functionBody(mainJs, 'listSessions');
   must(body, 'sortSessionsByMark', 'pins never move a row');
 });
 

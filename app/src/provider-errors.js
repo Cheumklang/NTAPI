@@ -160,6 +160,26 @@ const LLM7_HINTS = {
 };
 
 /**
+ * DeepSeek bills a prepaid balance, so a 402 is the ordinary failure: the money
+ * ran out, not the key, and the answer is a top-up rather than a new key.
+ *
+ * Thinking mode is on by default and its chain of thought must be replayed with
+ * a tools request; a 400 on a turn that worked moments ago is almost always
+ * that, which is fixed by starting a new chat rather than by retrying.
+ */
+const DEEPSEEK_HINTS = {
+  invalid_api_key: 'DeepSeek rejected this API key — open Settings, replace it, then retry.',
+  insufficient_balance:
+    'This DeepSeek account has no balance left — top up at platform.deepseek.com, or pick another provider. Failed turns are not charged.',
+  insufficient_quota:
+    'This DeepSeek account has no balance left — top up at platform.deepseek.com, or pick another provider. Failed turns are not charged.',
+  rate_limit: 'DeepSeek is rate limiting this account — wait a moment and retry.',
+  rate_limit_exceeded: 'DeepSeek is rate limiting this account — wait a moment and retry.',
+  model_not_found:
+    'DeepSeek no longer serves this id. Pick the other model from the dropdown — its catalog is two ids.',
+};
+
+/**
  * A stalled request is not a network failure: the connection is fine, the other
  * end simply stopped answering. pi's idle timeout surfaces as an AbortError or
  * a plain "timed out", so both shapes are recognised here and each provider
@@ -176,6 +196,8 @@ const STALL_HINTS = {
     'Token Harbor stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
   llm7:
     'LLM7 stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',
+  deepseek:
+    'DeepSeek accepted the request and never answered. A long reasoning pass can go quiet for minutes — wait, or start a new chat with a shorter question.',
   default: 'The model stopped responding — the connection is fine, the provider went quiet. Retry.',
 };
 
@@ -263,6 +285,21 @@ function friendlyProviderError(raw, { provider } = {}) {
     else if (status === '404') hint = LLM7_HINTS.model_not_found;
     else if (status === '429') hint = LLM7_HINTS.rate_limit;
     else if (looksLikeNetworkFailure(text)) hint = 'Could not reach LLM7 — check your connection and retry.';
+  } else if (provider === 'deepseek') {
+    // A 402 body says "Insufficient Balance" with an ordinary
+    // `invalid_request_error` code, so the status and the sentence both decide.
+    if (/insufficient balance/i.test(text)) hint = DEEPSEEK_HINTS.insufficient_balance;
+    else if (code && DEEPSEEK_HINTS[code]) hint = DEEPSEEK_HINTS[code];
+    else if (status === '401') hint = DEEPSEEK_HINTS.invalid_api_key;
+    else if (status === '402') hint = DEEPSEEK_HINTS.insufficient_balance;
+    else if (status === '429') hint = DEEPSEEK_HINTS.rate_limit;
+    else if (status === '404') hint = DEEPSEEK_HINTS.model_not_found;
+    else if (/reasoning_content/i.test(text)) {
+      hint =
+        'DeepSeek lost the reasoning of this chat, which thinking mode needs when tools are on — start a new chat and send the message again.';
+    } else if (looksLikeNetworkFailure(text)) {
+      hint = 'Could not reach DeepSeek — check your connection and retry.';
+    }
   }
   // Only reached when no provider-specific branch matched: a stalled request
   // must not fall through to the raw "This operation was aborted", which reads
@@ -290,6 +327,7 @@ module.exports = {
   NVIDIA_HINTS,
   TOKENHARBOR_HINTS,
   LLM7_HINTS,
+  DEEPSEEK_HINTS,
   STALL_HINTS,
   parseProviderError,
   parseFreeTierModels,

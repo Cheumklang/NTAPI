@@ -53,9 +53,16 @@ check('one quiet line says what gets approved', /class="approval-note"/.test(htm
 check('the old bare hint element stays gone', !/id="approvalPolicyHint"/.test(html));
 // Scoped to the switch itself: the folder button elsewhere legitimately uses
 // .path-btn, and a whole-document search would fail on it forever.
-const approvalBlock = (html.match(/<div class="section approval-section">[\s\S]*?<\/div>\s*<\/div>/) || [''])[0];
-check('the approval section was found', approvalBlock !== '');
+const approvalStart = html.indexOf('class="approval-wrap"');
+const approvalEnd = html.indexOf('id="approvalNote"');
+const approvalBlock =
+  approvalStart !== -1 && approvalEnd > approvalStart ? html.slice(approvalStart, approvalEnd) : '';
+check('the approval control was found', approvalBlock !== '');
 check('it does not borrow .path-btn', approvalBlock !== '' && !/path-btn/.test(approvalBlock));
+// It sits in the tools row beside the theme chip, not in a block of its own.
+const toolsRow = html.slice(html.indexOf('class="sidebar-tools"'), html.indexOf('class="section"'));
+check('it lives in the tools row', /id="approvalWrap"/.test(toolsRow));
+check('the old block under the workspace picker is gone', !/section approval-section/.test(html));
 
 // --- the sliding thumb ---------------------------------------------------
 const group = rule('.approval-switch');

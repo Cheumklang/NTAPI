@@ -59,8 +59,12 @@ check('saving refuses an empty draft', /if \(!draft\) return;/.test(save));
 
 const cancel = body(app, 'cancelQueueEdit');
 check('an edit can be cancelled', cancel !== '');
-check('cancelling drops the draft', /delete view\.queue\[at\]\.draft/.test(cancel));
-check('cancelling keeps the item', !/splice\(/.test(cancel));
+// Cancelling is "not this message" — the row leaves the queue (so a finished
+// turn can never pick it up and send it) and the unsaved draft goes back to the
+// composer, where the person decides: send, or drop.
+check('cancelling removes the item from the queue', /\[removed\] = view\.queue\.splice\(at, 1\)/.test(cancel));
+check('cancelling returns the draft to the composer', /input\.value = String\(removed\.draft/.test(cancel));
+check('cancelling does not keep a stale editing flag behind', /editing = false/.test(cancel) === false);
 
 // --- 2. an item being edited is never sent ------------------------------
 

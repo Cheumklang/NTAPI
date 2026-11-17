@@ -38,6 +38,7 @@ app.setName('FreePi');
 app.setAppUserModelId('ai.ntapi.desktop');
 
 const bridge = require('./freepi-bridge');
+const { resetFreePiSession } = require('./session-reset');
 const {
   createBrowserBridge,
   EXTENSION_ID,
@@ -134,8 +135,11 @@ const { checkZroKey } = require('./zro');
 const { checkNvidiaKey } = require('./nvidia');
 const { checkTokenHarborKey } = require('./tokenharbor');
 const { checkLlm7Key } = require('./llm7');
+const { checkDeepSeekKey } = require('./deepseek');
 const { focusExistingWindow } = require('./single-instance');
 const { promptOptionsFor } = require('./prompt-mode');
+const { usageTotals } = require('./usage-totals');
+const { fetchUsdThb } = require('./fx-rate');
 
 /**
  * One copy of NTAPI at a time.
@@ -358,6 +362,11 @@ const llm7Keys = createProviderKeyStore({
   safeStorage,
   fileName: 'llm7.json',
 });
+const deepseekKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'deepseek.json',
+});
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
 
@@ -373,6 +382,22 @@ const FOLDER_DEFAULTS = {
   attachments: '.ntapi-attachments',
   downloads: 'downloads',
 };
+
+/**
+ * The theme, and the only two values prefs will accept for it.
+ *
+ * Dark is the default: it is the theme this app was drawn in and what a new
+ * install should look like. Light is a choice, stored per machine in prefs.json
+ * beside the language.
+ */
+const THEMES = ['dark', 'light'];
+const DEFAULT_THEME = 'dark';
+
+/** The saved theme, or the default when nothing valid is stored. */
+function readTheme() {
+  const saved = readPrefs().theme;
+  return THEMES.includes(saved) ? saved : DEFAULT_THEME;
+}
 
 /**
  * Where chat history and skills live.
@@ -1128,14 +1153,47 @@ async function migrateSessionDirs() {
   } catch {}
 }
 
+/**
+ * Parsed chat lists, keyed by session folder. Dropped when the folder's own
+ * timestamp changes, and explicitly after a rename (which rewrites a file but
+ * not the folder).
+ */
+const sessionListCache = new Map();
+
+function sessionDirStamp(dir) {
+  try {
+    return String(fs.statSync(dir).mtimeMs);
+  } catch {
+    return '';
+  }
+}
+
 async function listSessions(cwd) {
   const dir = sessionDirFor(cwd);
   // Marks whose file disappeared are dropped here, so prefs does not grow with
   // rows for conversations deleted in an earlier run.
   pruneSessionMarkStore();
   const marks = sessionMarks();
-  try {
-    const infos = await sdk.SessionManager.list(path.resolve(cwd), dir);
+  /*
+   * Reading the list means parsing every chat file in the folder — ~50 ms for
+   * two long conversations, and it grows with each one saved. The sidebar asks
+   * for it on every tab switch and after every turn, so the parsed rows are
+   * remembered until the folder itself changes: a chat is created, deleted or
+   * renamed. Pins and colours live in prefs, not in the folder, so they are
+   * applied to every reply.
+   */
+  const stamp = sessionDirStamp(dir);
+  const cached = sessionListCache.get(dir);
+  let infos = cached && cached.stamp === stamp ? cached.infos : null;
+  if (!infos) {
+    try {
+      infos = await sdk.SessionManager.list(path.resolve(cwd), dir);
+    } catch {
+      return [];
+    }
+    sessionListCache.set(dir, { stamp, infos });
+  }
+  {
     const listed = infos
       .slice()
       // Newest conversation on top, by *creation* time. Creation never changes,
@@ -1167,8 +1225,6 @@ async function listSessions(cwd) {
     // Pinning is the only thing that moves a row; everything else keeps the
     // creation-time order above.
     return sortSessionsByMark(marks, listed);
-  } catch {
-    return [];
   }
 }
 
@@ -1297,6 +1353,48 @@ function announceIfUnreported(tabId, tab) {
   reportTabError(tabId, failure.text);
 }
 
+/*
+ * A prompt that carried a picture is stored as text, not as an image block.
+ *
+ * free-pi's models take text only, so `prompt:send` writes each picture into the
+ * chat attachment folder and appends two lines to what it hands the agent:
+ *
+ *   [Attached image saved to: C:\NTAPI\outputs\.ntapi-attachments\image-….png]
+ *   The image is saved on disk. You cannot see images directly: call look_at_image…
+ *
+ * Those two lines are instructions for the agent, not words the user typed. On a
+ * replay they were drawn as prose — so after switching chats away and back, a
+ * message that had a picture in it showed the note instead of the picture, and
+ * the person reading it was left looking at a file path where their image had
+ * been. The note is stripped back out here and the saved path is returned beside
+ * the text, so the window can draw the picture it still has on disk.
+ */
+const ATTACHED_IMAGE_NOTE = /^\[Attached image saved to:\s*([^\]\r\n]+)\]$/;
+const ATTACHED_IMAGE_HINT =
+  /^The image is saved on disk\. You cannot see images directly: call look_at_image with that path and a specific question to view it\.$/;
+
+/**
+ * Split a stored prompt into what the user typed and the pictures it attached.
+ *
+ * Only the exact lines this app writes are removed, and only whole lines: a
+ * message that happens to mention "Attached image" in a sentence keeps it.
+ */
+function splitAttachmentNotes(raw) {
+  const imagePaths = [];
+  const kept = [];
+  for (const line of String(raw || '').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    const note = ATTACHED_IMAGE_NOTE.exec(trimmed);
+    if (note) {
+      imagePaths.push(note[1].trim());
+      continue;
+    }
+    if (ATTACHED_IMAGE_HINT.test(trimmed)) continue;
+    kept.push(line);
+  }
+  return { text: kept.join('\n').replace(/\n{3,}/g, '\n\n').trim(), imagePaths };
+}
+
 function messagesForUi(messages) {
   const out = [];
   for (const m of messages || []) {
@@ -1308,7 +1406,19 @@ function messagesForUi(messages) {
       const images = parts
         .filter((c) => c.type === 'image')
         .map((c) => ({ dataUri: `data:${c.mimeType};base64,${c.data}`, mimeType: c.mimeType }));
-      if (text || images.length) out.push({ kind: 'user', text, images, ts: m.timestamp });
+      // The attachment note is not part of the message: it is the path to a file
+      // that is still on disk. Returned separately so the bubble can draw the
+      // picture without the window ever reading the path as words.
+      const split = splitAttachmentNotes(text);
+      if (split.text || images.length || split.imagePaths.length) {
+        out.push({
+          kind: 'user',
+          text: split.text,
+          images,
+          imagePaths: split.imagePaths,
+          ts: m.timestamp,
+        });
+      }
       continue;
     }
 
@@ -1405,6 +1515,10 @@ function tabState(tabId) {
     thinking: safeCall(() => tab.handle.thinking(), null),
     tools: safeCall(() => tab.handle.toolNames(), []),
     changes: tab.changes || [],
+    // What this conversation has spent so far. Computed here, from the same
+    // messages the transcript is drawn from, so a compaction resets it: the
+    // numbers describe the conversation that is running, not the session file.
+    usage: safeCall(() => usageTotals(tab.handle.session.messages, { free: tabIsFreePi(tab) }), null),
     // A resumed chat can point at a model this account no longer has.
     modelFallback: safeCall(() => tab.handle.modelFallback, null),
   };
@@ -1725,6 +1839,9 @@ async function attachTab(tabId, manager, cwd) {
     // LLM7's catalog is public, so one token reaches its free-turbo models and
     // the paid pro ones alike; re-resolved per session.
     llm7Key: llm7Keys.read(),
+    // DeepSeek is the first-party paid endpoint: the key is the whole account,
+    // and its catalog is two ids that are intersected with /models per session.
+    deepseekKey: deepseekKeys.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -1869,7 +1986,7 @@ function createWindow() {
     height: 840,
     minWidth: 900,
     minHeight: 560,
-    backgroundColor: '#0f1115',
+    backgroundColor: readTheme() === 'light' ? '#f5f6fa' : '#0f1115',
     title: 'NTAPI',
     // electron-builder stamps the packaged .exe; this covers unpackaged runs.
     icon: app.isPackaged ? undefined : path.join(__dirname, '..', 'build', 'icon.png'),
@@ -1883,6 +2000,16 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      /*
+       * The saved theme, handed to the preload as an argument.
+       *
+       * The renderer needs it in <head>, before the first paint, or a light-mode
+       * window opens dark and flashes. A synchronous IPC would do that, but it
+       * deadlocks anything that loads the page without a main process answering —
+       * which is exactly what the window checks in scripts/ do, and they hung for
+       * a minute apiece before this. An argument costs nothing and cannot hang.
+       */
+      additionalArguments: [`--ntapi-theme=${readTheme()}`],
       // The "finished" chime plays without a click, so do not wait for a
       // user gesture the way a browser would.
       autoplayPolicy: 'no-user-gesture-required',
@@ -2010,6 +2137,27 @@ function mimeFor(file) {
   return null;
 }
 
+/*
+ * Declining the terms ends the program. Nothing was accepted, so nothing may
+ * keep running — the presence heartbeat included. `app.quit()` closes the
+ * window, the agent tabs and the timers together.
+ */
+ipcMain.handle('app:quit', async () => {
+  app.quit();
+  return { ok: true };
+});
+
+/**
+ * The theme, answered synchronously.
+ *
+ * Called from <head> in the renderer before the first paint, which is the only
+ * way a light-mode window opens light instead of flashing dark and switching. It
+ * reads one key out of prefs.json and returns a string; the renderer draws nothing
+ * until it answers, so the handler must never do work.
+ */
+// The theme travels in webPreferences.additionalArguments (see createWindow), so the
+// renderer can read it before the first paint without a synchronous IPC — which
+// deadlocks any page loaded without a main process behind it.
 ipcMain.handle('app:boot', async () => {
   migrateLegacyPrefs();
   const prefs = readPrefs();
@@ -2020,6 +2168,7 @@ ipcMain.handle('app:boot', async () => {
     sessions: lastCwd ? await listSessions(lastCwd) : [],
     openTabs: Array.isArray(prefs.openTabs) ? prefs.openTabs : [],
     lang: prefs.lang === 'th' ? 'th' : 'en',
+    theme: readTheme(),
     // Fixed identity — never read from prefs so it cannot be edited.
     profile: {
       owner: PROFILE_DEFAULTS.owner,
@@ -2033,9 +2182,20 @@ ipcMain.handle('app:boot', async () => {
 ipcMain.handle('prefs:set', async (_e, patch = {}) => {
   const allowed = {};
   if (patch.lang === 'en' || patch.lang === 'th') allowed.lang = patch.lang;
+  // Theme: two known values only. Anything else keeps the current theme rather
+  // than writing a value the stylesheet has no block for.
+  if (THEMES.includes(patch.theme)) allowed.theme = patch.theme;
   // The first-run guide is shown once per install; a fresh install has fresh
   // prefs, so this is exactly the "show it again only if reinstalled" flag.
   if (typeof patch.guideDone === 'boolean') allowed.guideDone = patch.guideDone;
+  /*
+   * Which wording of the terms the person accepted, stored as the date printed
+   * on TERMS.md. Only a date is accepted — the renderer may echo the document
+   * date back, never invent a value or write free text into prefs.
+   */
+  if (typeof patch.termsAccepted === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(patch.termsAccepted)) {
+    allowed.termsAccepted = patch.termsAccepted;
+  }
   /*
    * The conversation the window was last on, written by the renderer whenever a
    * tab becomes active. Only a path inside the app's own sessions folder is
@@ -2199,6 +2359,15 @@ function applyLlm7KeyToTabs(key) {
     label: 'LLM7.io',
     key,
     apply: (handle, next) => handle.applyLlm7Key(next),
+  });
+}
+
+function applyDeepSeekKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'deepseek',
+    label: 'DeepSeek',
+    key,
+    apply: (handle, next) => handle.applyDeepSeekKey(next),
   });
 }
 
@@ -2457,6 +2626,61 @@ ipcMain.handle('llm7:clearKey', async () => {
   return { ok: true, status: llm7Keys.status(), applied };
 });
 
+/**
+ * DeepSeek publishes no per-key usage endpoint; the status is the store's own
+ * state. SetKey also proves the key and learns which ids are still served.
+ */
+async function deepseekStatus() {
+  return deepseekKeys.status();
+}
+
+ipcMain.handle('deepseek:status', async () => deepseekStatus());
+
+ipcMain.handle('deepseek:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: deepseekKeys.status(), error: 'Enter a DeepSeek API key first.' };
+  }
+
+  // A rejected key never touches the disk. A 402 or an unreachable API is not a
+  // wrong key, so the key is saved and the balance is left to the first turn.
+  const check = await checkDeepSeekKey(raw);
+  if (!check.ok && !check.offline && check.status !== 402) {
+    return { ok: false, status: deepseekKeys.status(), error: check.error, code: check.code || null };
+  }
+
+  try {
+    deepseekKeys.save(raw);
+    const applied = await applyDeepSeekKeyToTabs(raw);
+    return {
+      ok: true,
+      status: deepseekKeys.status(),
+      unverified: Boolean(check.offline),
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: deepseekKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('deepseek:clearKey', async () => {
+  try {
+    deepseekKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: deepseekKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyDeepSeekKeyToTabs(null);
+  return { ok: true, status: deepseekKeys.status(), applied };
+});
+
 ipcMain.handle('app:systemInfo', () => {
   const active = activeTabId ? tabs.get(activeTabId) : null;
   const info = {
@@ -2540,6 +2764,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     nvidia: await nvidiaStatus(),
     tokenharbor: await tokenharborStatus(),
     llm7: await llm7Status(),
+    deepseek: await deepseekStatus(),
   };
 });
 
@@ -2757,6 +2982,7 @@ ipcMain.handle('session:delete', async (_e, { cwd, sessionPath } = {}) => {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
   }
+  sessionListCache.clear();
 
   persistTabs();
   return { ok: true, activeTabId };
@@ -2769,6 +2995,9 @@ ipcMain.handle('session:rename', async (_e, { tabId, name } = {}) => {
   const clean = typeof name === 'string' ? name : '';
   await tab.handle.session.setSessionName(clean);
   tab.fallbackName = clean.trim() || null;
+  // A title lives in the file, not in the folder: drop the parsed list so the
+  // sidebar shows the new name on its next read.
+  sessionListCache.delete(sessionDirFor(tab.cwd));
   return tabSummary(id);
 });
 
@@ -2795,6 +3024,7 @@ ipcMain.handle('session:renameFile', async (_e, { cwd, sessionPath, name } = {})
       return { ok: false, error: 'session manager cannot rename' };
     }
     handle.appendSessionInfo(clean);
+    sessionListCache.delete(sessionDirFor(base));
     return { ok: true, name: clean || null };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -3281,6 +3511,27 @@ function resolveInsideWorkspace(cwd, target) {
   return abs === root || abs.startsWith(root + path.sep) ? abs : null;
 }
 
+/**
+ * The picture a prompt brought with it may live outside the workspace.
+ *
+ * Chat attachments are written to `outputs/.ntapi-attachments` under the app
+ * data root, not into the project folder, so the workspace rule above refused
+ * them and a replayed message could not get its thumbnail back. That one folder
+ * is readable as well — nothing else is added to the allowlist.
+ */
+function attachmentRoot(cwd) {
+  return path.resolve(resolveFolder('attachments', cwd));
+}
+
+function resolveReadableImage(cwd, target) {
+  const inside = resolveInsideWorkspace(cwd, target);
+  if (inside) return inside;
+  if (!cwd || !target) return null;
+  const abs = path.resolve(String(cwd), String(target));
+  const root = attachmentRoot(cwd);
+  return abs.startsWith(root + path.sep) ? abs : null;
+}
+
 function imageMimeFor(ext) {
   if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
   if (ext === '.webp') return 'image/webp';
@@ -3289,7 +3540,7 @@ function imageMimeFor(ext) {
 }
 
 ipcMain.handle('fs:readImage', async (_e, { cwd, path: target } = {}) => {
-  const abs = resolveInsideWorkspace(cwd, target);
+  const abs = resolveReadableImage(cwd, target);
   if (!abs) return { ok: false };
   const ext = path.extname(abs).toLowerCase();
   if (!IMAGE_EXTS.has(ext)) return { ok: false };
@@ -3413,6 +3664,13 @@ ipcMain.handle('ads:rotate', async (_e, { tabId, auto = false } = {}) => {
   }
 });
 
+/*
+ * USD → THB for the cost line. Asked for only when a paid figure is about to be
+ * shown, and memoised in fx-rate.js for six hours so opening the panel does not
+ * turn into a heartbeat to a currency service.
+ */
+ipcMain.handle('fx:usdThb', async () => fetchUsdThb());
+
 ipcMain.handle('usage:fetch', async () => {
   // Same endpoint free-pi-cli's own usage tool calls: GET /me/stats
   try {
@@ -3479,6 +3737,18 @@ ipcMain.handle('account:status', async () => {
   }
   return result;
 });
+
+/**
+ * Free a stale session on the free-pi account — the same endpoint the CLI's
+ * /close-other-session calls. Lets a user escape `concurrent_session` (the
+ * account allows 4 running sessions; closed tabs still count server-side).
+ */
+ipcMain.handle('account:resetSession', async () =>
+  resetFreePiSession({
+    credentialsPath: bridge.getCredentialsPath(),
+    baseUrl: bridge.resolveBaseUrl(),
+  })
+);
 
 /** Open a terminal so the user can run free-pi-cli's own sign-in flow. */
 ipcMain.handle('account:signIn', async () => {
@@ -4360,14 +4630,6 @@ app.whenReady().then(async () => {
   // the presence port on its way out.
   if (!hasSingleInstanceLock) return;
 
-  try {
-    sdk = resolveSdk();
-  } catch (err) {
-    dialog.showErrorBox('pi SDK not found', err.message);
-    app.quit();
-    return;
-  }
-
   // One-time cleanup: rename the old "--C--Users-...--" history folders.
   try {
     await migrateSessionDirs();
@@ -4378,11 +4640,27 @@ app.whenReady().then(async () => {
   // will reject. Failure is silent: the hardcoded floor stays in force.
   resolveClientVersionFloor({ baseUrl: process.env.FREEPI_BASE_URL || 'https://api.freepi.ai' }).catch(() => {});
 
-  // The update splash outlives the old build. Keep it up until the new window
-  // has actually painted: closing it here, before createWindow() even runs,
-  // left a stretch of empty desktop while Electron started and the renderer
-  // loaded — the gap looked like the app had failed to come back.
+  /*
+   * The window comes before the SDK, and before anything that can be slow.
+   *
+   * Resolving the SDK is a ~1.5 s synchronous require, and it used to happen
+   * first, so the desktop stayed empty for all of it. The window paints its own
+   * shell while that require runs; the renderer's boot call, which needs the
+   * SDK for the chat list, queues behind it and answers a moment later.
+   *
+   * The update splash left by the old build stays up until this window has
+   * actually painted: closing it earlier left a stretch of empty desktop that
+   * looked like the app had failed to come back.
+   */
   createWindow();
+
+  try {
+    sdk = resolveSdk();
+  } catch (err) {
+    dialog.showErrorBox('pi SDK not found', err.message);
+    app.quit();
+    return;
+  }
 
   /*
    * The sponsor strip draws from cache on the first frame, so the refresh is

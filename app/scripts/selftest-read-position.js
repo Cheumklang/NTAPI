@@ -113,7 +113,14 @@ check('a new assistant answer does not force',
 // The streamed-delta handler is the one that fires per token.
 const onDelta = app.slice(app.indexOf('api.onDelta('), app.indexOf('api.onTextEnd('));
 check('streamed text does not force', onDelta !== '' && !/scrollToBottom\(true\)/.test(onDelta));
-check('streamed text still follows a reader at the bottom', /scrollToBottom\(\);/.test(onDelta));
+// Following a stream now goes through followStream(): a single scroll after each
+// delta landed short whenever the layout finished later (a thinking box growing,
+// an image decoding), and the leftover gap was then read as the reader scrolling
+// away. followStream() holds the bottom for a moment after the last delta instead.
+check(
+  'streamed text still follows a reader at the bottom',
+  /scrollToBottom\(\);|followStream\(\);/.test(onDelta) && /followStream\(\);/.test(onDelta)
+);
 
 const shellCardBody = body(app, 'shellCard');
 check('a new shell card does not force', shellCardBody !== '' && !/scrollToBottom\(true\)/.test(shellCardBody));

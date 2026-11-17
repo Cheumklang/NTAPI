@@ -114,6 +114,74 @@ check('the terms say what the licence and the app say', () => {
   }
 });
 
+check('the terms are shown before the program is used, not only linked from About', () => {
+  assert.ok(html.includes('id="termsOverlay"'), 'no first-run terms card');
+  assert.ok(html.includes('id="termsAccept"'), 'no accept button');
+  assert.ok(/data-doc="TERMS\.md"/.test(html), 'the card does not open the terms');
+  assert.ok(/data-doc="PRIVACY\.md"/.test(html), 'the card does not open the privacy notice');
+  // Dismissing it without accepting would make the recorded answer meaningless.
+  assert.ok(!/id="termsOverlay"[\s\S]{0,400}?(settingsClose|dialog-close)/.test(html), 'the card has a close button');
+  // Refusing has to be a real answer, not a dead end.
+  assert.ok(html.includes('id="termsDecline"'), 'no decline button');
+  for (const key of ['termsAccept', 'termsDecline', 'termsTitle']) {
+    assert.strictEqual(renderer.split(`${key}:`).length - 1, 2, `${key} is not translated twice`);
+  }
+});
+
+check('refusing the terms closes the program', () => {
+  assert.match(renderer, /termsDecline[\s\S]{0,320}quitApp/, 'the button does nothing');
+  assert.match(preload, /quitApp: \(\) => ipcRenderer\.invoke\('app:quit'\)/);
+  assert.match(main, /ipcMain\.handle\('app:quit'[\s\S]{0,120}app\.quit\(\)/);
+});
+
+check('acceptance is remembered against the document date, and only that', () => {
+  const date = /\*\*ปรับปรุงล่าสุด:\*\*[^\n]*\((\d{4}-\d{2}-\d{2})\)/.exec(read(path.join(ROOT, 'TERMS.md')));
+  assert.ok(date, 'TERMS.md has no "ปรับปรุงล่าสุด" date');
+  assert.ok(
+    renderer.includes(`const TERMS_VERSION = '${date[1]}'`),
+    `TERMS_VERSION does not match the document date ${date[1]}`,
+  );
+  assert.match(renderer, /termsAccepted: TERMS_VERSION/, 'acceptance is not written');
+  assert.match(renderer, /if \(!termsAccepted\(\)\) showTerms\(\)/, 'the card is never shown');
+  // prefs is a settings file: only a date may be stored, never free text.
+  assert.match(main, /patch\.termsAccepted/);
+  assert.match(main, /\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$/);
+});
+
+check('the first-run guide waits until the terms are accepted', () => {
+  const guide = /function maybeShowGuide\(\) \{[\s\S]{0,220}/.exec(renderer);
+  assert.ok(guide, 'maybeShowGuide is gone');
+  assert.ok(guide[0].includes('termsAccepted()'), 'the guide can start while the card is up');
+});
+
+check('the privacy notice states how long data is kept', () => {  const privacy = read(path.join(ROOT, 'PRIVACY.md'));
+  assert.match(privacy, /ระยะเวลาเก็บรักษาข้อมูล/, 'no retention section');
+  assert.match(privacy, /crash\.log/, 'retention does not cover the crash log');
+  assert.match(privacy, /Retention:/, 'the English summary says nothing about retention');
+});
+
+check('the privacy notice lists the currency lookup the cost line needs', () => {
+  const privacy = read(path.join(ROOT, 'PRIVACY.md'));
+  assert.match(privacy, /open\.er-api\.com/, 'the USD→THB lookup is not disclosed');
+  assert.match(privacy, /USD→THB/, 'the reason for the lookup is not stated');
+  assert.match(privacy, /Currency:/, 'the English summary says nothing about the lookup');
+});
+
+check('the privacy notice uses the PDPA age rule, not the United States one', () => {
+  const privacy = read(path.join(ROOT, 'PRIVACY.md'));
+  assert.match(privacy, /มาตรา 20/, 'the age rule cites no PDPA section');
+  assert.ok(!/13 ปีขึ้นไป/.test(privacy), 'still uses the 13-year COPPA rule');
+});
+
+check('the terms cap liability and carry the standard clauses', () => {
+  const terms = read(path.join(ROOT, 'TERMS.md'));
+  for (const fact of ['เพดานความรับผิด', 'การชดใช้ค่าเสียหาย', 'แยกส่วนได้', 'ข้อตกลงทั้งหมด', 'การโอนสิทธิ']) {
+    assert.ok(terms.includes(fact), `terms do not mention ${fact}`);
+  }
+  assert.match(terms, /1,000 บาท/, 'the cap has no figure');
+  assert.match(terms, /ขอให้คุณยอมรับอีกครั้ง/, 'a change of terms is never accepted again');
+});
+
 if (fail) {
   console.log(`\n${fail} check(s) failed`);
   process.exit(1);

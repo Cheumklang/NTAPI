@@ -41,6 +41,9 @@ app.whenReady().then(async () => {
 
   const run = (expr) => win.webContents.executeJavaScript(expr);
 
+  // The switch lives in a popover now; open it so its geometry is real.
+  await run(`setApprovalPopover(true)`);
+
   // --- 1. the shape ------------------------------------------------------
   const shape = await run(`(() => {
     const g = document.getElementById('approvalPolicy');

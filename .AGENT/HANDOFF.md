@@ -1,5 +1,360 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **⚠️ ล่าสุด (2026-11-17): ปุ่ม "แชทใหม่" ช้า + ข้อความลบแชทหายทั้งที่ hover — แก้แล้ว**
+> - **ช้า:** ทุกครั้งที่เปิดแชทใหม่ `createFreePiSession` ยิงเน็ตใหม่ทั้งชุด —
+>   `fetchMe` (เช็กสิทธิ์) → `/client-version` (แค็ตตาล็อก) → Coarena → NVIDIA →
+>   Token Harbor → LLM7 → DeepSeek **ทีละตัว** (รวม ~6 round trip ก่อนเปิดแชทได้)
+>   · แก้: แคช `fetchMe` 5 นาที / แค็ตตาล็อก 10 นาที ต่อ token-ต่อคีย์ ·
+>   เรียก 4 แค็ตตาล็อกพร้อมกัน (`Promise.all`) · เริ่ม Coarena ล่วงหน้าขนานกับ auth ·
+>   ใส่ timeout 4 วิให้ `fetchMe` (เดิมไม่มี → เน็ตช้าค้างได้)
+>   · **วัดจริง:** แชทใหม่ครั้งแรกหลังเปิดโปรแกรม 4190 → **1889 ms** ·
+>     กดซ้ำ 2356–3561 → **23–221 ms** · `tab:open` 1756 → **193 ms**
+> - **ข้อความ "ลบแชทนี้ออกจากเครื่องแล้ว" หายทั้งที่ hover:** มี
+>   `setTimeout(() => showNotice(null), 2500)` ตั้งลบทิ้งตายตัว 2.5 วิ ไม่สนใจ
+>   `noticePaused` → ตัวเลขหยุดจริงแต่แถบหาย · แก้: ลบ timer นั้น ปล่อยให้ clock
+>   มาตรฐาน 5 วิ (หยุดเมื่อ hover/เลือกข้อความ) ทำงาน ·
+>   เพิ่ม check กันกลับมาใน `selftest-notice-i18n.js`
+> - **เทสต์:** `npm test` 81/81 · `check:notice` 17 · `check:lost` 7
+> - **ไฟล์:** `app/src/freepi-bridge.js`, `app/src/renderer/app.js`, `app/scripts/selftest-notice-i18n.js`
+> - **ยังไม่ commit** · ยัง `0.5.15`
+
+> **⚠️ ล่าสุด (2026-11-17): "ข้อความหายเมื่อสลับแชท" — แก้แล้ว 5 บั๊ก + วัดความเร็ว + ทดสอบกับ DeepSeek จริง**
+> - **บั๊ก 1 (ตัวหลัก):** `agent:history` ของแท็บที่ไม่ได้ดู (`/compact`, undo/redo, เปลี่ยนคีย์)
+>   ถูก `applyTabState()` ตั้งเป็นแท็บที่มองเห็นทุกครั้ง → จอสลับไปแท็บอื่นเอง
+>   · แก้: `applyTabState(state, { show })` · `onHistory` ส่ง `show: state.tabId === activeTabId`
+> - **บั๊ก 2:** ระหว่างสตรีม ข้อความถูกเก็บแค่ใน DOM (`body.__fpText`) → สลับแท็บแล้วกลับมา
+>   ข้อความที่ไหลไปแล้วหายถาวร
+>   · แก้: `view.liveMessages` เก็บทุกบล็อกของเทิร์นที่กำลังรัน (delta / textEnd / toolStart
+>   เขียนทั้ง DOM และ state) · `mergeLiveTurn()` รวมกับประวัติตอนวาด · steer ส่งบล็อกที่ปิดแล้วเข้า history ก่อน
+> - **บั๊ก 3:** `onSettled` ไม่เคยอ่านประวัติจริงกลับมา → คำตอบที่ขาดค้างถาวร
+>   · แก้: จบเทิร์น → `getTabState` แล้ว `applyTabState` (เฉพาะแท็บที่กำลังดู)
+> - **บั๊ก 4 (ทำให้ handler ตายทั้งตัว):** `refreshSessionBusy()` อ้าง `state` ที่ไม่มี
+>   → throw ทุกครั้งที่เทิร์นเริ่ม/จบ (busy UI, queue, แจ้งเตือนจบเทิร์นไม่ทำงาน)
+>   · แก้: ใช้ `activeView()` + อัปเดตแค่คลาสของแถวใน sidebar (ไม่สแกนดิสก์)
+> - **บั๊ก 5:** แชทที่เปิดใหม่ (ยังไม่มีไฟล์) ไม่ขึ้นใน sidebar ถ้าไม่ใช่แท็บที่กำลังดู
+>   · แก้: ใส่ทุก view ที่ยังไม่มีในรายการ
+> - **ความเร็ว:** `listSessions` cache ตาม mtime ของโฟลเดอร์ (50ms → 1-5ms) ·
+>   boot ไม่วาดทุกแท็บที่ restore (วาดครั้งเดียว) · `resolveSdk()` (~1.5s) ย้ายไปหลัง `createWindow()`
+>   · วัดจริง: สลับแชท ~90-110ms · เปิดไฟล์ session 34ms · boot ถึงพร้อมใช้ ~7s (ส่วนใหญ่ Electron+SDK)
+> - **ทดสอบกับ DeepSeek จริง** (`deepseek-flash`, โปรไฟล์ข้อมูลใหม่จำลองเครื่องใหม่):
+>   terms → ใส่คีย์ → แชทใหม่ → ถาม → สลับแชทกลางสตรีม → กลับมา → `/compact` แล้วสลับ → ผ่านทุกข้อ
+> - **เทสต์:** `npm test` 81/81 · `check:lost` (ใหม่ 7) · order 8 · history 8 · transcript 6 · restore 9 · shell 31
+> - **ไฟล์:** `app/src/renderer/app.js`, `app/src/main.js`, `app/scripts/repro-message-loss.js`(ใหม่),
+>   `selftest-history-merge.js`, `selftest-session-marks-ui.js`, `selftest-reload-reattach.js`, `app/package.json`
+> - **ยังไม่ commit** · ยัง `0.5.15`
+
+> **⚠️ ล่าสุด (2026-11-17): ข้อความสีเหลือง/notice ไม่หาย — แก้แล้ว + เจอบั๊กเทสต์ค้าง**
+> - **อาการ:** บันทึกคีย์ DeepSeek แล้วขึ้น "บันทึกคีย์ DeepSeek แล้ว" ค้าง ไม่ยอมหาย
+> - **ต้นเหตุ:** `showNotice(text, ms)` ตั้ง timer **เฉพาะเมื่อมีคนส่ง ms มา** แต่ผู้เรียกส่วuใหญ่
+>   (รวม `showNotice(t('deepseekSaved'))`) ไม่ส่ง → ค้างตลอดไป
+> - **แก้:** ค่าเริ่มต้น **5 วินาที** (`NOTICE_DEFAULT_MS`) · `0` = อยู่จนกว่าจะมีอันใหม่ ·
+>   มี **ตัวเลขนับถอยหลัง** ในแถบ (`#noticeCount`, "อีก 5 วิ" / "5s")
+>   · **หยุดนับ** เมื่อ: เอาเมาส์ชี้ (`pointerenter/mouseenter`) · focus เข้าไป · **เลือกข้อความ**
+>   (`selectionchange`) → ปล่อยแล้วนับต่อ **จากที่หยุด** ไม่ใช่เริ่มใหม่ · ข้อความเลือก/copy ได้ (`user-select: text`)
+> - **บั๊กที่สองที่เจอระหว่างเทสต์ (สําคัญต่อ CI):** ธีมเคยส่งผ่าน `ipcRenderer.sendSync`
+>   ทําให้ **หน้าต่างที่โหลดโดยไม่มี main process ค้าง** (สคริปต์ `scripts/check-*.js` ทุกตัว)
+>   → `npm run check:read` เคย timeout 420s มาแล้ว · **แก้:** ส่งผ่าน
+>   `webPreferences.additionalArguments: ['--ntapi-theme=…']` (preload อ่าน `process.argv`)
+>   → **ไม่มี IPC เลย** และลบ `ipcMain.on('prefs:themeSync')` ออก
+>   · `backgroundColor` ของหน้าต่างก็ตามธีมแล้ว (กันจอวาบ)
+> - **เทสต์:** ใหม่ `selftest-notice-countdown.js` (**39**) + `check-notice-countdown.js`
+>   (`npm run check:notice`, **17 live**) — พิสูจน์ว่า 5 วิแล้วหายจริง / hover แล้วหยุดจริง /
+>   ปล่อยแล้วนับต่อ / 0 = ค้าง / เลือกข้อความได้
+> - `npm test` **81/81** · `check:shell` 31 · `check:read` 34 (ไม่ค้างแล้ว) · `prove:verify` OK 62
+> - **ยังไม่ commit** · `0.5.15`
+
+> **⚠️ ล่าสุด (2026-11-17): Light mode ทําให้ข้อความบางส่วนมองไม่เห็น — แก้แล้ว**
+> - **อาการ:** เปิด Light mode แล้วมีข้อความสีขาวบนพื้นขาว (ผู้ใช้ส่งภาพ: ตัวหนาในข้อความหาย,
+>   แถบ settings ที่เลือก, highlight ค้นหา ฯลฯ)
+> - **ต้นเหตุ:** สีข้อความที่ยังเป็น **literal** (`color:#fff`, `#b9a7ff`, `#cfe0ff`, `#c6cddd`,
+>   `#a9b1c4`, `#6b7290`) ไม่เปลี่ยนตามธีม · รวมถึง `p.style.color='#8b93a7'` ใน app.js ด้วย
+> - **แก้:** เพิ่ม token ใหม่ **ทั้งสองธีม**: `--on-accent` (ขาวบนปุ่มที่เติมสี), `--accent-fill`,
+>   `--danger-fill` (สีเข้มพอให้ขาวอ่านได้ — เพราะ `--accent` ถูกเลือกมาให้เป็น *ข้อความ*
+>   บนพื้นมืด จึงเหลือเพียง 3.5:1 เมื่อมีตัวขาวทับ), `--titlebar-fg`, `--titlebar-fg-hover`,
+>   `--code-accent`, `--file-fg`, `--dim-fg`, `--disabled-fg` · แทนที่ทุกจุดที่เหลือ
+> - **เทสต์:** `selftest-theme.js` เพิ่ม **113 checks** (รวมคู่สีใหม่ + ห้าม `color:#fff`
+>   และห้าม literal ใน app.js) · `check-shell-usable.js` (`npm run check:shell`) เพิ่ม probe
+>   **วัด contrast จริงในโหมดสว่าง** 7 จุด — ผ่าน 31 checks · **พิสูจน์แล้ว**: ใส่ `#fff` กลับไป
+>   → probe FAIL ที่ `1:1` จริง
+> - `npm test` **80/80** · `prove:verify` OK 61 · **ยังไม่ commit** · `0.5.15`
+
+> **⚠️ เรื่องล่าสุดที่เพิ่งแก้ (2026-11-17): โปรแกรมเปิดมาแล้วใช้ไม่ได้ — แก้แล้ว**
+> - **อาการ:** เปิดแอปแล้วกด/พิมพ์อะไรไม่ได้เลย ช่องพิมพ์หายไป (ผู้ใช้ต้องกลับไปใช้ exe ที่ติดตั้ง)
+> - **ต้นเหตุ:** ใน `index.html` ผมใส่ **`</div>` เกิน 1 ตัว** หลังบล็อก `.sidebar-tools`
+>   → `#sidebar` ปิดก่อนกำหนด → ตัวเลือก workspace / รายการแชท / Token Status / **#composer**
+>   หลุดออกจากโครง (กลายเป็น sibling ของ `#app`) → ช่องพิมพ์ถูกดันตกขอบล่างจอ
+>   · ไม่มี error ใน console เลย เพราะทุก script รันได้หมด — ผิดที่ markup อย่างเดียว
+> - **แก้:** ลบ `</div>` เกินออก
+> - **เจอบั๊กที่ 2 ด้วย:** `theme-boot.js` อ่าน `window.api` แต่ preload เปิดชื่อ `window.freepi`
+>   → ธีมที่บันทึกไว้ **ไม่ถูกใช้ตอนเปิดโปรแกรม** (ฟีเจอร์ "ไม่วาบ" ไม่เคยทำงานจริง) → แก้เป็น
+>   `window.freepi || window.api`
+> - **กันซ้ำ:** `scripts/selftest-markup-structure.js` (18 checks — เดิน tag stack ทั้งไฟล์
+>   + ยืนยันว่า `#composer` อยู่ใน `#main` และ `#pickFolder`/`#sessionList`/`#themeBtn` อยู่ใน `#sidebar`)
+>   · พิสูจน์แล้วว่าใส่ `</div>` เกินกลับไป → เทสต์ FAIL จริง
+> - **ตรวจกับหน้าต่างจริง:** `scripts/check-shell-usable.js` (`npm run check:shell`) **23 checks ผ่าน**
+>   — วัดว่า composer อยู่ใน #main, ช่องพิมพ์มองเห็น/โฟกัส/พิมพ์ได้, ไม่มีอะไรบัง, Send ติด,
+>   กดปุ่มธีมแล้วพื้นหลังเปลี่ยนจริง, และ **ธีม light ที่บันทึกไว้ถูกใช้ก่อน first paint**
+> - `npm test` **80/80 scripts** · `prove:verify` OK 60
+> - **ยังไม่ commit** · `0.5.15`
+
+> **คิวงาน (ผู้ใช้สั่งต่อเนื่อง 2026-11-17 — ทำตามลำดับ):**
+> 1. ✅ **DeepSeek provider** — เสร็จ (62 checks)
+> 2. ✅ **เลื่อนตามล่าสุดอัตโนมัติระหว่างสตรีม** — เสร็จ (root cause: `syncFollow()` อ่านการโตของ layout เป็น "ผู้ใช้เลื่อนหนี")
+> 3. ✅ **รูปในคิวแก้ไขแสดงขนาดจริง** — เสร็จ (class 4 ตัวไม่มี CSS เลย)
+> 4. ✅ **วันที่แชทที่บันทึกไว้ = วว/ดด/ปปปป** (ไทย พ.ศ. 2569 · EN ค.ศ. 2026) — เสร็จ
+> 5. ✅ **Light/Dark mode** (ค่าเริ่มต้น Dark · ปุ่มอยู่ใต้ปุ่มตั้งค่า) — เสร็จ
+> - **ทั้ง 5 เรื่องยังไม่ commit** · `app/package.json` ยัง `0.5.15` · ยังไม่ทดสอบในแอปจริง
+
+> **สถานะล่าสุด (เสร็จในเครื่องทั้งหมด — `npm test` 79/79 scripts ผ่าน):**
+> - **DeepSeek** (`app/src/deepseek.js` ใหม่): 2 รุ่น `deepseek-flash` (vision) + `deepseek-v4-pro` (text)
+>   · `reasoning: true` · cost = ราคา peak · เป็น **default ตัวสุดท้าย** (ไม่ให้ paid แซง free)
+>   · ต่อสายครบ: provider-plan, freepi-bridge (`applyDeepSeekKey`), main (key store + IPC),
+>   preload, index.html card, provider-ui, app.js i18n/มิเตอร์/ปุ่ม, provider-errors (`DEEPSEEK_HINTS`),
+>   error-messages (`deepseek.*`, `stall.deepseek`, `net.deepseek`) · โลโก้ `assets/providers/deepseek.svg`
+> - **Auto-scroll**: `syncFollow()` ที่ใช้ `lastScrollSet` (offset ที่โค้ดเขียนเอง) ต้อง **ยอมรับว่าเป็นของเรา**
+>   มิฉะนั้นการโตของ layout ระหว่างสตรีม (thinking ขยาย, รูปโหลดเสร็จ, markdown re-render)
+>   ทำให้ระยะห่าง > 48px → เข้าใจผิดว่าเลื่อนหนี → หยุดตามทั้งเทิร์น · เพิ่ม `followStream()`
+>   ที่ยืม `holdBottom()` (re-pin 50ms นาน 900ms หลัง delta สุดท้าย)
+> - **คิวแก้ไข**: `.queue-edit-media/.queue-edit-chip/.queue-edit-rm/.queue-attach` **ไม่มี CSS เลย**
+>   → รูปขนาดจริงบังจอ · เพิ่ม CSS ครบ (chip 46×46, `object-fit: cover`, ปุ่ม × มุมบน, ปุ่มเพิ่มรูป)
+> - **วันที่**: `formatSessionDate()` — วว/ดด/ปปปป, `th` บวก 543 (พ.ศ.), `en` คง ค.ศ. · แทน `toLocaleString()`
+> - **ธีม**: token ทุกสี (ถอด 65 hex → `--surface-1..4`, `--line-2`, `--muted-2`, `--gold`, `--chip-fg`)
+>   · `html[data-theme='light']` re-point เฉย ๆ · `theme-boot.js` ตั้ง attr **ก่อน first paint**
+>   ผ่าน `api.getThemeSync()` (sendSync) → กันจอวาบ dark→light · `prefs.theme` default `dark`
+>   · ปุ่ม `#themeBtn` (พระจันทร์/ตะวัน) อยู่ **แถวใหม่ใต้ปุ่มตั้งค่า** (`.sidebar-tools`) เพื่อไม่ให้
+>   ความกว้างขั้นต่ำของ sidebar เปลี่ยน · คีย์ลัด `Ctrl+Shift+T`... **ไม่ใช่** — ใช้ `Ctrl+T`
+>   (ข้ามตอนพิมพ์ใน input) · **ปรับสี dark 2 ค่า**: `--accent` `#7c5cff`→`#8b74ff` (4.35→5.43:1)
+>   และ `--muted-2` `#6f7891`→`#767f99` (4.29→4.74:1) เพราะต่ำกว่า WCAG AA
+> - **เทสต์ใหม่ 4 ไฟล์:** `selftest-deepseek.js` (62) · `selftest-follow-stream.js` (19) ·
+>   `selftest-queue-edit-media.js` (26) · `selftest-session-date.js` (13) · `selftest-theme.js` (86,
+>   วัด contrast จริงตามสูตร WCAG) · แก้ `selftest-read-position.js` ให้รับ `followStream()`
+> - **ไฟล์ที่แก้:** `app/src/{main,preload,provider-plan,freepi-bridge,provider-errors,error-messages,deepseek}.js`,
+>   `app/src/renderer/{app.js,index.html,styles.css,provider-ui.js,theme-boot.js(ใหม่)}`,
+>   `app/src/renderer/assets/providers/deepseek.svg`(ใหม่), `app/scripts/*`(ใหม่ 5 + แก้ 2), `AGENTS.md`(กฎใหม่)
+> - **กฎใหม่ใน AGENTS.md:** "รวมงานที่ไม่อาศัยกันไว้ในบล็อกเดียวเสมอ" — ผู้ใช้ขอให้ปรับเอง เพราะยิง bash
+>   หลายครั้งโดยไม่จำเป็น (เปลือง token)
+> - **ยังไม่ทดสอบในแอป:** `cd app && npm start` → สลับธีม (ต้องไม่วาบ) · ส่งข้อความยาวดูว่าเลื่อนตาม ·
+>   คิว+รูป · วันที่ในแชทที่บันทึก · ใส่คีย์ DeepSeek จริง
+
+> **คิวงานปัจจุบัน (ผู้ใช้สั่งต่อเนื่อง 2026-11-17 — ทำตามลำดับ ห้ามข้าม):**
+> 1. ✅ **DeepSeek provider** — เสร็จในเครื่อง (75/75) ยังไม่ commit
+> 2. ⏳ **ระหว่าง AI คิด/พิมพ์ ต้องเลื่อนตามล่าสุดอัตโนมัติ** — ผู้ใช้ส่งภาพยืนยัน 2 ครั้ง
+>    (scrollbar ค้างกลางทาง ต้องเลื่อนเมาส์ตามเอง) · ภาพ: `shots/scroll-bug-2.png`
+> 3. ⏳ **แก้ข้อความในคิวที่มีรูปแนบ → รูปแสดงขนาดจริงบังจอ**
+> 4. ⏳ **แชทที่บันทึกไว้: วันที่เป็น วว/ดด/ปปปป** — ไทยใช้ พ.ศ. (17/11/2569) EN ใช้ ค.ศ. (17/11/2026)
+> 5. ⏳ **Light/Dark mode** — ค่าเริ่มต้น Dark · ปุ่มอยู่ใต้ปุ่มตั้งค่าใน sidebar (ไม่ให้ตำแหน่งขยับ)
+
+> **สถานะล่าสุด (DeepSeek — เสร็จในเครื่อง ยังไม่ commit):**
+> - เพิ่ม provider `deepseek` แบบ first-party (paid, prepaid balance): `app/src/deepseek.js` ใหม่
+>   · 2 โมเดล `deepseek-flash` (vision, 1M ctx, max out 384K) และ `deepseek-v4-pro` (text only)
+>   · `reasoning: true` ทั้งคู่ — pi-ai รองรับ DeepSeek native (`thinkingFormat: "deepseek"`, echo `reasoning_content`)
+>   · `cost` = ราคา **peak** (ประมาณการมีแต่เกิน ไม่มีขาด)
+> - ต่อสายครบ: `provider-plan.js` (deepseek เป็น **ตัวเลือกสุดท้าย** ไม่ให้ paid แซง free) ·
+>   `freepi-bridge.js` (register/entries/`applyDeepSeekKey`) · `main.js` (key store `deepseek.json`,
+>   IPC `deepseek:status|setKey|clearKey`) · `preload.js` · `index.html` (card) · `provider-ui.js`
+>   (logo/label/meter) · `app.js` (i18n en+th, มิเตอร์, ปุ่มบันทึก/ลบ/รับคีย์/เติมเงิน, ยืนยันลบ)
+> - ข้อความ error: `provider-errors.js` `DEEPSEEK_HINTS` + `stall.deepseek` · `error-messages.js`
+>   `deepseek.*` + `stall.deepseek` + `net.deepseek` — **402 = ยอดเงินหมด** (ไม่ใช่คีย์ผิด),
+>   400 ที่มีคำว่า reasoning_content = บอกให้เริ่มแชทใหม่
+> - เทสต์ใหม่ `app/scripts/selftest-deepseek.js` **62 checks** · `npm test` **75/75 scripts** ผ่าน
+> - โลโก้: `app/src/renderer/assets/providers/deepseek.svg` (วาดเอง ไม่ได้ลอกจากของเขา)
+> - **ยังไม่ทดสอบกับคีย์จริง** — ต้องมี key จาก platform.deepseek.com แล้ว `cd app && npm start`
+
+> **สถานะ ณ 2026-11-17 (รูปที่แนบตอนสลับแชท + ดูรูปในโปรแกรม + ความคิดตามล่าสุด — เสร็จในเครื่อง ยังไม่ commit):**
+> - **ผู้ใช้แจ้ง 3 เรื่อง (ทำตามคิว ห้ามลัด):**
+>   1. สลับแชทไปแล้วกลับมา **รูปที่เคยส่งกลายเป็นข้อความ** `[Attached image saved to: …]`
+>   2. อยาก **กดดูรูปที่แนบได้** (รวมรูปที่ AI ส่งมา) **ในโปรแกรม** ไม่ใช่เปิด Photos ของ Windows
+>      · ปิดได้ด้วยการกดตรงไหนก็ได้ที่ไม่ใช่รูป · มีปุ่ม × มุมขวาบนด้วย
+>   3. ตอน AI คิด **อยากให้เลื่อนตามล่าสุดตลอด** (เดิมต้อง scroll เอง) · พับ/ขยายยังใช้ได้เหมือนเดิม
+> - **สาเหตุ (1):** free-pi เป็นข้อความล้วน → `prompt:send` เขียนรูปลง `outputs/.ntapi-attachments`
+>   แล้วต่อท้าย prompt ด้วย 2 บรรทัด (note + “The image is saved on disk…”) · session เก็บ **ข้อความ**
+>   เหล่านั้น ไม่ได้เก็บรูป → ตอน replay `messagesForUi` ส่งมาเป็น text และ `renderUserMessage` วาดเป็น prose
+> - **แก้ (1):** `main.js` เพิ่ม `splitAttachmentNotes()` + `ATTACHED_IMAGE_NOTE`/`ATTACHED_IMAGE_HINT`
+>   (ตัดเฉพาะ **ทั้งบรรทัด** ที่แอปนี้เขียนเอง) คืน `imagePaths` มากับข้อความ · `messagesForUi` ส่ง `imagePaths`
+>   · `fs:readImage` → `resolveReadableImage()` ที่ยอมอ่าน **โฟลเดอร์ attachments เท่านั้น** เพิ่มจาก workspace
+>   (เดิมปฏิเสธเพราะรูปอยู่นอก workspace — นี่คือเหตุผลที่รูปไม่กลับมา) · renderer
+>   `renderUserMessage(text, attachments, { imagePaths, cwd })` + `paintStoredImages()`
+> - **แก้ (2):** `index.html` `#imageViewer` (dialog + `#imageViewerImg` + `#imageViewerCaption` + `#imageViewerClose` ×)
+>   · `styles.css` `.image-viewer*` (z-index 80 · พื้นหลังมืด + blur · × มุมขวาบน · `cursor: zoom-in`)
+>   · `app.js` `openImageViewer`/`closeImageViewer` + ปิด 3 ทาง (× · คลิกที่ไม่ใช่รูป · Escape แบบ capture)
+>   + delegated click ครอบ `#transcript, #attachments` → ครอบทุกภาพ (ส่งไป/ได้มา/tool result/พรีวิว)
+>   · **เลิกใช้ `api.openPath` กับรูป** (เดิมเปิด Photos) · `galleryImage()` ใช้ร่วมทุกจุด
+> - **แก้ (3):** `pinThinkingScroll()` + `followThinkingScroll()` — กล่องความคิดสูงสุด 320px มี scroll เอง
+>   จึงเลื่อนตามท้ายตลอด และหยุดตามเมื่อผู้ใช้เลื่อนเอง (slack 8px) · เรียกทั้ง live (`+= p.delta`) และ replay
+>   · **ไม่แตะ** ตัวพับ/ขยาย
+> - **i18n:** เพิ่ม `imageViewerLabel`/`imageViewerClose` (en+th) ตั้ง aria-label ตอนเปิด
+> - **เทสต์:** **ไฟล์ใหม่** `app/scripts/selftest-image-viewer.js` **62 checks** (รัน splitter ตัวจริง
+>   กับข้อความจริง · ตรวจว่าเลิกใช้ openPath · ตรวจการปิด 3 ทาง · ตรวจ thinking) · `npm test` **74/74**
+>   · `provenance verify` **OK 58 entries** (record-session แล้ว seq 58)
+> - **หลักฐานจากข้อมูลจริง:** รัน splitter กับบรรทัดผู้ใช้จริงใน
+>   `C:\NTAPI\sessions\NTAPI-Chat\2026-11-16T23-21-01-378Z_…jsonl` → ข้อความไทยคงเดิม + เจอ path 1 รูป
+> - **ไฟล์ที่แก้:** `app/src/main.js`, `app/src/renderer/app.js`, `app/src/renderer/index.html`,
+>   `app/src/renderer/styles.css`, `app/scripts/run-unit-tests.js` + ใหม่ `app/scripts/selftest-image-viewer.js`
+> - **สถานะรุ่น:** `app/package.json` ยัง **`0.5.15`** · **ห้าม commit / bump / ปล่อยจนผู้ใช้สั่ง**
+> - **ยังไม่ทดสอบกับของจริง:** `cd app && npm start` → ส่งรูป → สลับแชทไปกลับ → รูปต้องกลับมา ·
+>   คลิกรูปดูในแอป · คลิกพื้นหลัง/×/Esc ปิด · กล่องความคิดเลื่อนตามเอง
+> - **เรื่องที่ผู้ใช้ตัดออกจากคิว:** nvidia (ผู้ใช้สั่ง “เรื่อง nvidia ไม่ต้องนะคับ”) — ไม่ต้องทำ
+> - **บทเรียนเทิร์นนี้:** ยิง `bash` หลายครั้งเกินกฎ 1 เทิร์น = 1 call เพราะทยอยเก็บข้อมูลทีละก้อน
+>   → รอบหน้าวางแผนให้ครบก่อนยิง (อ่าน/แก้/เทสต์/บันทึก ในชุดเดียว)
+
+> **สถานะ ณ 2026-11-17 (ปุ่ม “ปิดเซสชันที่ค้าง” — ทางออก session เต็ม 4 ของ free-pi · เทสต์ครบ · ยังไม่ commit 3 งาน):**
+> - **ผู้ใช้พบ:** ใช้ 2 session ใน model เดียวกัน (FREE DeepSeek V4 Flash) ไม่ได้ — เปิด 2 แชท ตัวหลังส่งไม่ติด
+> - **สาเหตุ:** free-pi จำกัด **4 running sessions ต่อบัญชี** — session ที่ปิดแท็บแล้วยังนับค้างบนเซิร์ฟเวอร์
+>   (ไม่มี endpoint ปิด session ต่อแท็บ) → เปิด-ปิดแท็บสะสมจนเต็ม → error `concurrent_session`
+>   (“บัญชีนี้เปิดเซสชันครบจำนวนแล้ว”)
+> - **แก้:** `app/src/session-reset.js` (ใหม่) — POST `/session/reset` (endpoint เดียวกับ CLI `/close-other-session`)
+>   · `main.js` ipc `account:resetSession` · `preload.js` `resetFreePiSession` ·
+>   ปุ่ม “ปิดเซสชันที่ค้าง” ใน Settings → FreePi (`accountResetSession`, ซ่อนเมื่อไม่มี token) · i18n en/th
+> - **เทสต์:** `selftest-reset-session.js` (fake fetch + temp credentials) 5/5 · npm test **73/73**
+>   · scroll/undo/composer/notices/pill ✅ · `prove:verify` **OK 57** (seq 54–57: composer → notice → session reset)
+> - **ยังไม่ commit 3 งาน** · `app/package.json` = `0.5.15` · **ห้ามปล่อยอัปเดตจนผู้ใช้สั่ง**
+> - **ลองได้เลย:** `cd app && npm start` → Settings → การ์ด FreePi → “ปิดเซสชันที่ค้าง” → พิมพ์แชทใหม่
+
+> **สถานะ ณ 2026-11-17 (notice เป็นของแต่ละแชท — /compact ใน B ไม่เด้งไป A · เทสต์ครบ · ยังไม่ commit 2 งาน):**
+> - **ที่แก้เพิ่ม:** แถบข้อความ (notice) เดิมเป็น element เดียวทั้งแอป ไม่ผูก session —
+>   `/compact` ใน B ขึ้น “กำลังย่อบทสนทนา…” ตอนสลับไป A ยังเห็นค้างอยู่
+> - **แก้:** `showNotice(text, ms, ownerTabId)` — owner เริ่มต้น = activeTabId, **park ไว้ใน view.notice**
+>   ถ้า owner ไม่ใช่ tab ที่เปิด → ไม่แสดงบนจอ; output เต็มแค่เมื่อ tab นั้นกลับมา
+>   · `hideNoticeNow()` ซ่อนทันทีตอนสลับแท็บ · `restoreTabNotice()` คืน notice ของแท็บที่เขาพร้อมเวลาเหลือ
+>   (หมดอายุไปแล้วไม่คืน) · `runCompact` ส่ง `view.tabId` เป็น owner ทั้งตอนเริ่มและตอนเสร็จ
+> - **เทสต์ใหม่:** `app/scripts/check-tab-notices.js` (Electron, 6 checks — แสดงในแชทที่สั่ง ·
+>   สลับไปซ่อน · กลับมาคืน sticky · timed ซ่อนตอนไป · timed กลับพร้อมเวลาเหลือ · หมดอายุไม่คืน)
+> - **ก่อนหน้า (ยังไม่ commit ด้วย):** composer แยกต่อแชท (`composerText`/`composerImages`, งานก่อน)
+> - **เทสต์ชุดเต็ม:** npm test 72/72 · check:scroll ✅ · check-undo-history ✅ · check-composer-drafts ✅
+>   · check-tab-notices ✅ · check:pill ✅ · `prove:verify` **OK 56** (seq 54–56)
+> - **ยังไม่ commit** · `app/package.json` = `0.5.15` · **ห้ามปล่อยอัปเดตจนผู้ใช้สั่ง**
+
+> **สถานะ ณ 2026-11-17 (ช่องพิมพ์เป็นของแต่ละแชท — รูป/ข้อความไม่ลากข้าม session · เทสต์ครบ · ยังไม่ commit):**
+> - **ผู้ใช้บ่น:** สลับแชทแล้วเจอรูปเดียวกันในคนละแชท · พิมพ์ข้อความ + แนบรูปทิ้งไว้ เปลี่ยน session แล้วมันตามไปด้วย
+> - **คำตอบ:** session แยกกันอยู่แล้วจริง (แต่ละแท็บ = AgentSession คนละตัว · ไฟล์ session คนละไฟล์) —
+>   แต่ **ช่องพิมพ์ (ข้อความที่ยังไม่ส่ง + รูปที่แนบ) เป็นตัวแปรก้อนเดียวใช้ร่วมทุกแท็บ** (`pendingImages` global)
+> - **แก้:** `createView` เพิ่ม `composerText`/`composerImages` · `stashComposer()` ตอนออกจากแท็บ ·
+>   `loadComposer()` ตอนเข้าำท็บ · `applyTabState` ตรวจ `tabChanged` (activeTabId !== state.tabId) เป็นตัวตัดสิน
+>   · `closeTab` + ลบ session จากดิสก์: ล้าง composer ของแท็บที่จากไป และ **ไม่ตั้ง activeTabId ก่อน**
+>   เพื่อให้ applyTabState คืนคอมโพเซอร์ของแท็บปลายทางเอง · `/clear` ล้างก่อนวาด
+> - **เทสต์ใหม่:** `app/scripts/check-composer-drafts.js` (Electron, 6 checks — พิมพ์+แนบ 2 รูปใน A ·
+>   สลับไป B ว่าง · กลับ A คืนครบ · B คงคำของตัวเอง · ปิดแท็บ A ไม่ลากข้าม)
+> - **เทสต์ชุดเต็ม:** npm test 72/72 · check:scroll ✅ · check-undo-history ✅ · check-composer-drafts ✅
+>   · check:pill ✅ · selftest-token-usage 20 · selftest-legal-docs 20 · check:legal 7 · `prove:verify` **OK 55** (seq 55)
+> - **ยังไม่ commit** · `app/package.json` = `0.5.15` · **ห้ามปล่อยอัปเดตจนผู้ใช้สั่ง** · แนะนำลอง `cd app && npm start`
+
+> **สถานะ ณ 2026-11-17 (เปลี่ยนแชทไม่ไหลยาว + แก้ปุ่มยกเลิกในคิวส่งทันที — แก้แล้ว · เทสต์ครบ · ยังไม่ commit):**
+> - **งาน 1 (ผู้ใช้บ่น):** สลับแชททีไร scroll ไหลจากบนสุดข้ามแชททั้งแชทลงมาล่างสุด — ขัดใจเมื่อแชทยาว
+>   **ต้นเหตุ:** `.transcript { scroll-behavior: smooth }` (styles.css) ทำให้**ทุกครั้ง**ที่โปรแกรมตั้ง
+>   `scrollTop` animate ไหล (ทั้งสลับแชท และ pump `pinScrollTop` ทุก 50ms ตอน streaming)
+>   **แก้:** ลบ `scroll-behavior: smooth` ออกจาก `.transcript` — กระโดดทันทีทุกเส้นทาง (สลับแชท ·
+>   ข้อความใหม่ไหลเข้า · ปุ่มลงล่างสุด) · ปรับ comment ที่ปุ่ม jump ให้ตรงพฤติกรรม
+> - **งาน 2 (ผู้ใช้แจ้ง):** ข้อความติดคิว → กดแก้ไข → กดปุ่ม "ยกเลิก" → **ดันถูกส่งไปแทน**
+>   **ต้นเหตุ:** `cancelQueueEdit` เดิมตั้ง `editing=false` แล้วเรียก `drainQueue(view)` — ถ้าเทิร์นเพิ่งจบ
+>   ข้อความถูก shift+ส่งทันที ทั้งที่ผู้ใช้กด "ยกเลิก" ด้วยความเข้าใจว่าไม่เอาแล้ว
+>   **แก้:** ยกเลิก = **เอาข้อความออกจากคิว** (`splice`) แล้ว**คืน draft ที่กำลังพิมพ์ + ภาพกลับช่องพิมพ์**
+>   (ไม่มีอะไรถูกส่งให้เอง) — ปุ่ม "บันทึก" ยังส่งตามเดิม · อัปเดต `selftest-queue-edit.js` 3 ข้อให้ตรงดีไซน์ใหม่
+> - **เทสต์:** npm test **72/72** · check:scroll ✅ · check-undo-history ✅ · selftest-token-usage 20
+>   · selftest-legal-docs 20 · check:legal 7 · check:pill ✅ · `prove:verify` **OK 53 entries** (seq 53)
+> - **ยังไม่ commit** · `app/package.json` = `0.5.15` · **ห้ามปล่อยอัปเดตจนผู้ใช้สั่ง** ·
+>   แนะนำลอง `cd app && npm start`: สลับแชทดู + จัดคิว 2 ข้อความ กดยกเลิกตอนกำลังแก้
+
+> **สถานะ ณ 2026-11-17 (แก้บั๊กปุ่มย้อนกลับ undo: ฟองข้อความไม่หาย — แก้แล้ว · ทดสอบแล้ว · ยังไม่ commit):**
+> - **อาการผู้ใช้:** กด Undo → ข้อความเด้งกลับช่องพิมพ์ แต่ฟองในแชทไม่ยอมหาย
+> - **ต้นเหตุ (พิสูจน์ด้วยเทสต์จริงแล้ว):** `submit()` เขียน `{pending:true}` ไว้ใน `view.messages` — ปกติ
+>   merge จะลบทิ้งเมื่อ history event ยืนยันว่าข้อความเข้ารู่ session แล้ว แต่ถ้า pending copy ยังค้างถึงตอน undo
+>   (event ยังไม่มา / ข้อความถูกเขียนใหม่จน prefix ไม่ตรง) → หลัง undo session ลบข้อความแล้ว
+>   → `mergeIncomingMessages` เห็น pending copy ว่า "session ยังไม่มี" → **splice กลับเข้าไป = ฟองเด้งคืน**
+> - **แก้:** `undoLastMessage()` เรียก `dropStalePending(view, res.text)` ก่อนคืนข้อความเข้าช่องพิมพ์ — ลบ
+>   pending user copy ที่ข้อความตรงกัน (กฎขอบเขตเดียวกับ merge: ตรงเป๊ะ หรือ prefix กันโดยตัวถัดไปเป็น
+>   `\n`/space/tab) ออกจาก `view.messages`
+> - **เทสต์ใหม่ 2 ตัว:** `app/scripts/repro-undo.js` (node + SDK จริง + faux offline — พิสูจน์ว่า session state
+>   หลัง undo ถูกต้องจริง) · `app/scripts/check-undo-history.js` (Electron window จริง: Scenario A สะอาดผ่าน
+>   · Scenario B มี pending ค้าง **แดงก่อนแก้** = reproduce อาการตรง ๆ → **เขียวหลังแก้**)
+> - **เทสต์ชุดเต็ม:** `node --check` 7 ไฟล์ · `selftest-token-usage` 20 · `selftest-legal-docs` 20
+>   · `npm test` 72/72 · `check:legal` 7 · `check:pill` ผ่าน · `check-undo-history` ผ่าน
+>   · `prove:verify` **OK 52 entries** (record-session seq 52)
+> - **ยังไม่ commit** · `app/package.json` = `0.5.15` · **ห้ามปล่อยอัปเดตจนผู้ใช้สั่ง** ·
+>   **แนะนำให้ผู้ใช้ลองกด undo ใน `cd app && npm start` ก่อน**
+
+> **สถานะ ณ 2026-11-17 (จัดหน้าโทเคนใหม่ + ปุ่มปฏิเสธ — ยังไม่ commit · ยังไม่ปล่อย):**
+> - **ผู้ใช้ขอ:** (ก) ไม่รู้ว่าอันไหนแคช อันไหนโทเคน → **แยกเป็นหัวข้อ** · (ข) อยากได้ **ค่าต่าง `+`**
+>   ต่อรอบ · (ค) "4 รอบก่อน" → เหลือ **2 รอบ = รอบก่อน / รอบปัจจุบัน** (เลข 1-4 งง)
+>   · (ง) เพิ่มปุ่ม **"ปฏิเสธ"** ในหน้ายอมรับข้อกำหนด → ปิดโปรแกรม
+> - **หน้าตาใหม่ของบล็อกโทเคน:** หัวข้อ `รวมทั้งเซสชัน` (ใช้ไปทั้งหมด · ส่งให้ AI · AI ตอบกลับ ·
+>   ส่ง + ตอบ · ค่าใช้จ่าย) แล้วหัวข้อ `แยกที่ส่งไป` (**โทเคนใหม่** · **โทเคนจากแคช**)
+>   แล้วหัวข้อ `เทียบ 2 รอบ` เป็นตาราง 3 คอลัมน์: รอบ | รวม | เทียบก่อน (`+1,204` / `−318`)
+>   · hover ที่ค่าต่างดู ส่ง/ตอบ แยกได้
+> - **เลย์เอาต์:** เปลี่ยน `.tok-row` จาก flex → **grid 2 คอลัมน์** (1fr auto) ตัวเลขชิดขวาเรียงเป็นแถว
+>   (เดิม flex-wrap ทําให้ตัวเลขตกบรรทัด = อ่านไม่ได้) · เทิร์นเป็น grid 3 คอลัมน์ · กลุ่มย่อยเลิกใช้ลูกศร ↳
+> - **ตรรกะ:** `usage-totals.js` เปลี่ยน `previousTurns` → **`recentTurns(totals, 2)`** (+ `turnDelta`)
+>   → แต่ละรอบพก `delta` เทียบรอบก่อนหน้า (รอบแรกสุดยังคิด delta จากรอบที่ซ่อนอยู่ ไม่รีเซ็ตเป็น 0)
+>   · `usageTotals()` แนบ `recent` มากับผลลัพธ์ → renderer แค่เพนต์ (`costText`, `deltaText`)
+> - **ปุ่มปฏิเสธ:** `#termsDecline` → `api.quitApp()` → IPC `app:quit` → `app.quit()` (ปิดทุกอย่าง)
+> - **เทสต์:** `selftest-token-usage` **20 checks** (รวม delta บวก/ลบ · รอบเดียวไม่มี delta · เอาแค่ 2 รอบล่าสุด)
+>   · `selftest-legal-docs` **20** · `npm test` **72/72** · `check:legal` 7 · `check:pill` ผ่าน
+>   · `prove:verify` **OK 51 entries**
+> - **ภาพตัวอย่างไว้ดูผล:** `shots/token-panel-preview.png` (สร้างด้วย `cd app && npx electron scripts/shot-status-tokens.js`
+>   — สคริปต์ช่วยพัฒนา ไม่ใช่เทสต์ · ไฟล์ภาพยังไม่ commit)
+> - **ยังไม่ commit** · `app/package.json` = **`0.5.15`** · **ห้ามปล่อยอัปเดตจนผู้ใช้สั่ง**
+> - **ยังไม่ทดสอบกับของจริง** — รอผู้ใช้ตรวจภาพ/ลอง `npm start`
+
+> **สถานะ ณ 2026-11-17 (หน้ายอมรับข้อกำหนด: เพิ่มปุ่มปฏิเสธ — ยังไม่ commit · ยังไม่ปล่อย):**
+> - **ผู้ใช้ขอ:** หน้ายอมรับมีแต่ "ยอมรับ" ไม่มี "ปฏิเสธ" → ถ้ากดปฏิเสธ **ให้ปิดโปรแกรม**
+> - **แก้:** `index.html` เพิ่ม `#termsDecline` (`ghost`, ซ้ายของปุ่มยอมรับ) · `app.js` i18n
+>   `termsDecline` EN/TH + handler ที่ **ปิดทั้งสองปุ่มกันกดซ้ำ** แล้วเรียก `api.quitApp()`
+>   · `preload.js` `quitApp` → IPC `app:quit` · `main.js` `ipcMain.handle('app:quit')` = `app.quit()`
+>   (ปิดหน้าต่าง agents presence timer ทั้งหมด)
+> - **เทสต์:** `selftest-legal-docs` **20 checks** (เพิ่ม: ปุ่มปฏิเสธมีจริง · ปุ่มเรียก quitApp ·
+>   IPC มีอยู่และเรียก `app.quit()` · คีย์ i18n แปลทั้งสองภาษา 2 ที่) · `npm test` **72/72**
+>   · `check:legal` 7 · `check:pill` ผ่าน · `prove:verify` **OK 49 entries** · bash 1 call
+> - **ค้าง:** ยังไม่ commit · `app/package.json` ยัง `0.5.15` · **ห้ามปล่อยอัปเดตจนสั่ง**
+
+> **สถานะ ณ 2026-11-17 (ช่องโทเคนเสร็จ — ยังไม่ commit · ยังไม่ปล่อย `0.5.16`):**
+> - **ผู้ใช้สั่ง:** ทําช่องโทเคนในป้ายสถานะ ให้รู้ว่าใช้ไปเท่าไหร่ — 5 ค่า
+>   (รวมทั้ง session · ส่งออกไป · AI ตอบกลับ · ส่ง+ตอบ · 4 รอบก่อน) แบบชี้เมาส์เท่านั้น
+>   เพราะพื้นที่ป้ายเหลือน้อย · **ใช้ได้ทุกโมเดล** · ค่าเงินใช้ `฿`/`$` และ **ดึงอัตราจริงจากเน็ต**
+> - **แหล่งข้อมูล:** `assistant message.usage` ที่ SDK เก็บอยู่แล้ว (`input`/`output`/`cacheRead`/`cacheWrite`/
+>   `reasoning`/`cost`) — ไม่ประมาณเอง เจ้าไหนไม่ส่ง ได้ `—`
+> - **ไฟล์ใหม่:** `app/src/usage-totals.js` (คำนวณ + จัดกลุ่มเป็นรอบ) · `app/src/fx-rate.js`
+>   (USD→THB จาก `open.er-api.com`, cache 6 ชม., ไม่ throw) · `app/scripts/selftest-token-usage.js` (18 checks)
+> - **นิยามที่เลือก (กันบรรทัดซ้ำ):** `ใช้ไปทั้งหมด` = input+แคช+ตอบ · `ส่งให้ AI` = input+แคช
+>   (แยก `ข้อความใหม่` / `อ่านจากแคช`) · `ส่ง + ตอบ` = input+ตอบ (ไม่รวมแคช) · cacheWrite+Read รวมกัน
+> - **ค่าใช้จ่าย:** `cost.total > 0` → `฿` (ไทย, แปลงด้วยอัตราจริง) / `$` (EN) · `0` + รู้ว่าเป็นรุ่นฟรี
+>   → `ฟรี` · `0` แต่ไม่รู้ราคา → `ไม่ทราบราคา` (ห้ามเขียน "ฟรี" เดา ๆ) · อัตราแลกเปลี่ยนดึง **เฉพาะตอนมีราคาให้แสดง**
+> - **compaction = เริ่มนับใหม่** (คํานวณจาก `session.messages` ที่ถูกเขียนใหม่) ตามที่ผู้ใช้เลือก
+> - **จุดเชื่อม:** `main.js` `tabState()` เพิ่ม `usage:` · IPC ใหม่ `fx:usdThb` · `preload.js` `getUsdThb`
+>   · `app.js` `paintTokenUsage()` + `costText()` + `ensureUsdThb()` · เรียกตอน `setStatusPopover(true)`
+>   และเมื่อ `applyTabState` ถ้าป็อปอัปเปิดอยู่ · `index.html` ส่วน `#tokenUsage` · `styles.css` `.token-usage`
+> - **กฎหมาย:** `PRIVACY.md` เพิ่มแถว `open.er-api.com` (ไม่มีข้อมูลผู้ใช้) + English summary
+> - **เทสต์:** `npm test` **72/72** · `selftest-token-usage` 18 · `selftest-legal-docs` 19 · `check:legal` 7
+>   · `check:pill` ผ่าน · `prove:verify` **OK 48 entries**
+> - **ยังไม่ commit** (ไฟล์ค้าง: TERMS.md, PRIVACY.md, PROVENANCE, `.AGENT/`, app/scripts 3, app/src 6, ไฟล์ใหม่ 4)
+>   · `app/package.json` = **`0.5.15`** · **ห้ามปล่อยอัปเดตจนผู้ใช้สั่ง**
+> - **ยังไม่ได้ทดสอบกับของจริง:** ต้องลอง `cd app && npm start` แล้วชี้ที่ป้ายสถานะดูว่าตัวเลขตรงกับ
+>   `usage` ใน session file และค่าเงินเปลี่ยนเป็น ฿ เมื่อภาษาไทย
+
+> **สถานะ ณ 2026-11-17 (`0.5.16` ยังไม่ออก — งานกฎหมายเสร็จในเครื่องแล้ว ยังไม่ commit):**
+> - **ผู้ใช้สั่ง:** "เริ่มทําได้เลยคับ แต่อย่าพึ่งปล่อยอัปเดตนะคับ ... ทําเสร็จแค่ในเครื่องเราก่อน"
+>   → ทําครบ 4 ข้อที่เสนอ ไม่ bump ไม่ tag ไม่ push
+> - **(1) หน้ายอมรับข้อกําหนดตอนเปิดครั้งแรก** `#termsOverlay` ใน `index.html` (ไม่มีปุ่มปิด/ไม่มี Escape
+>   — ปิดได้ด้วยการยอมรับเท่านั้น) · `app.js`: `TERMS_VERSION = '2026-11-17'` · `termsAccepted()`
+>   · `showTerms()` · `acceptTerms()` · เรียก `if (!termsAccepted()) showTerms()` ทันทีหลัง `applyLanguage()`
+>   · `maybeShowGuide()` ไม่ทํางานถ้ายังไม่ยอมรับ → กดรับแล้วค่อยขึ้นไกด์ · ลิงก์ TERMS/PRIVACY บนหน้านี้
+>   ใช้ handler เดียวกับหน้า About (เพิ่ม `.terms-legal-links .link-btn` เข้า loop เดิม)
+>   · `main.js` `prefs:set` รับ `termsAccepted` **เฉพาะรูปแบบ `YYYY-MM-DD`** (กัน prefs กลายเป็นที่เก็บข้อความอิสระ)
+> - **(2) `PRIVACY.md`**: เพิ่มหัวข้อ `### ระยะเวลาเก็บรักษาข้อมูล` (ตาราง 4 แถว: แชท/การตั้งค่า · คีย์ ·
+>   `crash.log` = ไม่มีกําหนดอัตโนมัติจนผู้ใช้ลบเอง · รหัสนับคนออนไลน์ = หน่วยวินาทีในหน่วยความจํา) + English summary
+> - **(3) `PRIVACY.md` §7 ผู้เยาว์**: เปลี่ยนจาก "13 ปีขึ้นไป" (COPPA สหรัฐ) → **มาตรา 20 แห่ง PDPA**
+>   (ต่ํากว่า 10 ปีต้องได้ความยินยอมจากผู้ปกครอง · 10–20 ปีให้เองได้) + เตือนไม่ให้ส่งข้อมูลของผู้อื่น/ข้อมูลสุขภาพ
+> - **(4) `TERMS.md`**: §7 เพิ่ม **เพดานความรับผิด 1,000 บาท** + **การชดใช้ค่าเสียหาย (indemnity)**
+>   · §9 เพิ่มกลไก "ข้อกําหนดเปลี่ยน → ขอให้ยอมรับอีกครั้ง" · **§11 ใหม่** = แยกส่วนได้ · ข้อตกลงทั้งหมด ·
+>   การโอนสิทธิ · การไม่สละสิทธิ · ฉบับภาษาไทยเป็นหลัก · English summary เติม Liability/Changes
+> - **เทสต์:** `selftest-legal-docs.js` เพิ่ม 6 checks (หน้ายอมรับ · TERMS_VERSION ตรงกับวันที่ใน TERMS.md ·
+>   ไกด์รอการยอมรับ · retention · อายุตาม ม.20 · เพดาน/อินเดมนิตี้/ข้อกําหนดทั่วไป) → **18 checks ผ่าน**
+>   · `npm test` **71/71** · `check:legal` **7 checks** · `check:pill` ผ่าน · `prove:verify` **OK 47 entries** (record-session แล้ว)
+> - **ไฟล์ค้าง (ยังไม่ commit 9 ไฟล์):** `TERMS.md`, `PRIVACY.md`, `PROVENANCE/ledger.jsonl`,
+>   `app/src/main.js`, `app/src/renderer/app.js`, `app/src/renderer/index.html`,
+>   `app/src/renderer/styles.css`, `app/scripts/selftest-legal-docs.js`
+> - **สถานะรุ่น:** `app/package.json` = **`0.5.15`** (ไม่ bump) · รุ่นถัดไปเมื่อสั่ง = **`0.5.16`**
+> - **ขั้นถัดไป:** ผู้ใช้มีเรื่องให้ทําอีกหลายเรื่อง — **ห้ามปล่อยอัปเดตจนกว่าจะสั่ง** · ควรทดสอบจากซอร์ส
+>   (`cd app && npm start`) ว่าเครื่องที่ยังไม่เคยยอมรับเห็นหน้ายอมรับก่อนไกด์ และกดแล้วไม่ขึ้นอีก
+
 > **สถานะ ณ 2026-11-17 (ปล่อย `v0.5.15` แล้ว — ผู้ใช้อัปเดตในโปรแกรมได้):**
 > - **ผู้ใช้สั่ง:** "commit + push ปล่อยตัวอัปเดตและ build … ลบเวอร์ชั่นเก่า tag เก่าออกด้วย"
 >   (ผู้ใช้กำลังเปลี่ยน session ไปทดสอบ)

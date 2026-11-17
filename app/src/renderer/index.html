@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: ntapi-sponsor:; media-src 'self' data: ntapi-sponsor:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
     <title>NTAPI | DeepSeek v4.1 Flash</title>
+    <!-- The theme is on <html> before the stylesheet is laid out, so a light-mode
+         window opens light instead of painting dark and flashing to light. -->
+    <script src="theme-boot.js"></script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -52,49 +55,87 @@
           </button>
         </div>
 
+        <!-- Directly below the Settings button, on its own row: the brand row
+             already holds four chips, and a fifth would widen the column's
+             measured floor. Keeping it here leaves the sidebar's width — and
+             everything already on it — exactly where it was. -->
+        <div class="sidebar-tools">
+          <button id="themeBtn" class="chip-btn" title="Theme" aria-label="Theme" aria-pressed="false">
+            <svg id="themeIconMoon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+            <svg id="themeIconSun" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" hidden>
+              <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+
+          <!--
+            Tool approval. It used to take a whole block under the workspace
+            picker; the three choices now live in a popover that opens when the
+            pointer rests on the shield, or on click / keyboard focus.
+          -->
+          <div class="approval-wrap" id="approvalWrap">
+            <button
+              id="approvalBtn"
+              class="chip-btn approval-chip"
+              type="button"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="approvalPopover"
+              title="การอนุมัติเครื่องมือ"
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M8.6 12.1l2.3 2.3 4.5-4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span id="approvalBtnText">ถาม</span>
+            </button>
+
+            <div
+              class="approval-popover"
+              id="approvalPopover"
+              role="dialog"
+              aria-labelledby="approvalLabel"
+              hidden
+            >
+              <label id="approvalLabel">การอนุมัติเครื่องมือ</label>
+              <!--
+                Three positions instead of a dropdown: the setting is a choice between
+                three fixed states, and a slider-shaped control shows the current one at
+                a glance instead of hiding it behind a click.
+              -->
+              <div
+                class="approval-switch"
+                id="approvalPolicy"
+                role="radiogroup"
+                aria-labelledby="approvalLabel"
+              >
+                <label class="approval-opt" title="ถามทุกครั้งก่อนรันเครื่องมือ">
+                  <input type="radio" name="approvalPolicy" value="ask" data-short="ถาม" />
+                  <span>ถามเสมอ</span>
+                </label>
+                <label class="approval-opt" title="อนุมัติเครื่องมือให้ทันที">
+                  <input type="radio" name="approvalPolicy" value="allow" data-short="อนุมัติ" />
+                  <span>อนุมัติเสมอ</span>
+                </label>
+                <label class="approval-opt" title="ไม่อนุมัติเครื่องมือใด ๆ">
+                  <input type="radio" name="approvalPolicy" value="deny" data-short="ปฏิเสธ" />
+                  <span>ไม่อนุมัติเลย</span>
+                </label>
+                <span class="approval-thumb" aria-hidden="true"></span>
+              </div>
+              <p class="approval-note" id="approvalNote">เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์</p>
+            </div>
+          </div>
+        </div>
+
         <div class="section">
           <label data-i18n="workspace">Workspace</label>
           <button id="pickFolder" class="path-btn" title="Choose a folder">
             <span id="cwdLabel">…</span>
             <svg viewBox="0 0 24 24" width="14" height="14"><path d="M4 6h6l2 2h8v10H4z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
           </button>
-        </div>
-
-        <!--
-          The approval switch. It has a heading now that says what the control is
-          for, because "ถามเสมอ / อนุมัติเสมอ" alone does not tell a first-time
-          reader what is being approved. One dropdown, no hint line under it.
-        -->
-        <div class="section approval-section">
-          <label id="approvalLabel">การอนุมัติเครื่องมือ</label>
-          <!--
-            Three positions instead of a dropdown: the setting is a choice between
-            three fixed states, and a slider-shaped control shows the current one at
-            a glance instead of hiding it behind a click. Radios rather than buttons
-            because this is a single choice out of three — arrow keys move between
-            them and a screen reader announces "2 of 3" on its own.
-          -->
-          <div
-            class="approval-switch"
-            id="approvalPolicy"
-            role="radiogroup"
-            aria-labelledby="approvalLabel"
-          >
-            <label class="approval-opt">
-              <input type="radio" name="approvalPolicy" value="ask" />
-              <span>ถามเสมอ</span>
-            </label>
-            <label class="approval-opt">
-              <input type="radio" name="approvalPolicy" value="allow" />
-              <span>อนุมัติเสมอ</span>
-            </label>
-            <label class="approval-opt">
-              <input type="radio" name="approvalPolicy" value="deny" />
-              <span>ไม่อนุมัติเลย</span>
-            </label>
-            <span class="approval-thumb" aria-hidden="true"></span>
-          </div>
-          <p class="approval-note" id="approvalNote">เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์</p>
         </div>
 
         <div class="section grow">
@@ -224,6 +265,18 @@
                 <div class="usage-row"><span data-i18n="bonus">Bonus</span><span id="usageTokens" class="mono">—</span></div>
                 <div class="usage-row"><span data-i18n="lane">Lane</span><span id="usageContext" class="mono">—</span></div>
                 <div class="usage-row"><span data-i18n="resets">Resets</span><span id="usageResets" class="mono">—</span></div>
+              </div>
+              <!--
+                Context usage. Its bar lives outside #freePiUsage on purpose: that
+                block is hidden whenever the provider reports its own meter, and
+                the bar used to disappear with it while the percentage in the pill
+                kept counting — a 45% figure over an empty track.
+              -->
+              <div class="ctx-usage" id="contextUsage">
+                <div class="usage-row">
+                  <span data-i18n="context">Context</span>
+                  <span id="contextBarPct" class="mono">—</span>
+                </div>
                 <div class="ctx-bar"><div id="contextFill" class="ctx-bar-fill"></div></div>
               </div>
               <div id="providerUsage" hidden>
@@ -237,6 +290,99 @@
                   </div>
                 </div>
                 <div class="usage-row" id="providerResetsRow" hidden><span data-i18n="resets">Resets</span><span id="providerResets" class="mono">—</span></div>
+              </div>
+
+              <!--
+                Tokens. The pill itself has no room left, so the figures live
+                here and only appear while the panel is open. Every number is
+                the provider's own report, never an estimate; a provider that
+                reports nothing leaves a row at "—" rather than a guess.
+
+                Laid out as a two-column table — label left, figure right, on a
+                line per row — because a column of numbers that does not line up
+                cannot be read at a glance, which is the whole point of opening
+                this panel.
+              -->
+              <div id="tokenUsage" class="tok">
+                <div class="tok-head">
+                  <span class="tok-title" data-i18n="tokTitle">โทเคน</span>
+                  <span id="tokCalls" class="tok-calls mono" data-i18n="tokNone">ยังไม่มีข้อมูล</span>
+                </div>
+
+                <!-- The conversation as a whole. -->
+                <div class="tok-group-head" data-i18n="tokGroupSession">รวมทั้งเซสชัน</div>
+                <div class="tok-table">
+                  <div class="tok-row tok-row-lead">
+                    <span class="tok-label" data-i18n="tokTotal">ใช้ไปทั้งหมด</span>
+                    <span class="tok-amount"
+                      ><span id="tokTotal" class="tok-value mono">—</span
+                      ><span class="tok-unit" data-i18n="tokUnit">โทเคน</span></span
+                    >
+                  </div>
+                  <div class="tok-row">
+                    <span class="tok-label" data-i18n="tokSent">ส่งให้ AI</span>
+                    <span class="tok-amount"
+                      ><span id="tokSent" class="tok-value mono">—</span
+                      ><span class="tok-unit" data-i18n="tokUnit">โทเคน</span></span
+                    >
+                  </div>
+                  <div class="tok-row">
+                    <span class="tok-label" data-i18n="tokReceived">AI ตอบกลับ</span>
+                    <span class="tok-amount"
+                      ><span id="tokReceived" class="tok-value mono">—</span
+                      ><span class="tok-unit" data-i18n="tokUnit">โทเคน</span></span
+                    >
+                  </div>
+                  <div class="tok-row">
+                    <span class="tok-label" data-i18n="tokSentPlus">ส่ง + ตอบ</span>
+                    <span class="tok-amount"
+                      ><span id="tokSentPlus" class="tok-value mono">—</span
+                      ><span class="tok-unit" data-i18n="tokUnit">โทเคน</span></span
+                    >
+                  </div>
+                  <div class="tok-row">
+                    <span class="tok-label" data-i18n="tokCost">ค่าใช้จ่าย</span>
+                    <span class="tok-amount"
+                      ><span id="tokCost" class="tok-value mono">—</span
+                      ><span class="tok-unit" data-i18n="tokUnitMoney">USD</span></span
+                    >
+                  </div>
+                </div>
+
+                <!--
+                  Of everything that was sent: how much was written here and how
+                  much was served from the provider's cache. They are different
+                  things with different prices, so they get their own heading
+                  rather than sitting unlabelled under the figure they add up to.
+                -->
+                <div class="tok-group-head" data-i18n="tokGroupSent">แยกที่ส่งไป</div>
+                <div class="tok-table">
+                  <div class="tok-row tok-row-sub">
+                    <span class="tok-label" data-i18n="tokSentNew">โทเคนใหม่</span>
+                    <span class="tok-amount"
+                      ><span id="tokSentNew" class="tok-value mono">—</span
+                      ><span class="tok-unit" data-i18n="tokUnit">โทเคน</span></span
+                    >
+                  </div>
+                  <div class="tok-row tok-row-sub">
+                    <span class="tok-label" data-i18n="tokSentCache">โทเคนจากแคช</span>
+                    <span class="tok-amount"
+                      ><span id="tokSentCache" class="tok-value mono">—</span
+                      ><span class="tok-unit" data-i18n="tokUnitCache">โทเคน · แคช</span></span
+                    >
+                  </div>
+                </div>
+
+                <!-- The turn on screen against the one before it, with what changed. -->
+                <div class="tok-prev" id="tokPrevHead" hidden>
+                  <div class="tok-group-head" data-i18n="tokCompare">เทียบ 2 รอบ</div>
+                  <div class="tok-turn-head">
+                    <span data-i18n="tokTurnCol">รอบ</span>
+                    <span data-i18n="tokTotalCol">รวม</span>
+                    <span data-i18n="tokDeltaCol">เทียบรอบก่อน</span>
+                  </div>
+                </div>
+                <div id="tokPrevList" class="tok-table tok-turns"></div>
               </div>
             </div>
           </div>
@@ -381,7 +527,14 @@
                crowded the composer. The same review dialog is still reachable
                from the command palette (Ctrl+P → "Changes in this session"). -->
           <div id="todoPanel" class="todo-panel" hidden role="status" aria-live="polite"></div>
-          <div id="notice" class="notice" hidden></div>
+          <div id="notice" class="notice" hidden>
+            <!-- The text and its countdown live in separate nodes: the countdown is
+                 rewritten twice a second, and putting it in the same node would mean
+                 re-setting the sentence (and dropping any selection in it) to redraw
+                 a number. -->
+            <span id="noticeText"></span>
+            <span id="noticeCount" class="notice-count" hidden></span>
+          </div>
           <div id="crashNotice" class="crash-notice" role="alert" hidden>
             <span id="crashText" class="crash-text"></span>
             <button id="crashCopy" class="ghost small" data-i18n="copySystemInfo">Copy system info</button>
@@ -650,6 +803,7 @@
                     </div>
                     <div class="provider-actions">
                       <button id="accountSignIn" class="ghost small" data-i18n="signIn">Sign in...</button>
+                      <button id="accountResetSession" class="ghost small" data-i18n="resetOtherSession" hidden>Clear stuck session</button>
                       <button id="accountFolder" class="ghost small" data-i18n="openFolder" hidden>Open</button>
                       <button id="accountSignOut" class="ghost small danger" data-i18n="signOut">Sign out</button>
                     </div>
@@ -757,6 +911,26 @@
                       <button id="llm7GetKey" class="link-btn" data-i18n="llm7GetKey">Get a token at dash.llm7.io</button>
                       <span class="link-sep" aria-hidden="true">·</span>
                       <button id="llm7Buy" class="link-btn" data-i18n="llm7Buy"></button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="deepseekRow" data-provider="deepseek">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/deepseek.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="deepseekSection">DeepSeek</span>
+                        <p id="deepseekStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="deepseekKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-&hellip;" aria-label="DeepSeek API key" />
+                      <button id="deepseekSave" class="ghost small" data-i18n="deepseekSave">Save</button>
+                      <button id="deepseekRemove" class="ghost small danger" data-i18n="deepseekRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="deepseekGetKey" class="link-btn" data-i18n="deepseekGetKey">Get a key at platform.deepseek.com</button>
+                      <span class="link-sep" aria-hidden="true">·</span>
+                      <button id="deepseekBuy" class="link-btn" data-i18n="deepseekBuy"></button>
                     </div>
                   </div>
                 </div>
@@ -906,6 +1080,46 @@
       </div>
     </div>
 
+    <!--
+      First run: the terms and the privacy notice have to be shown before the
+      program is used, not only linked from About. Installing the program is not
+      a signature, so this card is the place where the person actually sees what
+      they are agreeing to — and the answer is remembered against the date the
+      two documents carry, which makes a change of wording the only reason to
+      ask again.
+
+      There is deliberately no close button and no Escape handler: dismissing it
+      has to mean accepting it, or the record means nothing.
+    -->
+    <div id="termsOverlay" class="overlay" hidden>
+      <div class="dialog terms-dialog" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
+        <h2 id="termsTitle" data-i18n="termsTitle">ก่อนเริ่มใช้งาน</h2>
+        <p class="dialog-sub" data-i18n="termsIntro">
+          NTAPI ทํางานด้วยคีย์ API ของคุณเอง และเก็บแชทไว้ในเครื่องนี้
+          สองเอกสารสั้น ๆ ด้านล่างอธิบายส่วนที่เหลือ — อ่านสักครั้งก่อนเริ่มใช้
+        </p>
+        <ul class="terms-points">
+          <li data-i18n="termsPointKeys">คีย์และประวัติแชทอยู่ในเครื่องคุณเท่านั้น โปรแกรมไม่ได้เก็บไว้บนเซิร์ฟเวอร์</li>
+          <li data-i18n="termsPointProviders">คําตอบมาจากบริษัท AI ที่คุณเลือกโดยตรง ภายใต้ข้อกําหนดของบริษัทนั้น</li>
+          <li data-i18n="termsPointPrivacy">การเชื่อมต่ออัตโนมัติอย่างเดียวคือรหัสสุ่มสําหรับนับจํานวนคนออนไลน์</li>
+        </ul>
+        <div class="terms-legal-links">
+          <button type="button" class="link-btn" data-doc="TERMS.md" data-i18n="termsReadTerms">ข้อกําหนดการใช้งาน</button>
+          <span class="link-sep" aria-hidden="true">·</span>
+          <button type="button" class="link-btn" data-doc="PRIVACY.md" data-i18n="termsReadPrivacy">ประกาศความเป็นส่วนตัว</button>
+        </div>
+        <p class="terms-agree-hint" data-i18n="termsAgreeHint">
+          การกด “ยอมรับและเริ่มใช้” ถือว่าคุณยอมรับข้อกําหนดการใช้งาน
+        </p>
+        <div class="dialog-actions">
+          <!-- A refusal has to be a real choice: the program closes, because
+               nothing was accepted and nothing may keep running behind this card. -->
+          <button id="termsDecline" class="ghost" data-i18n="termsDecline">ปฏิเสธและปิดโปรแกรม</button>
+          <button id="termsAccept" class="primary-btn" data-i18n="termsAccept">ยอมรับและเริ่มใช้</button>
+        </div>
+      </div>
+    </div>
+
     <div id="loginOverlay" class="overlay" hidden>
       <div class="dialog login-dialog" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
         <h2 id="loginTitle" data-i18n="loginTitle">Sign in to free-pi</h2>
@@ -943,6 +1157,16 @@
           <button id="loginCancel" class="ghost" data-i18n="cancel">Cancel</button>
         </div>
       </div>
+    </div>
+
+    <!-- A picture opened on top of the chat. Clicking anywhere that is not the
+         picture closes it; the × is there for anyone who does not guess that. -->
+    <div id="imageViewer" class="image-viewer" role="dialog" aria-modal="true" aria-label="Image" hidden>
+      <button id="imageViewerClose" class="image-viewer-close" type="button" aria-label="Close">×</button>
+      <figure class="image-viewer-stage">
+        <img id="imageViewerImg" alt="" />
+        <figcaption id="imageViewerCaption" class="image-viewer-caption" hidden></figcaption>
+      </figure>
     </div>
 
     <div id="toasts" class="toast-stack" aria-live="polite"></div>

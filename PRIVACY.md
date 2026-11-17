@@ -25,13 +25,29 @@
 ขอคีย์ใหม่ ไม่ลบหรือทำข้อมูลหาย — ตำแหน่งโฟลเดอร์ข้อมูลเปลี่ยนได้ด้วยตัวแปร
 สภาพแวดล้อม `NTAPI_DATA_DIR`
 
+### ระยะเวลาเก็บรักษาข้อมูล
+
+เราเก็บข้อมูลไว้นานเท่าที่จําเป็นต่อการใช้งานเท่านั้น และไม่มีสําเนาข้อความของคุณ
+ไว้นอกเครื่อง
+
+| ข้อมูล | เก็บนานแค่ไหน | ใครเป็นผู้ลบ |
+|---|---|---|
+| ประวัติแชท ไฟล์แนบ การตั้งค่า | จนกว่าคุณจะลบเอง (ลบโปรเจกต์ หรือลบโฟลเดอร์ `C:\NTAPI`) | คุณ |
+| คีย์ API | จนกว่าคุณจะลบเองในหน้าตั้งค่า หรือลบโฟลเดอร์ข้อมูล | คุณ |
+| `%APPDATA%\NTAPI\crash.log` | ไม่มีกําหนดอัตโนมัติ (เขียนต่อท้ายเรื่อย ๆ) จนกว่าคุณจะลบไฟล์เอง | คุณ |
+| รหัสนับจํานวนคนออนไลน์ | อยู่ในหน่วยความจําของเซิร์ฟเวอร์ชั่วครู่ (หน่วยวินาที) แล้วถูกทิ้ง ไม่ถูกเขียนลงฐานข้อมูล | เซิร์ฟเวอร์ (อัตโนมัติ) |
+
+เราไม่มีการเก็บข้อมูลแบบ "เก็บไว้เผื่อใช้ภายหลัง" และไม่มีขั้นตอนที่คุณต้องขอให้เรา
+ลบให้ — คุณลบเองได้ทั้งหมดจากเครื่องของคุณ
+
 ## 2. ข้อมูลที่ส่งออกนอกเครื่องคุณ
 
 | ปลายทาง | ส่งอะไร | ความถี่ | วัตถุประสงค์ |
 |---|---|---|---|
 | `ntapi-presence.onrender.com` (Render, สหรัฐอเมริกา) | รหัสสุ่มที่สร้างใหม่ทุกครั้งที่เปิดโปรแกรม (`crypto.randomUUID`) | ทุก 45 วินาที | นับจำนวนผู้ใช้ที่ออนไลน์อยู่ ไม่มีบัญชี ไม่มีฐานข้อมูล ไม่ผูกกับตัวคุณ |
 | บริษัท AI ที่คุณเลือก (Coarena, Zro, NVIDIA, Token Harbor, LLM7, FreePi ฯลฯ) | ข้อความ ไฟล์ รูป และคีย์ API ของคุณ | ทุกครั้งที่คุณส่งข้อความ | เพื่อให้ได้คำตอบกลับมา — เป็นการติดต่อโดยตรงระหว่างคุณกับบริษัทนั้น |
-| GitHub / jsDelivr | คำขอไฟล์ `sponsor.json` และสื่อโฆษณา, ไฟล์ `latest.yml` เพื่อตรวจอัปเดต | เปิดโปรแกรม / เป็นระยะ | แสดงพื้นที่ผู้สนับสนุนและตรวจหาอัปเดต |
+| GitHub / jsDelivr | คําขอไฟล์ `sponsor.json` และสื่อโฆษณา, ไฟล์ `latest.yml` เพื่อตรวจอัปเดต | เปิดโปรแกรม / เป็นระยะ | แสดงพื้นที่ผู้สนับสนุนและตรวจหาอัปเดต |
+| `open.er-api.com` (ExchangeRate-API, สหรัฐอเมริกา) | **ไม่มีข้อมูลของคุณ** — เป็นคําขออัตราแลกเปลี่ยน USD→THB | เมื่อต้องแสดงค่าใช้จ่ายเป็นเงิน และไม่เกินทุก 6 ชั่วโมง | แปลงค่าใช้จ่ายที่ผู้ให้บริการรายงานเป็นบาท |
 
 **เราไม่ได้ใช้:** Google Analytics, การติดตามพฤติกรรม, fingerprint, หรือ SDK โฆษณา
 ของบุคคลที่สาม — ไม่มีการส่งเนื้อหาแชทของคุณกลับมาที่ผู้พัฒนา
@@ -102,8 +118,14 @@ NTAPI ทำงานกับเบราว์เซอร์ Chrome ผ่า
 
 ## 7. ผู้เยาว์
 
-โปรแกรมนี้เหมาะกับผู้ใช้อายุ 13 ปีขึ้นไป ผู้ใช้อายุต่ำกว่า 20 ปีควรได้รับความยินยอม
-จากผู้ปกครองก่อนใช้งาน และควรระวังการส่งข้อมูลส่วนตัวให้ AI
+1. โปรแกรมนี้ไม่ได้ออกแบบมาสําหรับเด็กเล็ก และเราไม่ตั้งใจเก็บข้อมูลส่วนบุคคล
+   ของเด็กโดยเฉพาะ
+2. **ผู้ใช้อายุต่ํากว่า 10 ปี** ต้องได้รับความยินยอมจากผู้ใช้อํานาจปกครองก่อนใช้งาน
+   ตามมาตรา 20 แห่ง PDPA
+3. **ผู้ใช้อายุ 10–20 ปี** ให้ความยินยอมได้ด้วยตนเอง แต่ควรอ่านประกาศนี้ให้เข้าใจ
+   และควรมีผู้ปกครองช่วยพิจารณา — เราเขียนประกาศนี้ด้วยภาษาง่าย ๆ ด้วยเหตุนี้
+4. ไม่ว่าอายุเท่าใด **อย่าส่งข้อมูลส่วนบุคคลของผู้อื่น ข้อมูลสุขภาพ หรือข้อมูลลับ**
+   ให้ AI โดยไม่ได้รับอนุญาตจากเจ้าของข้อมูล
 
 ## 8. การเปลี่ยนแปลงประกาศ
 
@@ -127,6 +149,19 @@ account, email or usage data from it — only the provider may set cookies, unde
 its own policy.
 To delete everything, remove `C:\NTAPI` and `%APPDATA%\NTAPI`. Questions or
 data requests: cheumklang@gmail.com.
+
+Retention: chats, attachments, settings and keys are kept until **you** delete
+them — there is no copy anywhere else and no automatic expiry. `crash.log` grows
+until you remove it. The online-count ID lives in server memory for seconds and
+is never written to a database.
+
+Currency: when a turn reports a price, the app asks `open.er-api.com` for the
+USD→THB rate (at most once every six hours, no account and no data of yours) so
+the cost can be shown in baht. If the lookup fails, the price stays in dollars.
+
+Minors: under 10 needs a parent's consent; 10–20 may consent themselves
+(PDPA s.20). Never send someone else's personal data, health data or secrets to
+an AI without their permission.
 
 Browser extension: if you install it, it reads only the tab you hand over (text,
 page structure, screenshot) and passes it to the app on your machine, then on to

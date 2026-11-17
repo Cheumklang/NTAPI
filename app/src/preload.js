@@ -27,6 +27,26 @@ contextBridge.exposeInMainWorld('freepi', {
 
   boot: () => ipcRenderer.invoke('app:boot'),
   setPrefs: (patch) => ipcRenderer.invoke('prefs:set', patch),
+  /**
+   * The saved theme, read before the first paint.
+   *
+   * The value arrives as a renderer argument (`--ntapi-theme=light`) because a
+   * synchronous IPC deadlocks whenever the page is loaded without a main process
+   * answering — which is how every window check in scripts/ loads it. Reading an
+   * argument cannot hang, and it is available in <head>, before anything is drawn.
+   */
+  getThemeSync: () => {
+    try {
+      const arg = process.argv.find((a) => typeof a === 'string' && a.startsWith('--ntapi-theme='));
+      if (arg) return arg.slice('--ntapi-theme='.length) || null;
+      // No argument means an older main process, or no main process at all (a page
+      // loaded by one of the window checks). Return nothing rather than make a
+      // synchronous IPC call that blocks forever with nobody listening.
+      return null;
+    } catch {
+      return null;
+    }
+  },
   getSettings: (cwd) => ipcRenderer.invoke('settings:get', { cwd }),
   // MCP config: the app's own <data>/mcp.json, edited from Settings.
   mcpGet: () => ipcRenderer.invoke('mcp:get'),
@@ -72,6 +92,9 @@ contextBridge.exposeInMainWorld('freepi', {
   llm7Status: () => ipcRenderer.invoke('llm7:status'),
   llm7SetKey: (key) => ipcRenderer.invoke('llm7:setKey', { key }),
   llm7ClearKey: () => ipcRenderer.invoke('llm7:clearKey'),
+  deepseekStatus: () => ipcRenderer.invoke('deepseek:status'),
+  deepseekSetKey: (key) => ipcRenderer.invoke('deepseek:setKey', { key }),
+  deepseekClearKey: () => ipcRenderer.invoke('deepseek:clearKey'),
   listSkills: () => ipcRenderer.invoke('skills:list'),
   pickSettingsFolder: () => ipcRenderer.invoke('settings:pickFolder'),
   revealPath: (p) => ipcRenderer.invoke('settings:reveal', p),
@@ -99,6 +122,8 @@ contextBridge.exposeInMainWorld('freepi', {
   abort: (tabId) => ipcRenderer.invoke('prompt:abort', tabId),
   setModel: (tabId, provider, id) => ipcRenderer.invoke('model:set', { tabId, provider, id }),
   fetchUsage: () => ipcRenderer.invoke('usage:fetch'),
+  // USD → THB for the token panel's cost line (memoised for six hours).
+  getUsdThb: () => ipcRenderer.invoke('fx:usdThb'),
 
   // Session toolbox: context meter, undo/redo, compaction, export, shell, @files.
   getStats: (tabId) => ipcRenderer.invoke('session:stats', tabId),
@@ -118,6 +143,9 @@ contextBridge.exposeInMainWorld('freepi', {
   // Terms, privacy notice, security policy and the licence itself, shipped with
   // the installer. The main process holds the allowlist of names.
   openDoc: (name) => ipcRenderer.invoke('app:openDoc', String(name || '')),
+  // Declining the terms closes the program. The renderer asks; the main process
+  // decides how it ends, so no window can be left running afterwards.
+  quitApp: () => ipcRenderer.invoke('app:quit'),
   // The sponsor strip at the bottom of the sidebar. `sponsor:click` counts the
   // click as well as opening the link; the URL itself comes from the main
   // process, so the renderer never chooses where to go.
@@ -163,6 +191,7 @@ contextBridge.exposeInMainWorld('freepi', {
   accountStatus: () => ipcRenderer.invoke('account:status'),
   accountSignIn: () => ipcRenderer.invoke('account:signIn'),
   accountSignOut: () => ipcRenderer.invoke('account:signOut'),
+  resetFreePiSession: () => ipcRenderer.invoke('account:resetSession'),
 
   // In-app GitHub sign-in (browser connect flow).
   authStart: () => ipcRenderer.invoke('auth:start'),

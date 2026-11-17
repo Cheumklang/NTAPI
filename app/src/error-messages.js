@@ -264,6 +264,48 @@
       th: 'LLM7 รับคำขอแล้วไม่ตอบเลย ลองอีกครั้ง ถ้ายังเงียบอยู่ให้เปลี่ยนโมเดล',
     },
 
+    /* ------------------------------- deepseek ------------------------------ */
+    'deepseek.invalid_api_key': {
+      en: 'DeepSeek rejected this API key — open Settings, replace it, then retry.',
+      th: 'DeepSeek ไม่รับคีย์นี้ — เปิดตั้งค่า ใส่คีย์ใหม่ แล้วลองอีกครั้ง',
+    },
+    'deepseek.unauthorized': {
+      en: 'DeepSeek rejected this API key — open Settings, replace it, then retry.',
+      th: 'DeepSeek ไม่รับคีย์นี้ — เปิดตั้งค่า ใส่คีย์ใหม่ แล้วลองอีกครั้ง',
+    },
+    'deepseek.insufficient_balance': {
+      en: 'This DeepSeek account has no balance left — top up at platform.deepseek.com, or pick another provider. Failed turns are not charged.',
+      th: 'บัญชี DeepSeek นี้ไม่เหลือยอดเงิน — เติมที่ platform.deepseek.com หรือเปลี่ยนไปผู้ให้บริการอื่น เทิร์นที่ล้มเหลวไม่ถูกคิดเงิน',
+    },
+    'deepseek.insufficient_quota': {
+      en: 'This DeepSeek account has no balance left — top up at platform.deepseek.com, or pick another provider. Failed turns are not charged.',
+      th: 'บัญชี DeepSeek นี้ไม่เหลือยอดเงิน — เติมที่ platform.deepseek.com หรือเปลี่ยนไปผู้ให้บริการอื่น เทิร์นที่ล้มเหลวไม่ถูกคิดเงิน',
+    },
+    'deepseek.rate_limit': {
+      en: 'DeepSeek is rate limiting this account — wait a moment and retry.',
+      th: 'DeepSeek จำกัดความถี่ของบัญชีนี้อยู่ — รอสักครู่แล้วลองใหม่',
+    },
+    'deepseek.rate_limit_exceeded': {
+      en: 'DeepSeek is rate limiting this account — wait a moment and retry.',
+      th: 'DeepSeek จำกัดความถี่ของบัญชีนี้อยู่ — รอสักครู่แล้วลองใหม่',
+    },
+    'deepseek.model_not_found': {
+      en: 'DeepSeek no longer serves this id. Pick the other model from the dropdown — its catalog is two ids.',
+      th: 'DeepSeek ไม่ให้บริการโมเดลนี้แล้ว เลือกอีกโมเดลจากรายการ เพราะมีอยู่สองรุ่นเท่านั้น',
+    },
+    'deepseek.reasoning_lost': {
+      en: 'DeepSeek lost the reasoning of this chat, which thinking mode needs when tools are on — start a new chat and send the message again.',
+      th: 'DeepSeek ไม่มีบทคิดของแชทนี้ ซึ่งโหมดคิดต้องใช้เมื่อเปิดเครื่องมือ — เริ่มแชทใหม่แล้วส่งข้อความอีกครั้ง',
+    },
+    'stall.deepseek': {
+      en: 'DeepSeek accepted the request and never answered. A long reasoning pass can go quiet for minutes — wait, or start a new chat with a shorter question.',
+      th: 'DeepSeek รับคำขอแล้วยังไม่ตอบ ช่วงคิดยาวอาจเงียบเป็นนาที — รอต่อ หรือเริ่มแชทใหม่ด้วยคำถามที่สั้นลง',
+    },
+    'net.deepseek': {
+      en: 'Could not reach DeepSeek — check your connection and retry.',
+      th: 'เชื่อมต่อ DeepSeek ไม่ได้ — เช็คเน็ตแล้วลองใหม่',
+    },
+
     /* ------------------------------- stalls -------------------------------- */
     'stall.coarena': {
       en: 'Coarena stopped responding — the connection is fine, their side went quiet. Retry, or switch model.',

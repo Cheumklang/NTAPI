@@ -90,6 +90,13 @@ check('the notice calls were actually found', calls > 50, calls);
 check('the delete failure is worded per language',
   /t\('deleteFailed', \{ error: res\?\.error \|\| t\('unknownError'\) \}\)/.test(app));
 check('the delete success is worded per language', /showNotice\(t\('deletedFromDisk'\)\)/.test(app));
+// The bar has its own five-second clock. A second, hard-coded dismissal used to
+// hide it at 2.5 s no matter what — the countdown froze on hover and the bar
+// vanished anyway.
+check(
+  'the delete notice is not dismissed by a second timer',
+  !/deletedFromDisk'\)\);\s*\n?\s*setTimeout\(\(\) => showNotice\(null\)/.test(app)
+);
 check('the attachment path failure carries the file name as a parameter',
   /t\('attachPathFailed', \{ name: file\.name \}\)/.test(app));
 check('the model switch failure is worded per language',
@@ -134,7 +141,13 @@ check('English users keep the raw wording',
   soften('fetch failed', 'en') === 'fetch failed');
 check('a model name is never rewritten',
   soften('model not found') === 'model not found');
-check('the notice is painted after the rewrite', /noticeEl\.textContent = softenTechnical\(text\)/.test(app));
+// The sentence is rewritten before it is painted, and it goes into its own node: the
+// bar also holds a countdown, so writing to the bar itself would wipe the number twice
+// a second (and drop any selection being made to copy the sentence).
+check(
+  'the notice is painted after the rewrite',
+  /textNode\.textContent = softenTechnical\(text\)/.test(app)
+);
 
 /* ---- the main process --------------------------------------------------- */
 

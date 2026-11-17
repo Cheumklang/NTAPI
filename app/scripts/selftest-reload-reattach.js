@@ -54,18 +54,27 @@ function handlerBody(name) {
   return '';
 }
 
-/** Function body by name, brace matched. */
+/** Function body by name, brace matched. Default parameters are skipped first. */
 function body(src, name) {
   const start = src.indexOf(`function ${name}(`);
   if (start === -1) return '';
-  const open = src.indexOf('{', start);
+  let i = src.indexOf('(', start);
+  let parens = 0;
+  for (; i < src.length; i += 1) {
+    if (src[i] === '(') parens += 1;
+    else if (src[i] === ')') {
+      parens -= 1;
+      if (parens === 0) break;
+    }
+  }
+  const open = src.indexOf('{', i);
   if (open === -1) return '';
   let depth = 0;
-  for (let i = open; i < src.length; i += 1) {
-    if (src[i] === '{') depth += 1;
-    else if (src[i] === '}') {
+  for (let j = open; j < src.length; j += 1) {
+    if (src[j] === '{') depth += 1;
+    else if (src[j] === '}') {
       depth -= 1;
-      if (depth === 0) return src.slice(open, i + 1);
+      if (depth === 0) return src.slice(open, j + 1);
     }
   }
   return '';
@@ -91,7 +100,8 @@ check('the comparison normalises paths', /path\.resolve\(liveFile\)/.test(openTa
 
 const boot = body(app, 'boot');
 check('boot exists', boot !== '');
-check('boot applies the state from tab:open', /applyTabState\(res\.state\)/.test(boot));
+check('boot applies the state from tab:open',
+  /applyTabState\(res\.state(?:,\s*\{\s*show:\s*false\s*\})?\)/.test(boot));
 check('boot no longer discards it into a blank view',
   !/views\.set\(view\.state\.tabId,\s*createView/.test(boot));
 

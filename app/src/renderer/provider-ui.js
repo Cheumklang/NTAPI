@@ -7,7 +7,7 @@
  * scripts/selftest-provider-ui.js).
  *
  * Six providers can be registered in one session: FreePi (`free-pi`,
- * `free-pi-defense`), Coarena, Zro, NVIDIA, Token Harbor and LLM7.io.
+ * `free-pi-defense`), Coarena, Zro, NVIDIA, Token Harbor, LLM7.io and DeepSeek.
  * Ads and the FreePi usage meter belong to FreePi; the keyed providers show
  * their own meter instead.
  */
@@ -20,6 +20,7 @@
   const NVIDIA_PROVIDER = 'nvidia';
   const TOKENHARBOR_PROVIDER = 'tokenharbor';
   const LLM7_PROVIDER = 'llm7';
+  const DEEPSEEK_PROVIDER = 'deepseek';
   const SEPARATOR = ' \u00b7 ';
 
   /** Bundled marks, resolved relative to the renderer page. */
@@ -31,6 +32,7 @@
     nvidia: 'assets/providers/nvidia.svg',
     tokenharbor: 'assets/providers/tokenharbor.svg',
     llm7: 'assets/providers/llm7.png',
+    deepseek: 'assets/providers/deepseek.svg',
   };
 
   /** Human-facing provider name; unknown providers pass through unchanged. */
@@ -45,6 +47,7 @@
     if (provider === NVIDIA_PROVIDER) return 'NVIDIA';
     if (provider === TOKENHARBOR_PROVIDER) return 'Token Harbor';
     if (provider === LLM7_PROVIDER) return 'LLM7.io';
+    if (provider === DEEPSEEK_PROVIDER) return 'DeepSeek';
     return String(provider || '');
   }
 
@@ -145,6 +148,7 @@
     if (provider === NVIDIA_PROVIDER) return { showAds: false, meter: 'nvidia' };
     if (provider === TOKENHARBOR_PROVIDER) return { showAds: false, meter: 'tokenharbor' };
     if (provider === LLM7_PROVIDER) return { showAds: false, meter: 'llm7' };
+    if (provider === DEEPSEEK_PROVIDER) return { showAds: false, meter: 'deepseek' };
     return { showAds: false, meter: null };
   }
 

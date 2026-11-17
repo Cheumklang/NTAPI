@@ -9,7 +9,8 @@
  * plain object what to register, which tools to offer and whether ads exist.
  *
  * Pure on purpose: no SDK, no network, no fs. The tests pin down the states the
- * UI can be in (any combination of FreePi, Coarena, Zro, NVIDIA, Token Harbor and LLM7.io).
+ * UI can be in (any combination of FreePi, Coarena, Zro, NVIDIA, Token Harbor,
+ * LLM7.io and DeepSeek).
  */
 
 const { preferredLlm7Model } = require('./llm7');
@@ -20,6 +21,7 @@ const ZRO_PROVIDER = 'zro';
 const NVIDIA_PROVIDER = 'nvidia';
 const TOKENHARBOR_PROVIDER = 'tokenharbor';
 const LLM7_PROVIDER = 'llm7';
+const DEEPSEEK_PROVIDER = 'deepseek';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
 /**
@@ -39,7 +41,7 @@ const FREE_PI_TOOL_NAMES = ['web_search', 'docs_lookup', 'generate_image', 'free
  *   coarena: boolean,
  *   ads: boolean,
  *   freePiTools: boolean,
- *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'llm7'|null,
+ *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'llm7'|'deepseek'|null,
  *   defaultModel: string|null,
  *   available: boolean,
  * }}
@@ -51,12 +53,14 @@ function planProviders({
   nvidiaKey,
   tokenharborKey,
   llm7Key,
+  deepseekKey,
   freePiModels,
   coarenaModels,
   zroModels,
   nvidiaModels,
   tokenharborModels,
   llm7Models,
+  deepseekModels,
 }) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
   const coarenaList = Array.isArray(coarenaModels) ? coarenaModels : [];
@@ -64,6 +68,7 @@ function planProviders({
   const nvidiaList = Array.isArray(nvidiaModels) ? nvidiaModels : [];
   const tokenharborList = Array.isArray(tokenharborModels) ? tokenharborModels : [];
   const llm7List = Array.isArray(llm7Models) ? llm7Models : [];
+  const deepseekList = Array.isArray(deepseekModels) ? deepseekModels : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
   // empty and a session could not pick a model at all.
@@ -73,6 +78,7 @@ function planProviders({
   const nvidia = Boolean(nvidiaKey) && nvidiaList.length > 0;
   const tokenharbor = Boolean(tokenharborKey) && tokenharborList.length > 0;
   const llm7 = Boolean(llm7Key) && llm7List.length > 0;
+  const deepseek = Boolean(deepseekKey) && deepseekList.length > 0;
 
   let defaultProvider = null;
   let defaultModel = null;
@@ -103,6 +109,12 @@ function planProviders({
     // session on a free model known to answer; everything else stays one click
     // away in the picker.
     defaultModel = (preferredLlm7Model(llm7List) || llm7List[0]).id;
+  } else if (deepseek) {
+    // Last on purpose: every provider above is free or has a free lane, and this
+    // one bills a prepaid balance from the first token. A new chat should not
+    // start spending because a key happens to be saved.
+    defaultProvider = DEEPSEEK_PROVIDER;
+    defaultModel = deepseekList[0].id;
   }
 
   return {
@@ -112,11 +124,12 @@ function planProviders({
     nvidia,
     tokenharbor,
     llm7,
+    deepseek,
     ads: freePi,
     freePiTools: freePi,
     defaultProvider,
     defaultModel,
-    available: freePi || coarena || zro || nvidia || tokenharbor || llm7,
+    available: freePi || coarena || zro || nvidia || tokenharbor || llm7 || deepseek,
   };
 }
 
@@ -128,6 +141,7 @@ module.exports = {
   NVIDIA_PROVIDER,
   TOKENHARBOR_PROVIDER,
   LLM7_PROVIDER,
+  DEEPSEEK_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
 };

@@ -17,7 +17,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
-const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER } = require('./provider-plan');
+const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER } = require('./provider-plan');
 const { detectClientVersion, upgradedClientVersion, FALLBACK_CLIENT_VERSION } = require('./client-version');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels, retagModels, setCoarenaFreeTier } = require('./coarena');
 const {
@@ -42,6 +42,11 @@ const {
   llm7ProviderConfig,
   llm7ModelEntries,
 } = require('./llm7');
+const {
+  resolveDeepSeekModels,
+  deepseekProviderConfig,
+  deepseekModelEntries,
+} = require('./deepseek');
 const { providerIdleTimeoutMs } = require('./provider-timeout');
 const { tagPlans } = require('./model-filter');
 const { pruneImages } = require('./image-history');
@@ -136,10 +141,13 @@ async function startGuestSession(baseUrl) {
 }
 
 async function fetchMe(baseUrl, jwt) {
+  // The same ceiling the catalog uses: a stalled request must not hold up
+  // opening a chat, and the guest fallback below already covers no answer.
   const res = await fetch(new URL('/me', baseUrl), {
+    signal: AbortSignal.timeout(4000),
     headers: { authorization: `Bearer ${jwt}`, 'x-freepi-features': 'choice-prompts' },
-  });
-  if (!res.ok) return null;
+  }).catch(() => null);
+  if (!res || !res.ok) return null;
   return res.json().catch(() => null);
 }
 
@@ -220,6 +228,36 @@ function buildProviderConfig(baseUrl, jwt, sessionId, models, name = PROVIDER_NA
 /**
  * Resolve credentials, refreshing a guest token when the stored one is rejected.
  */
+/**
+ * What the account looks like, remembered for a few minutes.
+ *
+ * `fetchMe` is a network round trip, and it ran on every chat opened — one of
+ * the reasons "new chat" felt slow. A plan or guest state does not change
+ * second to second, and only a real answer is remembered: `null` (401 or
+ * offline) must be asked again next time.
+ */
+const AUTH_TTL_MS = 5 * 60 * 1000;
+const authCache = new Map();
+
+async function cachedFetchMe(baseUrl, jwt) {
+  const hit = authCache.get(jwt);
+  if (hit && Date.now() - hit.at < AUTH_TTL_MS) return hit.me;
+  const me = await fetchMe(baseUrl, jwt);
+  if (me) authCache.set(jwt, { at: Date.now(), me });
+  return me;
+}
+
+/** The FreePi model catalog, remembered per token for the same reason. */
+const catalogByJwt = new Map();
+
+async function cachedFetchCatalog(baseUrl, jwt) {
+  const hit = catalogByJwt.get(jwt);
+  if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return hit.value;
+  const value = await fetchCatalog(baseUrl, jwt);
+  if (value && value.models) catalogByJwt.set(jwt, { at: Date.now(), value });
+  return value;
+}
+
 async function resolveAuth(baseUrl, credentialsPath) {
   let jwt = await loadJwt(credentialsPath);
   if (!jwt) {
@@ -228,7 +266,7 @@ async function resolveAuth(baseUrl, credentialsPath) {
     jwt = guest.token;
     return { jwt, guest: true, fresh: true };
   }
-  const me = await fetchMe(baseUrl, jwt);
+  const me = await cachedFetchMe(baseUrl, jwt);
   if (me === null) {
     // 401 or network issue: try a guest session before giving up.
     try {
@@ -512,6 +550,32 @@ function createAdsClient(options) {
  *   setModel()   switch model by id
  *   dispose()
  */
+/**
+ * One provider catalog per key, remembered for ten minutes.
+ *
+ * A catalog is a network call, and opening a chat used to make all of them
+ * again — one after the other. The answer is just a list of model ids, so ten
+ * minutes of staleness costs nothing, while a failed refresh keeps the last
+ * good list instead of emptying the picker.
+ */
+const CATALOG_TTL_MS = 10 * 60 * 1000;
+const catalogCache = new Map();
+
+function cachedCatalog(name, key, run, empty = []) {
+  const clean = String(key || '').trim();
+  if (!clean) return Promise.resolve(empty);
+  const id = `${name}:${clean}`;
+  const hit = catalogCache.get(id);
+  if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return Promise.resolve(hit.value);
+  return run().then(
+    (value) => {
+      catalogCache.set(id, { at: Date.now(), value });
+      return value;
+    },
+    () => (hit ? hit.value : empty)
+  );
+}
+
 async function createFreePiSession(options) {
   const {
     cwd = process.cwd(),
@@ -595,6 +659,7 @@ async function createFreePiSession(options) {
     tokenharborKey = null,
     /** LLM7 API token, or null. Free turbo models plus the paid pro lane. */
     llm7Key = null,
+    deepseekKey = null,
     /**
      * Injectable so tests can simulate "no FreePi login" without touching the
      * real credentials file. Production uses the normal resolver.
@@ -607,6 +672,7 @@ async function createFreePiSession(options) {
   let activeNvidiaKey = nvidiaKey ? String(nvidiaKey).trim() : null;
   let activeTokenHarborKey = tokenharborKey ? String(tokenharborKey).trim() : null;
   let activeLlm7Key = llm7Key ? String(llm7Key).trim() : null;
+  let activeDeepseekKey = deepseekKey ? String(deepseekKey).trim() : null;
 
   const downloadsDirAbs = path.isAbsolute(downloadsDir)
     ? downloadsDir
@@ -622,6 +688,12 @@ async function createFreePiSession(options) {
 
   // FreePi is optional now: a failed login must not stop a Coarena session
   // from opening. The reason is logged so "why am I on Coarena?" is answerable.
+  // Coarena's catalog is a network call of its own and depends on nothing
+  // above, so it starts here and is collected further down — one round trip
+  // saved from the wait before a new chat appears.
+  const coarenaCatalogPromise = coarenaKey
+    ? fetchCoarenaModels()
+    : Promise.resolve({ models: [], source: 'none' });
   let auth = null;
   try {
     auth = await resolveFreePiAuth(baseUrl, credentialsPath);
@@ -630,7 +702,7 @@ async function createFreePiSession(options) {
   }
   if (auth && !auth.jwt) auth = null;
 
-  const catalog = auth ? await fetchCatalog(baseUrl, auth.jwt) : { model: undefined, models: undefined };
+  const catalog = auth ? await cachedFetchCatalog(baseUrl, auth.jwt) : { model: undefined, models: undefined };
   // Every model the account can reach is listed, free and paid alike, each one
   // tagged with its plan. A paid route spends FreePi credits at the multiplier
   // its `usage_x` names, so the row says the cost and the choice is the user's.
@@ -639,7 +711,7 @@ async function createFreePiSession(options) {
 
   // The catalog is fetched once per process (10-minute memory cache) and never
   // rejects: with no network it returns the verified fallback list.
-  const coarenaCatalog = coarenaKey ? await fetchCoarenaModels() : { models: [], source: 'none' };
+  const coarenaCatalog = await coarenaCatalogPromise;
   // Coarena prices every route at zero, including the Claude ones a free key is
   // refused. A list learned from that refusal is the only honest free/paid
   // signal, so it is applied before the catalog is labelled.
@@ -650,21 +722,24 @@ async function createFreePiSession(options) {
   // that draw on a usage pack.
   const zroModels = activeZroKey ? ZRO_MODELS : [];
 
-  // NVIDIA's free endpoints get retired; keep only the ids the live catalog
-  // still lists. Offline keeps the preferred candidate.
-  const nvidiaModels = activeNvidiaKey ? await resolveNvidiaModels(activeNvidiaKey) : [];
-
-  // Token Harbor marks free routes with a `:free` suffix; the rest are wallet.
-  const tokenharborModels = activeTokenHarborKey
-    ? await resolveTokenHarborModels(activeTokenHarborKey)
-    : [];
-
-  // LLM7's catalog is public and carries its own tier and prices, so it is
-  // fetched whenever a token is saved and never trimmed here: the picker labels
-  // the free turbo lane against the paid pro one.
-  const llm7Catalog = activeLlm7Key
-    ? await fetchLlm7Models()
-    : { models: [], source: 'none' };
+  /*
+   * One "new chat" used to fetch every provider's catalog again, one after the
+   * other, before the window could show the tab: FreePi, Coarena, NVIDIA,
+   * Token Harbor, LLM7, DeepSeek — six round trips, seconds of waiting, for a
+   * list of model ids that changes about as often as a provider ships one.
+   *
+   * They are independent, so they go out together, and the answer for each key
+   * is kept for ten minutes. A key the user just saved is a different entry, so
+   * saving one still reads its catalog immediately.
+   */
+  const [nvidiaModels, tokenharborModels, llm7Catalog, deepseekModels] = await Promise.all([
+    cachedCatalog('nvidia', activeNvidiaKey, () => resolveNvidiaModels(activeNvidiaKey)),
+    cachedCatalog('tokenharbor', activeTokenHarborKey, () => resolveTokenHarborModels(activeTokenHarborKey)),
+    activeLlm7Key
+      ? cachedCatalog('llm7', activeLlm7Key, () => fetchLlm7Models(), { models: [], source: 'none' })
+      : Promise.resolve({ models: [], source: 'none' }),
+    cachedCatalog('deepseek', activeDeepseekKey, () => resolveDeepSeekModels(activeDeepseekKey)),
+  ]);
   const llm7Models = activeLlm7Key ? tagPlans(llm7Catalog.models) : [];
 
   const sessionId = sessionManager.getSessionId();
@@ -675,16 +750,18 @@ async function createFreePiSession(options) {
     nvidiaKey: activeNvidiaKey,
     tokenharborKey: activeTokenHarborKey,
     llm7Key: activeLlm7Key,
+    deepseekKey: activeDeepseekKey,
     freePiModels: models,
     coarenaModels,
     zroModels,
     nvidiaModels,
     tokenharborModels,
     llm7Models,
+    deepseekModels,
   });
   if (!plan.available) {
     throw new Error(
-      'No AI provider available — sign in to FreePi or add a Coarena, Zro, NVIDIA, Token Harbor or LLM7 key in Settings.'
+      'No AI provider available — sign in to FreePi or add a Coarena, Zro, NVIDIA, Token Harbor, LLM7 or DeepSeek key in Settings.'
     );
   }
   log(
@@ -693,7 +770,8 @@ async function createFreePiSession(options) {
       `zro=${plan.zro ? zroModels.length : 0}, ` +
       `nvidia=${plan.nvidia ? nvidiaModels.length : 0}, ` +
       `tokenharbor=${plan.tokenharbor ? tokenharborModels.length : 0}, ` +
-      `llm7=${plan.llm7 ? llm7Models.length : 0} (catalog ${llm7Catalog.source})`
+      `llm7=${plan.llm7 ? llm7Models.length : 0} (catalog ${llm7Catalog.source}), ` +
+      `deepseek=${plan.deepseek ? deepseekModels.length : 0}`
   );
 
   // Ads: one per user turn, tagged with the turn id the completion carries.
@@ -760,6 +838,12 @@ async function createFreePiSession(options) {
         pi.registerProvider(
           LLM7_PROVIDER,
           llm7ProviderConfig({ apiKey: activeLlm7Key, models: llm7Models })
+        );
+      }
+      if (plan.deepseek) {
+        pi.registerProvider(
+          DEEPSEEK_PROVIDER,
+          deepseekProviderConfig({ apiKey: activeDeepseekKey, models: deepseekModels })
         );
       }
       // Images accumulate in history every time a model reads one. Trim before
@@ -1579,6 +1663,7 @@ async function createFreePiSession(options) {
   let nvidiaEntries = plan.nvidia ? nvidiaModelEntries(nvidiaModels) : [];
   let tokenharborEntries = plan.tokenharbor ? tokenharborModelEntries(tokenharborModels) : [];
   let llm7Entries = plan.llm7 ? llm7ModelEntries(llm7Models) : [];
+  let deepseekEntries = plan.deepseek ? deepseekModelEntries(deepseekModels) : [];
   let modelList = [];
 
   /**
@@ -1594,6 +1679,7 @@ async function createFreePiSession(options) {
       ...nvidiaEntries,
       ...tokenharborEntries,
       ...llm7Entries,
+      ...deepseekEntries,
     ];
     return modelList;
   }
@@ -1762,6 +1848,34 @@ async function createFreePiSession(options) {
   }
 
   /**
+   * Swap the DeepSeek key while the tab is open. Two ids and a balance: a key
+   * that reaches neither is unregistered rather than left to fail every turn.
+   */
+  async function applyDeepSeekKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(DEEPSEEK_PROVIDER);
+      } catch {}
+    }
+
+    activeDeepseekKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeDeepseekKey) {
+      deepseekEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolveDeepSeekModels(activeDeepseekKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        DEEPSEEK_PROVIDER,
+        deepseekProviderConfig({ apiKey: activeDeepseekKey, models })
+      );
+    }
+    deepseekEntries = deepseekModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
+  /**
    * Re-register the free-pi provider after the backend says our version header
    * is too old. The header is resolved per call now (see currentClientVersion),
    * so this exists for the case where a *newer* CLI appeared on disk while the
@@ -1826,6 +1940,7 @@ async function createFreePiSession(options) {
     applyNvidiaKey,
     applyTokenHarborKey,
     applyLlm7Key,
+    applyDeepSeekKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
 

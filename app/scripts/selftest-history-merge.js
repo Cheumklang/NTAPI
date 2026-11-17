@@ -42,8 +42,22 @@ function check(name, ok) {
 function body(name) {
   const start = src.indexOf(`function ${name}(`);
   if (start === -1) return '';
-  let i = src.indexOf('{', start);
-  if (i === -1) return '';
+  // Skip the parameter list first: a default value such as `options = {}`
+  // contains braces of its own, and counting those ends the body immediately.
+  let i = src.indexOf('(', start);
+  let parens = 0;
+  for (; i < src.length; i += 1) {
+    if (src[i] === '(') parens += 1;
+    else if (src[i] === ')') {
+      parens -= 1;
+      if (parens === 0) {
+        i += 1;
+        break;
+      }
+    }
+  }
+  for (; i < src.length; i += 1) if (src[i] === '{') break;
+  if (i >= src.length) return '';
   let depth = 0;
   for (let j = i; j < src.length; j += 1) {
     if (src[j] === '{') depth += 1;
@@ -188,6 +202,70 @@ check('sending a queued message marks it', /pending:\s*true/.test(queuedBody));
 
 // applyTabState runs on history: it must not drop the live stream either.
 check('applyTabState still resets the live stream', /liveAssistant:\s*null/.test(applyBody));
+
+// --- the running turn is kept across a repaint -----------------------------
+
+/** Load any top-level function in the renderer, for a behavioural check. */
+function loadFn(name) {
+  const start = src.indexOf(`function ${name}(`);
+  if (start === -1) return null;
+  const sigEnd = src.indexOf(')', src.indexOf('(', start));
+  const params = src.slice(src.indexOf('(', start), sigEnd + 1);
+  const fnBody = body(name);
+  if (!fnBody) return null;
+  // eslint-disable-next-line no-new-func
+  return new Function(`return (function ${params} ${fnBody})`)();
+}
+
+const liveTurn = loadFn('mergeLiveTurn');
+if (liveTurn) {
+  const hist = [
+    { kind: 'user', text: 'q1' },
+    { kind: 'assistant', text: 'partial', thinking: '', tools: [] },
+    { kind: 'tool', id: 't1', name: 'bash', text: 'out' },
+  ];
+  const live = [
+    { kind: 'assistant', text: 'partial answer from the stream', thinking: '', tools: [] },
+    { kind: 'assistant', text: '', thinking: '', tools: [{ id: 't2', name: 'read', args: {} }] },
+  ];
+  const merged = liveTurn(hist, live);
+  check(
+    'the running turn keeps what the session has not written',
+    merged.some((m) => m.text === 'partial answer from the stream')
+  );
+  check(
+    'the running turn stays below the question it answers',
+    merged.findIndex((m) => m.kind === 'user') <
+      merged.findIndex((m) => m.text === 'partial answer from the stream')
+  );
+  check(
+    'a tool step of the running turn is kept',
+    merged.some((m) => (m.tools || []).some((t) => t.id === 't2'))
+  );
+  check(
+    'the step the session already has is not drawn twice',
+    merged.filter((m) => m.kind === 'assistant').length === 2
+  );
+  check(
+    'history before the question is untouched',
+    liveTurn(
+      [
+        { kind: 'user', text: 'older' },
+        { kind: 'assistant', text: 'old answer' },
+      ],
+      [{ kind: 'assistant', text: 'new' }]
+    )[1].text === 'old answer'
+  );
+  check('an empty live buffer leaves history alone', liveTurn(hist, []).length === 3);
+} else {
+  check('mergeLiveTurn exists', false);
+}
+
+check(
+  'history for another chat does not switch the screen',
+  /applyTabState\(p\.state, \{ show: p\.state\.tabId === activeTabId \}\)/.test(src)
+);
+check('the transcript draws the running turn', /mergeLiveTurn\(/.test(src));
 
 if (failures) {
   console.log(`\n${failures} check(s) failed`);
