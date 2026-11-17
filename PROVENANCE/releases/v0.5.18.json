@@ -1,0 +1,22 @@
+{
+  "version": "0.5.18",
+  "tag": "v0.5.18",
+  "recordedAt": "2026-11-17T08:30:49.756Z",
+  "git": {
+    "head": "515f110eb2dd2e3746f0e95365d6b119f299c87b",
+    "branch": "master",
+    "tree": "40da2029e3f54bde390c89d42cd031c26399683d",
+    "subject": "internal: กันเทสต์ป้ายสถานะพังบน checkout แบบ CRLF",
+    "authorDate": "2026-11-17T15:19:35+07:00",
+    "commitCount": 319
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44040254974",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.18.exe",
+      "size": 118337255,
+      "sha256": "1939349e3a5cc2f2425e7c7043928b32e41ab15b3c9c6946b4362620cc3721a1"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.18"
+}
