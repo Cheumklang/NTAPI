@@ -1,0 +1,22 @@
+{
+  "version": "0.5.17",
+  "tag": "v0.5.17",
+  "recordedAt": "2026-11-17T06:59:54.430Z",
+  "git": {
+    "head": "7d867806b69922ac5baa56f2455cb08391130b72",
+    "branch": "master",
+    "tree": "58ea32a0d660c6a80d5bd2cebd5606843d894035",
+    "subject": "เพิ่มโมเดล Claude และ Gemini · ชิปสถานะบอกชื่อบริษัท · ซ่อมขนาดหน้าต่าง แถบ % และคิวที่ส่งพร้อมกัน",
+    "authorDate": "2026-11-17T13:43:49+07:00",
+    "commitCount": 307
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.17.exe",
+      "size": 118334466,
+      "sha256": "4e9103b031b3a20200b76eb16b0c0982514fb6b7d6b0de06f644a499f22e775a"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.17"
+}

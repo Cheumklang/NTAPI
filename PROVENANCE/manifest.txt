@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-17T04:13:03.510Z
-entries 66
-head_hash 90f2169fc7d35afa6500244eccafbea01019e60a7f4f6d2a03b7d6d61496190e
-git 9ed05886a276a85e1e9a5c9ef694c00ff0eef82b
+updated 2026-11-17T06:59:54.544Z
+entries 79
+head_hash d12123438058e1a1b2d01ce96c17832662cdbed6daaff57fcc9b659a69e8e55b
+git 7d867806b69922ac5baa56f2455cb08391130b72
 
 latest entries:
-  #59 2026-11-17T02:19:15.168Z session — DeepSeek provider (first-party, paid, thinking on); streaming answer now holds the bottom instead of a single scroll so late layout cannot unpin the reader; queued-message editor got the missing media stylesheet; saved-chat dates are d/m/y with a Buddhist year in Thai; light theme as a token re-point with dark as default and a toggle under Settings
-  #60 2026-11-17T02:34:38.775Z session — fixed a window that opened with nothing usable: a stray closing div closed the sidebar early and pushed the composer off screen; the theme boot script also read the wrong bridge name so a saved theme was ignored; added a markup-nesting selftest and a live check that the shell is usable and the theme switches
-  #61 2026-11-17T02:44:56.913Z session — light mode made some text invisible: every text colour that was a literal (#fff on bold text, buttons, the selected settings tab, the find highlight, and pale tool-chip/shell/guide greys) is now a palette token with separate fill tokens for white-on-accent; the live shell check measures real light-mode contrast and fails at 1:1 if a literal comes back
-  #62 2026-11-17T03:11:02.807Z session — the yellow notice bar never hid because most callers passed no duration: it now defaults to five seconds, shows a live countdown, and pauses while hovered, focused or while its text is selected; the theme now travels to the window as an argument instead of a synchronous IPC that hung every harness loading the page without a main process
-  #63 2026-11-17T03:32:12.813Z session — แก้ 5 บั๊กข้อความหายเมื่อสลับแชท (background history, live stream, settle sync, refreshSessionBusy crash, sidebar) + cache session list + restore paint; ทดสอบกับ DeepSeek จริง ผ่าน
-  #64 2026-11-17T03:43:11.360Z session — แคช fetchMe/แค็ตตาล็อก + Promise.all ทำให้แชทใหม่เร็วขึ้น (4190->1889ms, ซ้ำ 23-221ms) และลบ setTimeout 2.5s ที่ทำให้ notice ลบแชทหายตอน hover
-  #65 2026-11-17T03:56:51.849Z commit — DeepSeek · ธีมสว่าง/มืด · ข้อความไม่หายเมื่อสลับแชท · เปิดแชทใหม่เร็วขึ้น · ปุ่มเฉพาะฟรี · ย้ายการอนุมัติเครื่องมือ · แถบ Context · หน่วยโทเคน
-  #66 2026-11-17T04:13:03.430Z release — Released version 0.5.16
+  #72 2026-11-17T05:43:09.713Z session — tooltip ทั้งแอปตามภาษา (data-i18n-title/aria), ราคา DeepSeek แปลงเป็น ฿ ตามภาษา, ensureUsdThb TTL 6 ชม. + รีเฟรชอัตโนมัติ
+  #73 2026-11-17T05:50:51.747Z session — ป้ายสถานะแชทเปลี่ยนตามภาษา และปุ่มเลือกโมเดลไม่ล้นกรอบในภาษาอังกฤษ (ปรับ flex ของช่องความคิด/โมเดล)
+  #74 2026-11-17T06:03:39.815Z session — แก้ป้าย ฟรี/เสียเงิน ตรงปุ่มเลือกโมเดล: paintModelTrigger ต้องดึง plan จาก modelList (view.model มีแค่ id/name) + reorder menuModels ก่อน paint + เพิ่ม check paidBadge ใน selftest-model-picker
+  #75 2026-11-17T06:09:47.136Z session — ตั้ง min window = 1240x840 (ย่อเล็กกว่านั้นไม่ได้ ขยายได้) + ตรวจยืนยัน tooltip i18n และสกุลเงิน ฿/$ อยู่ในโค้ดครบแล้ว
+  #76 2026-11-17T06:19:50.789Z session — แก้บั๊กระบบคิวส่งพร้อมกัน 2 ข้อความ: prompt:send ตั้ง tab.busy=true ทันที (เดิมรอ agent_start → reconcileBusy เห็น idle ผิดแล้ว drain คิวซ้ำ) + อธิบายปุ่มอัปเดตใช้ได้เฉพาะตัวติดตั้ง
+  #77 2026-11-17T06:33:42.638Z session — เพิ่ม provider Claude (anthropic-messages) และ Gemini (google-generative-ai) ครบทั้ง main/preload/renderer/การตั้งค่า/เทสต์ + เปลี่ยนชิปสถานะเป็นชื่อบริษัทแทนชื่อโมเดล
+  #78 2026-11-17T06:43:50.098Z commit — เพิ่มโมเดล Claude และ Gemini · ชิปสถานะบอกชื่อบริษัท · ซ่อมขนาดหน้าต่าง แถบ % และคิวที่ส่งพร้อมกัน
+  #79 2026-11-17T06:59:54.434Z release — Released version 0.5.17
