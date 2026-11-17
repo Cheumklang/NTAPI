@@ -1,5 +1,19 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **⚠️ ล่าสุด (2026-11-17): ปล่อย v0.5.17 + เก็บงานค้างใน NTAPI-releases**
+> - **v0.5.17 ปล่อยแล้ว** · `latest.yml` = 0.5.17 · `NTAPI-Setup-0.5.17.exe` 118,334,466 bytes
+>   sha256 `4e9103b0…e775a` · prune เหลือรุ่นเดียวบน GitHub · provenance record-release + anchor + verify OK
+> - **บัคกดยกเลิกแล้วขึ้น "Token Harbor stopped responding":** แก้แล้ว — `app/src/turn-abort.js` (ใหม่၊
+>   `isUserAbort`) · `prompt:abort` บันทึก `tab.userAbort` · `reportTabError` ข้าม abort ที่ผู้ใช้สั่ง
+>   · `prompt:takeBack` (ใหม่) = abort + `undo()` → ข้อความที่ยกเลิกหายจาก session จริง
+>   · เทสต์ `selftest-turn-abort.js` · `npm test` **84/84**
+> - **repo ปล่อย (`C:\Users\cheum\OneDrive\เอกสาร\GitHub\NTAPI-releases`):** เคยมีงานค้าง
+>   (README ใหม่ + LICENSE/PRIVACY/SECURITY/TERMS + `screens/app.png`, behind 1 จาก `icon.png`)
+>   → commit + `pull --rebase` + push แล้ว · ตอนนี้ `main...origin/main` สะอาด
+>   · **กติกาใหม่: แก้ไฟล์ใน repo ปล่อยเมื่อไหร่ ต้อง commit+push ที่นั่นด้วยทุกครั้ง**
+>   (ไม่ใช่แค่ repo ซอร์ส) ไม่งั้นจะค้างใน GitHub Desktop
+> - repo ซอร์ส: commit `7d86780` (งานจริง) → `d9fedc6` (บันทึก) · ไม่มีงานค้าง
+
 > **⚠️ ล่าสุด (2026-11-17): เพิ่ม provider Claude + Gemini และชิปบอกชื่อบริษัท**
 > - **Claude** (`app/src/anthropic.js`): `api: 'anthropic-messages'`, base `https://api.anthropic.com`,
 >   คีย์ส่งทาง `x-api-key` + `anthropic-version: 2023-06-01` · family ที่รองรับ

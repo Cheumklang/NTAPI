@@ -3115,3 +3115,12 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
   · `prompt:takeBack` (ใหม่): abort + `undo()` → ข้อความที่ยกเลิกหายจาก session จริง (เดิมค้างเพราะยังอยู่ใน session)
   · เทสต์ `selftest-turn-abort.js` · npm test 84/84
 - หน้าต่างขั้นต่ำ 1240×840 · ชิปสถานะ = ชื่อบริษัท
+
+## 2026-11-17 — เก็บงานค้างใน NTAPI-releases
+
+- repo ปล่อยอยู่ที่ `C:\Users\cheum\OneDrive\เอกสาร\GitHub\NTAPI-releases` (clone แยก ไม่ใช่ repo นี้)
+- ค้าง: README ปรับใหม่ + ไฟล์ใหม่ LICENSE/PRIVACY.md/SECURITY.md/TERMS.md + `screens/app.png`
+  · และ local behind 1 commit (`icon.png` ไอคอนโค้งมน)
+- ทำ: commit → `pull --rebase` → push · ตอนนี้ `main...origin/main` สะอาด ไม่มีค้าง ไม่มี ahead/behind
+- **บทเรียน: ทุกครั้งที่แก้ไฟล์ใน repo ปล่อย (README/เอกสาร/ภาพหน้าจอ) ต้อง commit+push ที่นั่นด้วย**
+  ไม่ใช่แค่ repo ซอร์ส — ไม่งั้น GitHub Desktop จะค้างงานไว้
