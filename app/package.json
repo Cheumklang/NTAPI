@@ -53,7 +53,8 @@
     "check:speed": "electron scripts/check-transcript-speed.js",
     "bench:transcript": "electron scripts/bench-transcript.js",
     "check:shell": "electron scripts/check-shell-usable.js",
-    "check:lost": "electron scripts/repro-message-loss.js"
+    "check:lost": "electron scripts/repro-message-loss.js",
+    "check:sara": "node scripts/check-sara-am.js"
   },
   "author": "Chanathip Cheumklang",
   "license": "UNLICENSED",
