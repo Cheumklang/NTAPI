@@ -4,7 +4,9 @@
  * The row printed `toLocaleString()`, so the same chat read "11/17/2026, 8:46:08 AM"
  * on an English Windows and "17/11/2026" on a Thai one — different order, and a
  * Gregorian year inside Thai text. The app writes its own dates instead:
- * day/month/year in both languages, with the Buddhist era (2569) for Thai.
+ * day/month/year in both languages, with the Buddhist era (2569) for Thai, and a
+ * clock that follows the language — 24-hour with a colon for Thai (08:46 น.),
+ * 12-hour with AM/PM for English (08:46 AM).
  *
  * Run: node scripts/selftest-session-date.js
  */
@@ -45,9 +47,12 @@ function body(src, name) {
 /** The real formatter, with `lang` supplied the way the renderer supplies it. */
 function loadFormatter(lang) {
   const fn = body(app, 'formatSessionDate');
-  if (!fn) return null;
+  const clock = body(app, 'clockText');
+  if (!fn || !clock) return null;
+  // `formatSessionDate` calls the clock helper in the same file, so both bodies
+  // travel together into the sandbox.
   // eslint-disable-next-line no-new-func
-  return new Function('lang', `return (function (date) ${fn});`)(lang);
+  return new Function('lang', `const clockText = function (date) ${clock}; return (function (date) ${fn});`)(lang);
 }
 
 const th = loadFormatter('th');
@@ -61,8 +66,22 @@ if (typeof th === 'function') {
   check('Thai shows day/month/Buddhist year', th(day).startsWith('17/11/2569'));
   check('English shows day/month/calendar year', en(day).startsWith('17/11/2026'));
   check('both keep the day first', th(day).indexOf('17/11') === 0 && en(day).indexOf('17/11') === 0);
-  check('the clock follows in both', / 08\.46/.test(th(day)) && / 08\.46/.test(en(day)));
-  check('Thai marks the time as Thai', /น\.$/.test(th(day)));
+  check('the clock follows in both', / 08:46/.test(th(day)) && / 08:46/.test(en(day)), th(day) + ' | ' + en(day));
+  check('Thai marks the time as Thai', /08:46 น\.$/.test(th(day)), th(day));
+  check('English ends with AM', / 08:46 AM$/.test(en(day)), en(day));
+  check('no dots between hours and minutes', !/\d\.\d/.test(th(day)) && !/\d\.\d/.test(en(day)));
+
+  // The user's other example: 14:21 in Thai, 02:21 PM in English.
+  const afternoon = new Date(2026, 10, 17, 14, 21);
+  check('Thai keeps the 24-hour clock', / 14:21 น\.$/.test(th(afternoon)), th(afternoon));
+  check('English shows a padded 12-hour clock with PM', / 02:21 PM$/.test(en(afternoon)), en(afternoon));
+
+  // Early morning: ตี 2 must read 02:07 AM, not 2:07 AM and never 02:07 PM.
+  const dawn = new Date(2026, 0, 5, 2, 7);
+  check('early morning is AM', / 02:07 AM$/.test(en(dawn)), en(dawn));
+  check('midnight is 12:07 AM, not 00:07', / 12:07 AM$/.test(en(new Date(2026, 0, 5, 0, 7))));
+  check('noon is 12:07 PM, not 00:07', / 12:07 PM$/.test(en(new Date(2026, 0, 5, 12, 7))));
+  check('Thai stays 24-hour at midnight', / 00:07 น\.$/.test(th(new Date(2026, 0, 5, 0, 7))), th(new Date(2026, 0, 5, 0, 7)));
 
   const early = new Date(2026, 0, 5, 0, 7);
   check('single digits are padded', th(early).startsWith('05/01/2569') && en(early).startsWith('05/01/2026'));

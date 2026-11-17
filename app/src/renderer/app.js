@@ -8256,12 +8256,28 @@ function tickResets() {
   setResets(`${countdown} | ${when}`, usageRefillAt.toLocaleString());
 }
 
-/** `13/11 07.00 น.` — short, local, unambiguous enough for a countdown hint. */
+/**
+ * Wall-clock time the way the app writes it: a colon between hours and minutes
+ * in both languages, 24-hour for Thai (`14:21 น.`) and 12-hour with AM/PM for
+ * English (`02:21 PM`, `02:21 AM`) — the shape each set of readers already
+ * expects from the clock in the corner of their screen.
+ */
+function clockText(date) {
+  const p = (n) => String(n).padStart(2, '0');
+  const minutes = p(date.getMinutes());
+  if (lang === 'th') return `${p(date.getHours())}:${minutes} น.`;
+  const h24 = date.getHours();
+  // Midnight and noon are 12, never 00 — the reason 12-hour clocks read
+  // `12:07 AM` rather than `00:07 AM`.
+  const hours = p(h24 % 12 === 0 ? 12 : h24 % 12);
+  return `${hours}:${minutes} ${h24 < 12 ? 'AM' : 'PM'}`;
+}
+
+/** `13/11 10:00 น.` — short, local, unambiguous enough for a countdown hint. */
 function formatShortDateTime(date) {
   const p = (n) => String(n).padStart(2, '0');
   const d = `${p(date.getDate())}/${p(date.getMonth() + 1)}`;
-  const t = `${p(date.getHours())}.${p(date.getMinutes())}`;
-  return lang === 'th' ? `${d} ${t} น.` : `${d} ${t}`;
+  return `${d} ${clockText(date)}`;
 }
 
 /**
@@ -8272,15 +8288,15 @@ function formatShortDateTime(date) {
  * in Thai it printed a Gregorian year in the middle of Thai text. Day/month/year
  * is what the rest of the app already uses, and Thai readers count the year in the
  * Buddhist era — 2026 is 2569 — so the year is converted for `th` only. English
- * keeps the calendar year, and both keep the order.
+ * keeps the calendar year, and both keep the order. The clock follows the
+ * language too, through `clockText`.
  */
 function formatSessionDate(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
   const p = (n) => String(n).padStart(2, '0');
   const year = date.getFullYear() + (lang === 'th' ? 543 : 0);
   const d = `${p(date.getDate())}/${p(date.getMonth() + 1)}/${year}`;
-  const t = `${p(date.getHours())}.${p(date.getMinutes())}`;
-  return lang === 'th' ? `${d} ${t} น.` : `${d} ${t}`;
+  return `${d} ${clockText(date)}`;
 }
 
 /** Paint the credits / percentage / bar from a /me/stats payload. */

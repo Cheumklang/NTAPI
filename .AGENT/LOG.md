@@ -3194,3 +3194,12 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
   (รันเทสต์ในเครื่องผ่านแต่ CI ไม่ผ่าน = ตรวจ line ending ของ checkout ด้วย)
 - `node require()` ใช้ path MSYS `/tmp/...` ไม่ได้ — เขียนไป `C:/NTAPI/outputs/` เท่านั้น
 - ปล่อยรุ่นเสร็จ: `record-release` + `anchor` + `verify` OK (seq 97) · CI เขียว · แจ้ง ntfy แล้ว
+
+## 2026-11-17 — v0.5.19: เวลาในรายการแชท (colon + 12 ชั่วโมงสำหรับอังกฤษ)
+
+- ผู้ใช้ขอ: เวลาที่บันทึกไว้เดิม `14.21 น.` → `14:21 น.` · ภาษาอังกฤษให้เป็น 12 ชั่วโมง `02:21 PM` / `02:21 AM`
+- เพิ่ม `clockText(date)` ใน `app/src/renderer/app.js` — ไทย 24 ชม. + ` น.` · อังกฤษ 12 ชม. + AM/PM (เติมศูนย์หน้า,
+  เที่ยงคืน/เที่ยงวันเป็น 12)
+- `formatSessionDate` และ `formatShortDateTime` เรียก `clockText` — ไม่มี `getHours()` เหลือในไฟล์
+- `scripts/selftest-session-date.js`: `loadFormatter` ใส่ `clockText` เข้า sandbox + เพิ่มเคส 7 ข้อ (บ่าย/ตี 2/เที่ยงคืน/เที่ยงวัน/ไม่มีจุด)
+- `npm test` 85/85 · ปล่อย `0.5.19` (commit + tag + push ตามคําสั่ง “ส่งแค่อัปเดต”)
