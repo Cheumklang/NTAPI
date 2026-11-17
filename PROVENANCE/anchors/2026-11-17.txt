@@ -1,0 +1,6 @@
+date 2026-11-17T04:13:03.510Z
+entries 66
+head_seq 66
+head_hash 90f2169fc7d35afa6500244eccafbea01019e60a7f4f6d2a03b7d6d61496190e
+git_head 9ed05886a276a85e1e9a5c9ef694c00ff0eef82b
+verify must print this head_hash

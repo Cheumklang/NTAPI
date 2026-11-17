@@ -1,0 +1,22 @@
+{
+  "version": "0.5.16",
+  "tag": "v0.5.16",
+  "recordedAt": "2026-11-17T04:13:03.426Z",
+  "git": {
+    "head": "9ed05886a276a85e1e9a5c9ef694c00ff0eef82b",
+    "branch": "master",
+    "tree": "d90f318cad5b2f02cae9fe8b038ed66e59c266a5",
+    "subject": "DeepSeek · ธีมสว่าง/มืด · ข้อความไม่หายเมื่อสลับแชท · เปิดแชทใหม่เร็วขึ้น · ปุ่มเฉพาะฟรี · ย้ายการอนุมัติเครื่องมือ · แถบ Context · หน่วยโทเคน",
+    "authorDate": "2026-11-17T10:56:51+07:00",
+    "commitCount": 304
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions?query=tag%3Av0.5.16",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.16.exe",
+      "size": 118324689,
+      "sha256": "6f13f31f798a93a6b08d3be0727120e9af35851fac7b9c620d6cf9a70068c136"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.16"
+}

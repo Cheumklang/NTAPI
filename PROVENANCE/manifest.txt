@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-16T21:00:47.540Z
-entries 43
-head_hash 852f80ef07c55daad4f0c75c69a5527a0f657429462e5ef6b96e2aa96ca24dd0
-git 91b4cf4d3d0f3005cc98fe4f217d1d1ce7fd446f
+updated 2026-11-17T04:13:03.510Z
+entries 66
+head_hash 90f2169fc7d35afa6500244eccafbea01019e60a7f4f6d2a03b7d6d61496190e
+git 9ed05886a276a85e1e9a5c9ef694c00ff0eef82b
 
 latest entries:
-  #36 2026-11-16T19:31:16.256Z commit — internal: บันทึกหลักฐานการแก้เทิร์นจบเงียบเมื่อเจอ 429
-  #37 2026-11-16T19:32:11.495Z commit — internal: ปิดท้ายสายหลักฐานรอบแก้เทิร์นจบเงียบ
-  #38 2026-11-16T19:37:33.394Z session — ถอดระบบสลับโมเดลอัตโนมัติออกตามคำสั่งผู้ใช้: ลบ runModelFallback/switchToNextFreeModel/fallbackState/announceFallbackExhausted/resumeAgentTurn/dropFailedAssistant, IPC agent:fallback, notice.switched, fallback.exhausted, tab.fallback; model-fallback.js เหลือ isLimitError/isTransientThrottle/turnFailure; 429 ที่สิทธิ์หมดแจ้งเตือนอย่างเดียวไม่สลับโมเดล; npm test 72/72
-  #39 2026-11-16T19:44:25.643Z session — ถอดระบบสลับโมเดลอัตโนมัติทั้งหมดตามคำสั่งผู้ใช้: ลบ fallback pool/IPC agent:fallback/notice.switched/fallback.exhausted และ LLM7 empty-answer recovery (empty-answer.js + เทสต์, notice.emptyRepeat/emptySwitched/switchFailed, tab.emptyAnswer/emptyRetryCount/lastPromptText); เหลือแจ้งเตือนอย่างเดียว (fp.hourly_ceiling + noticeReasoningOverflow); npm test 71/71 ผ่าน
-  #40 2026-11-16T19:44:26.289Z commit — ถอดระบบสลับโมเดลอัตโนมัติ เหลือแจ้งเตือนอย่างเดียวเมื่อสิทธิ์หมดหรือโมเดลตอบว่าง
-  #41 2026-11-16T20:52:20.799Z commit — ป้ายสถานะแสดงชื่อโมเดลเต็มไม่ตัด · ลิงก์สมัคร FreePi มีรหัสแนะนำของผู้พัฒนา ระบุชัดในเอกสารสิทธิ์
-  #42 2026-11-16T20:52:21.364Z commit — internal: bump 0.5.15
-  #43 2026-11-16T21:00:47.463Z release — Released version 0.5.15
+  #59 2026-11-17T02:19:15.168Z session — DeepSeek provider (first-party, paid, thinking on); streaming answer now holds the bottom instead of a single scroll so late layout cannot unpin the reader; queued-message editor got the missing media stylesheet; saved-chat dates are d/m/y with a Buddhist year in Thai; light theme as a token re-point with dark as default and a toggle under Settings
+  #60 2026-11-17T02:34:38.775Z session — fixed a window that opened with nothing usable: a stray closing div closed the sidebar early and pushed the composer off screen; the theme boot script also read the wrong bridge name so a saved theme was ignored; added a markup-nesting selftest and a live check that the shell is usable and the theme switches
+  #61 2026-11-17T02:44:56.913Z session — light mode made some text invisible: every text colour that was a literal (#fff on bold text, buttons, the selected settings tab, the find highlight, and pale tool-chip/shell/guide greys) is now a palette token with separate fill tokens for white-on-accent; the live shell check measures real light-mode contrast and fails at 1:1 if a literal comes back
+  #62 2026-11-17T03:11:02.807Z session — the yellow notice bar never hid because most callers passed no duration: it now defaults to five seconds, shows a live countdown, and pauses while hovered, focused or while its text is selected; the theme now travels to the window as an argument instead of a synchronous IPC that hung every harness loading the page without a main process
+  #63 2026-11-17T03:32:12.813Z session — แก้ 5 บั๊กข้อความหายเมื่อสลับแชท (background history, live stream, settle sync, refreshSessionBusy crash, sidebar) + cache session list + restore paint; ทดสอบกับ DeepSeek จริง ผ่าน
+  #64 2026-11-17T03:43:11.360Z session — แคช fetchMe/แค็ตตาล็อก + Promise.all ทำให้แชทใหม่เร็วขึ้น (4190->1889ms, ซ้ำ 23-221ms) และลบ setTimeout 2.5s ที่ทำให้ notice ลบแชทหายตอน hover
+  #65 2026-11-17T03:56:51.849Z commit — DeepSeek · ธีมสว่าง/มืด · ข้อความไม่หายเมื่อสลับแชท · เปิดแชทใหม่เร็วขึ้น · ปุ่มเฉพาะฟรี · ย้ายการอนุมัติเครื่องมือ · แถบ Context · หน่วยโทเคน
+  #66 2026-11-17T04:13:03.430Z release — Released version 0.5.16
