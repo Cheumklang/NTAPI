@@ -3104,3 +3104,14 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - npm test 83/83 · check:buy ผ่าน
 - ชิปสถานะเปลี่ยนเป็นชื่อบริษัท (tooltip = บริษัท · โมเดล) แทนชื่อโมเดล
 - ยังไม่ commit / ยังไม่ bump
+
+## 2026-11-17 — ปล่อย v0.5.17
+
+- commit 7d86780 + tag v0.5.17 → CI ปล่อยแล้ว · `latest.yml` = 0.5.17
+- `NTAPI-Setup-0.5.17.exe` 118,334,466 bytes · sha256 4e9103b0…e775a · เหลือรุ่นเดียวบน GitHub (prune ผ่าน)
+- **บัคกดยกเลิก (offerUndoSend):** abort ของผู้ใช้ถูกอ่านเป็น stall → ขึ้น "Token Harbor stopped responding"
+  · แก้: `app/src/turn-abort.js` (`isUserAbort`) + `prompt:abort` บันทึก `tab.userAbort`
+  · `reportTabError` ข้าม abort ที่ผู้ใช้สั่งเอง
+  · `prompt:takeBack` (ใหม่): abort + `undo()` → ข้อความที่ยกเลิกหายจาก session จริง (เดิมค้างเพราะยังอยู่ใน session)
+  · เทสต์ `selftest-turn-abort.js` · npm test 84/84
+- หน้าต่างขั้นต่ำ 1240×840 · ชิปสถานะ = ชื่อบริษัท
