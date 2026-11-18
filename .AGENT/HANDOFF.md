@@ -11,7 +11,8 @@
 > - **เทสต์:** เพิ่ม 4 ข้อใน `scripts/selftest-browser-extension.js` (ไม่สร้างหน้าต่างตอน list · เก็บ id · ใช้ซ้ำ) → `npm test` **87/87**
 > - **ปล่อยรุ่น:** `v0.5.23` CI เขียว · `latest.yml` = 0.5.23 · Setup 118,339,105 bytes ·
 >   prune เหลือรุ่นเดียว (v0.5.22 → 404) · PROVENANCE record-release + anchor + verify OK
-> - **ค้าง:** `AGENTS.md` (กฎ bash ใหม่) ยังไม่ commit — รอผู้ใช้สั่ง
+> - **ค้าง:** ไม่มี — ทุกอย่าง commit + push แล้ว (`eac095a` · `11b373c` · `3c2c21e`) · `verify` = `OK 126 entries`
+> - **ผู้ใช้ทำแล้ว:** รีโหลดส่วนขยายที่ `chrome://extensions` (ขึ้น 0.1.1) — รอตรวจว่าหน้าต่างไม่เด้งซ้ำ
 > - **ขั้นถัดไปของผู้ใช้:** เปิด `chrome://extensions` → กดรีโหลดการ์ด NTAPI Browser Bridge (ต้องขึ้น 0.1.1)
 
 
