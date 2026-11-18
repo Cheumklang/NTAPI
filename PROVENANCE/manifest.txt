@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-17T09:57:14.340Z
-entries 116
-head_hash 252d48c584f7cda41ac7103b73c6668b20b6c130dd4936b976c3455a59d98a3d
-git a850d27c3c41a4bcf4d54651a3203076914f999c
+updated 2026-11-18T10:59:21.434Z
+entries 120
+head_hash 50df81132cdcb54115287608e03cf591308ce5a54ac55946c5b81111348c63c7
+git 813486529387869808f7111d5379ebbdfa414b35
 
 latest entries:
-  #109 2026-11-17T09:34:16.537Z session — v0.5.21 terms card language switch
-  #110 2026-11-17T09:34:17.200Z commit — การณ์: สลับภาษาในกล่องยอมรับเงื่อนไข และภาษาเริ่มต้นตาม Windows
-  #111 2026-11-17T09:37:28.363Z release — Released version 0.5.21
-  #112 2026-11-17T09:37:29.296Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.21
   #113 2026-11-17T09:37:32.477Z commit — internal: [prune-releases keep=v0.5.21 apply tags] ลบรุ่นเก่าออกจากหน้าโหลด
   #114 2026-11-17T09:53:13.450Z session — v0.5.22 wider terms card
   #115 2026-11-17T09:53:14.035Z commit — การณ์: ขยายกล่องก่อนเริ่มใช้งานให้ข้อความไม่ตัดบรรทัด
   #116 2026-11-17T09:57:14.221Z release — Released version 0.5.22
+  #117 2026-11-17T09:57:15.152Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.22
+  #118 2026-11-17T09:57:18.883Z commit — internal: [prune-releases keep=v0.5.22 apply tags] ลบรุ่นเก่าออกจากหน้าโหลด
+  #119 2026-11-18T10:44:19.437Z commit — แก้หน้าต่างเบราว์เซอร์ไม่ให้เด้งแท็บเปล่าเองซ้ำ ๆ ขณะสั่งงานเบราว์เซอร์
+  #120 2026-11-18T10:59:21.308Z release — Released version 0.5.23
