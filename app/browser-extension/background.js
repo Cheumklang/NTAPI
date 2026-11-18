@@ -23,6 +23,33 @@ let wantConnection = true;
 /** Tabs the agent created in the NTAPI window (kept so `close` can tidy up). */
 let agentWindowId = null;
 
+/**
+ * The id above lives in memory, and the MV3 service worker is torn down after a
+ * few idle seconds. Without a saved copy every restart looked like "no agent
+ * window yet" and quietly opened a fresh about:blank window. Session storage is
+ * wiped when the browser closes, which is exactly the lifetime we want.
+ */
+const AGENT_WINDOW_KEY = 'agentWindowId';
+
+async function readSavedWindowId() {
+  try {
+    const area = chrome.storage.session || chrome.storage.local;
+    const found = await area.get(AGENT_WINDOW_KEY);
+    const id = found ? found[AGENT_WINDOW_KEY] : null;
+    return Number.isInteger(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveWindowId(id) {
+  agentWindowId = Number.isInteger(id) ? id : null;
+  try {
+    const area = chrome.storage.session || chrome.storage.local;
+    await area.set({ [AGENT_WINDOW_KEY]: agentWindowId });
+  } catch {}
+}
+
 /* ------------------------------------------------------------------ badge */
 
 function setBadge(text, color, title) {
@@ -203,30 +230,77 @@ async function handle(cmd, args) {
 
 const WINDOW_TITLE = 'NTAPI · Browser';
 
-/** The dedicated window the agent drives, created on demand. */
-async function ensureWindow() {
+/**
+ * The agent window, if one is still alive — never creates one.
+ * Read-only commands use this so asking what tabs exist cannot spawn a window.
+ */
+async function findWindow() {
   if (agentWindowId !== null) {
     try {
       await chrome.windows.get(agentWindowId);
       return agentWindowId;
     } catch {
-      agentWindowId = null;
+      await saveWindowId(null);
     }
   }
-  const win = await chrome.windows.create({ url: 'about:blank', focused: false, width: 1280, height: 860 });
-  agentWindowId = win.id;
-  if (win.tabs && win.tabs[0]) await chrome.tabs.update(win.tabs[0].id, { url: 'about:blank' }).catch(() => {});
-  return agentWindowId;
+  const saved = await readSavedWindowId();
+  if (saved !== null) {
+    try {
+      await chrome.windows.get(saved);
+      agentWindowId = saved;
+      return saved;
+    } catch {
+      await saveWindowId(null);
+    }
+  }
+  return null;
+}
+
+/** The window the user is looking at — where a new agent tab belongs when we
+ *  have no agent window of our own. Adopting it beats opening a second window. */
+async function userWindowId() {
+  try {
+    const last = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
+    if (last && Number.isInteger(last.id)) return last.id;
+  } catch {}
+  try {
+    const all = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    if (all.length) return all[0].id;
+  } catch {}
+  return null;
+}
+
+/** The dedicated window the agent drives, created only when a page must open. */
+async function ensureWindow(url) {
+  const existing = await findWindow();
+  if (existing !== null) return existing;
+  const win = await chrome.windows.create({
+    url: typeof url === 'string' && url ? url : 'about:blank',
+    focused: false,
+    width: 1280,
+    height: 860,
+  });
+  await saveWindowId(win.id);
+  return win.id;
 }
 
 /** The tab a command targets: explicit id, else the agent's last active tab. */
 async function resolveTab(tabId) {
   if (Number.isInteger(tabId)) return tabId;
-  const winId = await ensureWindow();
-  const tabs = await chrome.tabs.query({ windowId: winId });
-  const active = tabs.find((t) => t.active) || tabs[0];
-  if (!active) throw Object.assign(new Error('No agent tab is open.'), { code: 'NO_TAB' });
-  return active.id;
+  const winId = await findWindow();
+  if (winId !== null) {
+    const tabs = await chrome.tabs.query({ windowId: winId });
+    const active = tabs.find((t) => t.active) || tabs[0];
+    if (active) return active.id;
+  }
+  // No agent window: fall back to whatever the user has in front, rather than
+  // opening a blank window just to have something to point at.
+  const fallback = await userWindowId();
+  if (fallback !== null) {
+    const tabs = await chrome.tabs.query({ windowId: fallback, active: true });
+    if (tabs[0]) return tabs[0].id;
+  }
+  throw Object.assign(new Error('No agent tab is open.'), { code: 'NO_TAB' });
 }
 
 /** Page events (dialogs) only arrive once the domain is enabled. */
@@ -401,12 +475,13 @@ async function settleAfterAction(tabId) {
 /* ------------------------------------------------------------ read commands */
 
 async function listTabs(args) {
-  const winId = await ensureWindow();
+  // Listing is read-only: never create a window to answer it.
+  const winId = (await findWindow()) ?? (await userWindowId());
   if (args.focus && Number.isInteger(args.tab)) {
     await chrome.tabs.update(args.tab, { active: true }).catch(() => {});
-    await chrome.windows.update(winId, { focused: true }).catch(() => {});
+    if (winId !== null) await chrome.windows.update(winId, { focused: true }).catch(() => {});
   }
-  const tabs = await chrome.tabs.query({ windowId: winId });
+  const tabs = winId === null ? [] : await chrome.tabs.query({ windowId: winId });
   return {
     tabs: tabs.map((t) => ({ id: t.id, title: t.title || '', url: t.url || '', active: Boolean(t.active) })),
   };
@@ -416,7 +491,22 @@ async function openUrl(args) {
   if (typeof args.url !== 'string' || !args.url) {
     throw Object.assign(new Error('`url` is required.'), { code: 'BAD_ARGS' });
   }
-  const winId = await ensureWindow();
+  const winId = await ensureWindow(args.url);
+  // When the window was just created it already holds this URL; reuse that tab
+  // instead of opening a second copy next to an about:blank leftover.
+  const existing = await chrome.tabs.query({ windowId: winId });
+  const reusable = existing.find((t) => !t.url || t.url === 'about:blank');
+  if (reusable) {
+    const tab = await chrome.tabs.update(reusable.id, { url: args.url, active: Boolean(args.foreground) });
+    await waitForLoad(tab.id);
+    return tabSummary(tab.id);
+  }
+  // A freshly created window already holds the URL — hand back that tab.
+  const opened = existing.find((t) => t.url === args.url);
+  if (opened) {
+    await waitForLoad(opened.id);
+    return tabSummary(opened.id);
+  }
   const tab = await chrome.tabs.create({ url: args.url, windowId: winId, active: Boolean(args.foreground) });
   await waitForLoad(tab.id);
   return tabSummary(tab.id);
@@ -638,6 +728,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 /** A tab the agent was working in can vanish without the app ever asking. */
+chrome.windows.onRemoved.addListener((windowId) => {
+  if (windowId === agentWindowId) saveWindowId(null);
+});
+
 chrome.tabs.onRemoved.addListener((tabId) => {
   attached.delete(tabId);
   inflight.delete(tabId);
@@ -670,8 +764,9 @@ async function listRealTabs(args = {}) {
       if (target) await chrome.windows.update(target.windowId, { focused: true });
     } catch {}
   }
+  const agentWin = await findWindow();
   return {
-    windowId: agentWindowId,
+    windowId: agentWin,
     tabs: tabs.map((tab) => ({
       id: tab.id,
       windowId: tab.windowId,
@@ -680,7 +775,7 @@ async function listRealTabs(args = {}) {
       active: Boolean(tab.active),
       pinned: Boolean(tab.pinned),
       audible: Boolean(tab.audible),
-      agent: agentWindowId !== null && tab.windowId === agentWindowId,
+      agent: agentWin !== null && tab.windowId === agentWin,
       // A blank tab is a convenience the agent opens for itself, never a page the
       // user chose. Offering one to hand over would be handing over nothing.
       blank: !tab.url || tab.url === 'about:blank',

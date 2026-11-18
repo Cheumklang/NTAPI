@@ -41,6 +41,7 @@ function makeChrome() {
   const eventListeners = [];
   const messageListeners = [];
   const tabRemovedListeners = [];
+  const windowRemovedListeners = [];
   const sockets = [];
 
   /** A WebSocket stand-in the test can drive by hand. */
@@ -73,7 +74,19 @@ function makeChrome() {
       setBadgeBackgroundColor: () => {},
       setTitle: () => {},
     },
-    storage: { local: { get: async () => ({ token: '123456' }), set: async () => {} } },
+    storage: {
+      local: { get: async () => ({ token: '123456' }), set: async () => {} },
+      session: {
+        get: async (key) => {
+          const store = state.sessionStore || {};
+          return store[key] === undefined ? {} : { [key]: store[key] };
+        },
+        set: async (obj) => {
+          state.sessionStore = Object.assign(state.sessionStore || {}, obj);
+          record('storage.session.set', obj);
+        },
+      },
+    },
     alarms: { create: () => {}, onAlarm: { addListener: () => {} } },
     runtime: {
       onMessage: { addListener: (fn) => messageListeners.push(fn) },
@@ -82,8 +95,14 @@ function makeChrome() {
     },
     windows: {
       get: async (id) => ({ id }),
-      create: async () => ({ id: 3, tabs: [{ id: 7 }] }),
+      create: async (opts) => {
+        record('windows.create', opts || {});
+        return { id: 3, tabs: [{ id: 7 }] };
+      },
       update: async (id, opts) => record('windows.update', { id, ...opts }),
+      getAll: async () => state.allWindows || [{ id: 1 }],
+      getLastFocused: async () => ({ id: (state.allWindows && state.allWindows[0] && state.allWindows[0].id) || 1 }),
+      onRemoved: { addListener: (fn) => windowRemovedListeners.push(fn) },
     },
     tabs: {
       query: async (info) => (info && Number.isInteger(info.windowId) ? state.tabs : state.allTabs || state.tabs),
@@ -190,6 +209,28 @@ async function main() {
   // --- tabs ---
   const tabs = await handle('tabs', {});
   check('tabs lists the agent window', tabs.tabs.length === 1 && tabs.tabs[0].url === 'https://example.com');
+
+  // --- no stray about:blank windows ---
+  // The MV3 worker is torn down after a few idle seconds, so a listing that
+  // arrives with no window in memory used to open a fresh about:blank one.
+  const lister = loadWorker();
+  const listed = await lister.handle('tabs', {});
+  check(
+    'listing tabs never opens a window',
+    lister.calls.every((c) => c.name !== 'windows.create'),
+    `windows.create=${lister.calls.filter((c) => c.name === 'windows.create').length}`
+  );
+  check('listing tabs still finds the user window', listed.tabs.length === 1);
+
+  const saver = loadWorker();
+  await saver.handle('open', { url: 'https://a.example' });
+  check('opening a page saves the window id', (saver.state.sessionStore || {}).agentWindowId === 3);
+  await saver.handle('open', { url: 'https://b.example' });
+  check(
+    'a second open reuses that window',
+    saver.calls.filter((c) => c.name === 'windows.create').length === 1,
+    `windows.create=${saver.calls.filter((c) => c.name === 'windows.create').length}`
+  );
 
   // --- read ---
   state.innerText = 'A'.repeat(100);
