@@ -2327,3 +2327,21 @@ AI ขับ Chrome ของผู้ใช้เองได้ผ่านส
    แก้: ตัด ledger กลับ (`sed -i '140,$d'`) + ตัดบรรทัด anchor สุดท้าย + ลบ JSON แล้วบันทึกครั้งเดียวพร้อม `--asset` หลายตัว
 3. **ดาวน์โหลด asset ผ่าน API พร้อม `Authorization`** ได้ไฟล์ 1,698 ไบต์ (หน้า error) ไม่ใช่ 118 MB
    → ใช้ `releases/latest/download/<name>` (repo public) แล้วค่อยคิด sha256
+
+## ปล่อย 0.5.26 แล้ว (2026-11-20) — `/skill` ไม่ขึ้นสกิล (ผู้ใช้จริงบน Windows แจ้ง)
+
+- สาเหตุ: `skills:list` เดิมสแกน 4 โฟลเดอร์ใน home แบบระดับเดียว และใช้ `Dirent.isDirectory()`
+  → สกิลที่ติดตั้งเป็น symlink/junction (วิธีที่พบบ่อยบน Windows) หายทั้งก้อน
+  · สกิลที่อยู่ในโปรเจกต์ (`<cwd>/skills`, `.pi/skills`, `.agents/skills`, `.claude/skills`) ไม่ถูกค้นเลย
+  · สกิลในแพ็ก (`skills/<pack>/<name>/SKILL.md`) อยู่ลึกเกิน 1 ระดับจึงไม่เจอ
+- แก้: `skillRoots(cwd)` รับ cwd + เพิ่ม `~/.claude/skills` · `scanSkills()` เดิน 3 ระดับ ตาม symlink
+  ด้วย `statSync` ข้าม `node_modules/.git/dist/build` dedupe realpath+ชื่อ · โฟลเดอร์ที่มี `SKILL.md` ถือเป็นสกิล (ไม่เดินต่อ)
+  · `extraSkillPaths` เพิ่มโฟลเดอร์พ่อของทุกสกิลที่เจอ เพื่อให้ SDK (สแกนระดับเดียว) เห็นสกิลในแพ็กด้วย
+- `/skill` ที่ว่างเปล่าไม่ปิดเมนูเงียบอีก: ขึ้นบรรทัดบอกโฟลเดอร์ที่ค้น (i18n: `skillsNone`/`skillsNoneWhere`/`skillsNoneMatch`)
+  · `renderSlashMenu`/`moveSlashSelection`/`runSlashCommand` รองรับรายการชนิด `info` (กดเลือกไม่ได้)
+- เทสต์ใหม่ `scripts/selftest-skill-scan.js` — อ่าน `skillRoots`/`readSkillMeta`/`scanSkills` ออกมาจาก `main.js` ตรงๆ
+  แล้วสร้างสกิลจำลอง (nested 3 ชั้น, ลึก 4 ชั้น, symlink, node_modules, ซ้ำทาง realpath) · เพิ่มเข้า `run-unit-tests.js`
+  ผล: `npm test` 86/88 (2 ตัว fail บน Linux เรื่อง path Windows — เดิม)
+- CI `Release` run 44723249656 success · `NTAPI-Setup-0.5.26.exe` 118,340,076 B · sha256 `57d63e7ea493207a22a400f936499d625c1c63924ee5ca0ca40efd80d9660ec5`
+- ลบ release เก่า `v0.5.25` (id 452373125) → เหลือ `v0.5.26` เดียว · ลบไฟล์ที่โหลดมาคิด sha256 แล้ว
+- **หมายเหตุ**: ถ้าผู้ใช้ยังไม่เห็นสกิล ให้ขอ screenshot บรรทัด "ค้นหาใน: ..." + เวอร์ชัน — จะรู้ทันทีว่าเก็บ SKILL.md ไว้ที่ไหน

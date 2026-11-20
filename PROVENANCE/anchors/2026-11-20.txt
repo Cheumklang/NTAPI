@@ -21,3 +21,9 @@ head_seq 140
 head_hash c2e06136cdea6429242ccf08f93d891b1c536d7ef6a0c69bfbeb1cfa605e4f3c
 git_head f81cb46114db571d270647820f36ac174deedac8
 verify must print this head_hash
+date 2026-11-20T10:58:24.127Z
+entries 144
+head_seq 144
+head_hash 9e703ec9c8fa1a950c63990701ceeba4b2563c4e783b9467a78f306eaac7049c
+git_head 1eb8b243b0a0b90d32897832868bf320bb6d87a3
+verify must print this head_hash

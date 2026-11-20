@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-20T07:10:26.937Z
-entries 140
-head_hash c2e06136cdea6429242ccf08f93d891b1c536d7ef6a0c69bfbeb1cfa605e4f3c
-git f81cb46114db571d270647820f36ac174deedac8
+updated 2026-11-20T10:58:24.127Z
+entries 144
+head_hash 9e703ec9c8fa1a950c63990701ceeba4b2563c4e783b9467a78f306eaac7049c
+git 1eb8b243b0a0b90d32897832868bf320bb6d87a3
 
 latest entries:
-  #133 2026-11-20T05:37:35.807Z commit — internal: เพิ่มบันทึก session ที่ค้างไม่ได้ commit — ทำให้ provenance verify ผ่านใน CI
-  #134 2026-11-20T05:41:50.590Z release — Released version 0.5.24
-  #135 2026-11-20T05:41:54.933Z commit — internal: บันทึกหลักฐานปล่อยรุ่น v0.5.24
-  #136 2026-11-20T05:45:27.186Z commit — internal: บันทึกหลักฐานหลัง commit
   #137 2026-11-20T06:05:53.505Z session — แก้ ntapi.desktop ให้เรียก electron ตรง ๆ แทนสคริปต์; ตรวจเปิดได้จริง
   #138 2026-11-20T07:06:46.573Z commit — feat: รวม turn เดียวเป็นบับเบิลเดียว + ข้อความผู้ใช้ชิดขวา + โชว์ tool/note ล่าสุด (0.5.25)
   #139 2026-11-20T07:06:46.743Z commit — chore: ledger + คืนสิทธิ์ execute ให้ post-commit hook
   #140 2026-11-20T07:10:26.802Z release — Released version 0.5.25
+  #141 2026-11-20T07:10:47.303Z commit — docs: HANDOFF 0.5.25 + ledger release record
+  #142 2026-11-20T10:55:04.265Z commit — fix: /skill ไม่ขึ้นสกิลบน Windows — ตาม symlink/junction, ค้น workspace, เดิน 3 ระดับ + บอกโฟลเดอร์ที่ค้น (0.5.26)
+  #143 2026-11-20T10:55:04.482Z commit — chore: ledger
+  #144 2026-11-20T10:58:23.975Z release — Released version 0.5.26
