@@ -99,6 +99,7 @@ const STRINGS = {
     browserTabAgent: 'agent window',
     browserClaimTab: 'Use this tab',
     browserClaimed: 'Handed over',
+    browserReleaseTab: 'Release this tab',
     browserRelease: 'Release the tab',
     browserClaimFailed: 'Could not hand that tab over',
     browserAutopilotOn: 'Let it work without asking',
@@ -479,6 +480,9 @@ const STRINGS = {
     pctUsed: '{n}% used',
     spent: '{n} of {total} used',
     allowOnce: 'Allow',
+    allowAlways: 'Always allow',
+    approvalAlwaysDone: 'Approved from now on. The approval switch in the sidebar asks again.',
+    approvalNoMemory: 'Asks every time. "Always allow" remembers until you change the switch in the sidebar.',
     deny: 'Deny',
     approvalTitle: 'Allow this command?',
     approvalSub: 'The agent wants to run',
@@ -621,6 +625,7 @@ const STRINGS = {
     browserTabAgent: 'หน้าต่างของ AI',
     browserClaimTab: 'ใช้แท็บนี้',
     browserClaimed: 'มอบแล้ว',
+    browserReleaseTab: 'คืนแท็บนี้',
     browserRelease: 'ปล่อยแท็บ',
     browserClaimFailed: 'มอบแท็บนี้ไม่ได้',
     browserAutopilotOn: 'ให้ทำต่อโดยไม่ถามทุกขั้น',
@@ -996,6 +1001,9 @@ const STRINGS = {
     pctUsed: 'ใช้ไป {n}%',
     spent: 'ใช้ไป {n} จาก {total}',
     allowOnce: 'อนุญาต',
+    allowAlways: 'อนุมัติเสมอ',
+    approvalAlwaysDone: 'อนุมัติทุกครั้งไปแล้ว — เปิดให้ถามอีกครั้งได้ที่สวิตช์การอนุมัติในแถบข้าง',
+    approvalNoMemory: 'ถามทุกครั้ง · "อนุมัติเสมอ" จะจำไว้จนกว่าจะเปลี่ยนสวิตช์ในแถบข้าง',
     deny: 'ปฏิเสธ',
     approvalTitle: 'อนุญาตให้รันคำสั่งนี้ไหม?',
     approvalSub: 'AI ต้องการรัน',
@@ -8927,8 +8935,11 @@ document.addEventListener('keydown', (e) => {
 /* ------------------------- browser control chip ------------------------- */
 
 let browserState = { enabled: false, connected: false, port: 0, paired: false, installed: true };
-/** The tab the user handed over, if any. Null means the agent's own window. */
+/** The tab the user handed over most recently, if any. Null means the agent's own window. */
 let browserClaim = null;
+/** Every tab handed over. A task can span sites (Facebook and TikTok), so this
+ *  is a list, and each row in the picker can be taken back on its own. */
+let browserClaims = [];
 /** Hand-over mode, and how long it has left. */
 let autopilotState = { on: false };
 /** Every real tab, for the picker. */
@@ -8962,7 +8973,7 @@ function renderBrowserChip() {
     ? 'off'
     : autopilotState.on
       ? 'autopilot'
-      : browserClaim
+      : browserClaims.length
         ? 'claimed'
         : browserState.connected
           ? 'on'
@@ -8993,7 +9004,7 @@ function renderTabList() {
     return;
   }
   for (const tab of browserTabs) {
-    const handedOver = Boolean(browserClaim) && browserClaim.tabId === tab.id;
+    const handedOver = browserClaims.some((entry) => entry.tabId === tab.id);
     const row = document.createElement('div');
     row.className = `tab-row${handedOver ? ' claimed' : ''}`;
     row.setAttribute('role', 'listitem');
@@ -9014,6 +9025,13 @@ function renderTabList() {
       badge.className = 'tool-chip';
       badge.textContent = t('browserClaimed');
       row.appendChild(badge);
+      // Taking one tab back must not take the others with it: a two-site job
+      // should survive the user revoking the site they are done with.
+      const drop = document.createElement('button');
+      drop.className = 'ghost small';
+      drop.textContent = t('browserReleaseTab');
+      drop.addEventListener('click', () => releaseOneTab(tab.id));
+      row.appendChild(drop);
     } else if (!tab.agent) {
       const use = document.createElement('button');
       use.className = 'ghost small';
@@ -9032,7 +9050,7 @@ function renderAutopilot() {
     button.textContent = t(autopilotState.on ? 'browserAutopilotOff' : 'browserAutopilotOn');
   }
   const release = el('browserRelease');
-  if (release) release.hidden = !browserClaim;
+  if (release) release.hidden = !browserClaims.length;
 
   const note = el('browserAutopilotNote');
   if (note) {
@@ -9114,6 +9132,20 @@ async function claimBrowserTab(tabId) {
     return;
   }
   browserClaim = res.claim;
+  browserClaims = res.claims || (res.claim ? [res.claim] : []);
+  renderBrowserChip();
+  renderBrowserDialog();
+  await refreshBrowserTabs();
+}
+
+/** Give one tab back, leaving any other handed-over tab in place. */
+async function releaseOneTab(tabId) {
+  const res = await api.browserRelease(tabId).catch(() => null);
+  if (res && Array.isArray(res.claims)) browserClaims = res.claims;
+  else browserClaims = browserClaims.filter((entry) => entry.tabId !== tabId);
+  if (!browserClaims.some((entry) => browserClaim && entry.tabId === browserClaim.tabId)) {
+    browserClaim = browserClaims.length ? browserClaims[browserClaims.length - 1] : null;
+  }
   renderBrowserChip();
   renderBrowserDialog();
   await refreshBrowserTabs();
@@ -9122,6 +9154,7 @@ async function claimBrowserTab(tabId) {
 async function releaseBrowserTab() {
   await api.browserRelease().catch(() => null);
   browserClaim = null;
+  browserClaims = [];
   autopilotState = { on: false };
   clearActivity();
   renderBrowserChip();
@@ -9198,6 +9231,8 @@ if (typeof api.onBrowserStatus === 'function') {
     // The status carries the claim and the mode, so a second window or a
     // restart cannot leave this one showing a tab nobody handed over.
     if ('claim' in status) browserClaim = status.claim || null;
+    if (Array.isArray(status.claims)) browserClaims = status.claims;
+    else if ('claim' in status) browserClaims = status.claim ? [status.claim] : [];
     if (status.autopilot) autopilotState = status.autopilot;
     renderBrowserChip();
     renderBrowserDialog();
@@ -9205,8 +9240,9 @@ if (typeof api.onBrowserStatus === 'function') {
 }
 
 if (typeof api.onBrowserClaimState === 'function') {
-  api.onBrowserClaimState(({ claim }) => {
+  api.onBrowserClaimState(({ claim, claims }) => {
     browserClaim = claim || null;
+    browserClaims = Array.isArray(claims) ? claims : claim ? [claim] : [];
     if (!browserClaim) clearActivity();
     renderBrowserChip();
     renderBrowserDialog();
@@ -10137,16 +10173,24 @@ function showApproval({ id, toolName, label, args }) {
   }
 }
 
-async function answerApproval(allow) {
+async function answerApproval(allow, { always = false } = {}) {
   const id = pendingApprovalId;
   pendingApprovalId = null;
   approvalOverlay().hidden = true;
   if (id) await api.respondApproval(id, allow);
+  // "Always allow" is the sidebar switch, moved from here: one answer that can
+  // be seen and taken back, instead of a per-tool memory nobody could find.
+  if (always && allow) {
+    const res = await api.setApprovalMode({ policy: 'allow' }).catch(() => null);
+    if (res && res.policy) applyApprovalMode(res);
+    showToast({ title: t('approvalTitle'), body: t('approvalAlwaysDone') });
+  }
   input.focus();
 }
 
 el('approvalAllow').addEventListener('click', () => answerApproval(true));
 el('approvalDeny').addEventListener('click', () => answerApproval(false));
+el('approvalAlways').addEventListener('click', () => answerApproval(true, { always: true }));
 
 /*
  * One switch decides whether prompts appear at all: ask, always allow, always

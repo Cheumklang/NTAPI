@@ -32,7 +32,7 @@ async function expectCode(fn) {
 }
 
 // --- catalogue ---
-check('catalogue has 15 tools', b.browserToolNames().length === 15, b.browserToolNames().join(','));
+check('catalogue has 17 tools', b.browserToolNames().length === 17, b.browserToolNames().join(','));
 check('write tools are guarded', b.browserGuardedTools().includes('browser_click'));
 check('read tools are not guarded', !b.browserGuardedTools().includes('browser_read'));
 check('snapshot is a read command', b.BROWSER_TOOLS.browser_snapshot.write === false && b.BROWSER_TOOLS.browser_snapshot.cmd === 'snapshot');

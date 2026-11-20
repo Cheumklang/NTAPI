@@ -796,7 +796,9 @@ const browserAutopilot = createAutopilot({});
 browserBridge.setClaims(browserClaims);
 
 function pushClaimState() {
-  send('browser:claimState', { claim: browserClaims.get() });
+  // `claims` is the whole list; `claim` stays for every caller written when only
+  // one tab could be handed over (the newest grant is what it means).
+  send('browser:claimState', { claim: browserClaims.get(), claims: browserClaims.list() });
 }
 
 function pushAutopilotState() {
@@ -831,7 +833,7 @@ browserBridge.onExtensionEvent((event) => {
   if (event.event === 'tabClosed') {
     if (browserAutopilot.shouldExpire({ type: 'tabClosed', tabId: event.tabId })) pushAutopilotState();
     const claim = browserClaims.get();
-    if (claim && claim.tabId === event.tabId) releaseBrowserTab('tabClosed');
+    if (claim && claim.tabId === event.tabId) releaseBrowserTab('tabClosed', event.tabId);
   }
 });
 
@@ -847,7 +849,7 @@ function claimBrowserTab({ tabId, url, title } = {}) {
     // Put the user in front of the page the agent is about to work on.
     browserBridge.call('tabs-real', { focus: true, tab: claim.tabId }, { timeoutMs: 8000 }).catch(() => {});
     pushClaimState();
-    return { ok: true, claim };
+    return { ok: true, claim, claims: browserClaims.list() };
   } catch (err) {
     // This catch used to be silent, so a failed hand-over looked exactly like
     // one that never happened: no dialog, no message, no clue.
@@ -859,15 +861,15 @@ function claimBrowserTab({ tabId, url, title } = {}) {
   }
 }
 
-function releaseBrowserTab(reason) {
-  if (!browserClaims.get()) return { ok: true };
-  browserClaims.release();
+function releaseBrowserTab(reason, tabId) {
+  if (!browserClaims.get() && !Number.isInteger(tabId)) return { ok: true };
+  browserClaims.release(Number.isInteger(tabId) ? tabId : undefined);
   if (browserAutopilot.state().on) {
     browserAutopilot.stop(reason || 'released');
     pushAutopilotState();
   }
   pushClaimState();
-  return { ok: true };
+  return { ok: true, claims: browserClaims.list() };
 }
 
 /** Nothing may run quiet forever: this is what ends an idle hand-over run. */
@@ -1506,7 +1508,15 @@ async function recoverInterruptedTurn(tabId, tab) {
   const parts = [
     'A turn earlier in this conversation was cut short — the provider ran out of allowance, or the context overflowed — and the session dropped what it had already produced. It is restored here so the work can continue.',
   ];
-  if (userLost) parts.push(`The user asked:\n${userText}`);
+  if (userLost) {
+    // Two sends into one turn are two messages, not one paragraph: say so, so
+    // the model does not read a blank line as a sentence break in one thought.
+    parts.push(
+      draft.prompts.length > 1
+        ? `The user asked (${draft.prompts.length} separate messages in that turn):\n${userText}`
+        : `The user asked:\n${userText}`
+    );
+  }
   if (answerLost) {
     parts.push(`The assistant had already written this (incomplete — cut off mid-stream):\n${partialText}`);
     if (draft.tools && draft.tools.length) parts.push(`Tools it had already run: ${draft.tools.join(', ')}`);
@@ -1522,6 +1532,9 @@ async function recoverInterruptedTurn(tabId, tab) {
         // The window draws the two bubbles this turn stood for, not a note.
         details: {
           user: userLost ? userText : '',
+          // One entry per prompt the user actually sent. The window draws one
+          // bubble each, so a second send never looks like a second paragraph.
+          userParts: userLost ? draft.prompts.map((p) => String(p).trim()).filter(Boolean) : [],
           assistant: answerLost ? partialText : '',
         },
       },
@@ -1586,7 +1599,19 @@ function messagesForUi(messages) {
       // watched stream in.
       if (m.customType === RECOVERED_TURN_CUSTOM_TYPE) {
         const details = m.details || {};
-        if (details.user) out.push({ kind: 'user', text: details.user, images: [], ts: m.timestamp });
+        const userParts = Array.isArray(details.userParts)
+          ? details.userParts.filter((part) => typeof part === 'string' && part.trim())
+          : [];
+        if (userParts.length > 1) {
+          // The user sent these one after another; put each back as its own
+          // message instead of gluing them into a single bubble separated by a
+          // blank line.
+          for (const part of userParts) {
+            out.push({ kind: 'user', text: part.trim(), images: [], ts: m.timestamp });
+          }
+        } else if (details.user) {
+          out.push({ kind: 'user', text: details.user, images: [], ts: m.timestamp });
+        }
         if (details.assistant) {
           out.push({
             kind: 'assistant',
@@ -5348,6 +5373,7 @@ function browserStatus() {
     paired,
     installed: fs.existsSync(path.join(browserExtensionDir(), 'manifest.json')),
     claim: browserClaims.get(),
+    claims: browserClaims.list(),
     autopilot: browserAutopilot.state(),
   };
 }
@@ -5418,7 +5444,7 @@ ipcMain.handle('browser:claim', async (_e, { tabId } = {}) => {
   return claimBrowserTab({ tabId: tab.id, url: tab.url, title: tab.title });
 });
 
-ipcMain.handle('browser:release', async () => releaseBrowserTab('user'));
+ipcMain.handle('browser:release', async (_e, { tabId } = {}) => releaseBrowserTab('user', tabId));
 
 ipcMain.handle('browser:autopilot', async (_e, { on } = {}) => {
   if (!on) {

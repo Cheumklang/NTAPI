@@ -19,7 +19,7 @@ function check(name, ok, detail) {
 }
 
 const names = Object.keys(BROWSER_TOOLS);
-check('fifteen bridge-backed browser tools', names.length === 15, names.join(','));
+check('seventeen bridge-backed browser tools', names.length === 17, names.join(','));
 
 // Every tool has a spec with a matching command, and the commands are distinct.
 const specs = browserToolSpecs();

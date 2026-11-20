@@ -1153,7 +1153,10 @@ async function createFreePiSession(options) {
               if (!fielded.ok) return browserErrorResult(fielded.code, fielded.message);
               args.fields = fielded.fields;
             }
-            const timeoutMs = spec.cmd === 'screenshot' || spec.cmd === 'snapshot' ? 30000 : 15000;
+            // Attaching a video means Chrome copies the file before the page
+            // reacts, which is slower than any click; give it a minute.
+            const slow = ['screenshot', 'snapshot', 'upload'].includes(spec.cmd);
+            const timeoutMs = slow ? 60000 : 15000;
 
             let result;
             try {
@@ -2305,6 +2308,15 @@ const BROWSER_TOOL_DOCS = {
     snippet: 'List or focus the tabs the user handed over',
     props: { tab: { type: 'integer', description: 'Tab id to focus' }, focus: { type: 'boolean' } },
   },
+  browser_find_tab: {
+    description:
+      'Find the open tab whose URL or title contains `match`, and get its id. Use this instead of scanning browser_tabs when a task names a site ("the TikTok upload page", "facebook"). Returns the ids of the tabs already handed over too, so you know which of them you may act on straight away.',
+    snippet: 'Find the tab whose url or title matches',
+    props: {
+      match: { type: 'string', description: 'Text to look for in the url or title, e.g. "tiktok"' },
+      limit: { type: 'integer', description: 'Largest number of rows to answer with (default all)' },
+    },
+  },
   browser_read: {
     description:
       'Read the visible text of the current page (or of one element). Read-only. Use this before clicking so you know what is on screen.',
@@ -2363,10 +2375,30 @@ const BROWSER_TOOL_DOCS = {
   },
   browser_open: {
     description:
-      "Open a URL in a new tab of the user's own Google Chrome, which they are already signed in to. Requires a tab handed over first (see browser_claim); without one this fails with NOT_CLAIMED.",
+      "Open a URL in a tab of the user's own Google Chrome, which they are already signed in to. Requires a tab handed over first (see browser_claim); without one this fails with NOT_CLAIMED. Use `window: 'user'` to open it in the window the user is looking at instead of the agent's own window.",
     snippet: 'Open a URL in the user\'s Chrome',
     required: ['url'],
-    props: { url: { type: 'string' }, foreground: { type: 'boolean', description: 'Bring the tab to the front' } },
+    props: {
+      url: { type: 'string' },
+      foreground: { type: 'boolean', description: 'Bring the tab to the front' },
+      window: { type: 'string', enum: ['agent', 'user'], description: "Where to open it (default 'agent')" },
+    },
+  },
+  browser_upload: {
+    description:
+      'Attach local files to a file input on the page — the step that uploads a video or an image. Give the ref of the `input type=file` from the snapshot, and absolute paths to the files (one job = one file). The page then continues on its own; keep going with snapshot/click/wait for the rest of the form. Asks the user for approval, since it reads a file from disk.',
+    snippet: 'Choose files for a file input',
+    required: ['files'],
+    props: {
+      tab: { type: 'integer' },
+      ref: { type: 'string', description: 'The file input, from the snapshot' },
+      selector: { type: 'string', description: 'CSS selector, if you have no ref' },
+      files: {
+        type: 'array',
+        description: 'Absolute paths of the files to attach (at most 5)',
+        items: { type: 'string' },
+      },
+    },
   },
   browser_goto: {
     description: 'Navigate the current tab to a URL.',

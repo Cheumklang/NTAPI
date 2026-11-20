@@ -19,18 +19,60 @@ const CHROME_EXTENSIONS_URL = 'chrome://extensions';
 /** Pinned by the `key` in browser-extension/manifest.json. */
 const EXTENSION_ID = 'fnbhakfiojndenlkelamkfljofdojlba';
 
+/** Files one `upload` may attach at a time. Visual uploads take one clip; more
+ *  than a handful is a mistake worth catching before Chrome sees it. */
+const MAX_UPLOAD_FILES = 5;
+
+/**
+ * Absolute, existing, non-empty files — checked in the app, not in the page.
+ *
+ * The extension hands these paths straight to Chrome's debugger, so this is the
+ * last place that can refuse a typo, a folder, or a relative path that would be
+ * resolved against Chrome's working directory instead of the user's.
+ */
+function checkUploadFiles(files) {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const list = Array.isArray(files) ? files.filter((f) => typeof f === 'string' && f.trim()) : [];
+  if (!list.length) {
+    return { ok: false, code: 'BAD_ARGS', message: '`files` is required: absolute paths to upload.' };
+  }
+  if (list.length > MAX_UPLOAD_FILES) {
+    return { ok: false, code: 'BAD_ARGS', message: `At most ${MAX_UPLOAD_FILES} files at once.` };
+  }
+  const resolved = [];
+  for (const raw of list) {
+    if (!path.isAbsolute(raw.trim())) {
+      return { ok: false, code: 'BAD_ARGS', message: `An upload needs an absolute path, got: ${raw}` };
+    }
+    const file = path.resolve(raw.trim());
+    let stat;
+    try {
+      stat = fs.statSync(file);
+    } catch {
+      return { ok: false, code: 'NO_FILE', message: `No such file: ${raw}` };
+    }
+    if (!stat.isFile()) return { ok: false, code: 'NO_FILE', message: `Not a file: ${raw}` };
+    if (stat.size === 0) return { ok: false, code: 'BAD_ARGS', message: `That file is empty: ${raw}` };
+    resolved.push(file);
+  }
+  return { ok: true, files: resolved };
+}
+
 /**
  * Every tool the agent can call, and whether it changes the page. Read tools
  * never prompt; write tools go through the app's existing approval dialog.
  */
 const BROWSER_TOOLS = {
   browser_tabs: { write: false, cmd: 'tabs' },
+  browser_find_tab: { write: false, cmd: 'tabs-real' },
   browser_read: { write: false, cmd: 'read' },
   browser_snapshot: { write: false, cmd: 'snapshot' },
   browser_screenshot: { write: false, cmd: 'screenshot' },
   browser_wait: { write: false, cmd: 'wait' },
   browser_scroll: { write: false, cmd: 'scroll' },
   browser_open: { write: true, cmd: 'open' },
+  browser_upload: { write: true, cmd: 'upload' },
   browser_goto: { write: true, cmd: 'goto' },
   browser_click: { write: true, cmd: 'click' },
   browser_type: { write: true, cmd: 'type' },
@@ -190,21 +232,21 @@ function createBrowserBridge(options = {}) {
    * browser window keeps working exactly as it did before claims existed.
    */
   function targetFor(argsTab) {
-    const claimed = claims && typeof claims.get === 'function' ? claims.get() : null;
+    const held = claims && typeof claims.list === 'function' ? claims.list() : [];
     if (Number.isInteger(argsTab)) {
-      if (!claimed || claimed.tabId !== argsTab) {
+      if (!held.some((entry) => entry.tabId === argsTab)) {
         return {
           ok: false,
           code: 'NOT_CLAIMED',
-          message: claimed
-            ? 'That tab was not handed to the agent. Only the tab the user handed over can be used.'
+          message: held.length
+            ? `That tab was not handed to the agent. It is holding ${held.length} tab(s), and only those can be used.`
             : 'No tab is handed over yet, so there is nothing to read. Ask the user to hand one over — do not call browser_claim again if it was just refused.',
         };
       }
       return { ok: true, tabId: argsTab };
     }
-    if (claimed) return { ok: true, tabId: claimed.tabId };
-    return { ok: true, tabId: null };
+    const newest = claims && typeof claims.get === 'function' ? claims.get() : null;
+    return { ok: true, tabId: newest ? newest.tabId : null };
   }
 
   function prepareAudit() {
@@ -345,6 +387,21 @@ function createBrowserBridge(options = {}) {
     });
   }
 
+  /**
+   * Tab listings come back from Chrome knowing nothing about hand-over; the app
+   * is what knows. Marking them here means `browser_find_tab` answers the whole
+   * question "which tab is it, and may I use it" in one call.
+   */
+  function annotateTabs(result) {
+    if (!result || !Array.isArray(result.tabs)) return result;
+    const held = claimedTabs().map((entry) => entry.tabId);
+    return {
+      ...result,
+      handedOver: held,
+      tabs: result.tabs.map((tab) => ({ ...tab, claimed: held.includes(tab.id) })),
+    };
+  }
+
   function call(cmd, args, { timeoutMs = 15000 } = {}) {
     if (!server) return Promise.reject(bridgeError('DISABLED', 'Browser control is turned off.'));
     if (!connected || !socket) {
@@ -354,6 +411,11 @@ function createBrowserBridge(options = {}) {
     const input = args && typeof args === 'object' ? { ...args } : {};
     const target = targetFor(input.tab);
     if (!target.ok) return Promise.reject(bridgeError(target.code, target.message));
+    if (cmd === 'upload') {
+      const checked = checkUploadFiles(input.files);
+      if (!checked.ok) return Promise.reject(bridgeError(checked.code, checked.message));
+      input.files = checked.files;
+    }
     const callArgs = target.tabId === null ? input : { ...input, tab: target.tabId };
 
     seq += 1;
@@ -394,7 +456,7 @@ function createBrowserBridge(options = {}) {
       pending.set(id, {
         resolve: (result) => {
           record(true);
-          resolve(result);
+          resolve(cmd === 'tabs-real' ? annotateTabs(result) : result);
         },
         reject: (err) => {
           record(false);
@@ -413,12 +475,30 @@ function createBrowserBridge(options = {}) {
     });
   }
 
-  /** The tab the user handed over, or null. Read live: a claim can change mid-turn. */
+  /** The tab the user handed over most recently, or null. Read live: a claim can change mid-turn. */
   function claimedTab() {
     return claims && typeof claims.get === 'function' ? claims.get() : null;
   }
 
-  return { start, stop, status, call, setToken, setClaims, claimedTab, targetFor, onActivity, onExtensionEvent, onStatus };
+  /** Every tab handed over, newest last. */
+  function claimedTabs() {
+    return claims && typeof claims.list === 'function' ? claims.list() : [];
+  }
+
+  return {
+    start,
+    stop,
+    status,
+    call,
+    setToken,
+    setClaims,
+    claimedTab,
+    claimedTabs,
+    targetFor,
+    onActivity,
+    onExtensionEvent,
+    onStatus,
+  };
 }
 
 module.exports = {
@@ -428,6 +508,7 @@ module.exports = {
   EXTENSION_ID,
   BROWSER_TOOLS,
   browserToolNames,
+  checkUploadFiles,
   browserGuardedTools,
   isBrowserTool,
   isAllowedOrigin,

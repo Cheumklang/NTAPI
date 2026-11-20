@@ -1,6 +1,11 @@
 /**
- * Which browser tab the agent is allowed to touch, and whether a navigation has
- * taken it somewhere it was never trusted for.
+ * Which browser tabs the agent is allowed to touch, and whether a navigation has
+ * taken one of them somewhere it was never trusted for.
+ *
+ * A task can legitimately span more than one site — the same clip goes to
+ * Facebook and TikTok — so a tab is granted on its own, revoked on its own, and
+ * every tab that was never handed over stays refused. What must not happen is a
+ * single grant quietly widening into "the whole browser".
  *
  * The user's rule: trust the *task*, not the hostname. A Google Ads run crosses
  * ads.google.com, payments.google.com and business.google.com, and must not stop
@@ -78,14 +83,21 @@ function sameSite(urlA, urlB) {
 }
 
 /**
- * One claimed tab at a time. A claim is deliberate and short-lived: it exists
- * only while the user has handed a tab over in this run of the app.
+ * The tabs the user has handed over, newest last.
+ *
+ * `MAX_CLAIMS` is a legibility limit, not a security one: eight rows is already
+ * more than anyone reads, and refusing the ninth outright beats silently
+ * dropping the first one the user granted.
  */
+const MAX_CLAIMS = 8;
+
 function createClaims(options = {}) {
   const now = typeof options.now === 'function' ? options.now : Date.now;
-  let current = null;
+  /** tabId -> claim. Insertion-ordered so the browser card lists them by arrival. */
+  const byTab = new Map();
+  let lastTabId = null;
 
-  function claim({ tabId, url, title } = {}) {
+  function build({ tabId, url, title } = {}) {
     if (!Number.isInteger(tabId)) {
       throw Object.assign(new Error('A claim needs the tab id it applies to.'), { code: 'BAD_CLAIM' });
     }
@@ -99,31 +111,68 @@ function createClaims(options = {}) {
     if (!domain) {
       throw Object.assign(new Error(`That page has no site to claim: ${String(url)}`), { code: 'BAD_CLAIM' });
     }
-    current = {
+    return {
       tabId,
       url: String(url),
       title: String(title || ''),
       domain,
       claimedAt: now(),
     };
-    return current;
   }
 
-  function release() {
-    current = null;
+  function claim(input = {}) {
+    const entry = build(input);
+    if (!byTab.has(entry.tabId) && byTab.size >= MAX_CLAIMS) {
+      throw Object.assign(
+        new Error(`The agent is already holding ${MAX_CLAIMS} tabs. Release one before handing over another.`),
+        { code: 'TOO_MANY_TABS' }
+      );
+    }
+    // Re-claiming an existing tab refreshes it and moves it to the end, so `get()`
+    // still answers "the tab the user just touched" rather than a stale one.
+    byTab.delete(entry.tabId);
+    byTab.set(entry.tabId, entry);
+    lastTabId = entry.tabId;
+    return entry;
   }
 
-  function get() {
-    return current;
+  /** Release one tab, or every tab when no id is given. */
+  function release(tabId) {
+    if (Number.isInteger(tabId)) {
+      byTab.delete(tabId);
+      if (lastTabId === tabId) {
+        const ids = [...byTab.keys()];
+        lastTabId = ids.length ? ids[ids.length - 1] : null;
+      }
+      return;
+    }
+    byTab.clear();
+    lastTabId = null;
+  }
+
+  /** The claim for `tabId`, or the most recently granted one when no id is given. */
+  function get(tabId) {
+    if (Number.isInteger(tabId)) return byTab.get(tabId) || null;
+    return lastTabId === null ? null : byTab.get(lastTabId) || null;
+  }
+
+  /** Everything handed over, in the order it was handed over. */
+  function list() {
+    return [...byTab.values()];
   }
 
   function isClaimed(tabId) {
-    return Boolean(current) && current.tabId === tabId;
+    return byTab.has(tabId);
   }
 
-  /** Would navigating this tab to `url` take it off the site it was trusted for? */
-  function leavesSite(url) {
-    if (!current) return false;
+  /**
+   * Would navigating take a claimed tab off the site it was trusted for?
+   * `tabId` is optional: without it, the most recent claim is checked, which is
+   * what the single-tab call sites did before several tabs could be held.
+   */
+  function leavesSite(url, tabId) {
+    const claimEntry = get(tabId);
+    if (!claimEntry) return false;
     let hostname;
     try {
       hostname = new URL(String(url)).hostname;
@@ -132,10 +181,10 @@ function createClaims(options = {}) {
     }
     const domain = registrableDomain(hostname);
     if (!domain) return true;
-    return domain !== current.domain;
+    return domain !== claimEntry.domain;
   }
 
-  return { claim, release, get, isClaimed, leavesSite };
+  return { claim, release, get, list, isClaimed, leavesSite, MAX_CLAIMS };
 }
 
 /**

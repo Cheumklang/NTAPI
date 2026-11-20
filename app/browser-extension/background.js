@@ -183,6 +183,8 @@ async function dispatch(cmd, args) {
       return listTabs(args);
     case 'open':
       return openUrl(args);
+    case 'upload':
+      return uploadFiles(args);
     case 'goto':
       return gotoUrl(args);
     case 'read':
@@ -491,7 +493,12 @@ async function openUrl(args) {
   if (typeof args.url !== 'string' || !args.url) {
     throw Object.assign(new Error('`url` is required.'), { code: 'BAD_ARGS' });
   }
-  const winId = await ensureWindow(args.url);
+  // `window: 'user'` opens next to what the user is already looking at, so the
+  // page they asked for lands where they can see it instead of in the agent's
+  // own window. Without a user window to adopt, fall back to creating one.
+  const wantsUserWindow = args.window === 'user';
+  let winId = wantsUserWindow ? await userWindowId() : await ensureWindow(args.url);
+  if (winId === null || winId === undefined) winId = await ensureWindow(args.url);
   // When the window was just created it already holds this URL; reuse that tab
   // instead of opening a second copy next to an about:blank leftover.
   const existing = await chrome.tabs.query({ windowId: winId });
@@ -765,9 +772,11 @@ async function listRealTabs(args = {}) {
     } catch {}
   }
   const agentWin = await findWindow();
-  return {
-    windowId: agentWin,
-    tabs: tabs.map((tab) => ({
+  // `match` narrows the list to the tabs whose url or title contains it, so the
+  // agent can ask "which tab is the TikTok upload?" instead of guessing an id.
+  const needle = typeof args.match === 'string' ? args.match.trim().toLowerCase() : '';
+  const rows = tabs
+    .map((tab) => ({
       id: tab.id,
       windowId: tab.windowId,
       title: tab.title || '',
@@ -779,8 +788,13 @@ async function listRealTabs(args = {}) {
       // A blank tab is a convenience the agent opens for itself, never a page the
       // user chose. Offering one to hand over would be handing over nothing.
       blank: !tab.url || tab.url === 'about:blank',
-    })),
-  };
+    }))
+    .filter((tab) => {
+      if (!needle) return true;
+      return `${tab.url} ${tab.title}`.toLowerCase().includes(needle);
+    });
+  const limit = Number.isInteger(args.limit) && args.limit > 0 ? args.limit : rows.length;
+  return { windowId: agentWin, tabs: rows.slice(0, limit), matched: rows.length, total: tabs.length };
 }
 
 /** Remove the refs we stamped, so a stale attribute can never be clicked later. */
@@ -913,8 +927,7 @@ async function focusAndInsert(tabId, selector, text, clearFirst, frameId) {
   );
 }
 
-async function typeText(args) {
-  if (typeof args.selector !== 'string' || !args.selector) {
+async function typeText(args) {  if (typeof args.selector !== 'string' || !args.selector) {
     throw Object.assign(new Error('`selector` is required.'), { code: 'BAD_ARGS' });
   }
   const tabId = await resolveTab(args.tab);
@@ -932,6 +945,49 @@ async function fillFields(args) {
     await focusAndInsert(tabId, field.selector, field.value, true, field.frameId);
   }
   return Object.assign({ filled: fields.length }, await tabSummary(tabId));
+}
+
+/**
+ * Put local files into a file input.
+ *
+ * A page cannot do this itself: setting `input.files` from script is blocked, and
+ * clicking the input only opens the OS picker, which nothing in this bridge can
+ * answer. Chrome's debugger can, so this is the one command that reaches outside
+ * the page. `files` are absolute paths on the machine running Chrome; the app
+ * checks they exist before the command is ever sent.
+ */
+async function uploadFiles(args) {
+  const files = Array.isArray(args.files) ? args.files.filter((f) => typeof f === 'string' && f) : [];
+  if (!files.length) throw Object.assign(new Error('`files` is required.'), { code: 'BAD_ARGS' });
+  if (typeof args.selector !== 'string' || !args.selector) {
+    throw Object.assign(new Error('`selector` is required: the file input to fill.'), { code: 'BAD_ARGS' });
+  }
+  const tabId = await resolveTab(args.tab);
+  const contextId = await frameContextId(tabId, args.frameId);
+  const params = { expression: `document.querySelector(${JSON.stringify(args.selector)})`, returnByValue: false };
+  if (contextId !== null && contextId !== undefined) params.contextId = contextId;
+  const found = await cdp(tabId, 'Runtime.evaluate', params);
+  const objectId = found.result && found.result.objectId;
+  if (!objectId) throw Object.assign(new Error('No element matched that selector.'), { code: 'NO_ELEMENT' });
+  const shape = await cdp(tabId, 'Runtime.callFunctionOn', {
+    objectId,
+    functionDeclaration:
+      'function () { return { tag: (this.tagName || "").toLowerCase(), type: (this.type || "").toLowerCase() }; }',
+    returnByValue: true,
+  });
+  const info = (shape.result && shape.result.value) || {};
+  if (info.tag !== 'input' || info.type !== 'file') {
+    throw Object.assign(new Error('That element is not a file input.'), { code: 'NO_FILE_INPUT' });
+  }
+  try {
+    await cdp(tabId, 'DOM.enable');
+  } catch {}
+  const requested = await cdp(tabId, 'DOM.requestNode', { objectId });
+  const nodeId = requested && requested.nodeId;
+  if (!nodeId) throw Object.assign(new Error('Could not address the file input.'), { code: 'NO_ELEMENT' });
+  await cdp(tabId, 'DOM.setFileInputFiles', { files, nodeId });
+  await settleAfterAction(tabId);
+  return Object.assign({ uploaded: files, count: files.length }, await tabSummary(tabId));
 }
 
 const KEY_CODES = {

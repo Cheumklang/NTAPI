@@ -68,7 +68,8 @@ contextBridge.exposeInMainWorld('freepi', {
   browserWatch: () => ipcRenderer.invoke('browser:watch'),
   browserTabs: () => ipcRenderer.invoke('browser:tabs'),
   browserClaim: (tabId) => ipcRenderer.invoke('browser:claim', { tabId }),
-  browserRelease: () => ipcRenderer.invoke('browser:release'),
+  // No tab id releases them all; one id takes back exactly that tab.
+  browserRelease: (tabId) => ipcRenderer.invoke('browser:release', { tabId }),
   browserAutopilot: (on) => ipcRenderer.invoke('browser:autopilot', { on: Boolean(on) }),
   onBrowserStatus: on('browser:status'),
   onBrowserActivity: on('browser:activity'),
