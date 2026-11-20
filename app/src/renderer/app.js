@@ -9540,6 +9540,22 @@ api.onSettled((p) => {
   }
 });
 
+/**
+ * A turn the main process had to put back after a spent allowance or an overflow
+ * dropped it. Re-read the session so the restored bubbles land straight away,
+ * instead of waiting for the chat to be switched away and back.
+ */
+api.onRecovered?.((p) => {
+  const view = viewFor(p);
+  if (!view) return;
+  api
+    .getTabState(view.tabId)
+    .then((state) => {
+      if (state) applyTabState(state, { show: state.tabId === activeTabId });
+    })
+    .catch(() => {});
+});
+
 api.onNotice((p) => {
   const view = viewFor(p);
   if (!payloadTabIsActive(view)) return;

@@ -1394,6 +1394,127 @@ function announceIfUnreported(tabId, tab) {
 }
 
 /*
+ * Put back a turn the session stopped carrying.
+ *
+ * When a run dies because the allowance is spent or the context overflowed, pi
+ * persists the failed attempt and then drops it again: `_omitRecoveryAttempt()`
+ * writes a `context_edit` with a null replacement for the assistant message and
+ * its tool results, and the overflow compaction that follows replaces everything
+ * before `firstKeptEntryId` with a summary. `session.messages` — the one source
+ * the transcript is drawn from *and* the next request is built from — therefore
+ * comes back without the question, without the half-written answer, or without
+ * both. The reader watched those words stream in and then lose them, and the
+ * model that runs next has nothing to take over from.
+ *
+ * The words only exist in this process at that point, so they are remembered
+ * while they stream (`tab.turnDraft`) and, once the run settles, written back as
+ * a displayed custom message. Writing it into the session — not just into the
+ * window — is what lets the *next* model continue the work.
+ *
+ * Only what is actually gone is put back, so a turn that survived never shows up
+ * twice, and a Stop or a take-back the user asked for is never undone.
+ */
+const RECOVERED_TURN_CUSTOM_TYPE = 'ntapi.interrupted-turn';
+
+/** Plain text of a stored message, whatever shape its content has. */
+function messageTextOf(m) {
+  const content = m?.content;
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content
+    .filter((c) => c && c.type === 'text')
+    .map((c) => c.text)
+    .join('\n');
+}
+
+/** The opening words of a text, folded enough to survive whitespace rewrites. */
+function searchKey(text) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .slice(0, 80);
+}
+
+/**
+ * Decide, once the run is over, whether its words are still in the session.
+ * A tick of delay first: the settle event fires while the SDK is still finishing
+ * its own post-run work (compaction included), and reading the projection from
+ * inside that emit would see the state it is about to replace.
+ */
+function scheduleTurnRecovery(tabId, tab, event) {
+  const draft = tab?.turnDraft;
+  if (!draft || draft.done) return;
+  // A stop the user asked for is not a lost turn — and after a take-back the
+  // message is meant to be gone.
+  if (event?.aborted && tab.userAbort && tab.userAbort.seq === (tab.promptSeq || 0)) return;
+  setTimeout(() => {
+    recoverInterruptedTurn(tabId, tab).catch(() => {});
+  }, 400);
+}
+
+async function recoverInterruptedTurn(tabId, tab) {
+  const draft = tab?.turnDraft;
+  const session = tab?.handle?.session;
+  if (!draft || draft.done || !session) return;
+  if (typeof session.sendCustomMessage !== 'function') return;
+  if (session.isStreaming) {
+    // A queued prompt has already started; give it room instead of writing into
+    // the middle of a turn. Bounded, so a session that never idles cannot loop.
+    draft.waits = (draft.waits || 0) + 1;
+    if (draft.waits > 12) return;
+    setTimeout(() => {
+      recoverInterruptedTurn(tabId, tab).catch(() => {});
+    }, 500);
+    return;
+  }
+
+  const messages = session.messages || [];
+  const userText = draft.prompts.join('\n\n').trim();
+  const partialText = (draft.assistant || '').trim() || (draft.thinking || '').trim();
+  const userKey = searchKey(userText);
+  const partialKey = searchKey(partialText);
+  const userLost =
+    Boolean(userKey) &&
+    !messages.some((m) => m.role === 'user' && searchKey(messageTextOf(m)).includes(userKey));
+  const answerLost =
+    Boolean(partialKey) &&
+    !messages.some((m) => m.role === 'assistant' && searchKey(messageTextOf(m)).includes(partialKey));
+
+  draft.done = true;
+  if (!userLost && !answerLost) return;
+
+  const parts = [
+    'A turn earlier in this conversation was cut short — the provider ran out of allowance, or the context overflowed — and the session dropped what it had already produced. It is restored here so the work can continue.',
+  ];
+  if (userLost) parts.push(`The user asked:\n${userText}`);
+  if (answerLost) {
+    parts.push(`The assistant had already written this (incomplete — cut off mid-stream):\n${partialText}`);
+    if (draft.tools && draft.tools.length) parts.push(`Tools it had already run: ${draft.tools.join(', ')}`);
+  }
+  parts.push('Continue from that point instead of starting the task over.');
+
+  try {
+    await session.sendCustomMessage(
+      {
+        customType: RECOVERED_TURN_CUSTOM_TYPE,
+        content: [{ type: 'text', text: parts.join('\n\n') }],
+        display: true,
+        // The window draws the two bubbles this turn stood for, not a note.
+        details: {
+          user: userLost ? userText : '',
+          assistant: answerLost ? partialText : '',
+        },
+      },
+      { triggerTurn: false }
+    );
+  } catch {
+    return;
+  }
+  sendTab(tabId, 'agent:recovered', {});
+}
+
+/*
  * A prompt that carried a picture is stored as text, not as an image block.
  *
  * free-pi's models take text only, so `prompt:send` writes each picture into the
@@ -1439,6 +1560,28 @@ function messagesForUi(messages) {
   const out = [];
   for (const m of messages || []) {
     if (!m || m.role === 'system') continue;
+
+    if (m.role === 'custom') {
+      // A turn put back after a limit or an overflow dropped it. Drawn as the two
+      // bubbles it stood for, so the reader gets back exactly the words they
+      // watched stream in.
+      if (m.customType === RECOVERED_TURN_CUSTOM_TYPE) {
+        const details = m.details || {};
+        if (details.user) out.push({ kind: 'user', text: details.user, images: [], ts: m.timestamp });
+        if (details.assistant) {
+          out.push({
+            kind: 'assistant',
+            text: details.assistant,
+            thinking: '',
+            tools: [],
+            ts: m.timestamp,
+            // The window draws this answer as cut off — it is not a finished turn.
+            recovered: true,
+          });
+        }
+      }
+      continue;
+    }
 
     if (m.role === 'user') {
       const parts = typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content || [];
@@ -1538,7 +1681,10 @@ function tabState(tabId) {
     seq: tab.promptSeq || 0,
   });
   const lastDrawn = messages[messages.length - 1];
-  const alreadyShown = lastDrawn && (lastDrawn.kind === 'error' || lastDrawn.kind === 'assistant');
+  // A recovered answer is a *cut-off* answer: the reason it stopped still belongs
+  // under it, so it cannot count as "the story already ended well".
+  const alreadyShown =
+    lastDrawn && (lastDrawn.kind === 'error' || (lastDrawn.kind === 'assistant' && !lastDrawn.recovered));
   if (failure && failure.text && !alreadyShown) {
     messages.push({
       kind: 'error',
@@ -1611,14 +1757,19 @@ function subscribeTab(tabId) {
         if (!event.aborted || ownAbort) {
           announceIfUnreported(tabId, tab);
         }
+        scheduleTurnRecovery(tabId, tab, event);
         break;
 
       case 'message_update': {
         const e = event.assistantMessageEvent;
         if (!e) break;
         if (e.type === 'text_delta') {
+          // Kept for the same reason as the user's words: a spent allowance can
+          // take this text off the session (see recoverInterruptedTurn).
+          if (tab.turnDraft && !tab.turnDraft.done) tab.turnDraft.assistant += e.delta;
           sendTab(tabId, 'agent:delta', { channel: 'text', delta: e.delta });
         } else if (e.type === 'thinking_delta') {
+          if (tab.turnDraft && !tab.turnDraft.done) tab.turnDraft.thinking += e.delta;
           sendTab(tabId, 'agent:delta', { channel: 'thinking', delta: e.delta });
         } else if (e.type === 'text_end') {
           sendTab(tabId, 'agent:textEnd', { text: e.content });
@@ -1697,6 +1848,10 @@ function subscribeTab(tabId) {
         }
 
         if (diff?.path) recordChange(tab, diff);
+        // Named in a recovered turn, so the next model knows what already ran.
+        if (tab.turnDraft && !tab.turnDraft.done && tab.turnDraft.tools.length < 20) {
+          tab.turnDraft.tools.push(event.toolName);
+        }
 
         sendTab(tabId, 'agent:toolEnd', {
           id: event.toolCallId,
@@ -1736,6 +1891,12 @@ function subscribeTab(tabId) {
       }
 
       case 'auto_retry_start': {
+        // The retry streams the answer again from the start. Keeping the aborted
+        // attempt's text would show it twice in the recovered turn.
+        if (tab.turnDraft && !tab.turnDraft.done) {
+          tab.turnDraft.assistant = '';
+          tab.turnDraft.thinking = '';
+        }
         // pi treats a 429 as a throttle and re-asks the same model with backoff.
         // A spent free allowance will not come back in two seconds, so skip the
         // wait and let the turn end on the failure `message_end` already reported.
@@ -3427,6 +3588,18 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
   // the next queued message early, so two queued prompts went out at once.
   tab.busy = true;
   sendTab(tabFor(tabId).tabId, 'agent:busy', { busy: true });
+
+  // What this turn is made of, kept while it streams: if the allowance runs out
+  // the session can drop both halves, and this is then the only copy of the
+  // user's words and of the answer that was already half written
+  // (see recoverInterruptedTurn). A steer joins the turn that is already running,
+  // so it adds to that draft instead of replacing it.
+  if (tab.handle.session.isStreaming && tab.turnDraft && !tab.turnDraft.done) {
+    tab.turnDraft.prompts.push(promptText);
+  } else {
+    tab.turnDraft = { prompts: [promptText], assistant: '', thinking: '', tools: [], done: false };
+  }
+
   const run = tab.handle.session.prompt(promptText, options);
 
   run.catch((err) => {
@@ -3460,6 +3633,8 @@ ipcMain.handle('prompt:abort', async (_e, tabId) => {
   // The user asked for this stop; it is not a spent allowance and must not send
   // the turn to another model behind their back.
   tab.limitFailure = null;
+  // Nothing is put back either: a stop is meant to end the turn where it is.
+  tab.turnDraft = null;
   // Remembered so the abort-shaped failure this stop produces is not reported as
   // "the provider went quiet". Keyed by prompt number: a later turn's failure is
   // its own.
@@ -3519,6 +3694,9 @@ ipcMain.handle('prompt:takeBack', async (_e, tabId) => {
   // provider failure and not a spent allowance.
   tab.busy = false;
   tab.limitFailure = null;
+  // And the message must not come back as a recovered turn: the point of
+  // take-back is that the words are the user's again.
+  tab.turnDraft = null;
   tab.userAbort = { seq: tab.promptSeq || 0, at: Date.now() };
   sendTab(id, 'agent:busy', { busy: false });
 

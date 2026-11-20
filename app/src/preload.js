@@ -176,6 +176,7 @@ contextBridge.exposeInMainWorld('freepi', {
   openAd: (url) => ipcRenderer.invoke('ads:open', url),
   rotateAd: (opts) => ipcRenderer.invoke('ads:rotate', opts),
   onSettled: on('agent:settled'),
+  onRecovered: on('agent:recovered'),
   onTurnStart: on('agent:turnStart'),
   onTodos: on('agent:todos'),
   onQuestion: on('agent:question'),

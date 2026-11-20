@@ -1,5 +1,28 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **⚠️ ล่าสุด (2026-11-20 · Ubuntu 26.04): ผู้ใช้ใช้ Ubuntu เท่านั้น + แก้บั๊ก “ข้อความหายตอนโควต้าหมด”**
+>
+> - **แพลตฟอร์มของผู้ใช้ตอนนี้คือ Ubuntu เท่านั้น** (ไม่มีเครื่อง Windows แล้ว) — งานทั้งหมดรันจาก `/home/nt/NT-ALL/NTAPI`
+> - **build Windows installer บนเครื่องนี้ไม่ได้:** ไม่มี `wine` ในระบบ และ build config เป็น `win/nsis` → การปล่อยรุ่นต้องผ่าน CI เท่านั้น
+>   (`release.yml` รันบน `windows-latest` และอัปโหลดขึ้น public repo `Cheumklang/NTAPI-releases` เมื่อ push tag `v*` → electron-updater ของผู้ใช้เห็นเอง)
+> - **push จากเครื่องนี้ยังไม่ได้:** ไม่มี credential ใด ๆ — ไม่มี `gh`, ไม่มี `~/.git-credentials`, ไม่มี SSH key ส่วนตัว (มีแต่ `~/.ssh/authorized_keys`) → `git ls-remote origin` ถาม username
+>   · ต้องให้ผู้ใช้ใส่ PAT (https) หรือ SSH key ก่อน จึงจะ commit+push+tag ได้
+> - git identity ตั้งไว้แล้ว: `Chanathip Cheumklang <cheumklang@gmail.com>` (บันทึกเก่าที่ว่า “ยังไม่ได้ตั้ง” ล้าสมัยแล้ว)
+> - **บั๊กที่แก้แล้ว (ยังไม่ปล่อยรุ่น):** โควต้าหมด/context overflow → SDK เรียก `_omitRecoveryAttempt()` (เขียน `context_edit` = null ทับ assistant + tool results) แล้วตามด้วย auto-compaction
+>   → `session.messages` (ต้นทางของทั้ง transcript และ request ถัดไป) ไม่มีทั้งคำถามและคำตอบที่สตรีมไปแล้ว ผู้ใช้เห็นข้อความหาย และ AI องค์ถัดไปทำงานต่อไม่ได้
+>   · แก้ใน `app/src/main.js`: `tab.turnDraft` เก็บคำของผู้ใช้ + text/thinking/tools ระหว่าง turn · `recoverInterruptedTurn()` ตรวจหลัง settle ว่าของหายจาก projection จริงไหม แล้วเขียนกลับเข้า session เป็น custom message `ntapi.interrupted-turn` (อยู่ใน LLM context) · `messagesForUi` วาดกลับเป็น 2 bubble เดิม · ไม่กู้เมื่อผู้ใช้กด Stop/take-back
+>   · `app/src/preload.js` + `app/src/renderer/app.js`: ช่องใหม่ `agent:recovered` → repaint ทันที
+> - `npm test` บน Linux: **85/87 ผ่าน** · 2 ตัว FAIL เฉพาะแพลตฟอร์ม (`selftest-session-paths.js`, `selftest-session-marks.js` — เทสต์สมมุติ path แบบ Windows) ยังไม่แก้
+> - **ค้าง:** (1) credential สำหรับ push (2) ตัดสินใจ CRLF noise ~90 ไฟล์ (`git diff --ignore-space-at-eol` ว่าง = เปลี่ยนแต่ EOL) (3) เทสต์ 2 ตัวบน Linux (4) ยังไม่ bump 0.5.23 → 0.5.24 / ยังไม่ tag ปล่อยรุ่นสำหรับ fix นี้
+> - **ลำดับปล่อยรุ่นที่ถูกต้อง:** commit โค้ด → `node app/scripts/provenance.js record-commit` แล้ว commit ledger (`internal: บันทึกหลักฐานหลัง commit`) → bump version → push master → `git tag v0.5.24 && git push origin v0.5.24` → รอ CI → `provenance.js record-release 0.5.24 --asset …` + `anchor` + `verify` (CI รัน `provenance.js verify` จึงข้าม ledger ไม่ได้)
+
+> **⚠️ ล่าสุด (2026-11-20): ย้ายมาทำบน Linux — เปิดแอปจากซอร์สได้แล้ว**
+> - ผู้ใช้ย้ายเครื่องเป็น Ubuntu 26.04 (GitHub Desktop ไม่มีเวอร์ชัน Linux — เลิกพัฒนาแล้ว) → ทำงานต่อผ่าน git CLI/แชท · ยังไม่ได้ตกลงวิธี review commit (เสนอ gh CLI / VS Code / lazygit ยังไม่ได้เลือก — ตั้งชื่อ/อีเมล git ยังไม่ได้)
+> - `node_modules` copy มาจาก Windows → ลง electron binary ลินุกซ์ใหม่ (`node node_modules/electron/install.js`) + `npm start` เปิด UI ได้แล้ว (`splash closed: ui ready`) · เปิดแบบ dev ด้วย `ELECTRON_DISABLE_SANDBOX=1` เพราะตั้ง chrome-sandbox 4755 ไม่ได้ (sudo ต้องรหัส)
+> - `npm test` บน Linux: 87 scripts รันครบ exit 0 · **มี 2 เช็ค FAIL เฉพาะแพลตฟอร์ม** — เทสต์สมมุติ path แบบ Windows (`C:\Users\cheum` + case-insensitive) เทสต์เขียนคาดว่าเป็น win32 ขณะที่โค้ดจริงแยก platform อยู่แล้ว · ยังไม่แก้ รอผู้ใช้สั่ง
+> - งานค้างเดิม: CRLF noise ~90 ไฟล์ (ยังไม่ renormalize เป็น LF) · git identity (user.name/email) · การตัดสินใจว่าเทสต์ 2 ตัวจะปรับให้รันบน Linux ได้หรือข้าม
+> - **exe ผู้ใช้ Windows ไม่โดนแตะ** — CI กับ build config (`win/nsis`) ยังเหมือนเดิม การย้ายเครื่องเป็นแค่การตรวจงานเท่านั้น
+
 > **⚠️ ล่าสุด (2026-11-18): v0.5.23 — ส่วนขยายเบราว์เซอร์ไม่เด้ง `about:blank` เองแล้ว + เขียนกฎ bash ใหม่**
 > - **อาการที่ผู้ใช้เจอ:** Chrome เปิดหน้าต่าง `about:blank` เองบ่อย ๆ ระหว่างที่ agent ทำงาน
 > - **ตนเหตุ:** `agentWindowId` เก็บในหน่วยความจำเท่านั้น — MV3 service worker ถูกพักทุก ~30 วิ
