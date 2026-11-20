@@ -46,10 +46,20 @@ const windowBlock = (() => {
 })();
 
 const installBlock = (() => {
-  const at = main.indexOf("ipcMain.handle('update:install'");
-  assert.ok(at > 0, 'no update:install handler');
-  return main.slice(at, at + 1400);
+  // The install steps live in `startUpdateInstall()`: the button in Settings, the
+  // required-update card and the question asked on close all quit through the
+  // same path, so the timing rules have to hold there and not only in the IPC
+  // handler that now just calls it.
+  const at = main.indexOf('function startUpdateInstall()');
+  assert.ok(at > 0, 'no startUpdateInstall()');
+  return main.slice(at, at + 1600);
 })();
+
+check('the Settings button still goes through the shared install path', () => {
+  const handlerAt = main.indexOf("ipcMain.handle('update:install'");
+  assert.ok(handlerAt > 0, 'no update:install handler');
+  assert.match(main.slice(handlerAt, handlerAt + 300), /startUpdateInstall\(\)/);
+});
 
 check('the window reports ready from the renderer, not from the document load', () => {
   assert.match(windowBlock, /uiReadyResolver = \(\) => finish\('ui ready'\)/);
@@ -79,6 +89,11 @@ check('the renderer signals after boot and after a painted frame', () => {
 check('the splash is still started before the app quits', () => {
   assert.match(installBlock, /openUpdateSplash\(\);/);
   assert.match(installBlock, /setTimeout\(quitWhenCovered, 4500\)/);
+  // Nothing may quit into an empty desktop: the splash has to exist first.
+  assert.ok(
+    installBlock.indexOf('openUpdateSplash()') < installBlock.indexOf('quitAndInstall(true, true)'),
+    'the installer runs before the splash is shown'
+  );
 });
 
 check('quitting waits for the splash to exist, but not forever', () => {

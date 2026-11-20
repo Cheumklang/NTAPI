@@ -2342,6 +2342,23 @@ function createWindow() {
     win = null;
   });
 
+  // The other moment an update may speak up: when the window is being closed.
+  // Never mid-session — someone typing a prompt is not waiting for news about
+  // version numbers. The question is native (`dialog.showMessageBox`) because
+  // the renderer may already be tearing down, and it is skipped for a close we
+  // started ourselves (the installer) or the second press after "close anyway".
+  let closePromptOpen = false;
+  win.on('close', (event) => {
+    if (closePromptOpen || !app.isPackaged || !updater) return;
+    const pending = ['available', 'ready'].includes(updateState.status);
+    if (!pending) return;
+    event.preventDefault();
+    closePromptOpen = true;
+    askAboutUpdateOnClose(win).finally(() => {
+      closePromptOpen = false;
+    });
+  });
+
   // Keep the custom caption's maximize/restore icon in sync with the real state.
   const pushWinState = () => win?.webContents.send('win:state', winState());
   win.on('maximize', pushWinState);
@@ -4852,11 +4869,83 @@ let updateState = {
   version: null,
   progress: 0,
   error: null,
+  // How many published releases are newer than this build, and whether that is
+  // past the window a delta can cover. `null` = not known yet.
+  behind: null,
+  mandatory: false,
+  // What started the check: 'startup', 'manual', or 'timer'. Only the first two
+  // are allowed to put a card on screen.
+  origin: null,
 };
 
 function sendUpdateState() {
   send('update:status', { ...updateState, packaged: app.isPackaged, current: app.getVersion() });
 }
+
+/**
+ * Releases the app expects to be able to diff against. Must match the retention
+ * window in `.github/workflows/prune-releases.yml`.
+ *
+ * Inside the window an update is a delta of kilobytes and may download on its
+ * own. Past it the blockmap of the running build has been pruned, so the only
+ * possible download is the whole ~113 MB installer — there is no point in
+ * letting that slide quietly, and GitHub keeps one record per version.
+ */
+const UPDATE_RETENTION = 20;
+
+/** Compare `0.5.27` style versions: negative, zero, or positive. */
+function compareVersions(a, b) {
+  const split = (v) =>
+    String(v ?? '')
+      .replace(/^v/i, '')
+      .split('.')
+      .map((n) => Number.parseInt(n, 10) || 0);
+  const left = split(a);
+  const right = split(b);
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
+    const diff = (left[i] || 0) - (right[i] || 0);
+    if (diff) return diff;
+  }
+  return 0;
+}
+
+/** How many of `versions` are newer than `current`. */
+function releasesBehind(versions, current) {
+  if (!Array.isArray(versions)) return 0;
+  return versions.filter((v) => compareVersions(v, current) > 0).length;
+}
+
+/**
+ * How many published releases are newer than this build, asked from the public
+ * releases repo. `null` means "not known" — offline, rate-limited, or no answer
+ * — and every caller treats unknown as "do not force anything".
+ */
+let behindCache = { at: 0, behind: null };
+async function releasesBehindNow(force = false) {
+  const now = Date.now();
+  if (!force && behindCache.behind !== null && now - behindCache.at < 6 * 60 * 60 * 1000) {
+    return behindCache.behind;
+  }
+  try {
+    const res = await fetch(
+      'https://api.github.com/repos/Cheumklang/NTAPI-releases/releases?per_page=100',
+      {
+        headers: { accept: 'application/vnd.github+json', 'user-agent': 'NTAPI-update-check' },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    if (!res.ok) return behindCache.behind;
+    const list = await res.json();
+    const versions = (Array.isArray(list) ? list : []).map((r) => r?.tag_name).filter(Boolean);
+    behindCache = { at: now, behind: releasesBehind(versions, app.getVersion()) };
+    return behindCache.behind;
+  } catch {
+    return behindCache.behind;
+  }
+}
+
+/** Set by `setUpdates`; the manual "check now" button runs the same path. */
+let runUpdateCheck = null;
 
 function setUpdates() {
   if (!app.isPackaged) return;
@@ -4867,8 +4956,56 @@ function setUpdates() {
     return;
   }
   updater = autoUpdater;
-  updater.autoDownload = false;
+  // Small updates must reach people without them hunting for a button: the app
+  // checks on its own and, when there is a delta, downloads it in the
+  // background. Installation still waits for the user (or for the next quit),
+  // so nothing restarts under them mid-conversation.
+  updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
+  // Without this the delta-vs-full decision is invisible when someone reports
+  // that an update took minutes. It only writes to the app's own log.
+  updater.logger = console;
+
+  // First check a little after launch (startup is busy: splash, session load)
+  // and then four times a day. Both timers are unref'd so a pending check can
+  // never hold the process open at quit.
+  //
+  // Where an update *may* speak up: only the launch check and an explicit press
+  // of "check now". A timer that fires while someone is mid-conversation is
+  // allowed to download a delta quietly, never to open a card or a toast.
+  const FIRST_CHECK_MS = 30_000;
+  const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
+  const check = async (origin = 'timer') => {
+    // Decide *before* asking: electron-updater starts downloading the moment it
+    // sees an update, so `autoDownload` has to be settled beforehand.
+    const behind = await releasesBehindNow();
+    const mandatory = Number.isFinite(behind) && behind > UPDATE_RETENTION;
+    updater.autoDownload = !mandatory;
+    updateState = { ...updateState, behind, mandatory, origin };
+    sendUpdateState();
+    try {
+      await updater.checkForUpdates();
+    } catch (err) {
+      // Offline, GitHub down, or no release yet: say nothing in the panel — a
+      // background check must not paint an error over a working app — and try
+      // again on the next tick. A manual "check now" still reports its failure.
+      console.warn('update check failed:', err?.message || err);
+      throw err;
+    }
+  };
+  // The first check of a session is the launch check; everything after it is a
+  // timer, and a timer is not allowed to interrupt anyone.
+  let launchCheckPending = true;
+  const backgroundCheck = () => {
+    const origin = launchCheckPending ? 'startup' : 'timer';
+    launchCheckPending = false;
+    return check(origin).catch(() => {});
+  };
+  runUpdateCheck = check;
+  const first = setTimeout(backgroundCheck, FIRST_CHECK_MS);
+  first.unref?.();
+  const every = setInterval(backgroundCheck, CHECK_EVERY_MS);
+  every.unref?.();
 
   const set = (patch) => {
     updateState = { ...updateState, ...patch };
@@ -4877,7 +5014,13 @@ function setUpdates() {
 
   updater.on('checking-for-update', () => set({ status: 'checking', error: null }));
   updater.on('update-available', (info) =>
-    set({ status: 'available', version: info?.version || null, error: null })
+    set({
+      status: 'available',
+      version: info?.version || null,
+      error: null,
+      behind: updateState.behind ?? null,
+      mandatory: updateState.mandatory === true,
+    })
   );
   updater.on('update-not-available', (info) =>
     set({ status: 'latest', version: info?.version || null, error: null })
@@ -4898,11 +5041,11 @@ ipcMain.handle('update:state', () => ({
 }));
 
 ipcMain.handle('update:check', async () => {
-  if (!app.isPackaged || !updater) {
+  if (!app.isPackaged || !updater || !runUpdateCheck) {
     return { ok: false, error: 'not-packaged', packaged: app.isPackaged, current: app.getVersion() };
   }
   try {
-    await updater.checkForUpdates();
+    await runUpdateCheck('manual');
     return { ok: true, ...updateState };
   } catch (err) {
     return { ok: false, error: String(err?.message || err) };
@@ -4921,6 +5064,95 @@ ipcMain.handle('update:download', async () => {
 
 ipcMain.handle('update:install', () => {
   if (!updater) return { ok: false, error: 'not-packaged' };
+  startUpdateInstall();
+  return { ok: true };
+});
+
+/**
+ * Quit into the installer.
+ *
+ * Shared by the button in Settings, the required-update card and the question
+ * asked when the window is closed, because all three have to leave in exactly
+ * the same state: the splash up, the new version remembered, and no window left
+ * behind that the installer cannot replace.
+ */
+/**
+ * The update question asked while the window is closing.
+ *
+ * Deliberately the only other moment the app brings up an update on its own:
+ * launch, and quit. A person typing a prompt in between should never see it.
+ * Three answers, in the order the user most likely wants them: do it now, close
+ * without it (the pending installer still runs on quit, which the detail text
+ * says plainly), or stay.
+ */
+async function askAboutUpdateOnClose(target) {
+  const th = initialLang(readPrefs()) === 'th';
+  const ready = updateState.status === 'ready';
+  const version = updateState.version ? ` v${updateState.version}` : '';
+  const buttons = ready
+    ? [
+        th ? 'ติดตั้งแล้วรีสตาร์ต' : 'Install and restart',
+        th ? 'ปิดโปรแกรม' : 'Close',
+        th ? 'ยกเลิก' : 'Cancel',
+      ]
+    : [
+        th ? 'ดาวน์โหลดแล้วติดตั้ง' : 'Download and install',
+        th ? 'ปิดโปรแกรม' : 'Close',
+        th ? 'ยกเลิก' : 'Cancel',
+      ];
+  const message = ready
+    ? th
+      ? `NTAPI${version} พร้อมติดตั้งแล้ว`
+      : `NTAPI${version} is ready to install`
+    : th
+      ? `มี NTAPI${version} ให้อัปเดต`
+      : `An NTAPI update${version} is available`;
+  const detail = ready
+    ? th
+      ? 'ติดตั้งตอนนี้แล้วโปรแกรมจะปิดและเปิดใหม่เอง — ถ้ากด “ปิดโปรแกรม” ระบบจะติดตั้งให้ตอนปิดอยู่ดี'
+      : 'Installing now closes the app and opens the new version by itself. “Close” installs it on the way out anyway.'
+    : th
+      ? 'อัปเดตครั้งล่าสุดมีขนาดเล็กเพราะโหลดเฉพาะส่วนที่เปลี่ยน — จะดาวน์โหลดตอนนี้แล้วติดตั้งเลย หรือปิดก่อนก็ได้'
+      : 'The update is small because only the changed part is downloaded. Download and install now, or close and take it later.';
+  let response = 2;
+  try {
+    ({ response } = await dialog.showMessageBox(target, {
+      type: 'question',
+      buttons,
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+      title: 'NTAPI',
+      message,
+      detail,
+    }));
+  } catch {
+    return;
+  }
+  if (response === 0) {
+    if (ready) {
+      startUpdateInstall();
+      return;
+    }
+    updateState = { ...updateState, origin: 'manual' };
+    try {
+      await updater.downloadUpdate();
+      startUpdateInstall();
+    } catch (err) {
+      console.warn('update download while closing failed:', err?.message || err);
+    }
+    return;
+  }
+  // “Close” leaves through the door the user opened: no second question, and
+  // `autoInstallOnAppQuit` still installs whatever finished downloading.
+  if (response === 1) target.destroy();
+}
+
+function startUpdateInstall() {
+  if (!updater) return;
+  // Remembered so the next launch can thank the user and offer the coffee QR
+  // once, instead of looking like nothing happened.
+  writePrefs({ updatedFrom: app.getVersion() });
   // Windows cannot replace a running .exe, so the silently-installed update
   // runs right after the app quits and `true` relaunches it. Give the renderer
   // a moment first so the "installing" step is visible instead of a sudden
@@ -4944,8 +5176,7 @@ ipcMain.handle('update:install', () => {
     setTimeout(quitWhenCovered, 120);
   };
   setTimeout(quitWhenCovered, 4500);
-  return { ok: true };
-});
+}
 
 /* ---------------------------- presence ---------------------------- */
 
@@ -5174,6 +5405,20 @@ app.whenReady().then(async () => {
     dialog.showErrorBox('pi SDK not found', err.message);
     app.quit();
     return;
+  }
+
+  // The build just replaced itself. Say so once — and put the coffee QR in
+  // front of the person at the moment they are most likely to feel like it.
+  // `updatedFrom` is written by `update:install` right before the installer
+  // runs, so this only fires on the first launch of a new version, never on an
+  // ordinary start.
+  if (winUiReady) {
+    winUiReady.then(() => {
+      const from = readPrefs().updatedFrom;
+      if (!from || from === app.getVersion()) return;
+      writePrefs({ updatedFrom: null });
+      setTimeout(() => send('app:updated', { from, to: app.getVersion() }), 1500);
+    });
   }
 
   /*

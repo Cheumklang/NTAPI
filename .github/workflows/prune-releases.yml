@@ -7,20 +7,39 @@ name: Prune old releases
 # not a broken app, only a stale one; the point of this job is to stop handing
 # those builds out.
 #
-# Manual on purpose. Deleting a release cannot be undone, so nothing here runs
-# on a push or a schedule: a person opens Actions, types which version must
-# survive, and presses Run.
-# Manual on purpose. Deleting a release cannot be undone, so nothing here runs
-# on its own: a person either presses Run in the Actions tab or writes a commit
-# message that asks for it in so many words (see the marker below).
+# HOW MANY SURVIVE: twenty. The installer itself is not needed for an update —
+# but its `.blockmap` is. electron-updater diffs the new installer against a
+# previous version's blockmap, which it fetches from that release when there is
+# no local copy (`AppUpdater.js`: "No cached blockmap for the old installer,
+# downloading it from ..."). Keeping a window of releases is therefore what
+# makes small updates possible at all.
+#
+# The window is also the promise the app makes to its users: an install that is
+# more than `UPDATE_RETENTION` releases behind (`app/src/main.js`) is told to
+# update *now*, because the blockmap its delta would need is gone. Twenty keeps
+# ~20 download records alive — a few hundred KB of `.blockmap` each — and the
+# 21st release pushes the oldest out automatically, so the public repo cannot
+# grow without bound.
+#
+# `keep=<version>` still forces the old "this version and newer" behaviour.
+#
+# Runs on its own after every successful Release (newest twenty kept, nothing
+# else touched), and by hand in the Actions tab. Deleting a release cannot be
+# undone, which is why the hand-run path asks for the number and confirms it,
+# and why a commit-message marker still exists for the rare manual prune.
 on:
   workflow_dispatch:
     inputs:
-      keep:
-        description: 'Keep this version and everything newer (e.g. v0.5.0)'
+      keep_count:
+        description: 'Keep how many of the newest releases (must be >= 2; 20 = the app update window)'
         required: true
+        type: number
+        default: 20
+      keep:
+        description: 'Optional override: keep this version and everything newer (e.g. v0.5.0). Empty = use keep_count'
+        required: false
         type: string
-        default: 'v0.5.0'
+        default: ''
       dry_run:
         description: 'List what would be deleted, delete nothing'
         required: true
@@ -40,6 +59,11 @@ on:
   # nothing at all when the marker is absent.
   push:
     branches: [master]
+  # A published release is the moment the window slides: run without being asked
+  # so the 21st release always retires the oldest, and nobody has to remember.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
 
 permissions:
   contents: write
@@ -52,6 +76,7 @@ jobs:
   prune:
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       contains(github.event.head_commit.message, '[prune-releases')
     runs-on: ubuntu-latest
     steps:
@@ -65,6 +90,7 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           TARGET_REPO: Cheumklang/NTAPI-releases
           KEEP_INPUT: ${{ inputs.keep }}
+          COUNT_INPUT: ${{ inputs.keep_count }}
           DRY_INPUT: ${{ inputs.dry_run }}
           TAGS_INPUT: ${{ inputs.delete_tags }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
@@ -85,24 +111,26 @@ jobs:
             fi
             # Tags are separate history; only touched when asked for by name.
             if printf '%s\n' "$COMMIT_MSG" | grep -q 'tags'; then TAGS=true; else TAGS=false; fi
+          elif [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
+            # Automatic: a release just finished. Keep the window and nothing
+            # else — never force a version and never delete tags.
+            KEEP=""
+            KEEP_COUNT="${NTAPI_UPDATE_RETENTION:-20}"
+            DRY_RUN=false
+            TAGS=false
           else
             KEEP="$KEEP_INPUT"
+            KEEP_COUNT="$COUNT_INPUT"
             DRY_RUN="$DRY_INPUT"
             TAGS="$TAGS_INPUT"
           fi
-          echo "keep=$KEEP dry_run=$DRY_RUN tags=$TAGS (event: $GITHUB_EVENT_NAME)"
+          echo "keep=$KEEP keep_count=${KEEP_COUNT:-} dry_run=$DRY_RUN tags=$TAGS (event: $GITHUB_EVENT_NAME)"
           {
             echo "KEEP=$KEEP"
+            echo "KEEP_COUNT=${KEEP_COUNT:-}"
             echo "DRY_RUN=$DRY_RUN"
             echo "DELETE_TAGS=$TAGS"
           } >> "$GITHUB_ENV"
-
-          keep="${KEEP#v}"
-          keep="${keep#V}"
-          if ! printf '%s' "$keep" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::'$KEEP' is not a version like v0.5.0"
-            exit 1
-          fi
 
           # tag<TAB>id for every release, newest first.
           gh api "repos/$TARGET_REPO/releases?per_page=100" --paginate \
@@ -110,25 +138,55 @@ jobs:
 
           total=$(wc -l < releases.tsv)
           echo "releases found: $total"
-          if ! cut -f1 releases.tsv | grep -qx "v$keep"; then
-            # A typo here would either delete nothing or delete everything,
-            # depending on which way the comparison leans. Refuse instead.
-            echo "::error::v$keep has no published release — check the input"
-            exit 1
+
+          if [ -n "$KEEP" ]; then
+            # Explicit version wins: "keep this and everything newer".
+            MODE=version
+            keep="${KEEP#v}"
+            keep="${keep#V}"
+            if ! printf '%s' "$keep" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "::error::'$KEEP' is not a version like v0.5.0"
+              exit 1
+            fi
+            if ! cut -f1 releases.tsv | grep -qx "v$keep"; then
+              # A typo here would either delete nothing or delete everything,
+              # depending on which way the comparison leans. Refuse instead.
+              echo "::error::v$keep has no published release — check the input"
+              exit 1
+            fi
+          else
+            # Default: the newest N releases survive. N must be at least 2 so the
+            # previous blockmap is still downloadable for the next delta update.
+            MODE=count
+            if ! printf '%s' "${KEEP_COUNT:-2}" | grep -Eq '^[0-9]+$' || [ "${KEEP_COUNT:-2}" -lt 2 ]; then
+              echo "::error::keep_count must be a whole number >= 2 (got '${KEEP_COUNT:-}')"
+              exit 1
+            fi
+            keep="${KEEP_COUNT:-2}"
           fi
 
           deleted=0
           skipped=0
+          index=0
           : > pruned.txt
           while IFS=$'\t' read -r tag id; do
-            ver="${tag#v}"
-            ver="${ver#V}"
-            # sort -V orders by version, so "lower than keep" is a real version
-            # comparison and not a string one (0.10.0 must beat 0.9.0).
-            lowest=$(printf '%s\n%s\n' "$ver" "$keep" | sort -V | head -n1)
-            if [ "$ver" = "$keep" ] || [ "$lowest" != "$ver" ]; then
-              skipped=$((skipped + 1))
-              continue
+            index=$((index + 1))
+            if [ "$MODE" = "count" ]; then
+              # releases.tsv is newest first, so the first N lines are what stays.
+              if [ "$index" -le "$keep" ]; then
+                skipped=$((skipped + 1))
+                continue
+              fi
+            else
+              ver="${tag#v}"
+              ver="${ver#V}"
+              # sort -V orders by version, so "lower than keep" is a real version
+              # comparison and not a string one (0.10.0 must beat 0.9.0).
+              lowest=$(printf '%s\n%s\n' "$ver" "$keep" | sort -V | head -n1)
+              if [ "$ver" = "$keep" ] || [ "$lowest" != "$ver" ]; then
+                skipped=$((skipped + 1))
+                continue
+              fi
             fi
             if [ "$DRY_RUN" = "true" ]; then
               echo "would delete: $tag ($id)"
@@ -140,16 +198,22 @@ jobs:
             deleted=$((deleted + 1))
           done < releases.tsv
 
-          if [ "$DRY_RUN" = "true" ]; then
-            echo "::notice::dry run — $deleted release(s) below v$keep would be deleted, $skipped kept"
+          if [ "$MODE" = "count" ]; then
+            KEPT_TEXT="the newest $keep release(s)"
           else
-            echo "::notice::deleted $deleted release(s) below v$keep, $skipped kept"
+            KEPT_TEXT="v$keep and newer"
+          fi
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::dry run — $deleted release(s) outside '$KEPT_TEXT' would be deleted, $skipped kept"
+          else
+            echo "::notice::deleted $deleted release(s) outside '$KEPT_TEXT', $skipped kept"
           fi
 
           {
             echo "### Prune old releases"
             echo ""
-            echo "- kept: v$keep and newer"
+            echo "- kept: $KEPT_TEXT"
             echo "- $([ "$DRY_RUN" = "true" ] && echo "would delete" || echo "deleted"): $deleted"
             echo "- untouched: $skipped"
             if [ -s pruned.txt ] && [ "$DRY_RUN" != "true" ]; then

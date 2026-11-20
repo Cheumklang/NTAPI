@@ -62,6 +62,7 @@ const STRINGS = {
   en: {
     // Browser control (chip next to the language button).
     errorPrefix: 'Error',
+    errorBannerClose: 'Click to dismiss this error',
     updateOverlayTitle: 'Updating NTAPI…',
     updateOverlayLine: 'The program closes itself to install the update, then opens again on its own.',
     updateOverlayHint: 'You do not need to start it again. Leave this window; it goes away by itself.',
@@ -545,7 +546,7 @@ const STRINGS = {
     updatesSection: 'Updates',
     updateCurrent: 'Current version',
     checkUpdates: 'Check for updates',
-    updateIdle: 'Updates are only checked when you ask.',
+    updateIdle: 'Updates are checked automatically every 6 hours.',
     updateChecking: 'Checking for updates…',
     updateLatest: 'You are on the latest version.',
     updateAvailable: 'Version {v} is available.',
@@ -557,12 +558,23 @@ const STRINGS = {
     notifyDone: 'Session finished',
     updateDev: 'Auto-update works in the installed build only.',
     updateError: 'Update check failed: {e}',
+    forcedUpdateTitle: 'Update required',
+    forcedUpdateLine:
+      'This build is {n} releases behind. The small-update files that would make this a quick download have been cleaned up, so the next step is the full installer.',
+    forcedUpdateLinePlain:
+      'This build is too far behind for a small update, so the next step is the full installer.',
+    forcedUpdateStart: 'Download the update',
+    forcedUpdateQuit: 'Quit NTAPI',
+    updateThanksTitle: 'Updated',
+    updateThanksLine:
+      'Everything is where you left it. If NTAPI is useful to you, a coffee is always welcome.',
     sponsorSoundOn: 'Play ad sound',
     sponsorSoundOff: 'Mute ad',
   },
   th: {
     // Browser control (chip next to the language button).
     errorPrefix: 'ข้อผิดพลาด',
+    errorBannerClose: 'กดเพื่อปิดข้อความนี้',
     sponsorSoundOn: 'เปิดเสียงโฆษณา',
     sponsorSoundOff: 'ปิดเสียงโฆษณา',
     updateOverlayTitle: 'กำลังอัปเดต NTAPI…',
@@ -766,7 +778,7 @@ const STRINGS = {
     anthropicRemove: 'ลบออก',
     anthropicRemoveTitle: 'ลบคีย์ Claude?',
     anthropicRemoveSub:
-      'โมเดล Claude จะหายจากรายการ เทิร์นที่กําลังทําอยู่จะจบก่อน และแชทนี้จะอยู่กับ Claude จนกว่าคุณจะเปลี่ยนเอง',
+      'โมเดล Claude จะหายจากรายการ เทิร์นที่กำลังทำอยู่จะจบก่อน และแชทนี้จะอยู่กับ Claude จนกว่าคุณจะเปลี่ยนเอง',
     anthropicConfigured: 'ตั้งค่าแล้ว',
     anthropicUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
     anthropicNotConfigured: 'ยังไม่มีคีย์ — โมเดล Claude จะไม่แสดง',
@@ -774,7 +786,7 @@ const STRINGS = {
     anthropicBuy: 'เติมเครดิตที่ platform.claude.com',
     anthropicSaved: 'บันทึกคีย์ Claude แล้ว',
     anthropicUnverified: 'ติดต่อ Anthropic ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
-    anthropicSaveFailed: 'บันทึกคีย์ไม่สําเร็จ:',
+    anthropicSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
     anthropicRemoved: 'ลบคีย์ Claude แล้ว',
     anthropicMeterLabel: 'จ่ายตามโทเคน',
     anthropicPrice: '{in} เข้า / {out} ออก ต่อ 1M',
@@ -784,15 +796,15 @@ const STRINGS = {
     googleRemove: 'ลบออก',
     googleRemoveTitle: 'ลบคีย์ Gemini?',
     googleRemoveSub:
-      'โมเดล Gemini จะหายจากรายการ เทิร์นที่กําลังทําอยู่จะจบก่อน และแชทนี้จะอยู่กับ Gemini จนกว่าคุณจะเปลี่ยนเอง',
+      'โมเดล Gemini จะหายจากรายการ เทิร์นที่กำลังทำอยู่จะจบก่อน และแชทนี้จะอยู่กับ Gemini จนกว่าคุณจะเปลี่ยนเอง',
     googleConfigured: 'ตั้งค่าแล้ว',
     googleUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
     googleNotConfigured: 'ยังไม่มีคีย์ — โมเดล Gemini จะไม่แสดง',
     googleGetKey: 'ขอคีย์ที่ aistudio.google.com',
-    googleBuy: 'จัดการการชําระเงินที่ aistudio.google.com',
+    googleBuy: 'จัดการการชำระเงินที่ aistudio.google.com',
     googleSaved: 'บันทึกคีย์ Gemini แล้ว',
     googleUnverified: 'ติดต่อ Gemini ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
-    googleSaveFailed: 'บันทึกคีย์ไม่สําเร็จ:',
+    googleSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
     googleRemoved: 'ลบคีย์ Gemini แล้ว',
     googleMeterLabel: 'จ่ายตามโทเคน',
     googlePrice: '{in} เข้า / {out} ออก ต่อ 1M',
@@ -801,15 +813,15 @@ const STRINGS = {
     mcpSection: 'MCP',
     mcpHead: 'เซิร์ฟเวอร์ MCP',
     mcpIntro:
-      'MCP เพิ่มเครื่องมือให้ AI เซิร์ฟเวอร์ทํางานด้วยสิทธิ์ของคุณ และคําอธิบายเครื่องมือเป็นข้อมูลที่ไม่น่าไว้ใจ จึงต้องอนุมัติทุกครั้งก่อนเรียก MCP tool',
+      'MCP เพิ่มเครื่องมือให้ AI เซิร์ฟเวอร์ทำงานด้วยสิทธิ์ของคุณ และคำอธิบายเครื่องมือเป็นข้อมูลที่ไม่น่าไว้ใจ จึงต้องอนุมัติทุกครั้งก่อนเรียก MCP tool',
     mcpEnable: 'เปิดใช้เซิร์ฟเวอร์ MCP',
     mcpSave: 'บันทึก',
     mcpSaving: 'กำลังบันทึก…',
     mcpSaved: 'บันทึกแล้ว — มีผลกับ session ใหม่',
-    mcpSaveFailed: 'บันทึกไม่สําเร็จ',
+    mcpSaveFailed: 'บันทึกไม่สำเร็จ',
     copySystemInfo: 'คัดลอกข้อมูลระบบ',
     systemInfoCopied: 'คัดลอกแล้ว',
-    systemInfoFailed: 'คัดลอกไม่สําเร็จ',
+    systemInfoFailed: 'คัดลอกไม่สำเร็จ',
     crashNotice: 'เกิดข้อผิดพลาดบางอย่าง คัดลอกข้อมูลระบบแล้วแนบไปในรายงานบั๊กได้เลย',
     mcpLlm7Warn:
       'บน LLM7.io โควตาฟรีอาจเรียก tool ไม่ได้ และทุก tool จะกินโทเคนรายวัน — ควรใช้ค่ายอื่นสำหรับงาน MCP',
@@ -918,7 +930,7 @@ const STRINGS = {
     readyHint: 'พร้อมแล้ว — กด + เพื่อเริ่มเซสชัน',
     chooseToBegin: 'เลือกโฟลเดอร์ทำงานเพื่อเริ่มต้น',
     emptyTitle: 'จะสร้างอะไรกันดี?',
-    emptySub: 'เลือกโฟลเดอร์ทางซ้าย แล้วบอกงานที่ต้องการ — NTAPI ทํางานให้ที่นี่ ไม่ต้องใช้ terminal',
+    emptySub: 'เลือกโฟลเดอร์ทางซ้าย แล้วบอกงานที่ต้องการ — NTAPI ทำงานให้ที่นี่ ไม่ต้องใช้ terminal',
     emptyPickFolder: 'เลือกโฟลเดอร์',
     emptyNewChat: 'แชทใหม่',
     emptySettings: 'ตั้งค่า',
@@ -968,7 +980,7 @@ const STRINGS = {
     spent: 'ใช้ไป {n} จาก {total}',
     allowOnce: 'อนุญาต',
     deny: 'ปฏิเสธ',
-    approvalTitle: 'อนุญาตให้รันคําสั่งนี้ไหม?',
+    approvalTitle: 'อนุญาตให้รันคำสั่งนี้ไหม?',
     approvalSub: 'AI ต้องการรัน',
     approvalSub2: 'ในโฟลเดอร์นี้',
     signOutTitle: 'ออกจากระบบบนเครื่องนี้?',
@@ -1005,13 +1017,13 @@ const STRINGS = {
     aboutPrivacyOpen: 'ความเป็นส่วนตัว',
     aboutLicenceOpen: 'สัญญาอนุญาตโปรแกรม',
     termsTitle: 'ก่อนเริ่มใช้งาน',
-    termsIntro: 'NTAPI ทํางานด้วยคีย์ API ของคุณเอง และเก็บแชทไว้ในเครื่องนี้ สองเอกสารสั้น ๆ ด้านล่างอธิบายส่วนที่เหลือ — อ่านสักครั้งก่อนเริ่มใช้',
+    termsIntro: 'NTAPI ทำงานด้วยคีย์ API ของคุณเอง และเก็บแชทไว้ในเครื่องนี้ สองเอกสารสั้น ๆ ด้านล่างอธิบายส่วนที่เหลือ — อ่านสักครั้งก่อนเริ่มใช้',
     termsPointKeys: 'คีย์และประวัติแชทอยู่ในเครื่องคุณเท่านั้น โปรแกรมไม่ได้เก็บไว้บนเซิร์ฟเวอร์',
-    termsPointProviders: 'คําตอบมาจากบริษัท AI ที่คุณเลือกโดยตรง ภายใต้ข้อกําหนดของบริษัทนั้น',
-    termsPointPrivacy: 'การเชื่อมต่ออัตโนมัติอย่างเดียวคือรหัสสุ่มสําหรับนับจํานวนคนออนไลน์',
-    termsReadTerms: 'ข้อกําหนดการใช้งาน',
+    termsPointProviders: 'คำตอบมาจากบริษัท AI ที่คุณเลือกโดยตรง ภายใต้ข้อกำหนดของบริษัทนั้น',
+    termsPointPrivacy: 'การเชื่อมต่ออัตโนมัติอย่างเดียวคือรหัสสุ่มสำหรับนับจำนวนคนออนไลน์',
+    termsReadTerms: 'ข้อกำหนดการใช้งาน',
     termsReadPrivacy: 'ประกาศความเป็นส่วนตัว',
-    termsAgreeHint: 'การกด “ยอมรับและเริ่มใช้” ถือว่าคุณยอมรับข้อกําหนดการใช้งาน',
+    termsAgreeHint: 'การกด “ยอมรับและเริ่มใช้” ถือว่าคุณยอมรับข้อกำหนดการใช้งาน',
     termsAccept: 'ยอมรับและเริ่มใช้',
     termsDecline: 'ปฏิเสธและปิดโปรแกรม',
     tokTitle: 'โทเคน',
@@ -1042,18 +1054,27 @@ const STRINGS = {
     updatesSection: 'อัปเดต',
     updateCurrent: 'เวอร์ชันปัจจุบัน',
     checkUpdates: 'ตรวจหาอัปเดต',
-    updateIdle: 'ระบบจะตรวจหาอัปเดตเมื่อคุณกดเท่านั้น',
+    updateIdle: 'ระบบตรวจหาอัปเดตเองทุก 6 ชั่วโมง',
     updateChecking: 'กำลังตรวจหาอัปเดต…',
     updateLatest: 'คุณใช้เวอร์ชันล่าสุดแล้ว',
     updateAvailable: 'มีเวอร์ชันใหม่ {v} ให้อัปเดต',
     updateDownload: 'ดาวน์โหลดอัปเดต',
-    updateDownloading: 'กําลังดาวน์โหลด... {p}%',
+    updateDownloading: 'กำลังดาวน์โหลด... {p}%',
     updateReady: 'เวอร์ชัน {v} พร้อมติดตั้งแล้ว',
     updateInstall: 'ติดตั้งและรีสตาร์ต',
     updateInstalling: 'กำลังติดตั้ง... โปรแกรมจะปิดและเปิดใหม่เอง',
     notifyDone: 'ทำงานเสร็จแล้ว',
     updateDev: 'ระบบอัปเดตใช้ได้กับเวอร์ชันที่ติดตั้งแล้วเท่านั้น',
     updateError: 'ตรวจหาอัปเดตไม่สำเร็จ: {e}',
+    forcedUpdateTitle: 'ต้องอัปเดตก่อนใช้งานต่อ',
+    forcedUpdateLine:
+      'เวอร์ชันนี้เก่ากว่าที่ปล่อยแล้ว {n} รุ่น — ไฟล์อัปเดตเล็กที่ทำให้โหลดเร็ว ๆ ถูกลบไปแล้ว รอบนี้จึงต้องดาวน์โหลดตัวติดตั้งเต็ม',
+    forcedUpdateLinePlain:
+      'เวอร์ชันนี้เก่าเกินกว่าจะอัปเดตแบบไฟล์เล็กได้ รอบนี้ต้องดาวน์โหลดตัวติดตั้งเต็ม',
+    forcedUpdateStart: 'ดาวน์โหลดอัปเดต',
+    forcedUpdateQuit: 'ออกจากโปรแกรม',
+    updateThanksTitle: 'อัปเดตแล้ว',
+    updateThanksLine: 'ทุกอย่างอยู่ที่เดิม — ถ้า NTAPI มีประโยชน์กับคุณ กาแฟสักแก้วก็ยินดีเสมอ',
   },
 };
 
@@ -4910,6 +4931,7 @@ async function copySystemInfo(btn) {
 }
 
 /** One visible banner at a time; the user can copy the info or dismiss it. */
+let crashNoticeTimer = null;
 function showCrashNotice(reason) {
   const box = el('crashNotice');
   const text = el('crashText');
@@ -4917,12 +4939,21 @@ function showCrashNotice(reason) {
   const msg = reason && reason.message ? reason.message : typeof reason === 'string' ? reason : '';
   text.textContent = `${t('crashNotice')}${msg ? ` — ${msg}` : ''}`;
   box.hidden = false;
+  // Same rule as the error banner: it clears itself after fifteen seconds, so a
+  // crash loop cannot leave the composer permanently red. Copying the system
+  // info is a button press away until then, and the banner is dismissible by
+  // hand at any point.
+  clearTimeout(crashNoticeTimer);
+  crashNoticeTimer = setTimeout(() => {
+    if (box) box.hidden = true;
+  }, 15_000);
 }
 
 window.addEventListener('error', (e) => showCrashNotice(e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => showCrashNotice(e.reason));
 el('crashCopy')?.addEventListener('click', (e) => copySystemInfo(e.currentTarget));
 el('crashClose')?.addEventListener('click', () => {
+  clearTimeout(crashNoticeTimer);
   el('crashNotice').hidden = true;
 });
 
@@ -5683,8 +5714,66 @@ el('settingsReset').addEventListener('click', async () => {
 });
 
 // ---- updates (GitHub Releases) ----
+
+/**
+ * The card that blocks the app when this install is past the update window.
+ *
+ * `mandatory` is only ever set by counting published releases newer than this
+ * build, and it stays false when GitHub cannot be asked — so being offline, or
+ * a rate-limited API, never locks anyone out of the app.
+ */
+function paintForcedUpdate(st) {
+  const layer = el('forcedUpdate');
+  if (!layer) return;
+  // A timer-driven check downloads quietly and says nothing: news about a new
+  // version never interrupts someone mid-conversation. The card is reserved for
+  // the launch check and for a press of "check now" in Settings.
+  const quiet = st?.origin === 'timer';
+  const active =
+    !quiet &&
+    st?.mandatory === true &&
+    ['available', 'downloading', 'ready', 'installing'].includes(st?.status);
+  layer.hidden = !active;
+  if (!active) return;
+
+  const line = el('forcedUpdateLine');
+  const btn = el('forcedUpdateBtn');
+  const wrap = el('forcedUpdateProgressWrap');
+  const bar = el('forcedUpdateBar');
+  const pct = el('forcedUpdatePct');
+
+  if (line) {
+    line.textContent = Number.isFinite(st.behind)
+      ? t('forcedUpdateLine', { n: st.behind })
+      : t('forcedUpdateLinePlain');
+  }
+  if (wrap) wrap.hidden = st.status !== 'downloading';
+  if (st.status === 'downloading') {
+    const p = Math.max(0, Math.min(100, Math.round(Number(st.progress) || 0)));
+    if (bar) bar.style.width = `${p}%`;
+    if (pct) pct.textContent = `${p}%`;
+  }
+  if (btn) {
+    btn.hidden = st.status === 'downloading' || st.status === 'installing';
+    btn.disabled = false;
+    btn.textContent = st.status === 'ready' ? t('updateInstall') : t('forcedUpdateStart');
+    btn.onclick = async () => {
+      if (st.status === 'ready') {
+        btn.disabled = true;
+        await api.installUpdate();
+        return;
+      }
+      btn.disabled = true;
+      const res = await api.downloadUpdate();
+      btn.disabled = false;
+      if (!res?.ok && line) line.textContent = t('updateError', { e: res?.error || '' });
+    };
+  }
+}
+
 function paintUpdate(state) {
   const st = state || {};
+  paintForcedUpdate(st);
   const verEl = el('updateVersion');
   const statusEl = el('updateStatus');
   const actionBtn = el('updateActionBtn');
@@ -5798,8 +5887,21 @@ async function initUpdates() {
 if (typeof api.onAppUpdated === 'function') {
   api.onAppUpdated((p) => {
     showToast({ title: `NTAPI v${p.to}`, body: t('updatedToast', { v: p.to }) });
+    // Once, right after the build changed: thank them and put the coffee QR on
+    // screen. It is the same image About shows, so nothing new to trust.
+    const line = el('updateThanksLine');
+    if (line) line.textContent = t('updateThanksLine');
+    const layer = el('updateThanks');
+    if (layer) layer.hidden = false;
   });
 }
+
+el('updateThanksClose')?.addEventListener('click', () => {
+  const layer = el('updateThanks');
+  if (layer) layer.hidden = true;
+});
+
+el('forcedUpdateQuitBtn')?.addEventListener('click', () => api.quitApp());
 
 api.onUpdateStatus?.((s) => {
     updateStateCache = s;
@@ -9665,11 +9767,33 @@ api.onNotice((p) => {
   showNotice(p.key ? t(p.key, p.params || null) : p.text, noticeIsRetry ? 10000 : undefined);
 });
 
+/** How long a red line in the transcript stays before it goes away by itself. */
+const ERROR_BANNER_MS = 15_000;
+
 /** A failed turn is invisible otherwise: the assistant message has no text. */
 function appendErrorBanner(text, scroll = true) {
   const div = document.createElement('div');
   div.className = 'error-banner';
   div.textContent = `${t('errorPrefix')}: ${text}`;
+  // A red line is only useful while it is news. A flaky provider can produce one
+  // per attempt, and a stack of them buries the conversation it was meant to
+  // explain — so one click removes one at once, and fifteen seconds removes it
+  // whether anyone clicked or not. The turn is over either way; the status pill
+  // already says so.
+  div.title = t('errorBannerClose');
+  div.tabIndex = 0;
+  const dismiss = () => {
+    if (!div.isConnected || div.classList.contains('out')) return;
+    div.classList.add('out');
+    setTimeout(() => div.remove(), 220);
+  };
+  div.addEventListener('click', dismiss);
+  div.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    dismiss();
+  });
+  setTimeout(dismiss, ERROR_BANNER_MS);
   transcript.appendChild(div);
   // Only follow a reader who is already at the bottom; someone scrolled up to
   // read is never yanked away by an error.
@@ -10262,12 +10386,12 @@ Object.assign(STRINGS.th, {
   undoBusy: 'ย้อนกลับไม่สำเร็จ — ลองอีกครั้ง',
   undoBusyTitle: 'หยุดรอบนี้แล้วย้อนกลับไหม',
   undoBusySub:
-    'คําตอบที่กําลังเขียนอยู่จะถูกทิ้ง และโทเคนที่รอบนี้ใช้ไปแล้วไม่ได้คืน · ข้อความของคุณจะกลับมาอยู่ในช่องพิมพ์เพื่อส่งใหม่ได้',
+    'คำตอบที่กำลังเขียนอยู่จะถูกทิ้ง และโทเคนที่รอบนี้ใช้ไปแล้วไม่ได้คืน · ข้อความของคุณจะกลับมาอยู่ในช่องพิมพ์เพื่อส่งใหม่ได้',
   undoBusyMeta: 'ระบบจะหยุดรอบนี้ก่อน แล้วจึงลบข้อความล่าสุดของคุณ',
   undoBusyAction: 'หยุดและย้อนกลับ',
   modelBusyTitle: 'เปลี่ยนโมเดลระหว่างที่ AI ทำงานอยู่ไหม',
   modelBusySub:
-    'รอบนี้ยังทํางานไม่เสร็จ · โมเดลใหม่จะมีผลตั้งแต่ข้อความถัดไป และโทเคนที่รอบนี้ใช้ไปแล้วไม่ได้คืน',
+    'รอบนี้ยังทำงานไม่เสร็จ · โมเดลใหม่จะมีผลตั้งแต่ข้อความถัดไป และโทเคนที่รอบนี้ใช้ไปแล้วไม่ได้คืน',
   modelBusyMeta: 'รอบที่กำลังทำอยู่จะจบด้วยโมเดลเดิม',
   modelBusyAction: 'เปลี่ยนโมเดล',
   undoDone: 'ย้อนกลับไปก่อนข้อความล่าสุด — ข้อความอยู่ในช่องพิมพ์แล้ว',
@@ -10308,7 +10432,7 @@ Object.assign(STRINGS.th, {
   approvalTitle: 'การอนุมัติเครื่องมือ',
   approvalAskTitle: 'ถามเสมอ — ถามทุกครั้งก่อนให้ AI รันคำสั่ง',
   approvalAllowTitle: 'อนุมัติเสมอ — ไม่ถามเลย AI รันคำสั่งได้ทันที',
-  approvalDenyTitle: 'ไม่อนุมัติเลย — ไม่ถามเลย AI รันคําสั่งไม่ได้',
+  approvalDenyTitle: 'ไม่อนุมัติเลย — ไม่ถามเลย AI รันคำสั่งไม่ได้',
   approvalKeys: 'Enter = อนุญาต · Esc = ปฏิเสธ',
   reasoningTitle: 'ระดับความคิด',
   modelTitle: 'โมเดล',

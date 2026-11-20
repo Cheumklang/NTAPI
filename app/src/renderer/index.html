@@ -713,6 +713,50 @@
     </div>
 
 
+    <!--
+      Forced update. An install that is more than twenty releases behind has no
+      blockmap left to diff against on the server, so its "update" is the whole
+      installer. Buying that download is the user's call, but staying on a build
+      from a year ago is not a choice this app can keep supporting: the card has
+      no close button — update, or quit. Nothing here can lock anyone out of a
+      running session silently: it only appears after a successful release-list
+      check, and it shows progress while it works.
+    -->
+    <div id="forcedUpdate" class="overlay update-overlay" hidden>
+      <div class="dialog update-dialog" role="alertdialog" aria-modal="true" aria-labelledby="forcedUpdateTitle">
+        <h2 id="forcedUpdateTitle" data-i18n="forcedUpdateTitle">Update required</h2>
+        <p id="forcedUpdateLine" class="dialog-sub"></p>
+        <div id="forcedUpdateProgressWrap" class="update-progress" hidden>
+          <div class="update-bar"><span id="forcedUpdateBar"></span></div>
+          <span id="forcedUpdatePct" class="update-pct mono">0%</span>
+        </div>
+        <div class="dialog-actions update-card-actions">
+          <button id="forcedUpdateQuitBtn" class="ghost small" data-i18n="forcedUpdateQuit">Quit</button>
+          <button id="forcedUpdateBtn" class="primary-btn small"></button>
+        </div>
+      </div>
+    </div>
+
+    <!--
+      Shown once after the build replaced itself (`app:updated`). It thanks the
+      user in the same breath as the coffee QR that already lives in About:
+      right after an update is the one moment someone thinks about whether the
+      thing they just got was worth something.
+    -->
+    <div id="updateThanks" class="overlay" hidden>
+      <div class="dialog update-dialog update-thanks" role="dialog" aria-modal="true" aria-labelledby="updateThanksTitle">
+        <h2 id="updateThanksTitle" data-i18n="updateThanksTitle">Updated</h2>
+        <p id="updateThanksLine" class="dialog-sub"></p>
+        <div class="update-thanks-qr">
+          <img src="assets/qr-donation.jpg" alt="QR Code to support a coffee" class="about-qr-img" />
+          <p class="about-qr-caption" data-i18n="aboutQrDesc">สแกน QR Code เพื่อสนับสนุนค่ากาแฟ</p>
+        </div>
+        <div class="dialog-actions">
+          <button id="updateThanksClose" class="primary-btn" data-i18n="close">Close</button>
+        </div>
+      </div>
+    </div>
+
     <div id="updateOverlay" class="overlay update-overlay" hidden>
       <div class="dialog update-dialog" role="dialog" aria-modal="true" aria-labelledby="updateOverlayTitle">
         <div class="update-spinner" aria-hidden="true"></div>
@@ -1160,21 +1204,21 @@
         </div>
         <h2 id="termsTitle" data-i18n="termsTitle">ก่อนเริ่มใช้งาน</h2>
         <p class="dialog-sub" data-i18n="termsIntro">
-          NTAPI ทํางานด้วยคีย์ API ของคุณเอง และเก็บแชทไว้ในเครื่องนี้
+          NTAPI ทำงานด้วยคีย์ API ของคุณเอง และเก็บแชทไว้ในเครื่องนี้
           สองเอกสารสั้น ๆ ด้านล่างอธิบายส่วนที่เหลือ — อ่านสักครั้งก่อนเริ่มใช้
         </p>
         <ul class="terms-points">
           <li data-i18n="termsPointKeys">คีย์และประวัติแชทอยู่ในเครื่องคุณเท่านั้น โปรแกรมไม่ได้เก็บไว้บนเซิร์ฟเวอร์</li>
-          <li data-i18n="termsPointProviders">คําตอบมาจากบริษัท AI ที่คุณเลือกโดยตรง ภายใต้ข้อกําหนดของบริษัทนั้น</li>
-          <li data-i18n="termsPointPrivacy">การเชื่อมต่ออัตโนมัติอย่างเดียวคือรหัสสุ่มสําหรับนับจํานวนคนออนไลน์</li>
+          <li data-i18n="termsPointProviders">คำตอบมาจากบริษัท AI ที่คุณเลือกโดยตรง ภายใต้ข้อกำหนดของบริษัทนั้น</li>
+          <li data-i18n="termsPointPrivacy">การเชื่อมต่ออัตโนมัติอย่างเดียวคือรหัสสุ่มสำหรับนับจำนวนคนออนไลน์</li>
         </ul>
         <div class="terms-legal-links">
-          <button type="button" class="link-btn" data-doc="TERMS.md" data-i18n="termsReadTerms">ข้อกําหนดการใช้งาน</button>
+          <button type="button" class="link-btn" data-doc="TERMS.md" data-i18n="termsReadTerms">ข้อกำหนดการใช้งาน</button>
           <span class="link-sep" aria-hidden="true">·</span>
           <button type="button" class="link-btn" data-doc="PRIVACY.md" data-i18n="termsReadPrivacy">ประกาศความเป็นส่วนตัว</button>
         </div>
         <p class="terms-agree-hint" data-i18n="termsAgreeHint">
-          การกด “ยอมรับและเริ่มใช้” ถือว่าคุณยอมรับข้อกําหนดการใช้งาน
+          การกด “ยอมรับและเริ่มใช้” ถือว่าคุณยอมรับข้อกำหนดการใช้งาน
         </p>
         <div class="dialog-actions">
           <!-- A refusal has to be a real choice: the program closes, because

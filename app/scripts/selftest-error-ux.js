@@ -151,6 +151,47 @@ check(
 );
 check('the browser dialog opts into that rule', /class="dialog browser-dialog"/.test(html));
 
+// 8. Red lines must not accumulate: one click removes one, and fifteen seconds
+// removes it anyway. A provider that keeps returning 503 used to leave a column
+// of red text in the transcript with no way back to the conversation.
+const errorBanner = bodyOf('appendErrorBanner');
+check('the error banner can be read out of the renderer', Boolean(errorBanner));
+check(
+  'a red line disappears when clicked',
+  Boolean(errorBanner) && /addEventListener\('click', dismiss\)/.test(errorBanner)
+);
+check(
+  'a red line disappears by itself after fifteen seconds',
+  /const ERROR_BANNER_MS = 15_000;/.test(source) && /setTimeout\(dismiss, ERROR_BANNER_MS\)/.test(source)
+);
+check(
+  'the keyboard can dismiss it too',
+  Boolean(errorBanner) && /e\.key !== 'Enter' && e\.key !== ' '/.test(errorBanner)
+);
+check(
+  'the banner says it is clickable',
+  Boolean(errorBanner) && /div\.title = t\('errorBannerClose'\)/.test(errorBanner)
+);
+check(
+  'it fades instead of vanishing instantly',
+  Boolean(errorBanner) && /classList\.add\('out'\)/.test(errorBanner) && /remove\(\), 220/.test(errorBanner)
+);
+check(
+  'the dismissible banner is styled as interactive',
+  /\n\.error-banner \{[^}]*cursor:\s*pointer/.test(css) && /\n\.error-banner\.out \{[^}]*opacity:\s*0/.test(css)
+);
+
+const crashNotice = bodyOf('showCrashNotice');
+check('the crash banner can be read out of the renderer', Boolean(crashNotice));
+check(
+  'the crash banner also clears itself after fifteen seconds',
+  Boolean(crashNotice) && /crashNoticeTimer = setTimeout/.test(crashNotice) && /15_000/.test(crashNotice)
+);
+check(
+  'closing the crash banner by hand stops its timer',
+  /el\('crashClose'\)[\s\S]{0,160}?clearTimeout\(crashNoticeTimer\)/.test(source)
+);
+
 if (failures) {
   console.log(`\n${failures} failure(s)`);
   process.exit(1);

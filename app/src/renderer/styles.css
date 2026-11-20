@@ -1909,7 +1909,14 @@ button { font-family: inherit; }
   border-radius: 9px;
   font-size: 13px;
   line-height: 1.5;
+  /* Red lines are dismissible: clicking is the fastest way out, and the banner
+     also fades on its own after fifteen seconds (`ERROR_BANNER_MS`). */
+  cursor: pointer;
+  transition: opacity .2s ease;
 }
+.error-banner:hover { border-color: rgba(255,95,109,.55); }
+.error-banner:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.error-banner.out { opacity: 0; }
 
 /* The transcript insets every block by 22px, but a block with its own padding
    loses that inset (`padding: 0 22px` is replaced, not added). The banner sets
@@ -2121,6 +2128,8 @@ button { font-family: inherit; }
   border-radius: 9px;
   color: #f3b0b0;
   font-size: 12.5px;
+  /* Clears itself after fifteen seconds; the Close button is still there. */
+  transition: opacity .2s ease;
 }
 .crash-notice[hidden] { display: none; }
 .crash-notice .crash-text { flex: 1 1 auto; min-width: 0; }
@@ -2908,6 +2917,30 @@ button { font-family: inherit; }
 }
 @keyframes update-spin { to { transform: rotate(360deg); } }
 .update-hint { margin: 10px 0 0; font-size: 11.5px; color: var(--muted); }
+
+/* ---- required update, and the coffee card after one ---- */
+/*
+  Above the rest of the app but below `#updateOverlay` (90): once the installer
+  starts, the "installing" splash owns the window and this card is gone. No
+  close button and no click-outside handler on purpose — the only ways out are
+  update, or quit.
+*/
+#forcedUpdate { z-index: 88; }
+#forcedUpdate .dialog-actions { justify-content: center; gap: 10px; }
+#forcedUpdate .update-progress { margin: 14px 0 4px; }
+
+#updateThanks { z-index: 86; }
+.update-thanks-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 14px 0 4px;
+}
+.update-thanks-qr .about-qr-img {
+  width: 132px;
+  height: 132px;
+}
 
 /* ---------------- browser control chip ---------------- */
 
