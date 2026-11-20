@@ -28,3 +28,7 @@ NTAPI ADS/shots/
 
 # Brainstorming mockups (visual companion) — scratch, never part of the app.
 .superpowers/
+
+# A copy of the app run with a Windows prefs path creates a folder literally
+# named "C:\NTAPI" here; it holds sessions and auth, never source.
+app/C:*
