@@ -3244,3 +3244,15 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - แก้ extension ไม่ให้เด้ง about:blank ซ้ำ (storage.session + listTabs ห้ามสร้างหน้าต่าง)
 - bump 0.5.22 -> 0.5.23, tag, push, CI ok, prune keep=v0.5.23 (เหลือรุ่นเดียว)
 - AGENTS.md: เขียนกฎ bash ใหม่ — 1 เทิร์น = 1 รอบการยิง (อ่าน/ค้น/ตรวจที่ไม่ขึ้นต่อกันยิงขนานในบล็อกเดียว, งานเรียงลำดับต่อด้วย &&, เขียนไฟล์/git/install ทีละตัว, absolute path, timeout ทุกคำสั่ง)
+## 2026-11-20 — ย้ายมาทำบน Linux (Ubuntu 26.04)
+- ผู้ใช้ย้ายเครื่องจาก Windows → Ubuntu; GitHub Desktop ไม่มีเวอร์ชัน Linux (เลิกพัฒนา)
+  → ต้องเลือกวิธีตรวจ/อนุมัติ commit ใหม่ (gh CLI / VS Code / lazygit / CLI ล้วน) ยังไม่ได้เลือก
+- npm install เพิ่ม 2 packages ใน 1s (electron ยังเป็น Windows) → ลง Linux binary ใหม่
+  (node node_modules/electron/install.js) · file ตรวจ = ELF x86-64 ผ่าน
+- เปิดแอป: npm start เปิดได้จริง "splash closed: ui ready" · ต้องใช้ ELECTRON_DISABLE_SANDBOX=1
+  (chrome-sandbox ยังไม่ root:4755 — sudo ต้องรหัสผู้ใช้)
+- npm test บน Linux exit 0 (87 scripts) แต่มี 2 เช็ค FAIL ที่เขียนสมมุติว่าเป็น Windows:
+  (1) แยกชื่อโฟลเดอร์จาก path Windows C:\Users\cheum → ได้ Users-cheum
+  (2) "same file spelled differently is the same mark" — lower-case เฉพาะ win32
+  → โค้ดจริงแยก platform แล้ว (session-paths.js:21, session-marks.js:51) — รอผู้ใช้สั่งแก้เทสต์
+- งานค้าง: CRLF 90 ไฟล์ยังไม่ renormalize · git identity ยังไม่ตั้ง · ยังไม่ commit สภาพ Linux นี้
