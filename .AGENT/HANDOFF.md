@@ -3,6 +3,7 @@
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.5.29 แล้ว · tree สะอาด · `master` = `origin/master` (`00f31de`)**
 >
 > ### ค้างอยู่จริง (ยังไม่ได้ลงมือ)
+> 0. **ฟีเจอร์ “ทำหลายแท็บ + อัปโหลดไฟล์” — ทำเสร็จ 2026-11-21 ยังไม่ commit / ยังไม่ปล่อยรุ่น** (ดู §0f ท้ายบล็อก)
 > 1. ~~ค่าตั้ง compaction~~ → **✅ ทำแล้ว + commit + ปล่อยใน 0.5.29** (รายละเอียด §1a)
 > 2. **ทดสอบ delta update จริง** — ต้องมีเครื่อง Windows: ติดตั้ง 0.5.28 (หรือต่ำกว่า) → รอ 0.5.29 → ดูว่าโหลด KB–2 MB, การ์ดขอบคุณ + QR ขึ้น, และตอนกดปิดโปรแกรมมี dialog ถาม
 >    - **ตัดแนวทาง Linux/AppImage ออกโดยเจตนา (ผู้ใช้สั่ง 2026-11-21)** — ผู้ใช้จริงเป็น Windows ทั้งหมด เครื่อง Ubuntu มีแค่ผู้พัฒนา → ห้ามเสนอ `build.linux` / job `ubuntu-latest` ซ้ำ · การยืนยันฝั่ง asset ทำได้แค่: ทุกรุ่นต้องมี `.exe.blockmap` + `latest.yml` ครบ (0.5.28/0.5.29 ผ่านแล้ว)
@@ -22,6 +23,17 @@
 > - พฤติกรรมเริ่มต้น: ไม่มีคีย์ใน prefs = ใช้ default ของ SDK เดิมทุกอย่าง (ผู้ใช้เดิมไม่รู้สึกอะไรเปลี่ยน)
 >
 > ### เรื่องที่ปิดแล้วในรอบนี้
+> - **✅ 0f) หลายแท็บ + ค้นหาแท็บ + อัปโหลดไฟล์ (2026-11-21)** — โจทย์ของผู้ใช้: “อัปคลิปขึ้น Facebook กับ TikTok ให้ผม”
+>   - **`src/browser-claims.js`**: จาก 1 claim → `Map` หลายแท็บ (`MAX_CLAIMS = 8`, เกินแล้วปฏิเสธด้วย `TOO_MANY_TABS` ไม่ใช่ลบของเก่าทิ้ง) · `release(tabId)` รายตัว · `list()` · `leavesSite(url, tabId)` ตรวจมีรายแท็บ · `get()` ยังคืน claim ล่าสุดเพื่อความเข้ากันของโค้ดเดิม
+>   - **`src/browser-bridge.js`**: `targetFor()` เปิดให้ทุกแท็บที่ hand over (แท็บอื่นยัง `NOT_CLAIMED`) · `claimedTabs()` · `checkUploadFiles()` ตรวจ absolute path / มีจริง / ไม่ใช่โฟลเดอร์ / ไม่ว่าง / สูงสุด 5 ไฟล์ · ผล `tabs-real` ถูกเติม `handedOver` + `claimed` ต่อแท็บ · tools ใหม่ `browser_find_tab` (read) และ `browser_upload` (write, ต้องอนุมัติ)
+>   - **`browser-extension/background.js` (0.1.1 → 0.2.0)**: `listRealTabs` รับ `match`/`limit` · `openUrl` รับ `window:'user'` เปิดในหน้าต่างที่ผู้ใช้อยู่ (`userWindowId()`) · คำสั่งใหม่ `upload` → `DOM.requestNode` + `DOM.setFileInputFiles` (ทางเดียวที่แตะไฟล์ได้; page script ทำไม่ได้) พร้อมปฏิเสธ `NO_FILE_INPUT` ถ้าไม่ใช่ input type=file
+>   - **UI**: การ์ด Browser แสดงหลายแท็บที่มือ + ปุ่ม “คืนแท็บนี้” ต่อแถว (`releaseOneTab`) · chip “มอบแล้ว” เมื่อมีอย่างน้อย 1 · i18n `browserReleaseTab` EN/TH
+>   - **เทสต์ใหม่** `scripts/selftest-browser-multitab.js` (40 เช็ค) → `npm test` **91/91** · บูตจริงผ่าน (`ui ready`)
+>   - **ข้อจำกัดที่ยังเหลือ**: Facebook Reels/Page composer อยู่ใน iframe หลายชั้น และ TikTok มี bot-check → agent เลือกไฟล์+กรอกแคปชัน แล้วให้ผู้ใช้กดโพสต์เอง เป็นทางที่ปลอดภัย
+> - **✅ 0g) กล่องอนุมัติเครื่องมือมีปุ่ม “อนุมัติเสมอ” (2026-11-21)** — เดิมมีแค่ อนุญาต / ปฏิเสธ และการเลิกถามทำได้เฉพาะสวิตช์ในแถบข้าง
+>   - ปุ่มที่สาม = อนุญาตครั้งนี้ + สลับ `approvalPolicy` เป็น `allow` ผ่าน `api.setApprovalMode` (ไม่สร้าง memory รายเครื่องมือแบบที่เคยถูกลบไป) แล้ว toast บอกว่าปิดคืนได้ที่สวิตช์
+>   - i18n `allowAlways` / `approvalAlwaysDone` / `approvalNoMemory` EN+TH (บรรทัด “ถามทุกครั้ง” เดิมฮาร์ดโค้ดภาษาไทย เปลี่ยนเป็น `data-i18n`)
+>   - เทสต์ใหม่ `scripts/selftest-approval-always.js` (29 เช็ค — รัน `answerApproval` จริงใน sandbox: allow-once ไม่แตะสวิตช์, always ตั้ง `allow`, deny ไม่แตะ, ไม่มี dialog ค้างก็ยังตั้งค่าได้) → `npm test` **93/93**
 > - v0.5.28 ปล่อยแล้ว: CI ✅ / Release (windows-latest) ✅ / Prune ✅ · assets `NTAPI-Setup-0.5.28.exe` 181,353,582 B sha256 `99ea64dd…0bb9` + blockmap + latest.yml · provenance seq 155 + anchor + verify OK
 > - push ติดเพราะ PAT ไม่มี scope `workflow` → แก้โดยเปิด scope เพิ่มที่ token “NTAPI release” (ไม่ต้องสร้างใหม่ ค่าเดิมใช้ได้)
 > - ขนาดตัวติดตั้งโต 113 MB → 181 MB จาก `differentialPackage: store-asar` (คาดไว้แล้ว) · รุ่นถัดไปอัปเดตควรเหลือ KB–2 MB

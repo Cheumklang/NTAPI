@@ -3303,3 +3303,13 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - assets: NTAPI-Setup-0.5.29.exe 181,365,237 B sha256 397db09a…1150 · .exe.blockmap 229,495 B · latest.yml 342 B (version 0.5.29, sha512 rKuXst7m…YpA==)
 - provenance: record-release seq 159 + anchor 2026-11-20.txt + verify OK 159 entries / 75 files
 - ผู้ใช้สั่ง 2026-11-21: ผู้ใช้จริงเป็น Windows → ตัดแนวทาง Linux/AppImage ออก (ห้ามเสนอซ้ำ) · การทดสอบ delta จริงยังค้างจนมีเครื่อง Windows
+
+## 2026-11-21 — หลายแท็บ + ค้นหาแท็บ + อัปโหลดไฟล์ (ยังไม่ commit)
+- โจทย์: "อัปคลิปขึ้น Facebook กับ TikTok" → ต้องถือหลายแท็บ, หาแท็บจากชื่อ, เปิดเอง, และเลือกไฟล์ได้
+- browser-claims: Map หลายแท็บ (MAX_CLAIMS 8, เกิน = TOO_MANY_TABS), release(tabId), list(), leavesSite(url, tabId)
+- browser-bridge: targetFor รับทุกแท็บที่ hand over, claimedTabs(), checkUploadFiles(), tabs-real เติม handedOver/claimed, tools browser_find_tab + browser_upload
+- extension 0.2.0: listRealTabs(match/limit), openUrl(window:'user'), upload → DOM.requestNode + DOM.setFileInputFiles (NO_FILE_INPUT ถ้าไม่ใช่ file input)
+- renderer: การ์ดแสดงหลายแท็บ + ปุ่มคืนแท็บรายตัว (releaseOneTab), i18n browserReleaseTab EN/TH, preload browserRelease(tabId)
+- เทสต์ใหม่ selftest-browser-multitab.js + แก้ selftest-browser-claims/bridge ที่ยึดสมมติฐาน "แท็บเดียว" → npm test 91/91, บูตจริงผ่าน
+- 2026-11-21 (ต่อ): ข้อความกู้คืนเทิร์นที่หลุด รวม 2 ครั้งเป็นก้อนเดียว → เก็บ details.userParts (ต่อ prompt) และ messagesForUi วาดบับเบิลผู้ใช้แยกตามจำนวนครั้งที่ส่งจริง; ข้อความที่ป้อนโมเดลบอก "(N separate messages)" · เทสต์ใหม่ scripts/selftest-recovered-turn.js → npm test 92/92
+- 2026-11-21 (ต่อ 2): ปุ่ม "อนุมัติเสมอ" ในกล่องอนุมัติเครื่องมือ — อนุญาตครั้งนี้ + สลับสวิตช์ในแถบข้างเป็น allow (ไม่สร้าง memory รายเครื่องมือแบบเดิม), toast บอกที่ปิดคืน, i18n allowAlways/approvalAlwaysDone/approvalNoMemory EN+TH · เทสต์ใหม่ scripts/selftest-approval-always.js (29 เช็ค รันฟังก์ชันจริงใน sandbox) → npm test 93/93
