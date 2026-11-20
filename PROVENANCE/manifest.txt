@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-18T10:59:21.434Z
-entries 120
-head_hash 50df81132cdcb54115287608e03cf591308ce5a54ac55946c5b81111348c63c7
-git 813486529387869808f7111d5379ebbdfa414b35
+updated 2026-11-20T05:41:50.718Z
+entries 134
+head_hash 0d134e53e21fa68b5e40184ef06f62906f148164d1131b99964d267d65211cee
+git a5c9ab74bc064252b2b0e24e4b41b396cb9eaecb
 
 latest entries:
-  #113 2026-11-17T09:37:32.477Z commit — internal: [prune-releases keep=v0.5.21 apply tags] ลบรุ่นเก่าออกจากหน้าโหลด
-  #114 2026-11-17T09:53:13.450Z session — v0.5.22 wider terms card
-  #115 2026-11-17T09:53:14.035Z commit — การณ์: ขยายกล่องก่อนเริ่มใช้งานให้ข้อความไม่ตัดบรรทัด
-  #116 2026-11-17T09:57:14.221Z release — Released version 0.5.22
-  #117 2026-11-17T09:57:15.152Z commit — internal: บันทึกหลักฐานการปล่อยรุ่น 0.5.22
-  #118 2026-11-17T09:57:18.883Z commit — internal: [prune-releases keep=v0.5.22 apply tags] ลบรุ่นเก่าออกจากหน้าโหลด
-  #119 2026-11-18T10:44:19.437Z commit — แก้หน้าต่างเบราว์เซอร์ไม่ให้เด้งแท็บเปล่าเองซ้ำ ๆ ขณะสั่งงานเบราว์เซอร์
-  #120 2026-11-18T10:59:21.308Z release — Released version 0.5.23
+  #127 2026-11-18T11:04:23.851Z session — ปิดงาน v0.5.23: ผู้ใช้รีโหลดส่วนขยายแล้ว ไม่มีงานค้าง
+  #128 2026-11-18T11:04:24.474Z commit — internal: ปิดงาน v0.5.23 — ไม่มีงานค้าง
+  #129 2026-11-20T04:08:43.661Z session — ย้ายมาทำบน Linux: ลง electron Linux, npm start เปิด UI ได้, npm test ผ่าน 87 มี 2 เช็คที่สมมุติ Windows ล้ม
+  #130 2026-11-20T04:09:30.960Z session — ย้ายมาทำบน Linux: ลง electron Linux, npm start เปิด UI ได้, npm test ผ่าน 87 มี 2 เช็คที่สมมุติ Windows ล้ม
+  #131 2026-11-20T05:17:21.785Z commit — fix: ข้อความที่ AI ตอบหายไปเมื่อโควต้าหมด — กู้ turn ที่ถูกตัดกลับเข้า session
+  #132 2026-11-20T05:17:22.119Z commit — internal: บันทึกหลักฐานหลัง commit
+  #133 2026-11-20T05:37:35.807Z commit — internal: เพิ่มบันทึก session ที่ค้างไม่ได้ commit — ทำให้ provenance verify ผ่านใน CI
+  #134 2026-11-20T05:41:50.590Z release — Released version 0.5.24

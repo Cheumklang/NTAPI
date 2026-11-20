@@ -12,6 +12,12 @@
 >   → `session.messages` (ต้นทางของทั้ง transcript และ request ถัดไป) ไม่มีทั้งคำถามและคำตอบที่สตรีมไปแล้ว ผู้ใช้เห็นข้อความหาย และ AI องค์ถัดไปทำงานต่อไม่ได้
 >   · แก้ใน `app/src/main.js`: `tab.turnDraft` เก็บคำของผู้ใช้ + text/thinking/tools ระหว่าง turn · `recoverInterruptedTurn()` ตรวจหลัง settle ว่าของหายจาก projection จริงไหม แล้วเขียนกลับเข้า session เป็น custom message `ntapi.interrupted-turn` (อยู่ใน LLM context) · `messagesForUi` วาดกลับเป็น 2 bubble เดิม · ไม่กู้เมื่อผู้ใช้กด Stop/take-back
 >   · `app/src/preload.js` + `app/src/renderer/app.js`: ช่องใหม่ `agent:recovered` → repaint ทันที
+> - **ปล่อยรุ่น v0.5.24 แล้ว (2026-11-20):** push master + tag `v0.5.24` → CI `release.yml` บน windows-latest เขียว · release ขึ้น `Cheumklang/NTAPI-releases` (Setup 118,341,167 bytes · latest.yml 342 bytes · blockmap 124,796 bytes) · `provenance.js verify` ผ่านหลัง `record-release` + `anchor`
+> - **กับดักที่เจอตอนปล่อยรุ่น (จดไว้):**
+>   · `secrets.RELEASE_TOKEN` หมดอายุ → step `Publish release assets` fail ด้วย `Bad credentials` (build ผ่านหมด) แก้โดยอัปเดต secret ผ่าน sealed box (`crypto_box_seal` จาก `libsodium23` ในเครื่อง — ไม่มี pip/pynacl) แล้ว `POST /actions/runs/<id>/rerun-failed-jobs`
+>   · CI `provenance` job fail เพราะไฟล์ `PROVENANCE/sessions/2026-11/*.md` 2 ไฟล์ค้างไม่ได้ commit → ต้อง commit ให้ครบก่อน push
+>   · `git push` จาก Ubuntu: username ต้องเป็น `cheumklang` (ไม่ใช่ email) และ password ต้องเป็น PAT (ไม่ใช่รหัสบัญชี) — และการวางทั้งบล็อกทีเดียวทำให้ `read -rs` กินบรรทัดถัดไปเป็นค่า (token ว่าง)
+> - **⚠️ ค้างเรื่องความปลอดภัย:** PAT ที่ใช้ push ถูกพิมพ์ในแชทแล้ว → ควรรีโวคที่ GitHub Settings → Developer settings แล้วสร้างใหม่ จากนั้นอัปเดต secret `RELEASE_TOKEN` + `git config --global credential.helper store` ใหม่
 > - `npm test` บน Linux: **85/87 ผ่าน** · 2 ตัว FAIL เฉพาะแพลตฟอร์ม (`selftest-session-paths.js`, `selftest-session-marks.js` — เทสต์สมมุติ path แบบ Windows) ยังไม่แก้
 > - **ค้าง:** (1) credential สำหรับ push (2) ตัดสินใจ CRLF noise ~90 ไฟล์ (`git diff --ignore-space-at-eol` ว่าง = เปลี่ยนแต่ EOL) (3) เทสต์ 2 ตัวบน Linux (4) ยังไม่ bump 0.5.23 → 0.5.24 / ยังไม่ tag ปล่อยรุ่นสำหรับ fix นี้
 > - **ลำดับปล่อยรุ่นที่ถูกต้อง:** commit โค้ด → `node app/scripts/provenance.js record-commit` แล้ว commit ledger (`internal: บันทึกหลักฐานหลัง commit`) → bump version → push master → `git tag v0.5.24 && git push origin v0.5.24` → รอ CI → `provenance.js record-release 0.5.24 --asset …` + `anchor` + `verify` (CI รัน `provenance.js verify` จึงข้าม ledger ไม่ได้)

@@ -1,0 +1,32 @@
+{
+  "version": "0.5.24",
+  "tag": "v0.5.24",
+  "recordedAt": "2026-11-20T05:41:50.585Z",
+  "git": {
+    "head": "a5c9ab74bc064252b2b0e24e4b41b396cb9eaecb",
+    "branch": "master",
+    "tree": "bc5414627b9672b591bf5bfbea6e6c2fe2daae64",
+    "subject": "internal: เพิ่มบันทึก session ที่ค้างไม่ได้ commit — ทำให้ provenance verify ผ่านใน CI",
+    "authorDate": "2026-11-20T12:37:35+07:00",
+    "commitCount": 342
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44681682167",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.24.exe",
+      "size": 118341167,
+      "sha256": "c3999af1e03234a568e9c1ccb7f1186cf49f36f154f41e38bc3cb3d341cda174"
+    },
+    {
+      "name": "latest.yml",
+      "size": 342,
+      "sha256": "8f39d06c39f92ac8f10d86af5841c3e8f6cc1a8f75752a92b6526692a0c09ca4"
+    },
+    {
+      "name": "NTAPI-Setup-0.5.24.exe.blockmap",
+      "size": 124796,
+      "sha256": "0b430850709ca61960ac597e3352a81dc95bbdcbdc8014526898260639ad4039"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.24"
+}

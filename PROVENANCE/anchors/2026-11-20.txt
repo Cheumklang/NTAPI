@@ -1,0 +1,6 @@
+date 2026-11-20T05:41:50.718Z
+entries 134
+head_seq 134
+head_hash 0d134e53e21fa68b5e40184ef06f62906f148164d1131b99964d267d65211cee
+git_head a5c9ab74bc064252b2b0e24e4b41b396cb9eaecb
+verify must print this head_hash
