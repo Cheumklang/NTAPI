@@ -2009,13 +2009,29 @@ async function attachTab(tabId, manager, cwd) {
     // MCP is opt-in and its config lives at <DATA_ROOT>/mcp.json, easy to find.
     mcpEnabled: Boolean(readPrefs().mcpEnabled),
     mcpConfigDir: DATA_ROOT,
-    extraSkillPaths: skillRoots().filter((dir) => {
-      try {
-        return fs.statSync(dir).isDirectory();
-      } catch {
-        return false;
+    extraSkillPaths: (() => {
+      // Every existing root, plus the folder that holds each skill the palette
+      // found. The SDK only looks one level into a root, so a skill that lives in
+      // a pack (`skills/<pack>/<name>/SKILL.md`) would show up in `/skill` and
+      // still be invisible to the model — adding its parent folder fixes that
+      // without moving the user's files around.
+      const roots = skillRoots(cwd).filter((dir) => {
+        try {
+          return fs.statSync(dir).isDirectory();
+        } catch {
+          return false;
+        }
+      });
+      const seen = new Set(roots);
+      for (const skill of scanSkills(roots)) {
+        const container = path.dirname(path.dirname(skill.path));
+        if (!seen.has(container)) {
+          seen.add(container);
+          roots.push(container);
+        }
       }
-    }),
+      return roots;
+    })(),
     // Live checklist the model keeps for multi-step work.
     onTodo: (items) => sendTab(tabId, 'agent:todos', { items }),
     // The agent may ask a question instead of guessing; the window answers it.
@@ -2100,17 +2116,32 @@ function tabIdForTab(target) {
 }
 
 /**
- * Every place a SKILL.md may live on this machine. The app's own data root is
- * searched by the pi SDK already; these are shared with the CLI and with the
- * user's global ~/.agents folder so the agent is not blind to installed skills.
+ * Every place a SKILL.md may live on this machine.
+ *
+ * The app's own data root is searched by the pi SDK already; the rest are shared
+ * with the CLI and with the user's global ~/.agents folder so the agent is not
+ * blind to installed skills. The workspace is included too: a project that ships
+ * its own `skills/` folder is the normal case for people who never installed
+ * anything globally, and leaving it out made `/skill` look empty on a machine
+ * that did have skills.
  */
-function skillRoots() {
-  return [
+function skillRoots(cwd) {
+  const roots = [
     path.join(DATA_ROOT, 'skills'),
     path.join(os.homedir(), '.agents', 'skills'),
     path.join(os.homedir(), '.free-pi', 'agent', 'skills'),
     path.join(os.homedir(), '.pi', 'agent', 'skills'),
+    path.join(os.homedir(), '.claude', 'skills'),
   ];
+  if (cwd) {
+    roots.push(
+      path.join(cwd, 'skills'),
+      path.join(cwd, '.agents', 'skills'),
+      path.join(cwd, '.pi', 'skills'),
+      path.join(cwd, '.claude', 'skills'),
+    );
+  }
+  return roots;
 }
 
 /** Read `name:` and `description:` out of a SKILL.md frontmatter block. */
@@ -2128,26 +2159,83 @@ function readSkillMeta(file) {
   return { name: name || path.basename(path.dirname(file)), description: description || '' };
 }
 
-ipcMain.handle('skills:list', async () => {
+/**
+ * Collect every skill under `roots`.
+ *
+ * Walks a few levels instead of exactly one: skills usually arrive as
+ * `skills/<name>/SKILL.md`, but also as `skills/<pack>/<name>/SKILL.md` when a
+ * whole bundle is dropped in. A folder that is a symlink — or a Windows junction,
+ * which is how many people "install" a skill — reported `isDirectory() === false`
+ * and disappeared from the list; `statSync` follows the link. A directory holding
+ * its own SKILL.md is claimed as a skill, so its subfolders (`references/`,
+ * `scripts/`) are never mistaken for more skills.
+ */
+const SKILL_SCAN_DEPTH = 3;
+const SKILL_SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build']);
+
+function scanSkills(roots) {
   const found = new Map();
-  for (const root of skillRoots()) {
+  const seenReal = new Set();
+  const scanned = [];
+
+  const claim = (dir, root) => {
+    const file = path.join(dir, 'SKILL.md');
+    let real = file;
+    try {
+      real = fs.realpathSync(file);
+    } catch {
+      /* keep the plain path: realpath fails on a broken link, and the read will too */
+    }
+    if (seenReal.has(real)) return true;
+    const meta = readSkillMeta(file);
+    if (!meta) return false;
+    seenReal.add(real);
+    if (!found.has(meta.name)) found.set(meta.name, { ...meta, path: file, root });
+    return true;
+  };
+
+  const walk = (dir, root, depth) => {
+    if (claim(dir, root)) return;
+    if (depth <= 0) return;
     let entries = [];
     try {
-      entries = fs.readdirSync(root, { withFileTypes: true });
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (SKILL_SKIP_DIRS.has(entry.name)) continue;
+      const child = path.join(dir, entry.name);
+      let isDir = entry.isDirectory();
+      if (!isDir && entry.isSymbolicLink()) {
+        try {
+          isDir = fs.statSync(child).isDirectory();
+        } catch {
+          isDir = false;
+        }
+      }
+      if (isDir) walk(child, root, depth - 1);
+    }
+  };
+
+  for (const root of roots) {
+    try {
+      if (!fs.statSync(root).isDirectory()) continue;
     } catch {
       continue;
     }
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const file = path.join(root, entry.name, 'SKILL.md');
-      if (!fs.existsSync(file)) continue;
-      const meta = readSkillMeta(file);
-      if (!meta || found.has(meta.name)) continue;
-      found.set(meta.name, { ...meta, path: file, root });
-    }
+    scanned.push(root);
+    walk(root, root, SKILL_SCAN_DEPTH);
   }
+
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+ipcMain.handle('skills:list', async (_event, opts) => {
+  const cwd = typeof opts?.cwd === 'string' ? opts.cwd : '';
+  return scanSkills(skillRoots(cwd));
 });
+
 
 function deriveName(messages, cwd) {
   for (const m of messages || []) {

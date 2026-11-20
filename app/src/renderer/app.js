@@ -448,6 +448,9 @@ const STRINGS = {
     toolsUsedOne: '1 tool used',
     narrationMany: '{n} working notes',
     narrationOne: '1 working note',
+    skillsNone: 'no skills found on this machine',
+    skillsNoneWhere: 'a folder holding SKILL.md is searched in: {paths}',
+    skillsNoneMatch: 'no skill matches this search',
   actThinking: 'Thinking',
   actTools: 'Using tools',
   actNotes: 'Writing',
@@ -943,6 +946,9 @@ const STRINGS = {
     toolsUsedOne: 'ใช้เครื่องมือ 1 ครั้ง',
     narrationMany: 'บันทึกการทำงาน {n} ช่วง',
     narrationOne: 'บันทึกการทำงาน 1 ช่วง',
+    skillsNone: 'ไม่พบสกิลในเครื่องนี้',
+    skillsNoneWhere: 'โฟลเดอร์ที่มี SKILL.md ถูกค้นหาใน: {paths}',
+    skillsNoneMatch: 'ไม่มีสกิลที่ตรงกับคำค้นนี้',
   actThinking: 'กำลังคิด',
   actTools: 'กำลังใช้เครื่องมือ',
   actNotes: 'กำลังเขียน',
@@ -7093,22 +7099,39 @@ const SKILL_SLASH_RE = /^\/skill(?:\s+(.*))?$/is;
 
 function skillSlashItems(query) {
   const q = String(query || '').trim().toLowerCase();
-  return (Array.isArray(skillsCache) ? skillsCache : [])
-    .filter(
-      (skill) =>
-        !q ||
-        String(skill.name || '').toLowerCase().includes(q) ||
-        String(skill.description || '').toLowerCase().includes(q),
-    )
-    .map((skill) => ({
-      name: `@${skill.name}`,
-      en: skill.description || '',
-      th: skill.description || '',
-      run: () => {
-        input.value = `@${skill.name} `;
-        autoGrow();
-      },
-    }));
+  const all = Array.isArray(skillsCache) ? skillsCache : [];
+  //
+  // An empty list used to close the menu without a word, which reads exactly
+  // like a broken feature — the same "I typed /skill and nothing came up"
+  // report that a real user filed. Say which folders were searched, so the
+  // answer to "where do I put the skill?" is on screen.
+  //
+  if (!all.length) {
+    return [{ info: true, name: '', en: `${t('skillsNone')} · ${t('skillsNoneWhere', { paths: skillSearchHint() })}` }];
+  }
+  const matched = all.filter(
+    (skill) =>
+      !q ||
+      String(skill.name || '').toLowerCase().includes(q) ||
+      String(skill.description || '').toLowerCase().includes(q),
+  );
+  if (!matched.length) return [{ info: true, name: '', en: t('skillsNoneMatch') }];
+  return matched.map((skill) => ({
+    name: `@${skill.name}`,
+    en: skill.description || '',
+    th: skill.description || '',
+    run: () => {
+      input.value = `@${skill.name} `;
+      autoGrow();
+    },
+  }));
+}
+
+/** Where a skill may be dropped, in the short form a tooltip can hold. */
+function skillSearchHint() {
+  const cwd = activeView()?.cwd;
+  const local = cwd ? ['skills/', '.pi/skills', '.agents/skills'] : [];
+  return [...local, '~/.pi/agent/skills', '~/.agents/skills', '~/.claude/skills', 'app-data/skills'].join(', ');
 }
 
 function applySlashItems(items) {
@@ -7157,6 +7180,14 @@ function updateSlashMenu() {
 function renderSlashMenu() {
   slashMenu.innerHTML = '';
   slashState.items.forEach((cmd, i) => {
+    if (cmd.info) {
+      // A note, not a choice: nothing to run, nothing to highlight.
+      const note = document.createElement('div');
+      note.className = 'slash-empty';
+      note.textContent = slashDescription(cmd);
+      slashMenu.appendChild(note);
+      return;
+    }
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'slash-item' + (i === slashState.index ? ' active' : '');
@@ -7186,13 +7217,19 @@ function hideSlashMenu() {
 }
 
 function moveSlashSelection(delta) {
-  if (!slashState.open || !slashState.items.length) return;
-  const n = slashState.items.length;
-  slashState.index = (slashState.index + delta + n) % n;
+  if (!slashState.open) return;
+  const selectable = slashState.items
+    .map((cmd, i) => (cmd.info ? -1 : i))
+    .filter((i) => i >= 0);
+  if (!selectable.length) return;
+  const at = selectable.indexOf(slashState.index);
+  const next = selectable[(at + delta + selectable.length) % selectable.length];
+  slashState.index = next ?? selectable[0];
   renderSlashMenu();
 }
 
 function runSlashCommand(cmd) {
+  if (!cmd || typeof cmd.run !== 'function') return;
   hideSlashMenu();
   input.value = '';
   autoGrow();
@@ -11460,7 +11497,7 @@ async function loadSkills() {
   if (skillsPromise) return skillsPromise;
   skillsPromise = (async () => {
     try {
-      skillsCache = await api.listSkills();
+      skillsCache = await api.listSkills({ cwd: activeView()?.cwd || '' });
     } catch {
       skillsCache = [];
     }

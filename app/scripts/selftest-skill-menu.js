@@ -43,7 +43,15 @@ const skills = [
   { name: 'brainstorming', description: 'Use before any creative work.' },
   { name: 'test-driven-development', description: 'Use when implementing any feature.' },
 ];
-const sandbox = { skillsCache: skills, input: { value: '' }, autoGrow() {} };
+const sandbox = {
+  skillsCache: skills,
+  input: { value: '' },
+  autoGrow() {},
+  // The roster builder now names the folders it searched when the list is empty,
+  // so the sandbox needs the two things that wording reaches for.
+  t: (key) => key,
+  activeView: () => null,
+};
 vm.createContext(sandbox);
 vm.runInContext(`${snippet}\nthis.__matches = SKILL_SLASH_RE; this.__items = skillSlashItems;`, sandbox);
 
@@ -67,7 +75,10 @@ check('the query filters by name',
 check('the query also matches the description',
   items('feature').map((i) => i.name).join() === '@test-driven-development',
   items('feature').map((i) => i.name));
-check('nothing matching hides the menu', items('zzz').length === 0);
+check(
+  'nothing matching leaves a note instead of a choice',
+  items('zzz').length === 1 && items('zzz')[0].info === true && !items('zzz')[0].run,
+);
 
 /* ---- what choosing one puts in the box --------------------------------- */
 
@@ -102,3 +113,12 @@ check('selecting one closes the menu instead of sending it',
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll skill menu checks passed');
 process.exit(failures ? 1 : 0);
+
+/* ---- an empty roster says where it looked ----------------------------- */
+
+sandbox.skillsCache = [];
+const none = sandbox.__items('');
+check(
+  'an empty roster explains itself instead of closing silently',
+  none.length === 1 && none[0].info === true && !none[0].run,
+);

@@ -101,7 +101,7 @@ contextBridge.exposeInMainWorld('freepi', {
   googleStatus: () => ipcRenderer.invoke('google:status'),
   googleSetKey: (key) => ipcRenderer.invoke('google:setKey', { key }),
   googleClearKey: () => ipcRenderer.invoke('google:clearKey'),
-  listSkills: () => ipcRenderer.invoke('skills:list'),
+  listSkills: (opts) => ipcRenderer.invoke('skills:list', opts),
   pickSettingsFolder: () => ipcRenderer.invoke('settings:pickFolder'),
   revealPath: (p) => ipcRenderer.invoke('settings:reveal', p),
 

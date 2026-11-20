@@ -21,6 +21,7 @@ const fs = require('node:fs');
 const TESTS = [
   'selftest-notice-i18n.js',
   'selftest-skill-menu.js',
+  'selftest-skill-scan.js',
   'selftest-approval-policy.js',
   'selftest-approval-ui.js',
   'selftest-compact-queue.js',
