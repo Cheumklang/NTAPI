@@ -3279,3 +3279,9 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - main.js: app:updated เคยเป็น channel ตาย — ตอนนี้เขียน prefs.updatedFrom ตอนติดตั้ง แล้วส่งหลัง UI พร้อม (toast + การ์ดขอบคุณ + QR ค่ากาแฟ)
 - renderer: appendErrorBanner กด/Enter/Space ปิด + fade 220ms + ERROR_BANNER_MS=15s; showCrashNotice ตั้ง crashNoticeTimer 15s; CSS .error-banner.out
 - เทสต์: selftest-error-ux +10, selftest-update-channel +4, selftest-update-handoff ปรับตามการย้าย logic → npm test 89/89
+## 2026-11-20 — ปล่อย v0.5.28 (delta update + แจ้งเตือนตอนเปิด/ปิด + ข้อความแดงปิดได้)
+- push master 1238a2d + tag v0.5.28 (ต้องเพิ่ม scope `workflow` ให้ PAT classic "NTAPI release" เพราะรอบนี้แก้ .github/workflows/prune-releases.yml)
+- CI: CI ✅ / Release ✅ (windows-latest) / Prune old releases ✅ (เก็บ 20 รุ่น — รอบนี้ยังไม่ถึงเกณฑ์ ไม่ได้ลบอะไร)
+- assets: NTAPI-Setup-0.5.28.exe 181,353,582 B sha256 99ea64dd…0bb9 · .blockmap 229,508 B · latest.yml 342 B
+- ขนาดตัวติดตั้งโตจาก ~113 MB → 181 MB เพราะ `differentialPackage: store-asar` (คาดไว้แล้ว +60 MB) — รุ่นถัดไปอัปเดตเล็ก (KB–2 MB) ถ้าไม่ได้เปลี่ยน dependency
+- provenance: record-release seq 155 → PROVENANCE/releases/v0.5.28.json + anchor 2026-11-20.txt + verify OK 155 entries; commit 0c18f98 push แล้ว
