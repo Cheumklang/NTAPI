@@ -214,6 +214,22 @@ check(
 );
 
 check(
+  'the update card shows the installer size before downloading',
+  /size: fmtBytes\(info\?\.files\?\.\[0\]\?\.size\)/.test(mainSrc) &&
+    /t\('updateSizeFull', \{ s: st\.size \}\)/.test(rendererSrc)
+);
+check(
+  'a delta download reports its own weight',
+  /got: fmtBytes\(p\?\.transferred\)/.test(mainSrc) &&
+    /total: fmtBytes\(p\?\.total\)/.test(mainSrc) &&
+    /updateDownloadingBytes/.test(rendererSrc) &&
+    /updateReadySize/.test(rendererSrc)
+);
+check(
+  'the forced card states the size too',
+  /forcedUpdateSize/.test(rendererSrc) && /forcedUpdateSize:/.test(rendererSrc)
+);
+check(
   'a timer-driven check never opens the card',
   /const quiet = st\?\.origin === 'timer'/.test(rendererSrc) &&
     /!quiet &&/.test(rendererSrc)

@@ -585,6 +585,10 @@ const STRINGS = {
     updateChecking: 'Checking for updates…',
     updateLatest: 'You are on the latest version.',
     updateAvailable: 'Version {v} is available.',
+    updateSizeFull: 'installer {s}',
+    updateDownloadingBytes: '{got} of {total} ({p}%)',
+    updateReadySize: '{s} downloaded',
+    forcedUpdateSize: 'The whole installer is {s}.',
     updateDownload: 'Download update',
     updateDownloading: 'Downloading... {p}%',
     updateReady: 'Version {v} is ready.',
@@ -1125,6 +1129,10 @@ const STRINGS = {
     updateChecking: 'กำลังตรวจหาอัปเดต…',
     updateLatest: 'คุณใช้เวอร์ชันล่าสุดแล้ว',
     updateAvailable: 'มีเวอร์ชันใหม่ {v} ให้อัปเดต',
+    updateSizeFull: 'ตัวติดตั้ง {s}',
+    updateDownloadingBytes: '{got} จาก {total} ({p}%)',
+    updateReadySize: 'ดาวน์โหลดแล้ว {s}',
+    forcedUpdateSize: 'ตัวติดตั้งเต็มขนาด {s}',
     updateDownload: 'ดาวน์โหลดอัปเดต',
     updateDownloading: 'กำลังดาวน์โหลด... {p}%',
     updateReady: 'เวอร์ชัน {v} พร้อมติดตั้งแล้ว',
@@ -5896,9 +5904,13 @@ function paintForcedUpdate(st) {
   const pct = el('forcedUpdatePct');
 
   if (line) {
-    line.textContent = Number.isFinite(st.behind)
+    const base = Number.isFinite(st.behind)
       ? t('forcedUpdateLine', { n: st.behind })
       : t('forcedUpdateLinePlain');
+    // The download comes before the choice here, so the size is part of the
+    // sentence rather than something the progress bar has to reveal later.
+    const size = st.size ? ` ${t('forcedUpdateSize', { s: st.size })}` : '';
+    line.textContent = `${base}${size}`;
   }
   if (wrap) wrap.hidden = st.status !== 'downloading';
   if (st.status === 'downloading') {
@@ -5965,8 +5977,11 @@ function paintUpdate(state) {
     case 'checking':
       statusEl.textContent = t('updateChecking');
       break;
-    case 'available':
-      statusEl.textContent = t('updateAvailable', { v: st.version || '' });
+    case 'available': {
+      // The size is shown before anything is fetched: “181 MB” is the number
+      // that decides whether someone updates now or later.
+      const size = st.size ? ` · ${t('updateSizeFull', { s: st.size })}` : '';
+      statusEl.textContent = t('updateAvailable', { v: st.version || '' }) + size;
       showAction(t('updateDownload'), async () => {
         actionBtn.disabled = true;
         const res = await api.downloadUpdate();
@@ -5974,21 +5989,28 @@ function paintUpdate(state) {
         if (!res?.ok) statusEl.textContent = t('updateError', { e: res?.error || '' });
       });
       break;
+    }
     case 'downloading':
-      statusEl.textContent = t('updateDownloading', { p: st.progress || 0 });
+      // A delta of 6 MB and a full installer of 181 MB must not read the same.
+      statusEl.textContent =
+        st.got && st.total
+          ? t('updateDownloadingBytes', { got: st.got, total: st.total, p: st.progress || 0 })
+          : t('updateDownloading', { p: st.progress || 0 });
       setBar(st.progress || 0);
       break;
     case 'latest':
       statusEl.textContent = t('updateLatest');
       break;
-    case 'ready':
-      statusEl.textContent = t('updateReady', { v: st.version || '' });
+    case 'ready': {
+      const size = st.size ? ` · ${t('updateReadySize', { s: st.size })}` : '';
+      statusEl.textContent = t('updateReady', { v: st.version || '' }) + size;
       setBar(100);
       showAction(t('updateInstall'), async () => {
         actionBtn.disabled = true;
         await api.installUpdate();
       });
       break;
+    }
     case 'installing':
       statusEl.textContent = t('updateInstalling');
       // The window is about to disappear for 20-60 s while the installer swaps

@@ -5311,6 +5311,14 @@ function setUpdates() {
     sendUpdateState();
   };
 
+  /** Bytes as a short label — “12.4 MB”, “1.02 GB”. Empty when unknown. */
+  const fmtBytes = (n) => {
+    const v = Number(n);
+    if (!Number.isFinite(v) || v <= 0) return '';
+    const mb = v / (1024 * 1024);
+    return mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+  };
+
   updater.on('checking-for-update', () => set({ status: 'checking', error: null }));
   updater.on('update-available', (info) =>
     set({
@@ -5319,6 +5327,11 @@ function setUpdates() {
       error: null,
       behind: updateState.behind ?? null,
       mandatory: updateState.mandatory === true,
+      // The whole installer's size, known before a byte is fetched. Someone
+      // deciding whether to spend the download needs the number first; the
+      // real (delta) size replaces it once the download starts.
+      size: fmtBytes(info?.files?.[0]?.size) || null,
+      sizeBytes: Number(info?.files?.[0]?.size) || null,
     })
   );
   updater.on('update-not-available', (info) =>
@@ -5326,10 +5339,24 @@ function setUpdates() {
   );
   updater.on('error', (err) => set({ status: 'error', error: String(err?.message || err) }));
   updater.on('download-progress', (p) =>
-    set({ status: 'downloading', progress: Math.round(p?.percent || 0) })
+    set({
+      status: 'downloading',
+      progress: Math.round(p?.percent || 0),
+      // Bytes moved and bytes needed, so the panel can say “2.3 of 12.4 MB”: a
+      // delta reads as the few megabytes it is, not as the whole installer.
+      got: fmtBytes(p?.transferred) || null,
+      total: fmtBytes(p?.total) || updateState.total || null,
+    })
   );
   updater.on('update-downloaded', (info) =>
-    set({ status: 'ready', version: info?.version || null, progress: 100 })
+    set({
+      status: 'ready',
+      version: info?.version || null,
+      progress: 100,
+      // Whatever this download actually weighed — the honest number to show
+      // before an install.
+      size: updateState.total || updateState.size || fmtBytes(updateState.sizeBytes) || null,
+    })
   );
 }
 
