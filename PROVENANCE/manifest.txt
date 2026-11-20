@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-20T12:32:53.252Z
-entries 155
-head_hash 404c5385fdf1b613f16bfb286aa681c2fdd3f45c3d35cff0bb5e04b448f5eb9c
-git 1238a2d1895d8b323a8427cb693747e2343683bc
+updated 2026-11-20T12:55:00.144Z
+entries 159
+head_hash 7a7ae6aa5e6f5662c26c1e4ba24ede0b98399bbacac265d724c3a4d84ef03958
+git d0ec11f3fd8baf8809f384a4a9ad054bb2c6251c
 
 latest entries:
-  #148 2026-11-20T11:14:39.329Z release — Released version 0.5.27
-  #149 2026-11-20T11:14:48.161Z commit — docs: HANDOFF 0.5.27 + บันทึกแผน differential update
-  #150 2026-11-20T12:20:54.772Z commit — test: แก้เทสต์ session-paths/session-marks ให้รันได้บน Linux — 88/88
-  #151 2026-11-20T12:21:01.991Z commit — feat: อัปเดตแบบ delta + เก็บ 20 รุ่น + ตรวจเองทุก 6 ชม. และแจ้งเตือนเฉพาะตอนเปิด/ปิดโปรแกรม (0.5.28)
   #152 2026-11-20T12:21:06.671Z commit — docs: HANDOFF + LOG บันทึกงานอัปเดต delta และข้อความแดงที่ปิดได้
   #153 2026-11-20T12:21:12.635Z commit — internal: บันทึกหลักฐานหลัง commit
   #154 2026-11-20T12:21:18.488Z commit — chore: ledger
   #155 2026-11-20T12:32:53.117Z release — Released version 0.5.28
+  #156 2026-11-20T12:51:27.158Z commit — feat: ปรับการย่อบทสนทนาได้ในหน้า Settings — สวิตช์เปิด/ปิด + token ที่เก็บไว้ตามเดิม/กันไว้ให้คำตอบ
+  #157 2026-11-20T12:51:27.358Z commit — docs: กฎ bash — ค่าเริ่มต้น 1 call ต่อเทิร์น แยกได้เฉพาะกรณีจำเป็นจริง (ก/ข/ค)
+  #158 2026-11-20T12:51:28.059Z commit — chore: 0.5.29
+  #159 2026-11-20T12:54:59.999Z release — Released version 0.5.29
