@@ -1,5 +1,22 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 สถานะล่าสุด (2026-11-20): ปล่อย v0.5.28 แล้ว · ไม่มีอะไรค้างในเครื่อง · push ตรงกับ origin/master (`7d4e22d`)**
+>
+> ### ค้างอยู่จริง (ยังไม่ได้ลงมือ)
+> 1. **ค่าตั้ง compaction** — ผู้ใช้เห็น “กำลังย่อบทสนทนา…” บ่อย และถามว่าบังคับ /compact หรือเปล่า คำตอบ: pi SDK ย่อเองเมื่อ `contextTokens > contextWindow − reserveTokens` (reserve 16,384 / keepRecent 20,000 ตาม default) แต่ **NTAPI ตั้งไม่ได้** เพราะ `src/freepi-bridge.js:1638` ใช้ `SettingsManager.inMemory({...})` และไม่เคยอ่าน `~/.pi/agent/settings.json` → ทางเลือกที่เสนอไว้ (ยังไม่ได้เลือก): (ก) เพิ่มค่าตั้งในหน้าตั้งค่า NTAPI (เปิด/ปิดย่อ · keepRecentTokens · reserveTokens) (ข) โชว์มิเตอร์ context อย่างเดียว (มี `stats.context` อยู่แล้วใน renderer ~บรรทัด 10478) (ค) ไม่แตะโค้ด
+> 2. **ทดสอบ delta update จริงบน Windows** — ต้องมีเครื่อง Windows: ติดตั้ง 0.5.28 → รอ 0.5.29 → ดูว่าโหลด KB–2 MB, การ์ดขอบคุณ + QR ขึ้น, และตอนกดปิดโปรแกรมมี dialog ถาม (ทดสอบบน Ubuntu ไม่ได้ · ไม่มี wine)
+> 3. ** prune เก็บ 20 รุ่น** — trigger `workflow_run` ต่อติดแล้ว (run 44736562536 = success/skipped) แต่เส้นทาง “ลบรุ่นที่เกิน 20” ยังพิสูจน์แค่ fixture · ของจริงจะรู้ตอนปล่อยรุ่นที่ 21
+> 4. **skill 2 ช่องโหว่ (ผู้ใช้สั่งพักไว้)** — (A) `<agentDir>/npm/*/skills` ไม่ถูกสแกน (`skillRoots()`) (B) `resources.skills` / `resources.packages` ใน `settings.json` ไม่ถูกอ่าน
+> 5. **PAT ที่เคยหลุดในแชท** — ยังไม่ยืนยันว่าใช่ตัวเดียวกับ “NTAPI release” หรือไม่ · รอบนี้แค่เพิ่ม scope `workflow` ให้ตัวนั้น (ค่า token ไม่เปลี่ยน) ถ้าเป็นตัวเดียวกันควร Regenerate แล้วอัปเดต credential store + secret `RELEASE_TOKEN`
+> 6. **เอกสารเก่าใน HANDOFF ล้าสมัย** — หลายหัวข้อ (1zzzz…1r) เขียนว่า “ยังไม่ commit” ทั้งที่ปล่อยรุ่นไปนานแล้ว · เก็บกวาดได้ถ้ามีเวลา (ไม่เร่ง)
+> 7. **`check:sara` 228 จุด ใน 12 ไฟล์** — เป็น docs/`.AGENT` เก่า ไม่ใช่โค้ดที่รัน · แก้เฉพาะตอนเข้าไปแตะไฟล์นั้น
+>
+> ### เรื่องที่ปิดแล้วในรอบนี้
+> - v0.5.28 ปล่อยแล้ว: CI ✅ / Release (windows-latest) ✅ / Prune ✅ · assets `NTAPI-Setup-0.5.28.exe` 181,353,582 B sha256 `99ea64dd…0bb9` + blockmap + latest.yml · provenance seq 155 + anchor + verify OK
+> - push ติดเพราะ PAT ไม่มี scope `workflow` → แก้โดยเปิด scope เพิ่มที่ token “NTAPI release” (ไม่ต้องสร้างใหม่ ค่าเดิมใช้ได้)
+> - ขนาดตัวติดตั้งโต 113 MB → 181 MB จาก `differentialPackage: store-asar` (คาดไว้แล้ว) · รุ่นถัดไปอัปเดตควรเหลือ KB–2 MB
+> - GitHub Desktop บน Ubuntu: รายการ repo ไม่ sync ผ่านบัญชี (เก็บใน `%APPDATA%\GitHub Desktop\repositories.json` บน Windows) → ต้อง **File → Add Local Repository → `/home/nt/NT-ALL/NTAPI`** (อย่า clone NTAPI ซ้ำ) · `NTAPI-releases` clone ได้ (759 KB) แต่ห้าม commit asset เข้า git เอง
+>
 > **⚠️ ล่าสุด (2026-11-20): อัปเดตไม่กวนระหว่างใช้งาน + ข้อความแดงกดปิดได้ (ยังไม่ commit/ไม่ปล่อยรุ่น)**
 >
 > **1) แจ้งเตือนอัปเดตเฉพาะตอนเปิดโปรแกรม และตอนกดปิด**

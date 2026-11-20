@@ -3285,3 +3285,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - assets: NTAPI-Setup-0.5.28.exe 181,353,582 B sha256 99ea64dd…0bb9 · .blockmap 229,508 B · latest.yml 342 B
 - ขนาดตัวติดตั้งโตจาก ~113 MB → 181 MB เพราะ `differentialPackage: store-asar` (คาดไว้แล้ว +60 MB) — รุ่นถัดไปอัปเดตเล็ก (KB–2 MB) ถ้าไม่ได้เปลี่ยน dependency
 - provenance: record-release seq 155 → PROVENANCE/releases/v0.5.28.json + anchor 2026-11-20.txt + verify OK 155 entries; commit 0c18f98 push แล้ว
+## 2026-11-20 (ปิดรอบ) — token scope + GitHub Desktop + สรุปงานค้าง
+- แก้ PAT classic "NTAPI release": เพิ่ม scope `workflow` (เดิมมีแค่ `repo`) → ตรวจแล้ว x-oauth-scopes = repo, workflow · ค่า token ไม่เปลี่ยน จึงไม่ต้องอัปเดต credential store
+- push master + tag v0.5.28 สำเร็จ · CI/Release/Prune เขียวทั้งหมด · provenance seq 155 + anchor + verify OK 155 entries
+- GitHub Desktop (Ubuntu 3.4.12): repo list ไม่ sync ข้ามเครื่อง → ต้อง File → Add Local Repository → /home/nt/NT-ALL/NTAPI (ห้าม clone NTAPI ซ้ำ) · NTAPI-releases clone ได้ (759 KB) แต่ห้าม commit asset เอง
+- บันทึก "ค้างอยู่จริง" 7 ข้อไว้หัว HANDOFF (compaction settings, ทดสอบ delta บน Windows, prune เกิน 20 รุ่น, skill 2 ช่องโหว่, PAT ที่เคยหลุด, HANDOFF เก่าล้าสมัย, check:sara 228 จุด)
