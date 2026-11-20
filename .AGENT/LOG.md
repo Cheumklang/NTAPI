@@ -3261,3 +3261,21 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ทดสอบแล้ว: เปิดได้จริง + ui ready · desktop-file-validate ผ่าน · 2 จุด: เมนูแอป + Desktop
 - [แก้บันทึก] ตรวจซ้ำ: คำสั่ง Exec เปิดแอปได้จริง (process tree มี renderer --ozone-platform=wayland)
   ที่เห็น FAIL เพราะแอปตัวเดิมถือ single-instance lock (userData /home/nt/.config/FreePi) → รันซ้ำ exit 0 เงียบ = ปกติ
+## 2026-11-20 — แก้เทสต์ 2 ตัวให้รันได้บน Linux + ตรวจ /skill ฝั่ง Windows
+- selftest-session-paths: เคสไดรฟ์เปล่าแยกตาม process.platform (win32 = cheum, POSIX = home-cheum) + เคส POSIX /srv/app/cheum
+- selftest-session-marks: ใช้การสะกดที่พกพาได้ (sub/.. ยุบด้วย path.resolve) และย้ายเคส toUpperCase/สลับสแลชไปในบล็อก win32
+- npm test 88/88 ผ่านหมด (เดิม 86/88) · CRLF noise ปิดแล้ว (392 i/lf, 0 i/crlf)
+- ตรวจ /skill: 0.5.27 มี ~/.pi/skills แล้ว (tag contains 1573f9b) แต่ยังขาด <agentDir>/npm/*/skills (สกิลจาก pi install) และ resources.skills ใน settings.json
+## 2026-11-20 — ระยะ 1 ของแผนอัปเดต: อัปเดตเล็กแทนการโหลดเต็ม 113 MB
+- ต้นเหตุที่ต้องโหลดเต็มทุกครั้ง: prune ลบ release เก่า (blockmap ของรุ่นเดิมหาย), payload เป็น solid compressed member, แอปไม่เคยตรวจอัปเดตเอง
+- package.json: nsis.differentialPackage = "store-asar" (asar เก็บไม่บีบอัด + block 4/8/16 KiB) — ตัวติดตั้งรุ่นแรกใหญ่ขึ้น ผู้ใช้ยอมรับ
+- prune-releases.yml: input ใหม่ keep_count (default 2 = เก็บล่าสุด+ก่อนหน้า), keep=<version> ยัง override ได้, ปฏิเสธ keep_count<2; ทดสอบ logic ด้วย fixture 4 รุ่น
+- main.js setUpdates: autoDownload=true, logger=console, ตรวจครั้งแรก 30 วิ + ทุก 6 ชม. (timer unref), background fail ไม่ขึ้น error ในแผง
+- renderer: ข้อความ updateIdle ใหม่ + แก้สระอำ 24 จุด (ข้อความที่ผู้ใช้เห็น) — ปุ่มชุดเดิม ไม่เพิ่มปุ่มเลือกเล็ก/ใหญ่
+- เทสต์ใหม่ scripts/selftest-update-channel.js (14 เช็ค) → npm test 89/89 · ยังไม่ bump/tag/commit
+## 2026-11-20 — อัปเดตไม่กวนระหว่างใช้ + ข้อความแดงปิดได้/หายเอง 15 วิ
+- main.js: updateState.origin (startup/manual/timer) — การ์ดบังคับอัปเดตขึ้นเฉพาะ startup และ manual; timer ทำได้แค่โหลด delta เงียบ ๆ
+- main.js: win.on('close') → askAboutUpdateOnClose() (native dialog 3 ปุ่ม) เฉพาะสถานะ available/ready; ย้าย logic ติดตั้งไป startUpdateInstall() ใช้ร่วมกับการ์ด/ปุ่ม Settings/ปิดหน้าต่าง
+- main.js: app:updated เคยเป็น channel ตาย — ตอนนี้เขียน prefs.updatedFrom ตอนติดตั้ง แล้วส่งหลัง UI พร้อม (toast + การ์ดขอบคุณ + QR ค่ากาแฟ)
+- renderer: appendErrorBanner กด/Enter/Space ปิด + fade 220ms + ERROR_BANNER_MS=15s; showCrashNotice ตั้ง crashNoticeTimer 15s; CSS .error-banner.out
+- เทสต์: selftest-error-ux +10, selftest-update-channel +4, selftest-update-handoff ปรับตามการย้าย logic → npm test 89/89

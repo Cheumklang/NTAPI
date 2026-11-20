@@ -1,5 +1,48 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **⚠️ ล่าสุด (2026-11-20): อัปเดตไม่กวนระหว่างใช้งาน + ข้อความแดงกดปิดได้ (ยังไม่ commit/ไม่ปล่อยรุ่น)**
+>
+> **1) แจ้งเตือนอัปเดตเฉพาะตอนเปิดโปรแกรม และตอนกดปิด**
+> - `app/src/main.js`: `updateState.origin` = `startup` / `manual` / `timer` — เฉพาะ startup (ตรวจครั้งแรกหลังเปิด 30 วิ) และ manual (กด “ตรวจหาอัปเดต” ใน Settings) เท่านั้น ที่การ์ดบังคับอัปเดตขึ้นได้ · timer ทุก 6 ชม. โหลด delta ได้เงียบ ๆ แต่ **ไม่มีการ์ด ไม่มี toast**
+> - `app/src/renderer/app.js` `paintForcedUpdate()`: เพิ่มเงื่อนไข `origin !== 'timer'`
+> - ตอนกดปิดหน้าต่าง (`win.on('close')`): ถ้ามี `available`/`ready` → `dialog.showMessageBox` ถาม (3 ปุ่ม: ติดตั้งแล้วรีสตาร์ต / ปิดโปรแกรม / ยกเลิก) · ไม่ถามซ้ำตอน installer สั่งปิดเอง (`installing` ไม่ถูกนับ) · ใช้ `startUpdateInstall()` ตัวเดียวกันกับการ์ดและปุ่มใน Settings (ย้าย logic ออกมาจาก IPC handler)
+> - ผลพลอยได้: `app:updated` เดิมเป็น channel ตาย (preload มี, main ไม่เคยส่ง) — ตอนนี้ main เขียน `prefs.updatedFrom` ตอนติดตั้ง แล้วส่ง `app:updated` หลัง UI พร้อม → ขึ้น toast + การ์ดขอบคุณพร้อม QR ค่ากาแฟ
+>
+> **2) ข้อความแดงปิดได้ + หายเองใน 15 วิ**
+> - `appendErrorBanner()` (แบนเนอร์แดงใน transcript): กด/Enter/Space เพื่อปิด, จางหายใน 220 ms, และ `ERROR_BANNER_MS = 15_000` ปิดเอง · มี `title` บอกว่ากดได้ (i18n `errorBannerClose`)
+> - `showCrashNotice()` (แบนเนอร์แดงเหนือช่องพิมพ์): `crashNoticeTimer` 15 วิ ปิดเอง · ปุ่ม Close เคลียร์ timer
+> - `styles.css`: `.error-banner` เป็น `cursor: pointer` + `transition: opacity` + `.error-banner.out` / hover / focus-visible
+> - เทสต์: `scripts/selftest-error-ux.js` เพิ่ม 10 เช็ค (กดปิด, 15 วิ, คีย์บอร์ด, title, fade, CSS, crash banner), `selftest-update-channel.js` เพิ่มเช็ค origin/close prompt, `selftest-update-handoff.js` ปรับให้อ่าน `startUpdateInstall()` (logic ย้ายที่)
+> - `npm test` **89/89**
+>
+> **⚠️ ล่าสุด (2026-11-20): ระยะ 1 ของแผนอัปเดตทำแล้ว — อัปเดตเล็กได้แล้ว (ยังไม่ commit/ไม่ปล่อยรุ่น)**
+>
+> - **ปัญหาเดิม:** ทุกอัปเดตโหลดเต็ม ~113 MB เพราะ (1) prune ลบ release เก่า → blockmap ของรุ่นเดิมหาย (2) payload เป็น solid compressed member → แก้ JS บรรทัดเดียว block เพี้ยนเกือบทั้งก้อน (3) แอปไม่เคยตรวจอัปเดตเอง
+> - **แก้ `app/package.json`:** `build.nsis.differentialPackage = "store-asar"` → `resources/app.asar` ถูกเก็บแบบไม่บีบอัดและตัด block ละเอียด 4/8/16 KiB (เอกสาร electron-builder วัดจริง: แก้ 1 บรรทัดในแอป 32 MB = โหลด 0.2%) · **ผู้ใช้ยอมรับแล้ว**ว่าตัวติดตั้งรุ่นแรกจะใหญ่ขึ้น ~+20–60 MB เป็นการจ่ายครั้งเดียว
+> - **แก้ `.github/workflows/prune-releases.yml`:** เพิ่ม input `keep_count` (default **2** = ล่าสุด + ก่อนหน้า → blockmap รุ่นเดิมยังโหลดได้) · `keep=<version>` เดิมยังใช้ได้ (override) · ปฏิเสธ `keep_count < 2` และปฏิเสธ version ที่ไม่มี release · ทดสอบ logic ด้วย fixture 4 รุ่นแล้ว (count=2/3, count=1 ถูกปฏิเสธ, keep=v0.5.25, keep=bogus ถูกปฏิเสธ)
+> - **แก้ `app/src/main.js` `setUpdates()`:** `autoDownload = true` (เดิม false) · `updater.logger = console` (เห็นบรรทัด `Download block maps (old: …, new: …)` = รู้ว่า delta ทำงาน) · ตรวจครั้งแรกหลังเปิด 30 วิ + ทุก 6 ชม. ด้วย timer ที่ `unref()` · background check ที่ล้มเหลว **ไม่ขึ้น error ในแผง** (แค่ `console.warn`) แต่ปุ่มกดเองยังรายงาน error
+> - **แก้ `app/src/renderer/app.js`:** `updateIdle` ใหม่ (ไทย: “ระบบตรวจหาอัปเดตเองทุก 6 ชั่วโมง” / EN: automatic every 6 hours) · แก้สระอำผิด 24 จุดในไฟล์นี้ (ข้อความที่ผู้ใช้เห็น) · **ปุ่มยังมีชุดเดิม** (ตรวจ/ดาวน์โหลด/ติดตั้ง) — ผู้ใช้ไม่ต้องเลือกเล็กหรือใหญ่ ระบบเลือก delta เอง
+> - **เทสต์ใหม่ `app/scripts/selftest-update-channel.js`** (14 เช็ค: store-asar, blockmap ถูกอัปโหลด, autoDownload, timer+unref, keep_count=2, ข้อความ UI) ลงทะเบียนใน `run-unit-tests.js` → `npm test` **89/89**
+> - **ยังไม่ bump เวอร์ชัน / ยังไม่ tag / ยังไม่ commit** — ต้อง commit → bump → push → tag ถึงจะถึงผู้ใช้
+> - **คาดการณ์รอบแรกหลังปล่อย:** ผู้ใช้ยังโหลดเต็ม 1 ครั้ง (block ของรุ่นเก่าไม่ตรงกับสคีมาใหม่) — ตั้งแต่รุ่นถัดไปจะเป็นหลัก KB–2 MB · ถ้าแก้ dependency ใหญ่ (เช่นอัป pi SDK) delta จะโตตามจริง
+> - **ถ้าตัวติดตั้งใหญ่เกินรับได้:** ไปต่อระยะ 2 (`nsis-web`: stub ~2–3 MB + แพ็กเกจแอปแยก) — ยังไม่ทำ
+>
+> **⚠️ ล่าสุด (2026-11-20): เทสต์ 2 ตัวที่ fail บน Linux แก้แล้ว → `npm test` 88/88**
+>
+> - **ต้นเหตุ:** เทสต์เขียนสมมุติฐานแบบ Windows ไว้ในตัวเทสต์เอง ไม่ใช่บั๊กของโค้ด
+>   · `selftest-session-paths.js` เคส `C:\Users\cheum` คาดว่าได้ `cheum` (win32 ตัดชื่อผู้ใช้ออก)
+>     แต่บน POSIX สตริงเดียวกันกลายเป็น segment เดียว → ได้ `Users-cheum`
+>   · `selftest-session-marks.js` เคส “ไฟล์เดียวกันสะกดต่างกัน” ใช้ `C:/...` กับ `C:\...`
+>     ซึ่งบน Linux เป็นคนละไฟล์จริง ๆ (แบ็กสแลชเป็นอักขระธรรมดา)
+> - **แก้ (เฉพาะไฟล์เทสต์ ไม่แตะโค้ดจริง):**
+>   · paths — เคสไดรฟ์เปล่าแยกตาม `process.platform` (win32 = `cheum`, POSIX = `home-cheum` ตาม fallback)
+>     และเพิ่มเคส POSIX `/srv/app/cheum` → `cheum`
+>   · marks — เปลี่ยนไปใช้การสะกดที่พกพาได้ (`sub/..` ยุบด้วย `path.resolve` ทุกแพลตฟอร์ม)
+>     แล้วเก็บเคส `toUpperCase()` + สลับสแลชไว้ในบล็อก `if (process.platform === 'win32')`
+> - **CRLF noise ปิดจบแล้ว:** `git ls-files --eol` = 392 `i/lf` + 22 `i/-text`, ไม่มี `i/crlf` เลย
+>   (`.gitattributes` `* text=auto eol=lf` ทำงานแล้ว) → งานค้างข้อนี้ไม่ต้องทำอะไรต่อ
+> - **ค้างจริงเหลือข้อเดียว:** revoke PAT ที่เคยพิมพ์ในแชท (ผู้ใช้ต้องทำที่ GitHub) — ยังไม่ commit รอบนี้
+
 > **⚠️ ล่าสุด (2026-11-20 · Ubuntu 26.04): ผู้ใช้ใช้ Ubuntu เท่านั้น + แก้บั๊ก “ข้อความหายตอนโควต้าหมด”**
 >
 > - **แพลตฟอร์มของผู้ใช้ตอนนี้คือ Ubuntu เท่านั้น** (ไม่มีเครื่อง Windows แล้ว) — งานทั้งหมดรันจาก `/home/nt/NT-ALL/NTAPI`
@@ -2355,6 +2398,26 @@ AI ขับ Chrome ของผู้ใช้เองได้ผ่านส
   · hint ในเมนู `/skill` อัปเดตรายการโฟลเดอร์ให้ตรง · `selftest-skill-scan` เพิ่มเคส `~/.pi/skills` (sandbox ต้องมี `process`)
 - CI `Release` run 44725375665 success · `NTAPI-Setup-0.5.27.exe` 118,341,191 B · sha256 `c3cdb508…b1f26878`
 - ลบ release เก่า `v0.5.26` (id 452580643) → เหลือ `v0.5.27` เดียว · `npm test` 86/88 (2 ตัวเดิมที่ fail บน Linux)
+
+## ตรวจ `/skill` ฝั่ง Windows — ยังเหลือ 2 ช่องว่าง (2026-11-20)
+
+ผู้ใช้ขอให้ตรวจว่า “ค้างตรงไหน” หลังติดตั้งแล้ว `/skill` ยังว่างบนเครื่อง Windows ของผู้ใช้จริง
+
+- **ยืนยันแล้วว่า fix ของ 0.5.27 อยู่ในรุ่นที่ปล่อยจริง:** `git tag --contains 1573f9b` = `v0.5.27`
+  → `skillRoots()` มี `~/.pi/skills` แล้ว (บวก `.pi/agent/skills`, `.free-pi/skills`, `.free-pi/agent/skills`,
+  `.agents/skills`, `.claude/skills`, `<cwd>/skills`, `<DATA_ROOT>/skills`, `<PI_CODING_AGENT_DIR>/skills`)
+- **ช่องว่าง A — สกิลที่ติดตั้งเป็นแพ็กเกจ (`pi install`)**
+  `dist/core/package-manager.js:1738` → แพ็กเกจอยู่ใต้ `<agentDir>/npm` (เช่น `~/.pi/agent/npm/<pkg>/skills/...`)
+  แต่ `skillRoots()` ไม่มี `<agentDir>/npm` เลย → สกิลแบบแพ็กเกจไม่ขึ้นในเมนู `/skill`
+- **ช่องว่าง B — `resources.skills` / `resources.packages` ใน `settings.json`**
+  `docs/settings.md` (Resources) ระบุว่าผู้ใช้เพิ่มโฟลเดอร์สกิลเองได้ที่ `~/.pi/agent/settings.json`
+  แต่แอปไม่เคยอ่านไฟล์นี้ (grep `settings.json` ใน `src/main.js` = ไม่มี) → ตั้งค่าไว้ก็ไม่ขึ้น
+- **ฝั่ง Linux ไม่มีปัญหานี้:** `/skill` ใช้ `skillRoots(cwd)` + `scanSkills()` ตัวเดียวกัน
+  (ไม่มีโค้ดที่ผูก path แบบ Linux-only — `resolveDataRoot()` แม้จะฮาร์ดโค้ด `C:\NTAPI` แต่ก็ fallback ไป `userData` ได้)
+- **ยังไม่ได้ยืนยันบน Windows จริง:** ต้องใช้เครื่อง/VM Windows หรือขอ screenshot จากผู้ใช้
+  (บรรทัด “ค้นหาใน: …” ที่เมนูโชว์ตอนว่าง + เลขเวอร์ชันที่มุม Settings)
+- **แนวทางที่เสนอ (ยังไม่ทำ):** เพิ่ม root ของ `<agentDir>/npm/*/skills` (หรืออ่าน `settings.json` แล้วขยาย `resources`)
+  + อัปเดต hint ใน `skillSearchHint()` + เพิ่มเคสใน `selftest-skill-scan.js`
 
 ## เรื่องที่คุยค้าง: แผนอัปเดตให้โหลดเล็กลง (ยังไม่ทำ — ผู้ใช้เปลี่ยน session)
 
