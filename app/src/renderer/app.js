@@ -63,6 +63,15 @@ const STRINGS = {
     // Browser control (chip next to the language button).
     errorPrefix: 'Error',
     errorBannerClose: 'Click to dismiss this error',
+    compactTitle: 'Conversation compaction',
+    compactEnabled: 'Summarize long conversations automatically',
+    compactKeepLabel: 'Recent tokens kept word for word',
+    compactReserveLabel: 'Tokens held back for the reply',
+    compactHintOn: 'Compaction starts at about {threshold} of {window} tokens.',
+    compactHintOnPlain: 'Compaction starts at about {threshold} tokens.',
+    compactHintOff:
+      'Auto-compaction is off. A very long chat may then fail with a “conversation too long” error.',
+    compactNewTabs: 'Token numbers apply to new tabs. The switch takes effect at once.',
     updateOverlayTitle: 'Updating NTAPI…',
     updateOverlayLine: 'The program closes itself to install the update, then opens again on its own.',
     updateOverlayHint: 'You do not need to start it again. Leave this window; it goes away by itself.',
@@ -575,6 +584,14 @@ const STRINGS = {
     // Browser control (chip next to the language button).
     errorPrefix: 'ข้อผิดพลาด',
     errorBannerClose: 'กดเพื่อปิดข้อความนี้',
+    compactTitle: 'การย่อบทสนทนา',
+    compactEnabled: 'ย่อบทสนทนายาวให้เองอัตโนมัติ',
+    compactKeepLabel: 'จำนวน token ท้ายบทสนทนาที่เก็บไว้ตามเดิม',
+    compactReserveLabel: 'จำนวน token ที่กันไว้ให้คำตอบ',
+    compactHintOn: 'จะเริ่มย่อที่ประมาณ {threshold} จาก {window} tokens',
+    compactHintOnPlain: 'จะเริ่มย่อที่ประมาณ {threshold} tokens',
+    compactHintOff: 'ปิดการย่ออัตโนมัติอยู่ บทสนทนายาวมากอาจเจอข้อความว่าบทสนทนายาวเกินไป',
+    compactNewTabs: 'ตัวเลข token มีผลกับแท็บใหม่ ส่วนสวิตช์มีผลทันที',
     sponsorSoundOn: 'เปิดเสียงโฆษณา',
     sponsorSoundOff: 'ปิดเสียงโฆษณา',
     updateOverlayTitle: 'กำลังอัปเดต NTAPI…',
@@ -5067,10 +5084,54 @@ window.addEventListener('resize', () => {
 let settingsSectionsInited = false;
 let settingsSection = 'workspace';
 
+/**
+ * Auto-compaction, as reported by the tab that is open. The switch applies at
+ * once; the two token numbers are read when a compaction happens, so they only
+ * reach tabs opened afterwards — the hint says so instead of implying otherwise.
+ */
+let compactionData = null;
+
+function paintCompaction() {
+  const box = el('setCompactEnabled');
+  if (!box) return;
+  const prefs = compactionData?.prefs || {};
+  const defaults = compactionData?.defaults || { reserveTokens: 16384, keepRecentTokens: 20000 };
+  const eff = compactionData?.effective || { enabled: true, ...defaults };
+  box.checked = typeof prefs.enabled === 'boolean' ? prefs.enabled : eff.enabled !== false;
+  // Never rewrite a field the user is typing into: `change` fires when they blur
+  // it, and a repaint in between would eat the digits they just entered.
+  const keep = el('setCompactKeep');
+  if (keep && document.activeElement !== keep) {
+    keep.value = String(prefs.keepRecentTokens ?? eff.keepRecentTokens ?? defaults.keepRecentTokens);
+  }
+  const reserve = el('setCompactReserve');
+  if (reserve && document.activeElement !== reserve) {
+    reserve.value = String(prefs.reserveTokens ?? eff.reserveTokens ?? defaults.reserveTokens);
+  }
+  const hint = el('compactHint');
+  if (!hint) return;
+  const window_ = Number(compactionData?.contextWindow) || 0;
+  const reserveTokens = Number(prefs.reserveTokens ?? eff.reserveTokens ?? defaults.reserveTokens) || 0;
+  const threshold = Math.max(0, window_ - reserveTokens);
+  if (!box.checked) {
+    hint.textContent = t('compactHintOff');
+    return;
+  }
+  hint.textContent = window_
+    ? t('compactHintOn', { threshold: threshold.toLocaleString(), window: window_.toLocaleString() })
+    : t('compactHintOnPlain', { threshold: threshold.toLocaleString() });
+}
+
+async function refreshCompaction() {
+  compactionData = await api.getCompaction(activeView()?.tabId).catch(() => null);
+  paintCompaction();
+}
+
 function renderSettings() {
   const list = el('settingsFolders');
   list.innerHTML = '';
   if (!settingsData) return;
+  refreshCompaction();
 
   if (!settingsData.workspace) {
     const hint = document.createElement('p');
@@ -5708,10 +5769,37 @@ el('settingsReset').addEventListener('click', async () => {
   const view = activeView();
   const cleared = {};
   for (const kind of Object.keys(settingsData?.folders || {})) cleared[kind] = '';
-  await api.setPrefs({ folders: cleared, workspace: view?.cwd });
+  await api.setPrefs({ folders: cleared, workspace: view?.cwd, compaction: {} });
   settingsData = await api.getSettings(view?.cwd);
   renderSettings();
 });
+
+el('setCompactEnabled').addEventListener('change', async (e) => {
+  compactionData = await api
+    .setCompaction({ enabled: e.currentTarget.checked }, activeView()?.tabId)
+    .catch(() => compactionData);
+  paintCompaction();
+});
+
+// One listener for both numbers: they are stored the same way and only the key
+// differs. A value the user cleared or typed as text is simply not saved, and
+// the field is repainted with what is actually in effect.
+for (const [id, key] of [
+  ['setCompactKeep', 'keepRecentTokens'],
+  ['setCompactReserve', 'reserveTokens'],
+]) {
+  el(id).addEventListener('change', async (e) => {
+    const value = Number.parseInt(e.currentTarget.value, 10);
+    if (!Number.isSafeInteger(value) || value < 0) {
+      paintCompaction();
+      return;
+    }
+    compactionData = await api
+      .setCompaction({ [key]: value }, activeView()?.tabId)
+      .catch(() => compactionData);
+    paintCompaction();
+  });
+}
 
 // ---- updates (GitHub Releases) ----
 

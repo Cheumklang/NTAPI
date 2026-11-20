@@ -589,6 +589,23 @@ function cachedCatalog(name, key, run, empty = []) {
   );
 }
 
+/**
+ * One accepted shape for compaction settings, whatever arrived from prefs.json:
+ * booleans stay booleans and token counts must be non-negative safe integers. A
+ * garbage value is dropped rather than passed on, so the SDK keeps its default
+ * instead of compacting every turn because a `NaN` compared true.
+ */
+function sanitizeCompaction(input) {
+  if (!input || typeof input !== 'object') return null;
+  const out = {};
+  if (typeof input.enabled === 'boolean') out.enabled = input.enabled;
+  for (const key of ['reserveTokens', 'keepRecentTokens']) {
+    const value = input[key];
+    if (Number.isSafeInteger(value) && value >= 0 && value <= 4_000_000) out[key] = value;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 async function createFreePiSession(options) {
   const {
     cwd = process.cwd(),
@@ -646,6 +663,13 @@ async function createFreePiSession(options) {
     browserBridge = null,
     /** Reasoning level for models that support it: off | minimal | low | medium | high. */
     thinkingLevel = 'off',
+    /**
+     * Auto-compaction tuning from the app's settings: `{ enabled, reserveTokens,
+     * keepRecentTokens }`. A missing key keeps the SDK default (16k tokens held
+     * back for the reply, 20k of recent turns kept verbatim), which is also what
+     * an invalid value falls back to.
+     */
+    compaction = null,
     /**
      * Called with the ad the backend served for the upcoming turn, so the app
      * can show it. Ads are what pay for free completions: without a visible ad
@@ -1635,6 +1659,9 @@ async function createFreePiSession(options) {
     ...browserToolAllowList,
   ];
 
+  // Only what the user actually chose reaches the SDK; everything else keeps pi's
+  // own defaults instead of being pinned by a stale prefs file.
+  const compactionSettings = sanitizeCompaction(compaction);
   const settingsManager = sdk.SettingsManager.inMemory(
     {
       defaultProvider: plan.defaultProvider,
@@ -1645,6 +1672,10 @@ async function createFreePiSession(options) {
       defaultThinkingLevel: thinkingLevel,
       hideThinkingBlock: true,
       enableInstallTelemetry: false,
+      // A user who turned auto-compaction off must not have their conversation
+      // summarized behind their back. The token numbers move the point where a
+      // long session is rewritten, which is why Settings exposes them.
+      ...(compactionSettings ? { compaction: compactionSettings } : {}),
       // Fail a stalled turn in this window instead of after pi's five-minute
       // default: silence is otherwise indistinguishable from a frozen app.
       httpIdleTimeoutMs: providerIdleTimeoutMs(),
@@ -2135,6 +2166,27 @@ async function createFreePiSession(options) {
     setThinking(level) {
       session.setThinkingLevel(level);
       return session.thinkingLevel;
+    },
+
+    /**
+     * Switch auto-compaction on or off in a session that is already open. The
+     * token numbers are read when a compaction happens, but the SDK only exposes
+     * a setter for the switch, so those travel with the next tab.
+     */
+    setCompaction(enabled) {
+      settingsManager.setCompactionEnabled(Boolean(enabled));
+      return Boolean(enabled);
+    },
+
+    /** What this session would do right now, plus the window it is measured against. */
+    compactionSettings() {
+      let settings;
+      try {
+        settings = settingsManager.getCompactionSettings(session.model);
+      } catch {
+        settings = { enabled: true, reserveTokens: 16384, keepRecentTokens: 20000 };
+      }
+      return { ...settings, contextWindow: Number(session.model?.contextWindow) || 0 };
     },
 
     todoItems: () => todoState.items,

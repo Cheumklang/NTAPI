@@ -1070,9 +1070,33 @@
               </div>
 
               <div class="settings-group">
+                <div class="settings-head" data-i18n="compactTitle">Conversation compaction</div>
+                <div class="settings-row compact">
+                  <label class="settings-row-top" for="setCompactEnabled">
+                    <input type="checkbox" id="setCompactEnabled" />
+                    <span class="settings-label" data-i18n="compactEnabled">Summarize long conversations automatically</span>
+                  </label>
+                  <p class="settings-hint" id="compactHint"></p>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-top">
+                    <span class="settings-label" data-i18n="compactKeepLabel">Recent tokens kept word for word</span>
+                  </div>
+                  <input class="settings-input" id="setCompactKeep" type="number" min="0" max="4000000" step="1000" />
+                  <div class="settings-row-top" style="margin-top: 8px">
+                    <span class="settings-label" data-i18n="compactReserveLabel">Tokens held back for the reply</span>
+                  </div>
+                  <input class="settings-input" id="setCompactReserve" type="number" min="0" max="4000000" step="1000" />
+                  <p class="settings-hint" data-i18n="compactNewTabs">
+                    Token numbers apply to new tabs. The switch takes effect at once.
+                  </p>
+                </div>
+              </div>
+
+              <div class="settings-group">
                 <div class="settings-head" data-i18n="resetAll">Reset All Settings</div>
                 <button id="settingsReset" class="ghost danger" data-i18n="resetDefaults">Reset to defaults</button>
-                <p class="settings-hint">This resets folder overrides and language. Your chats, skills, and API keys are not affected.</p>
+                <p class="settings-hint">This resets folder overrides, language, and compaction settings. Your chats, skills, and API keys are not affected.</p>
               </div>
             </section>
 

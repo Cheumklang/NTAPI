@@ -707,6 +707,25 @@ function writePrefs(patch) {
   } catch {}
 }
 
+/**
+ * Auto-compaction, as the user set it. Missing keys are missing on purpose: the
+ * pi SDK then keeps its own default (16,384 tokens reserved for the reply and
+ * 20,000 recent tokens kept verbatim), so an untouched install behaves exactly
+ * as before and a later change to those defaults still reaches everyone.
+ */
+const COMPACTION_DEFAULT = { reserveTokens: 16384, keepRecentTokens: 20000 };
+function readCompactionPrefs() {
+  const raw = readPrefs().compaction;
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  if (typeof raw.enabled === 'boolean') out.enabled = raw.enabled;
+  for (const key of ['reserveTokens', 'keepRecentTokens']) {
+    const value = raw[key];
+    if (Number.isSafeInteger(value) && value >= 0 && value <= 4_000_000) out[key] = value;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /* --------------------------- pins and colours ---------------------------
  * Stored in prefs.json, keyed by the session file's absolute path. The pi
  * session files stay untouched: the SDK owns that format. See session-marks.js
@@ -2037,6 +2056,9 @@ async function attachTab(tabId, manager, cwd) {
     // The agent may ask a question instead of guessing; the window answers it.
     askUser: (q) => askUserDialog(tabId, q),
     thinkingLevel: readPrefs().thinkingLevel || 'off',
+    // Auto-compaction knobs (null = the SDK defaults). Read once per tab: the
+    // token numbers cannot be changed on a live session, only the on/off switch.
+    compaction: readCompactionPrefs(),
     // A saved, readable key registers Coarena in this same session. A key that
     // cannot be decrypted is treated as absent rather than failing the tab.
     coarenaKey: coarenaKeys.read(),
@@ -3208,6 +3230,12 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     sessionsDir: wsSessionsDir,
     sessionsRoot: SESSIONS_ROOT,
     prefsPath: prefsPath(),
+    // Settings shows where the conversation gets rewritten; the toggle writes
+    // back through `settings:compaction` so a live tab follows immediately.
+    compaction: {
+      prefs: readCompactionPrefs() || {},
+      defaults: COMPACTION_DEFAULT,
+    },
     // Shown at the top of Settings so it is obvious where this app keeps things.
     dataRoot: DATA_ROOT,
     coarena: await coarenaStatus(),
@@ -3894,6 +3922,43 @@ ipcMain.handle('session:thinking', async (_e, { tabId, level } = {}) => {
     sendTab(tid, 'session:thinking', { thinking: safeCall(() => tab.handle.thinking(), null) });
   }
   return safeCall(() => tab.handle.thinking(), null);
+});
+
+/**
+ * Auto-compaction settings for the Settings panel.
+ *
+ * Reads the effective values from the tab that is open (they can differ per
+ * model, because a model override may pin its own token count) and accepts a
+ * patch to change them. The switch takes effect immediately in every open tab;
+ * the token numbers are stored and used by the next tab, because the SDK has no
+ * setter for them — the panel says so rather than pretending otherwise.
+ */
+ipcMain.handle('settings:compaction', async (_e, { tabId, patch } = {}) => {
+  if (patch && typeof patch === 'object') {
+    const current = readCompactionPrefs() || {};
+    const next = { ...current };
+    if (typeof patch.enabled === 'boolean') next.enabled = patch.enabled;
+    for (const key of ['reserveTokens', 'keepRecentTokens']) {
+      const value = patch[key];
+      if (Number.isSafeInteger(value) && value >= 0 && value <= 4_000_000) next[key] = value;
+    }
+    writePrefs({ compaction: next });
+    if (typeof next.enabled === 'boolean') {
+      for (const [, openTab] of tabs) {
+        safeCall(() => openTab.handle.setCompaction(next.enabled), null);
+      }
+    }
+  }
+  const { tab } = tabFor(tabId);
+  const live = safeCall(() => tab.handle.compactionSettings(), null);
+  return {
+    prefs: readCompactionPrefs() || {},
+    defaults: COMPACTION_DEFAULT,
+    effective: live
+      ? { enabled: live.enabled, reserveTokens: live.reserveTokens, keepRecentTokens: live.keepRecentTokens }
+      : { enabled: true, ...COMPACTION_DEFAULT },
+    contextWindow: live?.contextWindow || 0,
+  };
 });
 
 /* ------------------------- review panel (changes) ------------------------ */
