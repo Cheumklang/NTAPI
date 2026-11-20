@@ -1,0 +1,27 @@
+{
+  "version": "0.6.3",
+  "tag": "v0.6.3",
+  "recordedAt": "2026-11-20T18:13:50.933Z",
+  "git": {
+    "head": "45f99538c3e21a0ee9337963dcfaf46c63b9d382",
+    "branch": "master",
+    "tree": "bfc2f13dc0afe9a18967d706c918f39cd06f6865",
+    "subject": "chore(release): 0.6.3 — carries the update-size display to people already on 0.6.2",
+    "authorDate": "2026-11-21T01:09:33+07:00",
+    "commitCount": 390
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44790136898",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.3.exe",
+      "size": 181442345,
+      "sha256": "ed4ebdf551fb7f9f9d9a055d78ceefa6dc1291814179e1b870f97a035bcdf29b"
+    },
+    {
+      "name": "latest.yml",
+      "size": 339,
+      "sha256": "804c42a923ab5c980a80d4b1c13015edb728edd0d07f000a1d71a36c8a22a125"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.3"
+}
