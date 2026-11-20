@@ -3296,3 +3296,10 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - main: readCompactionPrefs() + COMPACTION_DEFAULT {16384, 20000} · IPC settings:compaction (อ่าน/เขียน, ยิงสดทุกแท็บ) · settings:get แนบ compaction · Reset ล้าง compaction
 - renderer/index.html: การ์ด "การย่อบทสนทนา" (สวิตช์ + keepRecentTokens + reserveTokens + hint คำนวณจาก contextWindow) + i18n EN/TH 8 คีย์ + guard ไม่เขียนทับช่องที่กำลังพิมพ์
 - เทสต์: scripts/selftest-compaction.js (25 เช็ค, รัน sanitizer ใน vm) → npm test 90/90 · sara ไม่มีจุดใหม่ · บูตด้วย prefs.compaction={enabled:false,...} ผ่าน
+
+## 2026-11-21 — ปล่อย v0.5.29 (compaction ตั้งค่าได้ + กฎ bash)
+- commit b261c81 (feat compaction) · 2fc5685 (docs กฎ bash) · cf995f5/d0ec11f/00f31de (ledger + provenance) · fbe3809 (bump 0.5.29)
+- CI #149 ✅ · Release #60 (windows-latest) ✅ · Prune #100 ✅ (ยังไม่ถึง 20 รุ่น จึงไม่ลบ)
+- assets: NTAPI-Setup-0.5.29.exe 181,365,237 B sha256 397db09a…1150 · .exe.blockmap 229,495 B · latest.yml 342 B (version 0.5.29, sha512 rKuXst7m…YpA==)
+- provenance: record-release seq 159 + anchor 2026-11-20.txt + verify OK 159 entries / 75 files
+- ผู้ใช้สั่ง 2026-11-21: ผู้ใช้จริงเป็น Windows → ตัดแนวทาง Linux/AppImage ออก (ห้ามเสนอซ้ำ) · การทดสอบ delta จริงยังค้างจนมีเครื่อง Windows

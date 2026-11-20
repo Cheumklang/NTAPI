@@ -1,17 +1,18 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-20): ปล่อย v0.5.28 แล้ว · ไม่มีอะไรค้างในเครื่อง · push ตรงกับ origin/master (`7d4e22d`)**
+> **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.5.29 แล้ว · tree สะอาด · `master` = `origin/master` (`00f31de`)**
 >
 > ### ค้างอยู่จริง (ยังไม่ได้ลงมือ)
-> 1. ~~ค่าตั้ง compaction~~ → **✅ ทำแล้ว (2026-11-20) ยังไม่ commit** รายละเอียดอยู่ท้ายบล็อกนี้
-> 2. **ทดสอบ delta update จริงบน Windows** — ต้องมีเครื่อง Windows: ติดตั้ง 0.5.28 → รอ 0.5.29 → ดูว่าโหลด KB–2 MB, การ์ดขอบคุณ + QR ขึ้น, และตอนกดปิดโปรแกรมมี dialog ถาม (ทดสอบบน Ubuntu ไม่ได้ · ไม่มี wine)
+> 1. ~~ค่าตั้ง compaction~~ → **✅ ทำแล้ว + commit + ปล่อยใน 0.5.29** (รายละเอียด §1a)
+> 2. **ทดสอบ delta update จริง** — ต้องมีเครื่อง Windows: ติดตั้ง 0.5.28 (หรือต่ำกว่า) → รอ 0.5.29 → ดูว่าโหลด KB–2 MB, การ์ดขอบคุณ + QR ขึ้น, และตอนกดปิดโปรแกรมมี dialog ถาม
+>    - **ตัดแนวทาง Linux/AppImage ออกโดยเจตนา (ผู้ใช้สั่ง 2026-11-21)** — ผู้ใช้จริงเป็น Windows ทั้งหมด เครื่อง Ubuntu มีแค่ผู้พัฒนา → ห้ามเสนอ `build.linux` / job `ubuntu-latest` ซ้ำ · การยืนยันฝั่ง asset ทำได้แค่: ทุกรุ่นต้องมี `.exe.blockmap` + `latest.yml` ครบ (0.5.28/0.5.29 ผ่านแล้ว)
 > 3. ** prune เก็บ 20 รุ่น** — trigger `workflow_run` ต่อติดแล้ว (run 44736562536 = success/skipped) แต่เส้นทาง “ลบรุ่นที่เกิน 20” ยังพิสูจน์แค่ fixture · ของจริงจะรู้ตอนปล่อยรุ่นที่ 21
 > 4. **skill 2 ช่องโหว่ (ผู้ใช้สั่งพักไว้)** — (A) `<agentDir>/npm/*/skills` ไม่ถูกสแกน (`skillRoots()`) (B) `resources.skills` / `resources.packages` ใน `settings.json` ไม่ถูกอ่าน
 > 5. **PAT ที่เคยหลุดในแชท** — ยังไม่ยืนยันว่าใช่ตัวเดียวกับ “NTAPI release” หรือไม่ · รอบนี้แค่เพิ่ม scope `workflow` ให้ตัวนั้น (ค่า token ไม่เปลี่ยน) ถ้าเป็นตัวเดียวกันควร Regenerate แล้วอัปเดต credential store + secret `RELEASE_TOKEN`
 > 6. **เอกสารเก่าใน HANDOFF ล้าสมัย** — หลายหัวข้อ (1zzzz…1r) เขียนว่า “ยังไม่ commit” ทั้งที่ปล่อยรุ่นไปนานแล้ว · เก็บกวาดได้ถ้ามีเวลา (ไม่เร่ง)
 > 7. **`check:sara` 228 จุด ใน 12 ไฟล์** — เป็น docs/`.AGENT` เก่า ไม่ใช่โค้ดที่รัน · แก้เฉพาะตอนเข้าไปแตะไฟล์นั้น
 >
-> ### ✅ 1a) ค่าตั้งการย่อบทสนทนา (compaction) — เสร็จ 2026-11-20 ยังไม่ commit
+> ### ✅ 1a) ค่าตั้งการย่อบทสนทนา (compaction) — เสร็จ 2026-11-20 · commit `b261c81` · อยู่ใน 0.5.29
 > ปัญหาเดิม: `src/freepi-bridge.js` สร้าง `SettingsManager.inMemory({...})` แบบตายตัว → ไม่มีใครปรับกำลังย่อได้ และ `~/.pi/agent/settings.json` ไม่ถูกอ่านเลย
 > - **bridge**: `sanitizeCompaction()` (กรอง boolean / safe integer 0–4,000,000 · ค่าเสียถูกทิ้ง ไม่ใช่ส่ง NaN เข้า SDK) → `options.compaction` → `SettingsManager.inMemory({ compaction })` · เพิ่ม `handle.setCompaction(enabled)` (มีผลทันทีทุกแท็บ) และ `handle.compactionSettings()` คืน `{enabled, reserveTokens, keepRecentTokens, contextWindow}` จาก `getCompactionSettings(session.model)`
 > - **main**: `readCompactionPrefs()` + `COMPACTION_DEFAULT = { reserveTokens: 16384, keepRecentTokens: 20000 }` · ส่ง `compaction` ตอนสร้างแท็บ · IPC `settings:compaction` (อ่าน/เขียน · สวิตช์ยิง `setCompaction` ให้ทุกแท็บที่เปิด) · `settings:get` แนบ `compaction` มาด้วย · ปุ่ม Reset ล้าง `compaction: {}`
