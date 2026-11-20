@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-20T05:41:50.718Z
-entries 134
-head_hash 0d134e53e21fa68b5e40184ef06f62906f148164d1131b99964d267d65211cee
-git a5c9ab74bc064252b2b0e24e4b41b396cb9eaecb
+updated 2026-11-20T07:10:26.937Z
+entries 140
+head_hash c2e06136cdea6429242ccf08f93d891b1c536d7ef6a0c69bfbeb1cfa605e4f3c
+git f81cb46114db571d270647820f36ac174deedac8
 
 latest entries:
-  #127 2026-11-18T11:04:23.851Z session — ปิดงาน v0.5.23: ผู้ใช้รีโหลดส่วนขยายแล้ว ไม่มีงานค้าง
-  #128 2026-11-18T11:04:24.474Z commit — internal: ปิดงาน v0.5.23 — ไม่มีงานค้าง
-  #129 2026-11-20T04:08:43.661Z session — ย้ายมาทำบน Linux: ลง electron Linux, npm start เปิด UI ได้, npm test ผ่าน 87 มี 2 เช็คที่สมมุติ Windows ล้ม
-  #130 2026-11-20T04:09:30.960Z session — ย้ายมาทำบน Linux: ลง electron Linux, npm start เปิด UI ได้, npm test ผ่าน 87 มี 2 เช็คที่สมมุติ Windows ล้ม
-  #131 2026-11-20T05:17:21.785Z commit — fix: ข้อความที่ AI ตอบหายไปเมื่อโควต้าหมด — กู้ turn ที่ถูกตัดกลับเข้า session
-  #132 2026-11-20T05:17:22.119Z commit — internal: บันทึกหลักฐานหลัง commit
   #133 2026-11-20T05:37:35.807Z commit — internal: เพิ่มบันทึก session ที่ค้างไม่ได้ commit — ทำให้ provenance verify ผ่านใน CI
   #134 2026-11-20T05:41:50.590Z release — Released version 0.5.24
+  #135 2026-11-20T05:41:54.933Z commit — internal: บันทึกหลักฐานปล่อยรุ่น v0.5.24
+  #136 2026-11-20T05:45:27.186Z commit — internal: บันทึกหลักฐานหลัง commit
+  #137 2026-11-20T06:05:53.505Z session — แก้ ntapi.desktop ให้เรียก electron ตรง ๆ แทนสคริปต์; ตรวจเปิดได้จริง
+  #138 2026-11-20T07:06:46.573Z commit — feat: รวม turn เดียวเป็นบับเบิลเดียว + ข้อความผู้ใช้ชิดขวา + โชว์ tool/note ล่าสุด (0.5.25)
+  #139 2026-11-20T07:06:46.743Z commit — chore: ledger + คืนสิทธิ์ execute ให้ post-commit hook
+  #140 2026-11-20T07:10:26.802Z release — Released version 0.5.25
