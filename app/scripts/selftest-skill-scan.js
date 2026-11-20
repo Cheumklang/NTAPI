@@ -52,13 +52,19 @@ writeSkill(path.join(dataRoot, 'skills', 'node_modules', 'dep'), 'dep', 'a depen
 writeSkill(path.join(elsewhere, 'gamma'), 'gamma', 'a skill reached through a symlink');
 fs.symlinkSync(path.join(elsewhere, 'gamma'), path.join(dataRoot, 'skills', 'linked'), 'dir');
 
-const sandbox = { require, fs, os, path, DATA_ROOT: dataRoot, Map, Set };
+// `process` is in the sandbox because the roots honour PI_CODING_AGENT_DIR.
+const sandbox = { require, fs, os, path, process, DATA_ROOT: dataRoot, Map, Set };
 vm.createContext(sandbox);
 vm.runInContext(`${chunk}\nthis.__roots = skillRoots; this.__scan = scanSkills;`, sandbox);
 
 const roots = sandbox.__roots(path.join(tmp, 'workspace'));
 check('the workspace is searched as well as the home folders', roots.some((r) => r.startsWith(tmp) && r.includes('workspace')));
 check('the global skill folders are still searched', roots.some((r) => r.endsWith('.pi/agent/skills'.replace(/\//g, path.sep))));
+check(
+  'the CLI global layout ~/.pi/skills is searched',
+  roots.includes(path.join(os.homedir(), '.pi', 'skills')),
+  roots.join(' | '),
+);
 
 const skills = sandbox.__scan(roots);
 const names = skills.map((s) => s.name);

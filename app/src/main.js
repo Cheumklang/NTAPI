@@ -2126,13 +2126,24 @@ function tabIdForTab(target) {
  * that did have skills.
  */
 function skillRoots(cwd) {
+  const home = os.homedir();
   const roots = [
     path.join(DATA_ROOT, 'skills'),
-    path.join(os.homedir(), '.agents', 'skills'),
-    path.join(os.homedir(), '.free-pi', 'agent', 'skills'),
-    path.join(os.homedir(), '.pi', 'agent', 'skills'),
-    path.join(os.homedir(), '.claude', 'skills'),
+    // `~/.pi/skills` is where the CLI's global skills sit on a real install
+    // (`C:\Users\<name>\.pi\skills` on Windows) — the layout a user reported
+    // having, and the one this list was missing while every folder around it
+    // was already here. `~/.pi/agent/skills` stays for the agent-dir layout.
+    path.join(home, '.pi', 'skills'),
+    path.join(home, '.pi', 'agent', 'skills'),
+    path.join(home, '.free-pi', 'skills'),
+    path.join(home, '.free-pi', 'agent', 'skills'),
+    path.join(home, '.agents', 'skills'),
+    path.join(home, '.claude', 'skills'),
   ];
+  // Someone who moved the agent dir with the documented env var keeps their
+  // skills next to it, not in the default home path.
+  const envAgentDir = process.env.PI_CODING_AGENT_DIR;
+  if (envAgentDir) roots.push(path.join(envAgentDir, 'skills'));
   if (cwd) {
     roots.push(
       path.join(cwd, 'skills'),

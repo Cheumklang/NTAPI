@@ -7131,7 +7131,7 @@ function skillSlashItems(query) {
 function skillSearchHint() {
   const cwd = activeView()?.cwd;
   const local = cwd ? ['skills/', '.pi/skills', '.agents/skills'] : [];
-  return [...local, '~/.pi/agent/skills', '~/.agents/skills', '~/.claude/skills', 'app-data/skills'].join(', ');
+  return [...local, '~/.pi/skills', '~/.pi/agent/skills', '~/.agents/skills', '~/.claude/skills', 'app-data/skills'].join(', ');
 }
 
 function applySlashItems(items) {
