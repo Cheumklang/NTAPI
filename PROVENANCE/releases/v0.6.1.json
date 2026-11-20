@@ -1,0 +1,27 @@
+{
+  "version": "0.6.1",
+  "tag": "v0.6.1",
+  "recordedAt": "2026-11-20T17:54:32.822Z",
+  "git": {
+    "head": "797a71d122a090754328e2799c9f62bfe3adeb07",
+    "branch": "master",
+    "tree": "d073ab24ddc0e4415290006b90660a402a7620bb",
+    "subject": "chore(provenance): ledger ปิดท้าย v0.6.1",
+    "authorDate": "2026-11-21T00:54:20+07:00",
+    "commitCount": 384
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44787120528",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.1.exe",
+      "size": 181440016,
+      "sha256": "6e26aa74ae117612b7176541dbf7d6e95ba82761a860a883d4626844be9a64a8"
+    },
+    {
+      "name": "latest.yml",
+      "size": 339,
+      "sha256": "28f4680f05859e61f753835f24425cfc537535efc629bb2ceb6f7fa2e9ff2f64"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.1"
+}
