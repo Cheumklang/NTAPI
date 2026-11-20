@@ -945,14 +945,20 @@ button { font-family: inherit; }
  * edge) and stops before the window's edge, where the rows would have to wrap
  * again on a genuinely narrow screen.
  */
+/*
+ * The panel hangs from the pill but is not *sized by* it.
+ *
+ * It used to be `left: 50%; transform: translateX(-50%)` inside the pill's own
+ * box, which meant any change in the pill's width dragged the whole panel
+ * sideways — the credits pair appears and disappears as the row gets tight, so a
+ * provider line switching on moved the panel by 117px for a couple of frames and
+ * it read as a flicker (2026-11-21). `position: fixed` plus coordinates worked
+ * out once, when it opens, keeps the box still while the numbers inside it move.
+ */
 .status-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  /* Centred under the tab: the panel is sized to its content so a row never
-   * wraps, and centring keeps it inside the window whether the tab sits near
-   * the left or the right end of the row. */
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
+  left: 0;
+  top: 0;
   z-index: 60;
   width: max-content;
   min-width: 252px;
@@ -5041,4 +5047,277 @@ html[lang="th"] .about-name-th {
 @media (max-width: 860px) {
   .status-group#statusFree .status-sep,
   .status-group#statusFree #usagePct { display: none; }
+}
+
+/* --------------------------- desktop control ---------------------------
+ *
+ * One chip on the workspace row, one panel behind it, and a strip at the foot
+ * of the window while it is on. Amber throughout: this is a state to notice and
+ * to be able to leave, not an error, so it never uses the red of the failure
+ * banner and never needs dismissing.
+ */
+.sys-wrap { position: relative; display: inline-flex; }
+.chip-btn.sys-chip { width: 30px; padding: 0; position: relative; }
+.sys-dot {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .35;
+  transition: opacity .18s ease, box-shadow .18s ease;
+}
+.chip-btn.sys-chip[data-state='on'] {
+  color: #f5b544;
+  border-color: rgba(245, 181, 68, .5);
+  background: rgba(245, 181, 68, .08);
+}
+.chip-btn.sys-chip[data-state='on'] .sys-dot {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(245, 181, 68, .16);
+}
+
+/*
+ * The panel is wide enough for the warning to be a sentence, not a column.
+ * It is fixed, not absolute: the sidebar clips its own overflow, so a panel
+ * anchored inside it lost everything past the chat boundary. `position: fixed`
+ * is not clipped by an ancestor's overflow — placeSysPanel() puts it beside the
+ * chip and keeps it on screen.
+ */
+.sys-popover {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  width: 268px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .45);
+}
+.sys-popover[hidden] { display: none; }
+.sys-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sys-label {
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sys-state {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid var(--line-2);
+}
+.sys-popover:has(.sys-toggle[aria-pressed='true']) .sys-state {
+  color: #ffd88a;
+  border-color: rgba(245, 181, 68, .45);
+  background: rgba(245, 181, 68, .12);
+}
+.sys-warn {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #e8d3a8;
+  background: rgba(245, 181, 68, .07);
+  border-left: 2px solid rgba(245, 181, 68, .55);
+  border-radius: 0 8px 8px 0;
+  padding: 7px 9px;
+}
+.sys-toggle {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 9px;
+  cursor: pointer;
+  color: var(--text);
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid var(--line-2);
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+.sys-toggle:hover { background: rgba(255, 255, 255, .09); }
+.sys-toggle[aria-pressed='true'] {
+  color: #ffd88a;
+  background: rgba(245, 181, 68, .16);
+  border-color: rgba(245, 181, 68, .5);
+}
+.sys-toggle[aria-pressed='true']:hover { background: rgba(245, 181, 68, .24); }
+.sys-hint {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.sys-kbd, .sys-banner-kbd { display: inline-flex; gap: 3px; }
+.sys-kbd kbd, .sys-banner-kbd kbd {
+  font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 3px 5px;
+  border-radius: 5px;
+  color: inherit;
+  background: rgba(255, 255, 255, .07);
+  border: 1px solid rgba(255, 255, 255, .14);
+}
+.sys-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #ff9aa3;
+}
+.sys-note[hidden] { display: none; }
+
+/* The strip is fixed, so it never reflows the conversation under it. */
+.sys-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #f7e6c4;
+  background: rgba(26, 21, 12, .96);
+  border: 1px solid rgba(245, 181, 68, .45);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .5);
+  backdrop-filter: blur(10px);
+}
+.sys-banner[hidden] { display: none; }
+.sys-banner-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f5b544;
+  box-shadow: 0 0 0 4px rgba(245, 181, 68, .16);
+  animation: sys-pulse 2.6s ease-in-out infinite;
+}
+@keyframes sys-pulse {
+  50% { box-shadow: 0 0 0 7px rgba(245, 181, 68, .04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sys-banner-dot { animation: none; }
+}
+.sys-banner-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
+.sys-banner-stop {
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #1b1408;
+  background: #f5b544;
+  border: 1px solid #f5b544;
+}
+.sys-banner-stop:hover { background: #ffc766; }
+
+/* ------------------------ status numbers (the count) ------------------------ */
+/*
+ * 84.3 → 84 costs width in a proportional font: the pill would twitch on every
+ * frame of the count. Tabular figures give every digit the same width, so the
+ * number moves only when its value does.
+ */
+#usagePct,
+#usageCost,
+#contextPct,
+#contextBarPct {
+  font-variant-numeric: tabular-nums;
+}
+
+.num-pop {
+  animation: num-pop .46s ease-out;
+}
+
+/*
+ * Colour only. A scale needs a layout change on an inline span, and the glow that
+ * was here spread 12px past the digits — a halo that grows and shrinks reads as
+ * the number itself swelling, which is the blinking the reader kept reporting
+ * (2026-11-21). One colour step says "this arrived" without touching the size.
+ */
+@keyframes num-pop {
+  0%,
+  100% {
+    color: inherit;
+  }
+  40% {
+    color: #7ef0b0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .num-pop {
+    animation: none;
+  }
+}
+
+/* Every token figure is a counter that climbs: tabular digits keep the column. */
+.tok-value,
+.tok-delta {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The panel is sized to its content and centred under the tab, so a figure that
+ * grows a digit made the whole panel jump sideways — visible as a shimmy while
+ * the numbers climb (2026-11-21). Reserving the widest realistic figure keeps the
+ * box still; the digits themselves stay right-aligned so they still read as a
+ * column.
+ */
+.tok-value {
+  display: inline-block;
+  min-width: 11ch;
+  text-align: right;
+}
+
+.tok-delta {
+  display: inline-block;
+  min-width: 10ch;
+  text-align: right;
+}
+
+/*
+ * The odd one out at 100.0% while it counts. A count shows a decimal on the way
+ * (`84.3%`) and drops it when it lands (`84%`), so the label changed width on
+ * every frame and everything around it moved — that, not the token table, was
+ * the shimmy the reader saw (2026-11-21). Reserving room for the widest form
+ * (`100.0%`, six characters) and right-aligning inside it keeps the box still
+ * while the digits still move.
+ */
+#usagePct,
+#contextPct,
+#contextBarPct {
+  display: inline-block;
+  /*
+   * Seven, not six: "100.0%" is three digits, a decimal and a percent, and at
+   * this font size it measured 41px against a 6ch box of 36 — so the pill still
+   * grew by 4px exactly when the number reached three figures. The box has to be
+   * measured against the widest form, not against the length of the digits.
+   */
+  min-width: 7ch;
+  text-align: right;
+}
+
+/*
+ * A token figure is up to thirteen characters (1,234,567,890) and the table sits
+ * in a panel sized to its content, so the reservation has to cover the worst case
+ * rather than the common one: at eleven the column still widened when a session
+ * crossed into the billions.
+ */
+.tok-value {
+  min-width: 13ch;
 }

@@ -626,6 +626,12 @@ async function createFreePiSession(options) {
      */
     claimTab = null,
     /**
+     * Desktop control (Linux AT-SPI). Main owns the switch and the audit log; the
+     * tools below only forward, so a call after the user turned it off answers
+     * SYSTEM_CONTROL_OFF instead of acting.
+     */
+    systemBridge = null,
+    /**
      * Directory the pi SDK treats as its agent root for resource discovery, i.e.
      * skills are read from `<skillsAgentDir>/skills`. Defaults to the CLI dir.
      */
@@ -1211,6 +1217,66 @@ async function createFreePiSession(options) {
     },
   };
 
+  /**
+   * Desktop control. Three tools, one at a time: look at the windows, look
+   * inside one, press one thing. The switch in the sidebar is the permission
+   * and main re-checks it on every call.
+   */
+  const systemExtension = {
+    name: 'freepi-desktop-system',
+    factory(pi) {
+      if (!systemBridge) return;
+
+      pi.on('before_agent_start', (event) => {
+        if (!event || typeof event.systemPrompt !== 'string') return;
+        if (event.systemPrompt.includes('## Desktop control')) return;
+        return {
+          systemPrompt:
+            event.systemPrompt +
+            `\n\n## Desktop control\n\n` +
+            `- This is the user's own computer (Linux desktop), not a browser tab. system_windows lists the open windows; system_snapshot reads one window into \`ref\`s; system_act presses one element by its ref.\n` +
+            `- Snapshot before acting, and act only on refs you just received. After every action, snapshot again — the window has moved.\n` +            `- The pointer cannot be moved: only controls that publish an accessibility action can be pressed. If an app exposes nothing, say so instead of guessing coordinates.\n` +
+            `- Typing into a field is system_act with action \`settext\`; read the snapshot again to confirm the text landed.\n` +
+            `- If a call answers SYSTEM_CONTROL_OFF, stop and ask the user to turn the desktop switch on in the sidebar. Never retry it as if it were a glitch.\n` +
+            `- Anything that spends money, deletes, signs in or changes account settings is the user's call: describe what you are about to press and let them decide.\n` +
+            `- The user can take the screen back at any moment with Ctrl+Alt+Esc; if a tool starts failing mid-task, that is what happened.`,
+        };
+      });
+
+      for (const spec of systemToolSpecs()) {
+        pi.registerTool({
+          name: spec.name,
+          label: spec.name.replace('system_', 'Desktop ').replace(/_/g, ' '),
+          description: spec.description,
+          parameters: spec.parameters,
+          async execute(_id, params, _signal, _onUpdate, ctx) {
+            try {
+              const result = await systemBridge.call(spec.cmd, params || {});
+              if (spec.cmd === 'screenshot') {
+                const canSeeImages = Boolean(
+                  ctx && ctx.getModel && ctx.getModel() && ctx.getModel().input && ctx.getModel().input.includes('image')
+                );
+                return await systemScreenshotContent(result, { imagesDir, cwd, canSeeImages });
+              }
+              const text =
+                spec.cmd === 'snapshot'
+                  ? formatSystemSnapshot(result)
+                  : spec.cmd === 'windows'
+                    ? formatSystemWindows(result)
+                    : `Done: ${result.did || spec.cmd}. Snapshot again before the next action.`;
+              return { content: [{ type: 'text', text }], details: { ok: true } };
+            } catch (err) {
+              return {
+                content: [{ type: 'text', text: `${(err && err.code) || 'ERROR'}: ${(err && err.message) || String(err)}` }],
+                details: { ok: false },
+              };
+            }
+          },
+        });
+      }
+    },
+  };
+
   const downloadsPolicyExtension = {
     name: 'freepi-downloads-policy',
     factory(pi) {
@@ -1657,9 +1723,11 @@ async function createFreePiSession(options) {
   // The plan already picked the default (free-pi's tuned model when present,
   // else the first Coarena model). A session must never start on a dead id.
   const browserToolAllowList = browserBridge ? allBrowserToolNames() : [];
+  const systemToolAllowList = systemBridge ? Object.keys(SYSTEM_TOOLS) : [];
   const defaultTools = [
     ...(plan.freePiTools ? [...SAFE_TOOLS, ...FREE_PI_TOOL_NAMES] : [...SAFE_TOOLS]),
     ...browserToolAllowList,
+    ...systemToolAllowList,
   ];
 
   // Only what the user actually chose reaches the SDK; everything else keeps pi's
@@ -1703,6 +1771,7 @@ async function createFreePiSession(options) {
         ...(plan.freePiTools ? [visionExtension, extraToolsExtension] : []),
         downloadsPolicyExtension,
         ...(browserBridge ? [browserExtension] : []),
+        ...(systemBridge ? [systemExtension] : []),
         todoExtension,
         ...(askUserExtension ? [askUserExtension] : []),
         // The CLI loads these as built-in extensions; an SDK session must add
@@ -2287,11 +2356,141 @@ function clearSnapshotTable(tabId) {
   browserRefTables.clear(tabId);
 }
 
+/* --------------------------- desktop control tools ---------------------------
+ *
+ * The agent looks at the user's own Linux desktop and presses one element at a
+ * time. The tools are dumb on purpose: whether this is allowed at all is decided
+ * in the main process (`systemBridge`), so the same switch covers the model, the
+ * audit log and the stop hotkey.
+ */
+const SYSTEM_TOOLS = {
+  system_windows: {
+    cmd: 'windows',
+    write: false,
+    description:
+      "List the windows open on the user's own computer (Linux desktop). Call this first: system_snapshot needs the app number it returns.",
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  system_snapshot: {
+    cmd: 'snapshot',
+    write: false,
+    description:
+      'Read one open window into refs: role, name, whether it can be clicked or typed into. The ref is what system_act accepts.',
+    parameters: {
+      type: 'object',
+      properties: {
+        app: { type: 'number', description: 'Application number from system_windows (default 0).' },
+        maxNodes: { type: 'number', description: 'How many elements to return (default 250).' },
+      },
+      additionalProperties: false,
+    },
+  },
+  system_screenshot: {
+    cmd: 'screenshot',
+    write: false,
+    description:
+      'A picture of the NTAPI window itself. Use it when the words on screen are not enough — layout, whether something really showed up. Only this application can be photographed: the compositor refuses screen capture to other programs.',
+    parameters: {
+      type: 'object',
+      properties: {
+        app: { type: 'number', description: 'The app number from system_windows, if you are checking that it is this one.' },
+      },
+      additionalProperties: false,
+    },
+  },
+  system_act: {
+    cmd: 'act',
+    write: true,
+    description:
+      'Act on one element from the last snapshot: click invokes it, settext replaces a field. Snapshot again afterwards.',
+    parameters: {
+      type: 'object',
+      properties: {
+        ref: { type: 'string', description: 'The ref of the element, exactly as the snapshot printed it.' },
+        action: { type: 'string', enum: ['click', 'settext'] },
+        text: { type: 'string', description: 'The text for settext.' },
+      },
+      required: ['ref'],
+      additionalProperties: false,
+    },
+  },
+};
+
+function systemToolSpecs() {
+  return Object.keys(SYSTEM_TOOLS).map((name) => ({ name, ...SYSTEM_TOOLS[name] }));
+}
+
+function systemGuardedTools() {
+  return Object.keys(SYSTEM_TOOLS).filter((name) => SYSTEM_TOOLS[name].write);
+}
+
+/**
+ * The picture itself when the model has eyes, the file when it does not.
+ *
+ * A data URI in a text block would be hundreds of kilobytes of base64 in the
+ * transcript and unreadable to a text-only model, so the two cases take different
+ * routes — the same rule the browser screenshot already follows.
+ */
+async function systemScreenshotContent(result, { imagesDir, cwd, canSeeImages }) {
+  const meta = `Screenshot of ${result.title || 'the window'} (${result.width}×${result.height}).`;
+  if (canSeeImages && result.data) {
+    return {
+      content: [
+        { type: 'image', data: result.data, mimeType: result.mimeType || 'image/png' },
+        { type: 'text', text: meta },
+      ],
+      details: { ok: true, width: result.width, height: result.height },
+    };
+  }
+  try {
+    const dirAbs = path.isAbsolute(imagesDir) ? imagesDir : path.join(cwd, imagesDir);
+    await fs.promises.mkdir(dirAbs, { recursive: true });
+    const rel = path.join(imagesDir, `desktop-${Math.random().toString(16).slice(2, 8)}.png`);
+    await fs.promises.writeFile(path.isAbsolute(rel) ? rel : path.join(cwd, rel), Buffer.from(result.data || '', 'base64'));
+    return {
+      content: [{ type: 'text', text: `${meta} Saved to ${rel} — this model cannot see images, so reference the path.` }],
+      details: { ok: true, path: rel, width: result.width, height: result.height },
+    };
+  } catch (err) {
+    return {
+      content: [{ type: 'text', text: `Could not save the screenshot: ${err.message}` }],
+      details: { ok: false },
+    };
+  }
+}
+
+/** One line per element, ref first so it is what the eye lands on. */
+function formatSystemSnapshot(result) {
+  const nodes = (result && result.nodes) || [];
+  const lines = nodes.map((node) => {
+    const parts = [node.ref, node.role];
+    if (node.name) parts.push(JSON.stringify(node.name));
+    const marks = [];
+    if (node.actions && node.actions.length) marks.push(`click:${node.actions.join('|')}`);
+    if (node.editable) marks.push('editable');
+    return parts.join(' ') + (marks.length ? `  {${marks.join(', ')}}` : '');
+  });
+  return [`${(result && result.appName) || 'app'} — ${nodes.length} element(s)`, ...lines].join('\n');
+}
+
+function formatSystemWindows(result) {
+  const windows = (result && result.windows) || [];
+  if (!windows.length) return 'No windows are open.';
+  return windows.map((win) => `${win.app} · ${win.appName || 'app'} — ${win.title || '(untitled)'}`).join('\n');
+}
+
 /**
  * Built-in tools that always ask first: shell/file writes plus the browser
  * commands that change a page. Read-only browser commands never prompt.
  */
-const DEFAULT_GUARDED_TOOLS = ['bash', 'edit', 'write', ...browserGuardedTools(), ...browserLocalGuardedTools()];
+const DEFAULT_GUARDED_TOOLS = [
+  'bash',
+  'edit',
+  'write',
+  ...browserGuardedTools(),
+  ...browserLocalGuardedTools(),
+  ...systemGuardedTools(),
+];
 
 /* --------------------------- browser control tools ---------------------------
  * The agent drives the user's own Chrome through a companion extension. Read
@@ -2597,6 +2796,10 @@ module.exports = {
   isGuardedTool,
   browserToolSpecs,
   allBrowserToolNames,
+  SYSTEM_TOOLS,
+  systemToolSpecs,
+  systemGuardedTools,
+  systemScreenshotContent,
   browserLocalToolSpecs,
   clearSnapshotTable,
   browserResultContent,

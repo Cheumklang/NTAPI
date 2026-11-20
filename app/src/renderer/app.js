@@ -72,6 +72,10 @@ const STRINGS = {
     compactHintOff:
       'Auto-compaction is off. A very long chat may then fail with a “conversation too long” error.',
     compactNewTabs: 'Token numbers apply to new tabs. The switch takes effect at once.',
+    statusFxHead: 'Status numbers',
+    statusFxLabel: 'Animate the credit and context numbers',
+    statusFxHint:
+      'Numbers count up or down instead of jumping, and the meter refreshes while a turn runs. Showing them costs no tokens — the turn has already been paid for.',
     updateOverlayTitle: 'Updating NTAPI…',
     updateOverlayLine: 'The program closes itself to install the update, then opens again on its own.',
     updateOverlayHint: 'You do not need to start it again. Leave this window; it goes away by itself.',
@@ -483,6 +487,24 @@ const STRINGS = {
     allowAlways: 'Always allow',
     approvalAlwaysDone: 'Approved from now on. The approval switch in the sidebar asks again.',
     approvalNoMemory: 'Asks every time. "Always allow" remembers until you change the switch in the sidebar.',
+    sysTitle: 'Desktop control',
+    sysTitleOn: 'Desktop control is on — click to stop',
+    sysOff: 'Off',
+    sysOn: 'On',
+    sysEnable: 'Turn on control',
+    sysDisable: 'Stop now',
+    sysWarn:
+      'The agent can see your open windows and press buttons in them — the same reach you have. Turn it off when you are done.',
+    sysHotkeyHint: 'Stops instantly:',
+    sysBanner: 'Desktop control is on — the agent can press buttons in your windows',
+    sysConfirmTitle: 'Turn on desktop control?',
+    sysConfirmBody:
+      'The agent will read your open windows and press buttons in them — anything you could do yourself. Ctrl+Alt+Esc stops it instantly.',
+    sysStopped: 'Desktop control stopped.',
+    sysStoppedHotkey: 'Desktop control stopped by the hotkey.',
+    sysHotkeyDown:
+      'This desktop refused the global hotkey — the agent keeps control until you press Stop here.',
+    sysUnsupported: 'Desktop control is not available on this computer yet.',
     deny: 'Deny',
     approvalTitle: 'Allow this command?',
     approvalSub: 'The agent wants to run',
@@ -596,6 +618,10 @@ const STRINGS = {
     compactHintOnPlain: 'จะเริ่มย่อที่ประมาณ {threshold} tokens',
     compactHintOff: 'ปิดการย่ออัตโนมัติอยู่ บทสนทนายาวมากอาจเจอข้อความว่าบทสนทนายาวเกินไป',
     compactNewTabs: 'ตัวเลข token มีผลกับแท็บใหม่ ส่วนสวิตช์มีผลทันที',
+    statusFxHead: 'ตัวเลขสถานะ',
+    statusFxLabel: 'ให้ตัวเลขเครดิตและ context วิ่ง',
+    statusFxHint:
+      'ตัวเลขจะไต่ขึ้น/ลงแทนการกระโดด และมิเตอร์รีเฟรชระหว่างเทิร์นกำลังรัน การแสดงตัวเลขไม่กิน token เพิ่ม เพราะเทิร์นจ่ายไปแล้ว',
     sponsorSoundOn: 'เปิดเสียงโฆษณา',
     sponsorSoundOff: 'ปิดเสียงโฆษณา',
     updateOverlayTitle: 'กำลังอัปเดต NTAPI…',
@@ -1004,6 +1030,22 @@ const STRINGS = {
     allowAlways: 'อนุมัติเสมอ',
     approvalAlwaysDone: 'อนุมัติทุกครั้งไปแล้ว — เปิดให้ถามอีกครั้งได้ที่สวิตช์การอนุมัติในแถบข้าง',
     approvalNoMemory: 'ถามทุกครั้ง · "อนุมัติเสมอ" จะจำไว้จนกว่าจะเปลี่ยนสวิตช์ในแถบข้าง',
+    sysTitle: 'ควบคุมเครื่อง',
+    sysTitleOn: 'เปิดควบคุมเครื่องอยู่ — กดเพื่อหยุด',
+    sysOff: 'ปิดอยู่',
+    sysOn: 'เปิดอยู่',
+    sysEnable: 'เปิดใช้งาน',
+    sysDisable: 'หยุดทันที',
+    sysWarn: 'AI จะเห็นหน้าต่างที่เปิดอยู่ และกดปุ่มในนั้นได้เท่ากับที่คุณทำได้ — ใช้เสร็จแล้วปิดด้วย',
+    sysHotkeyHint: 'หยุดทันทีด้วย:',
+    sysBanner: 'กำลังเปิดให้ AI ควบคุมเครื่อง — กดปุ่มในหน้าต่างของคุณได้',
+    sysConfirmTitle: 'เปิดให้ AI ควบคุมเครื่อง?',
+    sysConfirmBody:
+      'AI จะอ่านหน้าต่างที่เปิดอยู่และกดปุ่มในนั้นได้ เท่ากับที่คุณทำได้เอง ลดความเสี่ยงได้ด้วย Ctrl+Alt+Esc เพื่อหยุดทันที',
+    sysStopped: 'ปิดการควบคุมเครื่องแล้ว',
+    sysStoppedHotkey: 'หยุดการควบคุมเครื่องด้วย hotkey แล้ว',
+    sysHotkeyDown: 'ระบบนี้ไม่ให้ผูก hotkey ทั้งจอ — AI จะยังคุมอยู่จนกว่าจะกด “หยุดทันที” ที่นี่',
+    sysUnsupported: 'เครื่องนี้ยังใช้การควบคุมเครื่องไม่ได้',
     deny: 'ปฏิเสธ',
     approvalTitle: 'อนุญาตให้รันคำสั่งนี้ไหม?',
     approvalSub: 'AI ต้องการรัน',
@@ -2200,6 +2242,13 @@ function followThinkingScroll(box) {
   );
 }
 
+/**
+ * Whether the reader keeps the reasoning open — one preference for the window,
+ * not per bubble: the transcript is redrawn from state during a turn, and a box
+ * that came back collapsed looked like the app had lost it.
+ */
+let thinkingOpen = false;
+
 function addMessage(kind) {
   emptyState.hidden = true;
   const wrap = document.createElement('div');
@@ -2246,12 +2295,16 @@ function addMessage(kind) {
 
     const thinking = document.createElement('div');
     thinking.className = 'thinking';
-    thinking.hidden = true;
+    thinking.hidden = !thinkingOpen;
     followThinkingScroll(thinking);
 
     toggle.addEventListener('click', () => {
       const open = thinking.hidden;
       thinking.hidden = !open;
+      // Remembered, because the transcript is rebuilt from state on every history
+      // event: a box that reopened collapsed in the middle of a turn read as a
+      // flicker rather than a repaint.
+      thinkingOpen = open;
       toggle.setAttribute('aria-expanded', String(open));
       thinkWrap.classList.toggle('open', open);
       toggle.textContent = open ? `\u25be ${t('thinkingHide')}` : `\u25b8 ${t('thinkingShow')}`;
@@ -3448,7 +3501,11 @@ function renderActiveTab() {
           th.textContent = m.thinking;
           pinThinkingScroll(th);
           toggle.hidden = false;
-          toggle.textContent = `\u25b8 ${t('thinkingShow')}`;
+          // A repaint must not close what the reader opened. The box used to be
+          // rebuilt collapsed every time, so during a turn it vanished for a
+          // frame and came back — the flicker, twice per turn (2026-11-21).
+          th.hidden = !thinkingOpen;
+          toggle.textContent = thinkingOpen ? `\u25be ${t('thinkingHide')}` : `\u25b8 ${t('thinkingShow')}`;
         }
       }
       if (text) {
@@ -4283,7 +4340,7 @@ function applyTabState(state, options = {}) {  if (!state) return;
   // turn on the same conversation.
   if (typeof setBusy === 'function') setBusy(Boolean(state.busy));
   renderSessions(state.cwd);
-  paintContext(state.stats || null);
+  paintContext(state.stats || null, { clear: tabChanged });
   renderTodos(state.todos || []);
   paintThinking(state.thinking || null);
   view.changes = state.changes || [];
@@ -6267,6 +6324,11 @@ el('confirmDelete').addEventListener('click', async () => {
 
   if (state.kind === 'modelBusy') {
     applyModelChoice(state.provider, state.id);
+    return;
+  }
+
+  if (state.kind === 'system') {
+    await setSystemControl(true);
     return;
   }
 
@@ -8595,6 +8657,90 @@ function formatSessionDate(date) {
   return `${d} ${clockText(date)}`;
 }
 
+/**
+ * Numbers that move are easier to trust than numbers that jump.
+ *
+ * The credits and the context percentage arrived in jumps — one value per turn,
+ * written straight into the element — so a reader could not tell 84% from a
+ * reading that was two minutes old, and could not see whether a turn had just
+ * eaten a third of the window. Counting between the old and the new value (420
+ * ms, eased out) makes the size of the change legible instead of merely the
+ * result. `dataset.value` is the number actually on screen, so two updates
+ * arriving quickly continue from what the eye last saw rather than from a value
+ * that was never painted.
+ */
+const NUMBER_FX_KEY = 'ntapi.numberFx';
+const NUMBER_TWEEN_MS = 1200;
+const NUMBER_FLASH_MS = 460;
+const numberTweens = new WeakMap();
+
+/** The switch lives in Settings; cosmetic, so localStorage is where it belongs. */
+function numberFxEnabled() {
+  try {
+    return localStorage.getItem(NUMBER_FX_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * 84.3 while it runs, 84 when it lands.
+ *
+ * Rounding every frame would show the same integer for most of a second and
+ * then move in one step; the decimal is what makes the count read as a count
+ * rather than a picture that sometimes changes.
+ */
+function pctText(value, live) {
+  return `${live ? value.toFixed(1) : String(Math.round(value))}%`;
+}
+
+/** A short lift in colour when a number arrives, so the eye catches the tick. */
+function flashNumber(node) {
+  if (!node || !node.classList) return;
+  node.classList.remove('num-pop');
+  // Two updates landing back to back would otherwise reuse a finished animation.
+  void node.offsetWidth;
+  node.classList.add('num-pop');
+  setTimeout(() => node.classList.remove('num-pop'), NUMBER_FLASH_MS + 80);
+}
+
+function paintNumber(node, target, format = (v) => String(Math.round(v)), options = {}) {
+  // A table of six figures is not six arrivals: flashing every one of them at
+  // once reads as a strobe, so callers that paint a column pass flash: false.
+  const wantsFlash = options.flash !== false;
+  if (!node || typeof target !== 'number' || !Number.isFinite(target)) return;
+  const shown = Number(node.dataset ? node.dataset.value : NaN);
+  if (node.dataset) node.dataset.value = String(target);
+  const from = Number.isFinite(shown) ? shown : target;
+
+  const pending = numberTweens.get(node);
+  if (pending) cancelAnimationFrame(pending);
+
+  const still = typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+  if (still || from === target || !numberFxEnabled()) {
+    node.textContent = format(target, false);
+    if (wantsFlash && from !== target) flashNumber(node);
+    return;
+  }
+
+  const started = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - started) / NUMBER_TWEEN_MS);
+    const eased = 1 - Math.pow(1 - k, 3);
+    node.textContent = format(from + (target - from) * eased, k < 1);
+    if (k < 1) {
+      numberTweens.set(node, requestAnimationFrame(step));
+    } else {
+      numberTweens.delete(node);
+      node.textContent = format(target, false);
+      if (wantsFlash) flashNumber(node);
+    }
+  };
+  numberTweens.set(node, requestAnimationFrame(step));
+}
+
 /** Paint the credits / percentage / bar from a /me/stats payload. */
 function applyUsageLabels(d) {
   const remaining = d.remaining_credits_today;
@@ -8602,7 +8748,7 @@ function applyUsageLabels(d) {
   const bonus = d.bonus_wallet_credits ?? d.premium_credits;
 
   if (typeof remaining === 'number' && typeof allowance === 'number' && allowance > 0) {
-    el('usageCost').textContent = `${remaining.toLocaleString()} / ${allowance.toLocaleString()}`;
+    paintNumber(el('usageCost'), remaining, (v) => `${Math.round(v).toLocaleString()} / ${allowance.toLocaleString()}`);
     const usedPct = Math.max(0, Math.min(100, Math.round((1 - remaining / allowance) * 100)));
     el('usageCost').title = `${usedPct}%`;
 
@@ -8610,7 +8756,7 @@ function applyUsageLabels(d) {
     fill.style.width = `${usedPct}%`;
     // Green while comfortable, amber when getting low, red when nearly gone.
     fill.className = 'usage-bar-fill' + (usedPct >= 90 ? ' danger' : usedPct >= 70 ? ' warn' : '');
-    el('usagePct').textContent = `${usedPct}%`;
+    paintNumber(el('usagePct'), usedPct, pctText);
     el('usageUsed').textContent = t('spent', {
       n: (allowance - remaining).toLocaleString(),
       total: allowance.toLocaleString(),
@@ -8619,7 +8765,12 @@ function applyUsageLabels(d) {
     el('usageBarFill').style.width = '0%';
     el('usagePct').textContent = '—';
     el('usageUsed').textContent = '';
-    el('usageCost').textContent = typeof remaining === 'number' ? remaining.toLocaleString() : '—';
+    if (typeof remaining === 'number') {
+      paintNumber(el('usageCost'), remaining, (v) => Math.round(v).toLocaleString());
+    } else {
+      el('usageCost').textContent = '—';
+      el('usageCost').removeAttribute('data-value');
+    }
   }
 
   el('usageTokens').textContent =
@@ -8634,7 +8785,10 @@ function applyUsageLabels(d) {
 }
 
 async function refreshUsage({ silent = false } = {}) {
-  if (!silent) el('usageCost').textContent = '…';
+  if (!silent) {
+    el('usageCost').textContent = '…';
+    el('usageCost').removeAttribute('data-value');
+  }
   let res;
   try {
     res = await api.fetchUsage();
@@ -8645,6 +8799,7 @@ async function refreshUsage({ silent = false } = {}) {
   if (!res || !res.ok) {
     lastUsage = null;
     el('usageCost').textContent = 'n/a';
+    el('usageCost').removeAttribute('data-value');
     el('usageCost').title = res?.error || '';
     el('usageTokens').textContent = '—';
     el('usageContext').textContent = '—';
@@ -8777,13 +8932,29 @@ function moneyUnit() {
 function paintTokenUsage(view = activeView()) {
   const set = (id, text) => { const node = el(id); if (node) node.textContent = text; };
   const num = (value) => Number(value || 0).toLocaleString('en-US');
+  /**
+   * These totals are counters, not estimates: they arrive already spent, so
+   * counting them in costs nothing and says more than a jump does — 5.4M
+   * becoming 5.5M is a round of reading, not a blink.
+   */
+  const count = (id, value) => {
+    const node = el(id);
+    if (node) paintNumber(node, Number(value) || 0, num, { flash: false });
+  };
   const usage = view && view.usage ? view.usage : null;
   const head = el('tokPrevHead');
   const list = el('tokPrevList');
 
   if (!usage || !usage.calls) {
+    // Same rule as the context meter: an empty payload on a panel that already
+    // shows figures for this chat is not news, so it does not blank the table.
+    const sameChat = list && list.dataset.tab === String(view && view.tabId);
+    if (sameChat && el('tokTotal') && el('tokTotal').dataset.value !== undefined) return;
+    if (list) list.dataset.tab = String((view && view.tabId) || '');
     for (const id of ['tokTotal', 'tokSent', 'tokSentNew', 'tokSentCache', 'tokReceived', 'tokSentPlus', 'tokCost']) {
       set(id, '—');
+      // A cleared figure must not count from a number that is no longer true.
+      el(id)?.removeAttribute('data-value');
     }
     set('tokCostUnit', moneyUnit());
     set('tokCalls', t('tokNone'));
@@ -8793,12 +8964,12 @@ function paintTokenUsage(view = activeView()) {
   }
 
   set('tokCalls', t('tokCalls', { n: usage.calls }));
-  set('tokTotal', num(usage.total));
-  set('tokSent', num(usage.sentAll));
-  set('tokSentNew', num(usage.input));
-  set('tokSentCache', num(usage.cache));
-  set('tokReceived', num(usage.received));
-  set('tokSentPlus', num(usage.sentPlusReplied));
+  count('tokTotal', usage.total);
+  count('tokSent', usage.sentAll);
+  count('tokSentNew', usage.input);
+  count('tokSentCache', usage.cache);
+  count('tokReceived', usage.received);
+  count('tokSentPlus', usage.sentPlusReplied);
   set('tokCost', costText(usage));
   // The unit follows the figure: baht when the amount is in baht, USD otherwise.
   set('tokCostUnit', moneyUnit());
@@ -8808,6 +8979,15 @@ function paintTokenUsage(view = activeView()) {
   const recent = Array.isArray(usage.recent) ? usage.recent : [];
   if (head) head.hidden = recent.length === 0;
   if (!list) return;
+  /*
+   * Rebuilding these rows on every paint made the panel blink: the two turn rows
+   * were thrown away and re-made whenever anything upstream repainted, and an
+   * empty box for one frame reads exactly like a flicker. The rows are only
+   * rebuilt when what they say changes.
+   */
+  const rowKey = `${lang}|${recent.map((turn) => `${turn.total}:${turn.delta ? turn.delta.total : 'x'}`).join('~')}`;
+  if (list.dataset.rowKey === rowKey) return;
+  list.dataset.rowKey = rowKey;
   list.replaceChildren(
     ...recent.map((turn, index) => {
       const isNow = index === recent.length - 1;
@@ -8846,6 +9026,28 @@ function statusPopoverOpen() {
   return Boolean(pop && !pop.hidden);
 }
 
+/**
+ * Where the panel hangs: under the pill, centred on it, but computed once.
+ *
+ * The CSS used to centre it from the pill's own width, so the panel inherited
+ * every wobble of the row above it — a credits pair appearing moved it 117px.
+ * Measuring once per open keeps the box still; the clamp keeps it on screen when
+ * the tab sits at either end of the row.
+ */
+function placeStatusPopover() {
+  const pop = el('statusPopover');
+  const pill = el('statusPill');
+  if (!pop || !pill || pop.hidden) return;
+  const r = pill.getBoundingClientRect();
+  const w = pop.offsetWidth || 252;
+  const h = pop.offsetHeight || 0;
+  const margin = 8;
+  const left = Math.max(margin, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - margin));
+  const top = Math.max(margin, Math.min(r.bottom + 8, window.innerHeight - h - margin));
+  pop.style.left = `${Math.round(left)}px`;
+  pop.style.top = `${Math.round(top)}px`;
+}
+
 function setStatusPopover(open) {
   const pop = el('statusPopover');
   const pill = el('statusPill');
@@ -8854,9 +9056,16 @@ function setStatusPopover(open) {
   pill.setAttribute('aria-expanded', open ? 'true' : 'false');
   // Painted on open rather than on every event: the panel is the only place
   // these numbers are visible, so nothing else has to keep them current.
-  if (open) paintTokenUsage();
+  if (open) {
+    paintTokenUsage();
+    placeStatusPopover();
+  }
   if (!open) statusPinned = false;
 }
+
+// A resize is a real move of the pill; anything else that changes width inside
+// the row is not allowed to drag the panel along.
+window.addEventListener('resize', () => placeStatusPopover());
 
 function cancelStatusHover() {
   if (!statusHoverTimer) return;
@@ -10192,6 +10401,140 @@ el('approvalAllow').addEventListener('click', () => answerApproval(true));
 el('approvalDeny').addEventListener('click', () => answerApproval(false));
 el('approvalAlways').addEventListener('click', () => answerApproval(true, { always: true }));
 
+/* --------------------------- desktop control --------------------------- */
+
+let sysControl = { enabled: false, supported: false, hotkey: 'Control+Alt+Escape' };
+
+/**
+ * The panel used to hang from the chip inside the sidebar — the one column that
+ * cannot hold it. The sidebar clips its own overflow (`overflow-x: hidden`, so a
+ * narrow window does not grow a horizontal scrollbar), so everything past the
+ * chat boundary was cut off: the reader saw the left half and a wall. It is
+ * placed on the window instead, beside the chip, and clamped to the screen so it
+ * never opens half outside it either.
+ */
+function placeSysPanel() {
+  const pop = el('sysPopover');
+  const chip = el('sysChip');
+  if (!pop || !chip || pop.hidden) return;
+  const r = chip.getBoundingClientRect();
+  const w = pop.offsetWidth || 268;
+  const h = pop.offsetHeight || 0;
+  const margin = 10;
+  const left = Math.max(margin, Math.min(r.right + margin, window.innerWidth - w - margin));
+  const top = Math.max(margin, Math.min(r.top, window.innerHeight - h - margin));
+  pop.style.left = `${Math.round(left)}px`;
+  pop.style.top = `${Math.round(top)}px`;
+}
+
+function sysPanelOpen(open) {
+  const pop = el('sysPopover');
+  el('sysChip').setAttribute('aria-expanded', open ? 'true' : 'false');
+  pop.hidden = !open;
+  // Measuring after it is on screen; a hidden element reports zero width.
+  if (open) placeSysPanel();
+}
+
+// The chip moves when the window is resized or the sidebar is scrolled, and a
+// panel frozen where the chip used to be reads as detached from it.
+window.addEventListener('resize', () => placeSysPanel());
+el('sidebar')?.addEventListener('scroll', () => placeSysPanel(), { passive: true });
+
+/**
+ * One function paints everything that answers "is this thing on", so the chip,
+ * the panel and the strip at the foot of the window can never disagree.
+ */
+function applySystemState(state = {}) {
+  sysControl = { ...sysControl, ...state };
+  el('sysWrap').hidden = !sysControl.supported;
+  const chip = el('sysChip');
+  chip.dataset.state = sysControl.enabled ? 'on' : 'off';
+  chip.setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
+  chip.title = sysControl.enabled ? t('sysTitleOn') : t('sysTitle');
+  el('sysState').textContent = sysControl.enabled ? t('sysOn') : t('sysOff');
+  el('sysToggleText').textContent = sysControl.enabled ? t('sysDisable') : t('sysEnable');
+  el('sysToggle').setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
+  el('sysBanner').hidden = !sysControl.enabled;
+  if (sysControl.enabled && sysControl.hotkeyActive === false) {
+    // No global grab: say so, because the remedy is the button in this panel.
+    el('sysNote').textContent = t('sysHotkeyDown');
+    el('sysNote').hidden = false;
+  } else {
+    el('sysNote').hidden = true;
+  }
+  if (!sysControl.enabled) sysPanelOpen(false);
+}
+
+async function setSystemControl(enabled) {
+  const res = await api.systemSetEnabled(enabled).catch((err) => ({ ok: false, error: String(err) }));
+  if (res && res.state) applySystemState(res.state);
+  if (res && res.error) showNotice(res.error);
+  return res;
+}
+
+el('sysChip').addEventListener('click', () => {
+  if (!sysControl.supported) {
+    showNotice(t('sysUnsupported'));
+    return;
+  }
+  const open = el('sysPopover').hidden;
+  sysPanelOpen(open);
+  if (!open) return;
+  // Why it cannot work is the one thing a fresh machine gets wrong (python3-gi
+  // missing, no accessibility bus), so the panel says it instead of leaving a
+  // switch that looks broken.
+  api
+    .systemProbe()
+    .then((probe) => {
+      if (!probe || probe.ok) return;
+      el('sysNote').textContent = probe.reason || t('sysUnsupported');
+      el('sysNote').hidden = false;
+    })
+    .catch(() => {});
+});
+
+el('sysToggle').addEventListener('click', async () => {
+  if (sysControl.enabled) {
+    await setSystemControl(false);
+    return;
+  }
+  // The one click in the app that hands over the whole machine: ask in the
+  // dialog that already exists for irreversible things instead of acting here.
+  showConfirmDialog({
+    kind: 'system',
+    title: t('sysConfirmTitle'),
+    sub: t('sysConfirmBody'),
+    action: t('sysEnable'),
+  });
+});
+
+el('sysBannerStop').addEventListener('click', () => setSystemControl(false));
+
+// The hotkey's in-window twin: it works even when the desktop refuses a global
+// grab, which is the common answer under Wayland.
+document.addEventListener('keydown', (event) => {
+  if (!sysControl.enabled) return;
+  if (!event.ctrlKey || !event.altKey || event.key !== 'Escape') return;
+  event.preventDefault();
+  setSystemControl(false);
+});
+
+// Clicking anywhere else puts the panel away: it is a popover, not a window.
+document.addEventListener('click', (event) => {
+  if (el('sysPopover').hidden) return;
+  if (!el('sysWrap').contains(event.target)) sysPanelOpen(false);
+});
+
+api.onSystemState(applySystemState);
+api.onSystemStopped((payload = {}) => {
+  applySystemState({ enabled: false });
+  showNotice(payload.via === 'hotkey' ? t('sysStoppedHotkey') : t('sysStopped'));
+});
+api
+  .systemGetState()
+  .then(applySystemState)
+  .catch(() => {});
+
 /*
  * One switch decides whether prompts appear at all: ask, always allow, always
  * deny. It is stored in prefs, so the answer is the same after a restart — the
@@ -10216,6 +10559,13 @@ function approvalTitle(mode) {
 
 /** The three positions, in the order they appear on the switch. */
 const APPROVAL_ORDER = ['ask', 'allow', 'deny'];
+// The chip and the three positions carry their own words now: they used to be Thai
+// written into the markup, so the sidebar said “ถาม / ถามเสมอ” in English mode too.
+const APPROVAL_SHORT = {
+  ask: 'approvalShortAsk',
+  allow: 'approvalShortAllow',
+  deny: 'approvalShortDeny',
+};
 
 /** The radios of the switch, or an empty list before the markup is parsed. */
 function approvalRadios() {
@@ -10245,7 +10595,12 @@ function applyApprovalMode({ policy } = {}) {
   // The chip is an icon now; its colour and label carry the mode.
   const chip = el('approvalBtnText');
   const radio = approvalRadios().find((r) => r.value === mode);
-  const label = (radio && radio.dataset.short) || mode;
+  const shortKey = APPROVAL_SHORT[mode];
+  const translated = shortKey ? t(shortKey) : '';
+  const label =
+    (translated && translated !== shortKey && translated) ||
+    (radio && radio.dataset.short) ||
+    mode;
   if (chip) chip.textContent = label;
   const btn = el('approvalBtn');
   if (btn) {
@@ -10463,6 +10818,13 @@ Object.assign(STRINGS.en, {
   workspaceTitle: 'Choose a folder',
   themeTitle: 'Light / dark theme',
   approvalTitle: 'Tool approval',
+  approvalShortAsk: 'Ask',
+  approvalShortAllow: 'Allow',
+  approvalShortDeny: 'Deny',
+  approvalOptAsk: 'Ask every time',
+  approvalOptAllow: 'Always allow',
+  approvalOptDeny: 'Never allow',
+  approvalNote: 'When the agent runs something on this computer, e.g. bash or editing a file.',
   approvalAskTitle: 'Ask every time — tools wait for you before running',
   approvalAllowTitle: 'Approve automatically — tools run without asking',
   approvalDenyTitle: 'Never approve — tools cannot run',
@@ -10562,6 +10924,13 @@ Object.assign(STRINGS.th, {
   workspaceTitle: 'เลือกโฟลเดอร์งาน',
   themeTitle: 'ธีมสว่าง / มืด',
   approvalTitle: 'การอนุมัติเครื่องมือ',
+  approvalShortAsk: 'ถาม',
+  approvalShortAllow: 'อนุมัติ',
+  approvalShortDeny: 'ปฏิเสธ',
+  approvalOptAsk: 'ถามเสมอ',
+  approvalOptAllow: 'อนุมัติเสมอ',
+  approvalOptDeny: 'ไม่อนุมัติเลย',
+  approvalNote: 'เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์',
   approvalAskTitle: 'ถามเสมอ — ถามทุกครั้งก่อนให้ AI รันคำสั่ง',
   approvalAllowTitle: 'อนุมัติเสมอ — ไม่ถามเลย AI รันคำสั่งได้ทันที',
   approvalDenyTitle: 'ไม่อนุมัติเลย — ไม่ถามเลย AI รันคำสั่งไม่ได้',
@@ -10589,23 +10958,35 @@ Object.assign(STRINGS.th, {
 
 /* --------------------------- context meter --------------------------- */
 
-function paintContext(stats) {
+function paintContext(stats, { clear = false } = {}) {
   const pctEl = el('contextPct');
   const barPct = el('contextBarPct');
   const fill = el('contextFill');
   if (!pctEl || !fill) return;
   const used = stats?.context?.percent;
   if (typeof used !== 'number' || !Number.isFinite(used)) {
+    /*
+     * A state push that carries no figures is not news. The meter used to blank
+     * itself to “—” whenever `stats` was missing from a payload, so the pill
+     * emptied for one frame right before it started counting — the blink, not a
+     * move (2026-11-21). The last reading stays until a real one replaces it, or
+     * until the chat changes underneath and the number would be a lie.
+     */
+    if (!clear && pctEl.dataset.value !== undefined) return;
     pctEl.textContent = '—';
-    if (barPct) barPct.textContent = '—';
+    pctEl.removeAttribute('data-value');
+    if (barPct) {
+      barPct.textContent = '—';
+      barPct.removeAttribute('data-value');
+    }
     fill.style.width = '0%';
     fill.className = 'ctx-bar-fill';
     pctEl.title = t('contextHint');
     return;
   }
   const pct = Math.max(0, Math.min(100, used));
-  pctEl.textContent = `${Math.round(pct)}%`;
-  if (barPct) barPct.textContent = `${Math.round(pct)}%`;
+  paintNumber(pctEl, pct, pctText);
+  if (barPct) paintNumber(barPct, pct, pctText);
   pctEl.title = stats?.context?.tokens
     ? `${stats.context.tokens.toLocaleString()} / ${(stats.context.contextWindow || 0).toLocaleString()} tokens`
     : t('contextHint');
@@ -10623,6 +11004,32 @@ function refreshContextMeter() {
       if (view.tabId === activeTabId) paintContext(stats);
     })
     .catch(() => {});
+}
+
+/**
+ * The meter used to refresh only when something ended, so during a long turn it
+ * sat still and then jumped — the one moment the number is worth watching is
+ * while it is being spent. Poll at a pace the eye can follow, and only while a
+ * turn is running: an idle window does not ask the session for anything.
+ */
+setInterval(() => {
+  const view = activeView();
+  if (!view || !view.busy) return;
+  refreshContextMeter();
+}, 800);
+
+const numberFxBox = el('setNumberFx');
+if (numberFxBox) {
+  numberFxBox.checked = numberFxEnabled();
+  numberFxBox.addEventListener('change', (e) => {
+    try {
+      localStorage.setItem(NUMBER_FX_KEY, e.currentTarget.checked ? '1' : '0');
+    } catch {}
+    // Show the switch's meaning at once instead of waiting for the next turn.
+    if (lastUsage) applyUsageLabels(lastUsage);
+    const view = activeView();
+    if (view?.stats) paintContext(view.stats);
+  });
 }
 
 /* ------------------------------ todo list ---------------------------- */
@@ -11511,7 +11918,7 @@ document.addEventListener('click', (e) => {
 
 /* ---------------------------- initial paint ------------------------- */
 
-paintContext(null);
+paintContext(null, { clear: true });
 renderTodos(activeView()?.todos || []);
 
 /* ------------------------- extra slash commands ---------------------- */

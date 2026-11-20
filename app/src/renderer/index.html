@@ -80,6 +80,57 @@
           </button>
 
           <!--
+            Desktop control. It sits on the same row as the folder chip because
+            that is the row that answers "where does the agent work": in a
+            folder, or on the whole machine. Off by default, and the label under
+            the icon is the only place the state is ever wrong — so it is a
+            colour AND a word, never a colour alone.
+          -->
+          <div class="sys-wrap" id="sysWrap" hidden>
+            <button
+              id="sysChip"
+              class="chip-btn sys-chip"
+              type="button"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="sysPopover"
+              data-i18n-title="sysTitle"
+              data-i18n-aria="sysTitle"
+              data-state="off"
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <rect x="3" y="4.5" width="18" height="12.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M9 20h6M12 17v3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <path d="M11.2 8.2l5 2.9-2.2.9-.9 2.2z" fill="currentColor"/>
+              </svg>
+              <span class="sys-dot" aria-hidden="true"></span>
+            </button>
+
+            <div class="sys-popover" id="sysPopover" role="dialog" aria-labelledby="sysLabel" hidden>
+              <div class="sys-head">
+                <span class="sys-label" id="sysLabel" data-i18n="sysTitle">ควบคุมเครื่อง</span>
+                <span class="sys-state" id="sysState">ปิดอยู่</span>
+              </div>
+              <!--
+                The warning is not fine print: it is the sentence that explains
+                what the switch buys, and it is the first thing in the panel on
+                purpose. Someone who skims still reads this.
+              -->
+              <p class="sys-warn" id="sysWarn" data-i18n="sysWarn">
+                AI จะเห็นหน้าต่างที่เปิดอยู่ และกดปุ่มในนั้นได้เท่ากับที่คุณทำได้
+              </p>
+              <button type="button" class="sys-toggle" id="sysToggle" aria-pressed="false">
+                <span id="sysToggleText" data-i18n="sysEnable">เปิดใช้งาน</span>
+              </button>
+              <p class="sys-hint">
+                <span data-i18n="sysHotkeyHint">หยุดทันทีด้วย</span>
+                <span class="sys-kbd"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Esc</kbd></span>
+              </p>
+              <p class="sys-note" id="sysNote" hidden></p>
+            </div>
+          </div>
+
+          <!--
             Tool approval. It used to take a whole block under the workspace
             picker; the three choices now live in a popover that opens when the
             pointer rests on the shield, or on click / keyboard focus.
@@ -98,7 +149,7 @@
                 <path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
                 <path d="M8.6 12.1l2.3 2.3 4.5-4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <span id="approvalBtnText">ถาม</span>
+              <span id="approvalBtnText" data-i18n="approvalShortAsk">ถาม</span>
             </button>
 
             <div
@@ -108,7 +159,7 @@
               aria-labelledby="approvalLabel"
               hidden
             >
-              <label id="approvalLabel">การอนุมัติเครื่องมือ</label>
+              <label id="approvalLabel" data-i18n="approvalTitle">การอนุมัติเครื่องมือ</label>
               <!--
                 Three positions instead of a dropdown: the setting is a choice between
                 three fixed states, and a slider-shaped control shows the current one at
@@ -122,19 +173,19 @@
               >
                 <label class="approval-opt" data-i18n-title="approvalAskTitle">
                   <input type="radio" name="approvalPolicy" value="ask" data-short="ถาม" />
-                  <span>ถามเสมอ</span>
+                  <span data-i18n="approvalOptAsk">ถามเสมอ</span>
                 </label>
                 <label class="approval-opt" data-i18n-title="approvalAllowTitle">
                   <input type="radio" name="approvalPolicy" value="allow" data-short="อนุมัติ" />
-                  <span>อนุมัติเสมอ</span>
+                  <span data-i18n="approvalOptAllow">อนุมัติเสมอ</span>
                 </label>
                 <label class="approval-opt" data-i18n-title="approvalDenyTitle">
                   <input type="radio" name="approvalPolicy" value="deny" data-short="ปฏิเสธ" />
-                  <span>ไม่อนุมัติเลย</span>
+                  <span data-i18n="approvalOptDeny">ไม่อนุมัติเลย</span>
                 </label>
                 <span class="approval-thumb" aria-hidden="true"></span>
               </div>
-              <p class="approval-note" id="approvalNote">เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์</p>
+              <p class="approval-note" id="approvalNote" data-i18n="approvalNote">เมื่อ AI จะรันคำสั่งในคอมพิวเตอร์ เช่น รัน bash หรือแก้ไฟล์</p>
             </div>
           </div>
         </div>
@@ -197,6 +248,22 @@
           ></button>
         </div>
       </aside>
+
+      <!--
+        Desktop control, while it is on.
+
+        A floating strip at the foot of the window: it is in the corner of the
+        eye while typing, it never pushes the conversation around, and it holds
+        the stop button + the hotkey in the same place, so "how do I stop this"
+        is answered without opening anything. Amber, not red — it is a state to
+        notice, not an error.
+      -->
+      <div class="sys-banner" id="sysBanner" role="status" hidden>
+        <span class="sys-banner-dot" aria-hidden="true"></span>
+        <span class="sys-banner-text" data-i18n="sysBanner">AI กำลังควบคุมเครื่อง — กดปุ่มในหน้าต่างของคุณได้</span>
+        <span class="sys-banner-kbd"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Esc</kbd></span>
+        <button type="button" class="sys-banner-stop" id="sysBannerStop" data-i18n="sysDisable">หยุดทันที</button>
+      </div>
 
       <main id="main">
         <header id="topbar">
@@ -1090,6 +1157,20 @@
                   <input class="settings-input" id="setCompactReserve" type="number" min="0" max="4000000" step="1000" />
                   <p class="settings-hint" data-i18n="compactNewTabs">
                     Token numbers apply to new tabs. The switch takes effect at once.
+                  </p>
+                </div>
+              </div>
+
+              <div class="settings-group">
+                <div class="settings-head" data-i18n="statusFxHead">Status numbers</div>
+                <div class="settings-row compact">
+                  <label class="settings-row-top" for="setNumberFx">
+                    <input type="checkbox" id="setNumberFx" />
+                    <span class="settings-label" data-i18n="statusFxLabel">Animate the credit and context numbers</span>
+                  </label>
+                  <p class="settings-hint" data-i18n="statusFxHint">
+                    Numbers count up or down instead of jumping, and the meter refreshes while a turn runs.
+                    Showing them costs no tokens — the turn has already been paid for.
                   </p>
                 </div>
               </div>

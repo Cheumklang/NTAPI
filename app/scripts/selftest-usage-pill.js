@@ -135,17 +135,19 @@ check('the strip is a positioning context for the popover', () => {
   assert.match(rule, /position:\s*relative/);
 });
 
-check('the popover is anchored under the pill, on its left edge', () => {
+check('the popover is pinned by script, not dragged by the row above it', () => {
   const at = css.indexOf('.status-popover {');
   assert.ok(at > -1, 'no popover style');
   const rule = css.slice(at, css.indexOf('\n}', at));
-  assert.match(rule, /position:\s*absolute/);
-  // It is centred under the tab and sized to its content, so a row never wraps.
-  assert.match(rule, /left:\s*50%/);
-  assert.match(rule, /translateX\(-50%\)/);
+  // `left: 50%` inside the pill's own box meant any width change up there moved
+  // the panel; placeStatusPopover() measures once per open instead.
+  assert.match(rule, /position:\s*fixed/);
+  assert.ok(!/translateX/.test(rule), 'the panel must not be centred by transform');
   assert.match(rule, /width:\s*max-content/);
   assert.match(rule, /max-width:/);
   assert.match(rule, /z-index:\s*\d+/);
+  assert.match(app, /function placeStatusPopover\(\)/);
+  assert.match(app, /pop\.style\.left = `\$\{Math\.round\(left\)\}px`/);
 });
 
 check('a hidden popover is really hidden', () => {
@@ -184,7 +186,9 @@ check('the pill changes what it shows for a non-FreePi provider', () => {
 });
 
 check('the pill percentage is bare, the sentence moved to the popover', () => {
-  assert.match(app, /el\('usagePct'\)\.textContent = `\$\{usedPct\}%`/);
+  // The percentage is counted up now rather than written in one go, so the
+  // number on screen animates — the label is still the bare percentage.
+  assert.match(app, /paintNumber\(el\('usagePct'\), usedPct, pctText\)/);
   // The popover keeps the long form, which is where the allowance is spelled out.
   assert.match(app, /el\('usageUsed'\)\.textContent = t\('spent'/);
 });
@@ -269,8 +273,9 @@ check('the popover is wide enough for its longest row on one line', () => {
   const rule = css.slice(at, css.indexOf('\n}', at));
   const min = Number((rule.match(/min-width:\s*(\d+)px/) || [])[1]);
   assert.ok(min >= 220, `min-width is ${min}px`);
-  // Centred under the tab, so it stays inside the window at either end of the row.
-  assert.match(rule, /left:\s*50%/);
+  // Placed once per open and clamped to the window, so it stays inside at either
+  // end of the row without being re-positioned when the row's contents change.
+  assert.match(app, /Math\.min\(r\.left \+ r\.width \/ 2 - w \/ 2, window\.innerWidth - w - margin\)/);
 });
 
 check('a hidden usage row is really hidden', () => {

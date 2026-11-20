@@ -106,6 +106,8 @@ const TESTS = [
   'selftest-resolve-sdk.js',
   'selftest-session-paths.js',
   'selftest-recovered-turn.js',
+  'selftest-live-numbers.js',
+  'selftest-system-control.js',
   'selftest-session-marks.js',
   'selftest-session-marks-ui.js',
   'selftest-single-instance.js',

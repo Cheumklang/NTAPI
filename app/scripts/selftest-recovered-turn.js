@@ -46,17 +46,21 @@ check('the UI builder is where it always was', source.length > 500);
 
 // Everything the builder reaches for, stubbed to what the transcript needs.
 const splitAttachmentNotes = (text) => ({ text, imagePaths: [] });
+// Same normalisation main.js uses to ask "is this text already in here?".
+const searchKey = (text) => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
 const build = new Function(
   'splitAttachmentNotes',
   'RECOVERED_TURN_CUSTOM_TYPE',
   'parseUnifiedDiff',
   'friendlyProviderError',
+  'searchKey',
   `return (${source});`
 )(
   splitAttachmentNotes,
   'ntapi.interrupted-turn',
   () => null,
-  () => ({ text: '' })
+  () => ({ text: '' }),
+  searchKey
 );
 
 /* ------------------------------------------------- two sends, one turn */
@@ -124,6 +128,72 @@ const both = build([
 check('the restored answer follows the requests', both.length === 3 && both[2].kind === 'assistant');
 check('and is marked as cut off', both[2]?.recovered === true);
 check('the requests stay separate even then', both[0].text === 'ask one' && both[1].text === 'ask two');
+
+/* ------------------------------- the same sends, drawn twice (2026-11-21) */
+
+// After a restore the transcript held both the messages the user really sent and
+// the note that repeats them, so the window showed four bubbles where there had
+// been two.
+const duplicated = build([
+  { role: 'user', content: [{ type: 'text', text: 'first' }], timestamp: 1 },
+  { role: 'user', content: [{ type: 'text', text: 'second' }], timestamp: 2 },
+  {
+    role: 'custom',
+    customType: 'ntapi.interrupted-turn',
+    timestamp: 3,
+    details: { user: 'first\n\nsecond', userParts: ['first', 'second'], assistant: '' },
+  },
+]);
+check(
+  'a repaired copy is not pasted a second time',
+  duplicated.filter((b) => b.kind === 'user').length === 2,
+  JSON.stringify(duplicated.map((b) => b.text))
+);
+check('the words are still the words', duplicated[0].text === 'first' && duplicated[1].text === 'second');
+
+// When the message really was lost, the note is the only copy and must be drawn.
+const onlyNote = build([
+  {
+    role: 'custom',
+    customType: 'ntapi.interrupted-turn',
+    timestamp: 4,
+    details: { user: 'gone from the session', userParts: ['gone from the session'], assistant: '' },
+  },
+]);
+check('a genuinely lost send is still shown once', onlyNote.length === 1 && onlyNote[0].text === 'gone from the session');
+
+// A cut-off answer that is already in the transcript is not drawn again either.
+const answerTwice = build([
+  { role: 'assistant', content: [{ type: 'text', text: 'half an ans' }], timestamp: 5 },
+  {
+    role: 'custom',
+    customType: 'ntapi.interrupted-turn',
+    timestamp: 6,
+    details: { user: '', userParts: [], assistant: 'half an ans' },
+  },
+]);
+check('a cut-off answer already on screen is not repeated', answerTwice.length === 1 && answerTwice[0].kind === 'assistant');
+
+/* ------------------------- the reasoning box mid-turn (2026-11-21) */
+
+const rendererSrc = fs.readFileSync(path.join(root, 'src/renderer/app.js'), 'utf8');
+
+// A history event during a turn redraws the transcript from state. The reasoning
+// box used to be rebuilt collapsed, so an open one vanished for a frame and came
+// back: two flickers a turn, visible in a screen recording.
+check('opening the box is remembered', /let thinkingOpen = false;/.test(rendererSrc));
+check(
+  'a new bubble follows the remembered state',
+  /thinking\.hidden = !thinkingOpen;/.test(rendererSrc)
+);
+check(
+  'clicking the toggle records the choice',
+  /toggle\.addEventListener\('click', \(\) => \{[\s\S]{0,400}?thinkingOpen = open;/.test(rendererSrc)
+);
+check(
+  'a redraw keeps it open',
+  /th\.hidden = !thinkingOpen;/.test(rendererSrc) && /toggle\.textContent = thinkingOpen \?/.test(rendererSrc)
+);
 
 /* --------------------------------------------- what main.js writes down */
 

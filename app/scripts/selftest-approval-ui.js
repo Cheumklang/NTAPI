@@ -48,7 +48,22 @@ check('every choice is present', (html.match(/name="approvalPolicy" value="(ask|
 check('"ask" comes first', /name="approvalPolicy" value="ask"/.test(html));
 check('the radio group is labelled', /aria-labelledby="approvalLabel"/.test(html));
 check('the label element exists', /id="approvalLabel"/.test(html));
-check('the label names the control', /id="approvalLabel">การอนุมัติเครื่องมือ</.test(html));
+// The chip and the three positions were Thai written into the markup, so English
+// mode showed Thai labels in the sidebar (reported 2026-11-21).
+check('the chip and the positions are translated', () => {
+  const app = fs.readFileSync(path.join(root, 'src/renderer/app.js'), 'utf8');
+  for (const key of ['approvalShortAsk', 'approvalOptAsk', 'approvalOptAllow', 'approvalOptDeny', 'approvalNote']) {
+    const seen = app.match(new RegExp(`${key}:`, 'g')) || [];
+    assert.ok(seen.length >= 2, `${key} is not in both languages`);
+    assert.ok(html.includes(`data-i18n="${key}"`) || key.startsWith('approvalShort'), `${key} is not wired to the markup`);
+  }
+  assert.match(app, /data-i18n=\"approvalShortAsk\"|approvalShortAsk/);
+});
+
+check(
+  'the label names the control',
+  /id="approvalLabel" data-i18n="approvalTitle"/.test(html) && /การอนุมัติเครื่องมือ/.test(html)
+);
 check('one quiet line says what gets approved', /class="approval-note"/.test(html));
 check('the old bare hint element stays gone', !/id="approvalPolicyHint"/.test(html));
 // Scoped to the switch itself: the folder button elsewhere legitimately uses

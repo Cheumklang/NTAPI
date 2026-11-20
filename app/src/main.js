@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage, Notification, globalShortcut } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -46,6 +46,7 @@ const {
   CHROME_EXTENSIONS_URL,
 } = require('./browser-bridge');
 const { createClaims } = require('./browser-claims');
+const { createSystem, SYSTEM_STOP_HOTKEY } = require('./system');
 const { createAutopilot } = require('./browser-autopilot');
 const {
   isPolicy,
@@ -785,6 +786,191 @@ const browserBridge = createBrowserBridge({
 });
 
 browserBridge.onStatus((status) => send('browser:status', status));
+
+/* --------------------------- desktop control ---------------------------
+ *
+ * The agent can read the user's open windows and press buttons in them — the
+ * same reach the user has, which is why this is the only feature in the app
+ * that is off by default and whose switch is the whole permission.
+ *
+ * Three rules hold it together:
+ *   1. `systemGuard()` is the only way in. Every tool call passes it, so a
+ *      stale tool registration cannot outlive the switch.
+ *   2. The switch is persisted, but the stop hotkey is re-armed on boot, so an
+ *      enabled session always has a way out that does not need the app.
+ *   3. Every look and every press is appended to system-audit.log, so "what did
+ *      it do to my screen" has an answer.
+ */
+const systemAdapter = createSystem();
+const SYSTEM_AUDIT_PATH = path.join(DATA_ROOT, 'system-audit.log');
+
+function systemEnabled() {
+  const prefs = readPrefs();
+  return Boolean(prefs.systemControl && prefs.systemControl.enabled);
+}
+
+function systemAudit(entry) {
+  try {
+    fs.mkdirSync(path.dirname(SYSTEM_AUDIT_PATH), { recursive: true });
+    fs.appendFileSync(SYSTEM_AUDIT_PATH, JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n');
+  } catch (err) {
+    console.error('[system] audit', err.message);
+  }
+}
+
+function systemState() {
+  return {
+    enabled: Boolean(systemAdapter) && systemEnabled(),
+    supported: Boolean(systemAdapter),
+    platform: process.platform,
+    hotkey: SYSTEM_STOP_HOTKEY,
+    // On Wayland the window manager may refuse a global grab. The switch still
+    // works (and the panel's own button still stops it), but the panic button is
+    // not globally armed, and the UI must not pretend otherwise.
+    hotkeyActive: Boolean(systemHotkeyOn),
+  };
+}
+
+let systemHotkeyOn = false;
+
+function registerSystemHotkey() {
+  if (!systemAdapter || systemHotkeyOn) return systemHotkeyOn;
+  try {
+    systemHotkeyOn = globalShortcut.register(SYSTEM_STOP_HOTKEY, () => stopSystemControl('hotkey'));
+  } catch (err) {
+    console.error('[system] hotkey', err.message);
+    systemHotkeyOn = false;
+  }
+  return systemHotkeyOn;
+}
+
+function unregisterSystemHotkey() {
+  if (!systemHotkeyOn) return;
+  try {
+    globalShortcut.unregister(SYSTEM_STOP_HOTKEY);
+  } catch {}
+  systemHotkeyOn = false;
+}
+
+function stopSystemControl(via) {
+  const wasEnabled = systemEnabled();
+  writePrefs({ systemControl: { enabled: false } });
+  unregisterSystemHotkey();
+  if (wasEnabled) systemAudit({ event: 'stopped', via: via || 'user' });
+  send('system:state', systemState());
+  if (via === 'hotkey') send('system:stopped', { via });
+}
+
+function setSystemControl(enabled) {
+  if (!systemAdapter) {
+    return { ok: false, code: 'UNSUPPORTED', error: 'Desktop control is not available on this computer yet.' };
+  }
+  if (!enabled) {
+    stopSystemControl('user');
+    return { ok: true, state: systemState() };
+  }
+  writePrefs({ systemControl: { enabled: true } });
+  const armed = registerSystemHotkey();
+  if (!armed) console.warn('[system] the stop hotkey could not be grabbed; the panel button still works');
+  systemAudit({ event: 'enabled', via: 'user', hotkey: Boolean(armed) });
+  send('system:state', systemState());
+  return { ok: true, state: systemState() };
+}
+
+/** The single gate: nothing reads or presses without passing through here. */
+function systemGuard() {
+  if (!systemAdapter) {
+    const err = new Error('Desktop control is not available on this computer yet.');
+    err.code = 'UNSUPPORTED';
+    throw err;
+  }
+  if (!systemEnabled()) {
+    const err = new Error('Desktop control is off. The user has to turn it on in the sidebar before anything here works.');
+    err.code = 'SYSTEM_CONTROL_OFF';
+    throw err;
+  }
+}
+
+/**
+ * A picture of a window, when the desktop lets one be taken.
+ *
+ * GNOME answers `org.gnome.Shell.Screenshot` with AccessDenied for anything but
+ * the shell itself, and none of grim/gnome-screenshot/scrot is installed here, so
+ * the only window that can be photographed without a permission dialog is this
+ * application's own. That is also the window a person is looking at when they
+ * report a flicker, which is what this is for. Naming another app answers
+ * NOT_CAPTURABLE rather than returning a blank picture.
+ */
+async function captureAppWindow({ app } = {}) {
+  const target =
+    (win && !win.isDestroyed() && win) ||
+    BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
+  if (!target) {
+    const err = new Error('There is no window to photograph.');
+    err.code = 'NO_WINDOW';
+    throw err;
+  }
+
+  // Which AT-SPI app number this window is, so a caller that named a different
+  // one is told the truth instead of being handed the wrong picture.
+  let ownApp = null;
+  try {
+    const rows = await systemAdapter.windows();
+    const title = target.getTitle();
+    const mine = rows.find((row) => row && row.title === title);
+    if (mine) ownApp = mine.app;
+  } catch {
+    // No accessibility tree: the picture is still worth having.
+  }
+  if (Number.isInteger(app) && ownApp !== null && app !== ownApp) {
+    const err = new Error(
+      'Only the NTAPI window can be photographed on this desktop: the compositor refuses screen capture to other programs.'
+    );
+    err.code = 'NOT_CAPTURABLE';
+    throw err;
+  }
+
+  const image = await target.webContents.capturePage();
+  const size = image.getSize();
+  return {
+    app: ownApp,
+    title: target.getTitle(),
+    width: size.width,
+    height: size.height,
+    mimeType: 'image/png',
+    data: image.toPNG().toString('base64'),
+  };
+}
+
+const systemBridge = {
+  state: systemState,
+  enabled: systemEnabled,
+  async call(cmd, args = {}) {
+    systemGuard();
+    if (cmd === 'windows') {
+      const windows = await systemAdapter.windows();
+      return { windows };
+    }
+    if (cmd === 'snapshot') {
+      const snap = await systemAdapter.snapshot({ app: args.app, maxNodes: args.maxNodes });
+      systemAudit({ event: 'snapshot', app: snap.app, name: snap.appName, nodes: snap.nodes.length });
+      return snap;
+    }
+    if (cmd === 'screenshot') {
+      const shot = await captureAppWindow(args);
+      systemAudit({ event: 'screenshot', app: shot.app, name: shot.title, size: `${shot.width}x${shot.height}` });
+      return shot;
+    }
+    if (cmd === 'act') {
+      const result = await systemAdapter.act({ ref: args.ref, action: args.action, text: args.text });
+      systemAudit({ event: 'act', action: args.action || 'click', ref: args.ref });
+      return result;
+    }
+    const err = new Error(`Unknown desktop command ${cmd}`);
+    err.code = 'BAD_ARGS';
+    throw err;
+  },
+};
 
 /**
  * The tab the user handed over, and the mode that lets the agent work in it
@@ -1590,6 +1776,15 @@ function splitAttachmentNotes(raw) {
 
 function messagesForUi(messages) {
   const out = [];
+  /*
+   * A restored turn exists twice: once as the messages the user really sent and
+   * once as the note that carries them. The transcript drew both, so the same two
+   * sends appeared again at the foot of the chat as a second pair of bubbles
+   * (2026-11-21). Anything already on screen is not drawn a second time, and the
+   * note stays as the only copy of what was actually lost.
+   */
+  const seenUser = new Set();
+  const seenAssistant = new Set();
   for (const m of messages || []) {
     if (!m || m.role === 'system') continue;
 
@@ -1607,21 +1802,33 @@ function messagesForUi(messages) {
           // message instead of gluing them into a single bubble separated by a
           // blank line.
           for (const part of userParts) {
-            out.push({ kind: 'user', text: part.trim(), images: [], ts: m.timestamp });
+            const text = part.trim();
+            const key = searchKey(text);
+            if (key && seenUser.has(key)) continue;
+            if (key) seenUser.add(key);
+            out.push({ kind: 'user', text, images: [], ts: m.timestamp });
           }
         } else if (details.user) {
-          out.push({ kind: 'user', text: details.user, images: [], ts: m.timestamp });
+          const key = searchKey(details.user);
+          if (!(key && seenUser.has(key))) {
+            if (key) seenUser.add(key);
+            out.push({ kind: 'user', text: details.user, images: [], ts: m.timestamp });
+          }
         }
         if (details.assistant) {
-          out.push({
-            kind: 'assistant',
-            text: details.assistant,
-            thinking: '',
-            tools: [],
-            ts: m.timestamp,
-            // The window draws this answer as cut off — it is not a finished turn.
-            recovered: true,
-          });
+          const key = searchKey(details.assistant);
+          if (!(key && seenAssistant.has(key))) {
+            if (key) seenAssistant.add(key);
+            out.push({
+              kind: 'assistant',
+              text: details.assistant,
+              thinking: '',
+              tools: [],
+              ts: m.timestamp,
+              // The window draws this answer as cut off — it is not a finished turn.
+              recovered: true,
+            });
+          }
         }
       }
       continue;
@@ -1638,6 +1845,7 @@ function messagesForUi(messages) {
       // picture without the window ever reading the path as words.
       const split = splitAttachmentNotes(text);
       if (split.text || images.length || split.imagePaths.length) {
+        if (split.text) seenUser.add(searchKey(split.text));
         out.push({
           kind: 'user',
           text: split.text,
@@ -1657,6 +1865,7 @@ function messagesForUi(messages) {
         .filter((c) => c.type === 'toolCall')
         .map((c) => ({ id: c.id, name: c.name, args: c.arguments }));
       if (text || thinking || tools.length) {
+        if (text) seenAssistant.add(searchKey(text));
         out.push({ kind: 'assistant', text, thinking, tools, ts: m.timestamp });
       } else if (m.stopReason === 'error') {
         // A failed turn has no content at all. Without this the transcript just
@@ -2032,7 +2241,7 @@ async function attachTab(tabId, manager, cwd) {
       return claimBrowserTab({ tabId: target.id, url: target.url, title: target.title });
     },
     browserBridge,
-    imagesDir: resolveFolder('images', cwd),
+    systemBridge,
     downloadsDir: resolveFolder('downloads', cwd),
     // One ad per turn is what unlocks free completions. Keep the last one so
     // switching tabs does not blank the banner while the ad is still live.
@@ -5446,6 +5655,15 @@ ipcMain.handle('browser:claim', async (_e, { tabId } = {}) => {
 
 ipcMain.handle('browser:release', async (_e, { tabId } = {}) => releaseBrowserTab('user', tabId));
 
+ipcMain.handle('system:getState', () => systemState());
+
+ipcMain.handle('system:probe', async () => {
+  if (!systemAdapter) return { ok: false, code: 'UNSUPPORTED', reason: 'Desktop control is not available on this computer yet.' };
+  return systemAdapter.available();
+});
+
+ipcMain.handle('system:setEnabled', async (_e, { enabled } = {}) => setSystemControl(Boolean(enabled)));
+
 ipcMain.handle('browser:autopilot', async (_e, { on } = {}) => {
   if (!on) {
     browserAutopilot.stop('user');
@@ -5465,6 +5683,11 @@ app.whenReady().then(async () => {
   // The second copy quits above; make sure it never builds a window or opens
   // the presence port on its way out.
   if (!hasSingleInstanceLock) return;
+
+  // A switch left on from the previous run comes back with its escape hatch:
+  // handing out access for a new session without a way to take it back is the
+  // one combination that must not exist.
+  if (systemEnabled()) registerSystemHotkey();
 
   // One-time cleanup: rename the old "--C--Users-...--" history folders.
   try {

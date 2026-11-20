@@ -198,6 +198,14 @@ contextBridge.exposeInMainWorld('freepi', {
   getApprovalMode: () => ipcRenderer.invoke('approval:getMode'),
   setApprovalMode: (opts = {}) => ipcRenderer.invoke('approval:setMode', opts),
   onApprovalMode: on('approval:mode'),
+
+  // Desktop control (Linux AT-SPI). Off until the user turns the switch on; the
+  // main process is the gate, so these calls only carry the decision.
+  systemGetState: () => ipcRenderer.invoke('system:getState'),
+  systemProbe: () => ipcRenderer.invoke('system:probe'),
+  systemSetEnabled: (enabled) => ipcRenderer.invoke('system:setEnabled', { enabled: Boolean(enabled) }),
+  onSystemState: on('system:state'),
+  onSystemStopped: on('system:stopped'),
   onLog: on('app:log'),
 
   // Account on this machine (each computer signs in with its own allowance).
