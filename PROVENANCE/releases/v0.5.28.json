@@ -1,0 +1,32 @@
+{
+  "version": "0.5.28",
+  "tag": "v0.5.28",
+  "recordedAt": "2026-11-20T12:32:53.112Z",
+  "git": {
+    "head": "1238a2d1895d8b323a8427cb693747e2343683bc",
+    "branch": "master",
+    "tree": "bc5911d3dbe2156c868b440cdffdf19aef48ee3e",
+    "subject": "chore: ledger",
+    "authorDate": "2026-11-20T19:21:29+07:00",
+    "commitCount": 367
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44736140544",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.5.28.exe",
+      "size": 181353582,
+      "sha256": "99ea64dd6a96aaf25a0d7e4346d305f5f6ec3a43048d0c0599afc19ae01d0bb9"
+    },
+    {
+      "name": "NTAPI-Setup-0.5.28.exe.blockmap",
+      "size": 229508,
+      "sha256": "e61f0db4923c8c81f45205148c48e51dd978688a1dffd62114b8850cebc3328e"
+    },
+    {
+      "name": "latest.yml",
+      "size": 342,
+      "sha256": "13428c81250c8e89531a0abaf9f48ae1a05c61eb1ed1a29be1a3e84007c71509"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.5.28"
+}

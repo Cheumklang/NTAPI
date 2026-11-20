@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-20T11:14:39.488Z
-entries 148
-head_hash 639e3e24ea77ba940002c07bd78c7b90bbcea9bbb029824490e002518af37a20
-git c00a44d69a5393522c10a5790fc84ef3b0665aff
+updated 2026-11-20T12:32:53.252Z
+entries 155
+head_hash 404c5385fdf1b613f16bfb286aa681c2fdd3f45c3d35cff0bb5e04b448f5eb9c
+git 1238a2d1895d8b323a8427cb693747e2343683bc
 
 latest entries:
-  #141 2026-11-20T07:10:47.303Z commit — docs: HANDOFF 0.5.25 + ledger release record
-  #142 2026-11-20T10:55:04.265Z commit — fix: /skill ไม่ขึ้นสกิลบน Windows — ตาม symlink/junction, ค้น workspace, เดิน 3 ระดับ + บอกโฟลเดอร์ที่ค้น (0.5.26)
-  #143 2026-11-20T10:55:04.482Z commit — chore: ledger
-  #144 2026-11-20T10:58:23.975Z release — Released version 0.5.26
-  #145 2026-11-20T10:58:32.028Z commit — docs: HANDOFF 0.5.26 + ledger release record
-  #146 2026-11-20T11:10:12.400Z commit — fix: /skill มองไม่เห็น ~/.pi/skills (global ของ CLI บน Windows) + รองรับ PI_CODING_AGENT_DIR (0.5.27)
-  #147 2026-11-20T11:10:12.623Z commit — chore: ledger
   #148 2026-11-20T11:14:39.329Z release — Released version 0.5.27
+  #149 2026-11-20T11:14:48.161Z commit — docs: HANDOFF 0.5.27 + บันทึกแผน differential update
+  #150 2026-11-20T12:20:54.772Z commit — test: แก้เทสต์ session-paths/session-marks ให้รันได้บน Linux — 88/88
+  #151 2026-11-20T12:21:01.991Z commit — feat: อัปเดตแบบ delta + เก็บ 20 รุ่น + ตรวจเองทุก 6 ชม. และแจ้งเตือนเฉพาะตอนเปิด/ปิดโปรแกรม (0.5.28)
+  #152 2026-11-20T12:21:06.671Z commit — docs: HANDOFF + LOG บันทึกงานอัปเดต delta และข้อความแดงที่ปิดได้
+  #153 2026-11-20T12:21:12.635Z commit — internal: บันทึกหลักฐานหลัง commit
+  #154 2026-11-20T12:21:18.488Z commit — chore: ledger
+  #155 2026-11-20T12:32:53.117Z release — Released version 0.5.28
