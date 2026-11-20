@@ -1575,11 +1575,19 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .act-chip .act-icon { animation: none; }
 }
+/*
+ * The user's own words sit on the right, the way every chat app does it, so a
+ * long transcript can be skimmed by looking down one edge instead of reading
+ * every role label to find where a question starts.
+ */
+.msg.user { align-items: flex-end; }
+.msg.user .role { text-align: right; }
 .msg.user .bubble {
   background: var(--bg-3);
   border: 1px solid var(--line);
   padding: 10px 13px;
-  border-radius: 10px;
+  border-radius: 14px 14px 4px 14px;
+  max-width: 82%;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -1707,6 +1715,29 @@ button { font-family: inherit; }
   color: var(--muted);
 }
 .narration .body { color: var(--muted); }
+
+/*
+ * The two newest notes, readable under the folding line.
+ *
+ * One row per note, one line each: enough to notice "it is waiting for me to
+ * open that page", without the wall of prose the folding exists to hide.
+ */
+.narration-latest {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 3px 0 5px;
+  padding: 0 2px;
+}
+.narration-latest[hidden] { display: none; }
+.narration-latest-row {
+  font-size: 11.5px;
+  color: var(--muted);
+  opacity: .9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .tools-toggle .tools-names {
   color: var(--muted);
   opacity: .7;
@@ -1716,6 +1747,43 @@ button { font-family: inherit; }
 }
 .tools-toggle.has-error { color: var(--danger); border-color: rgba(255, 95, 109, .35); }
 .tools { display: flex; flex-direction: column; gap: 6px; }
+
+/*
+ * The newest tool call, on one line under the folded summary.
+ *
+ * It answers "what is it running right now?" without opening the cards, and it
+ * never wraps: a long command is clipped at the edge so a single bash call
+ * cannot push the answer off screen. The state label keeps its own space so
+ * "running…" and "failed" stay readable when the arguments are long.
+ */
+.tools-latest {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 3px 0 5px;
+  padding: 0 2px;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.tools-latest[hidden] { display: none; }
+.tools-latest .latest-name {
+  flex: none;
+  color: #a9a2ff;
+  font-weight: 600;
+}
+.tools-latest .latest-arg {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: .9;
+}
+.tools-latest .latest-status { flex: none; opacity: .75; }
+.tools-latest.is-error .latest-status { color: var(--danger); }
+.tools-latest.is-error .latest-name { color: var(--danger); }
 .tools[hidden] { display: none; }
 
 .tool {

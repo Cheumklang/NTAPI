@@ -2561,6 +2561,8 @@ function refreshToolsSummary(container) {
   if (!cards.length) {
     toggle.hidden = true;
     wrap.hidden = true;
+    const stale = wrap.querySelector('.tools-latest');
+    if (stale) stale.hidden = true;
     return;
   }
   wrap.hidden = false;
@@ -2590,6 +2592,41 @@ function refreshToolsSummary(container) {
   toggle.classList.toggle('has-error', failed > 0);
   toggle.hidden = false;
   toggle.setAttribute('aria-expanded', String(open));
+
+  //
+  // The newest call, kept on screen under the folded summary line.
+  //
+  // A bash step that takes a minute used to leave the answer blank: the reader
+  // had to open the cards, read the command, then close them again to keep the
+  // transcript short — and did that on every step. One line with the newest
+  // tool, its arguments and its state answers "what is it doing right now?"
+  // without opening anything, and it is replaced (not appended) when the next
+  // call starts, so the transcript does not grow by one line per tool call.
+  //
+  const latest = cards[cards.length - 1];
+  let preview = wrap.querySelector('.tools-latest');
+  if (!preview) {
+    preview = document.createElement('div');
+    preview.className = 'tools-latest';
+    wrap.insertBefore(preview, toggle.nextSibling);
+  }
+  preview.replaceChildren();
+  preview.append(
+    Object.assign(document.createElement('span'), {
+      className: 'latest-name',
+      textContent: latest.querySelector('.tool-name')?.textContent || 'tool',
+    }),
+    Object.assign(document.createElement('span'), {
+      className: 'latest-arg',
+      textContent: latest.querySelector('.tool-arg')?.textContent || '',
+    }),
+    Object.assign(document.createElement('span'), {
+      className: 'latest-status',
+      textContent: latest.querySelector('.tool-status')?.textContent || '',
+    })
+  );
+  preview.classList.toggle('is-error', latest.classList.contains('error'));
+  preview.hidden = false;
 }
 
 /* ------------------------------ sessions UI ------------------------------ */
@@ -3342,15 +3379,14 @@ function renderActiveTab() {
     } else if (m.kind === 'assistant') {
       const text = m.text || '';
       const tools = m.tools || [];
-      // A tool-using turn is stored as several assistant messages (one per
-      // step). Group the steps into one bubble so the transcript shows a
-      // single "tools used" line and the final answer right below it.
-      const bodyText = currentAssistant?.querySelector(':scope > .body')?.textContent || '';
-      const prevHasTools = Boolean(currentAssistant?.querySelector('.tool'));
-      const reuse =
-        Boolean(currentAssistant) &&
-        !bodyText.trim() &&
-        ((!text.trim() && tools.length > 0) || (text.trim() && prevHasTools));
+      // A tool-using turn is stored as several assistant messages (one per step).
+      // Every one of them belongs to the same bubble: the transcript then shows
+      // one "tools used N times" line for the whole turn with the answer below
+      // it. Splitting per step made a single turn look like several separate
+      // replies each time a chat was reopened, so the same work that read as
+      // "used tools 6 times" while streaming came back as four groups of two.
+      // The bubble ends only where the turn does — at the next user message.
+      const reuse = Boolean(currentAssistant);
       const wrap = reuse ? currentAssistant : addMessage('assistant');
       currentAssistant = wrap;
       if (m.thinking) {
@@ -9152,9 +9188,37 @@ function collapseNarration(wrap, body) {
 /** Keep the summary line in step with how many notes are folded away. */
 function labelNarration(group) {
   const text = group.querySelector('.narration-text');
-  if (!text) return;
-  const n = group.querySelectorAll('.narration').length;
-  text.textContent = n === 1 ? t('narrationOne') : t('narrationMany', { n });
+  const bodies = [...group.querySelectorAll('.narration .body')];
+  const n = bodies.length;
+  if (text) text.textContent = n === 1 ? t('narrationOne') : t('narrationMany', { n });
+
+  //
+  // The two newest notes, still readable while the rest stays folded.
+  //
+  // A run can stop because it is waiting for the person at the keyboard —
+  // "open this page and collect the log" — and that sentence used to be hidden
+  // inside the folded notes, so the wait was invisible unless the notes were
+  // opened and left open. Two lines are enough to see the current instruction
+  // next to the one before it, and old ones drop off as new notes arrive.
+  //
+  let preview = group.querySelector('.narration-latest');
+  if (!preview) {
+    preview = document.createElement('div');
+    preview.className = 'narration-latest';
+    group.insertBefore(preview, group.querySelector('.narration-list'));
+  }
+  preview.replaceChildren();
+  for (const body of bodies.slice(-2)) {
+    const line = (body.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!line) continue;
+    preview.appendChild(
+      Object.assign(document.createElement('div'), {
+        className: 'narration-latest-row',
+        textContent: line.length > 200 ? `${line.slice(0, 197)}\u2026` : line,
+      })
+    );
+  }
+  preview.hidden = preview.childElementCount === 0;
 }
 
 function currentBody(wrap) {

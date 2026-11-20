@@ -3256,3 +3256,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
   (2) "same file spelled differently is the same mark" — lower-case เฉพาะ win32
   → โค้ดจริงแยก platform แล้ว (session-paths.js:21, session-marks.js:51) — รอผู้ใช้สั่งแก้เทสต์
 - งานค้าง: CRLF 90 ไฟล์ยังไม่ renormalize · git identity ยังไม่ตั้ง · ยังไม่ commit สภาพ Linux นี้
+## 2026-11-20 — Desktop shortcut เรียกรันตรง ๆ (ไม่พึ่งสคริปต์)
+- ผู้ใช้ลบ ~/run-ntapi.sh เอง → ntapi.desktop เปลี่ยน Exec เป็น electron binary + --no-sandbox + Path
+- ทดสอบแล้ว: เปิดได้จริง + ui ready · desktop-file-validate ผ่าน · 2 จุด: เมนูแอป + Desktop
+- [แก้บันทึก] ตรวจซ้ำ: คำสั่ง Exec เปิดแอปได้จริง (process tree มี renderer --ozone-platform=wayland)
+  ที่เห็น FAIL เพราะแอปตัวเดิมถือ single-instance lock (userData /home/nt/.config/FreePi) → รันซ้ำ exit 0 เงียบ = ปกติ
