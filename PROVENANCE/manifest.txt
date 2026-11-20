@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-20T10:58:24.127Z
-entries 144
-head_hash 9e703ec9c8fa1a950c63990701ceeba4b2563c4e783b9467a78f306eaac7049c
-git 1eb8b243b0a0b90d32897832868bf320bb6d87a3
+updated 2026-11-20T11:14:39.488Z
+entries 148
+head_hash 639e3e24ea77ba940002c07bd78c7b90bbcea9bbb029824490e002518af37a20
+git c00a44d69a5393522c10a5790fc84ef3b0665aff
 
 latest entries:
-  #137 2026-11-20T06:05:53.505Z session — แก้ ntapi.desktop ให้เรียก electron ตรง ๆ แทนสคริปต์; ตรวจเปิดได้จริง
-  #138 2026-11-20T07:06:46.573Z commit — feat: รวม turn เดียวเป็นบับเบิลเดียว + ข้อความผู้ใช้ชิดขวา + โชว์ tool/note ล่าสุด (0.5.25)
-  #139 2026-11-20T07:06:46.743Z commit — chore: ledger + คืนสิทธิ์ execute ให้ post-commit hook
-  #140 2026-11-20T07:10:26.802Z release — Released version 0.5.25
   #141 2026-11-20T07:10:47.303Z commit — docs: HANDOFF 0.5.25 + ledger release record
   #142 2026-11-20T10:55:04.265Z commit — fix: /skill ไม่ขึ้นสกิลบน Windows — ตาม symlink/junction, ค้น workspace, เดิน 3 ระดับ + บอกโฟลเดอร์ที่ค้น (0.5.26)
   #143 2026-11-20T10:55:04.482Z commit — chore: ledger
   #144 2026-11-20T10:58:23.975Z release — Released version 0.5.26
+  #145 2026-11-20T10:58:32.028Z commit — docs: HANDOFF 0.5.26 + ledger release record
+  #146 2026-11-20T11:10:12.400Z commit — fix: /skill มองไม่เห็น ~/.pi/skills (global ของ CLI บน Windows) + รองรับ PI_CODING_AGENT_DIR (0.5.27)
+  #147 2026-11-20T11:10:12.623Z commit — chore: ledger
+  #148 2026-11-20T11:14:39.329Z release — Released version 0.5.27
