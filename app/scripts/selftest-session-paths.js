@@ -15,8 +15,19 @@ const cases = [
   ['C:\\Users\\cheum\\OneDrive\\เดสก์ท็อป\\freepi', 'เดสก์ท็อป-freepi'],
   ['C:\\Users\\cheum\\OneDrive\\เดสก์ท็อป\\1', 'เดสก์ท็อป-1'],
   ['C:\\Users\\cheum\\Projects\\my-app', 'Projects-my-app'],
-  ['C:\\Users\\cheum', 'cheum'],
 ];
+
+// The names above are Windows spellings, but the sanitiser only looks at the
+// tail two segments, so they land the same on any platform. A bare drive path
+// does not: on win32 the user's name is dropped, on POSIX the same string is a
+// single funny-looking segment and the fallback keeps two. Assert each
+// platform's own answer instead of pretending one is portable.
+if (process.platform === 'win32') {
+  cases.push(['C:\\Users\\cheum', 'cheum']);
+} else {
+  cases.push(['/home/cheum', 'home-cheum']);
+  cases.push(['/srv/app/cheum', 'cheum']);
+}
 
 let failed = 0;
 for (const [input, expected] of cases) {

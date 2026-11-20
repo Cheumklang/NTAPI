@@ -104,9 +104,18 @@ check('a corrupt entry is cleaned up by the next write', () => {
 });
 
 check('the same file spelled differently is the same mark', () => {
-  const store = marks.applyMark({}, 'C:/NTAPI/data/sessions/ws/a.jsonl', { pinned: true });
-  const viaBackslashes = 'C:\\NTAPI\\data\\sessions\\ws\\a.jsonl';
-  assert.strictEqual(marks.readMark(store, viaBackslashes).pinned, true);
+  // `path.resolve` collapses `.` and `..` on every platform, so this spelling is
+  // portable while still proving the key is normalised rather than compared raw.
+  const store = marks.applyMark({}, FILE_A, { pinned: true });
+  const viaDots = path.resolve(path.dirname(FILE_A), 'sub', '..', 'a.jsonl');
+  assert.strictEqual(viaDots, FILE_A, 'the fixture must resolve to the same file');
+  assert.strictEqual(marks.readMark(store, viaDots).pinned, true);
+
+  // Windows alone is case-insensitive and accepts both slash styles for one file.
+  if (process.platform === 'win32') {
+    assert.strictEqual(marks.readMark(store, FILE_A.toUpperCase()).pinned, true);
+    assert.strictEqual(marks.readMark(store, FILE_A.replace(/\\/g, '/')).pinned, true);
+  }
 });
 
 check('a missing path is ignored rather than crashing', () => {
