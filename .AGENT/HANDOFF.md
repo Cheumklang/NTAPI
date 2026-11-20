@@ -3,13 +3,22 @@
 > **📌 สถานะล่าสุด (2026-11-20): ปล่อย v0.5.28 แล้ว · ไม่มีอะไรค้างในเครื่อง · push ตรงกับ origin/master (`7d4e22d`)**
 >
 > ### ค้างอยู่จริง (ยังไม่ได้ลงมือ)
-> 1. **ค่าตั้ง compaction** — ผู้ใช้เห็น “กำลังย่อบทสนทนา…” บ่อย และถามว่าบังคับ /compact หรือเปล่า คำตอบ: pi SDK ย่อเองเมื่อ `contextTokens > contextWindow − reserveTokens` (reserve 16,384 / keepRecent 20,000 ตาม default) แต่ **NTAPI ตั้งไม่ได้** เพราะ `src/freepi-bridge.js:1638` ใช้ `SettingsManager.inMemory({...})` และไม่เคยอ่าน `~/.pi/agent/settings.json` → ทางเลือกที่เสนอไว้ (ยังไม่ได้เลือก): (ก) เพิ่มค่าตั้งในหน้าตั้งค่า NTAPI (เปิด/ปิดย่อ · keepRecentTokens · reserveTokens) (ข) โชว์มิเตอร์ context อย่างเดียว (มี `stats.context` อยู่แล้วใน renderer ~บรรทัด 10478) (ค) ไม่แตะโค้ด
+> 1. ~~ค่าตั้ง compaction~~ → **✅ ทำแล้ว (2026-11-20) ยังไม่ commit** รายละเอียดอยู่ท้ายบล็อกนี้
 > 2. **ทดสอบ delta update จริงบน Windows** — ต้องมีเครื่อง Windows: ติดตั้ง 0.5.28 → รอ 0.5.29 → ดูว่าโหลด KB–2 MB, การ์ดขอบคุณ + QR ขึ้น, และตอนกดปิดโปรแกรมมี dialog ถาม (ทดสอบบน Ubuntu ไม่ได้ · ไม่มี wine)
 > 3. ** prune เก็บ 20 รุ่น** — trigger `workflow_run` ต่อติดแล้ว (run 44736562536 = success/skipped) แต่เส้นทาง “ลบรุ่นที่เกิน 20” ยังพิสูจน์แค่ fixture · ของจริงจะรู้ตอนปล่อยรุ่นที่ 21
 > 4. **skill 2 ช่องโหว่ (ผู้ใช้สั่งพักไว้)** — (A) `<agentDir>/npm/*/skills` ไม่ถูกสแกน (`skillRoots()`) (B) `resources.skills` / `resources.packages` ใน `settings.json` ไม่ถูกอ่าน
 > 5. **PAT ที่เคยหลุดในแชท** — ยังไม่ยืนยันว่าใช่ตัวเดียวกับ “NTAPI release” หรือไม่ · รอบนี้แค่เพิ่ม scope `workflow` ให้ตัวนั้น (ค่า token ไม่เปลี่ยน) ถ้าเป็นตัวเดียวกันควร Regenerate แล้วอัปเดต credential store + secret `RELEASE_TOKEN`
 > 6. **เอกสารเก่าใน HANDOFF ล้าสมัย** — หลายหัวข้อ (1zzzz…1r) เขียนว่า “ยังไม่ commit” ทั้งที่ปล่อยรุ่นไปนานแล้ว · เก็บกวาดได้ถ้ามีเวลา (ไม่เร่ง)
 > 7. **`check:sara` 228 จุด ใน 12 ไฟล์** — เป็น docs/`.AGENT` เก่า ไม่ใช่โค้ดที่รัน · แก้เฉพาะตอนเข้าไปแตะไฟล์นั้น
+>
+> ### ✅ 1a) ค่าตั้งการย่อบทสนทนา (compaction) — เสร็จ 2026-11-20 ยังไม่ commit
+> ปัญหาเดิม: `src/freepi-bridge.js` สร้าง `SettingsManager.inMemory({...})` แบบตายตัว → ไม่มีใครปรับกำลังย่อได้ และ `~/.pi/agent/settings.json` ไม่ถูกอ่านเลย
+> - **bridge**: `sanitizeCompaction()` (กรอง boolean / safe integer 0–4,000,000 · ค่าเสียถูกทิ้ง ไม่ใช่ส่ง NaN เข้า SDK) → `options.compaction` → `SettingsManager.inMemory({ compaction })` · เพิ่ม `handle.setCompaction(enabled)` (มีผลทันทีทุกแท็บ) และ `handle.compactionSettings()` คืน `{enabled, reserveTokens, keepRecentTokens, contextWindow}` จาก `getCompactionSettings(session.model)`
+> - **main**: `readCompactionPrefs()` + `COMPACTION_DEFAULT = { reserveTokens: 16384, keepRecentTokens: 20000 }` · ส่ง `compaction` ตอนสร้างแท็บ · IPC `settings:compaction` (อ่าน/เขียน · สวิตช์ยิง `setCompaction` ให้ทุกแท็บที่เปิด) · `settings:get` แนบ `compaction` มาด้วย · ปุ่ม Reset ล้าง `compaction: {}`
+> - **UI**: Settings → ขั้นสูง → การ์ด “การย่อบทสนทนา” = สวิตช์ `#setCompactEnabled`, ช่องเลข `#setCompactKeep` / `#setCompactReserve`, บรรทัดอธิบาย `#compactHint` (“จะเริ่มย่อที่ประมาณ X จาก Y tokens” · ปิดอยู่ = บอกว่าอาจเจอ error บทสนทนายาวเกิน) + หมายเหตุตรง ๆ ว่า **เลข token มีผลกับแท็บใหม่ ส่วนสวิตช์มีผลทันที**
+> - **i18n** EN+TH 8 คีย์ (`compactTitle/Enabled/KeepLabel/ReserveLabel/HintOn/HintOnPlain/HintOff/NewTabs`)
+> - **เทสต์ใหม่** `scripts/selftest-compaction.js` (25 เช็ค: sanitizer รันจริงใน vm, wiring bridge/main/preload/UI, hint math, guard ไม่เขียนทับช่องที่กำลังพิมพ์, Reset ล้างค่า) → `npm test` **90/90** · sara สะอาด · บูตจริงด้วย prefs `compaction.enabled=false` ผ่าน (`ui ready`)
+> - พฤติกรรมเริ่มต้น: ไม่มีคีย์ใน prefs = ใช้ default ของ SDK เดิมทุกอย่าง (ผู้ใช้เดิมไม่รู้สึกอะไรเปลี่ยน)
 >
 > ### เรื่องที่ปิดแล้วในรอบนี้
 > - v0.5.28 ปล่อยแล้ว: CI ✅ / Release (windows-latest) ✅ / Prune ✅ · assets `NTAPI-Setup-0.5.28.exe` 181,353,582 B sha256 `99ea64dd…0bb9` + blockmap + latest.yml · provenance seq 155 + anchor + verify OK
@@ -1106,7 +1115,10 @@
   ห้ามเริ่มแก้โค้ดเพราะ "เห็นว่ามีไฟล์ค้างหรือดูน่าจะอยาก" → **ถามก่อนเสมอ** แล้วรอคำตอบ
   (ผู้ใช้สั่งไว้ 2026-11-15 หลัง AI เข้าใจผิดว่าพาธล้วน ๆ คือคำสั่งให้ไปทำงาน)
 
-## กฎข้อ 1 ของโปรเจกต์นี้: 1 เทิร์น = 1 bash call (ผู้ใช้สั่ง 2026-11-17 · เข้มรอบสอง)
+## กฎข้อ 1 ของโปรเจกต์นี้: 1 เทิร์น = 1 bash call เป็นค่าเริ่มต้น (ผู้ใช้สั่ง 2026-11-17 · ย้ำหนัก 2026-11-21)
+
+> **แหล่งความจริงคือ `AGENTS.md` หัวข้อเดียวกัน** — รายละเอียด/ตัวอย่าง log + tail อยู่ที่นั่น
+> สาระสำคัญ: ค่าเริ่มต้นคือ **1 call เดียว** รวมทุกอย่าง · แยก call ได้เฉพาะ (ก) คำสั่งถัดไปต้องใช้ค่าจริงจาก output เดิม (ข) ต้องรอผู้ใช้ตัดสินใจ (ค) กัน state เสียหาย · และห้ามรันคำสั่งเดิมซ้ำในเทิร์นเดียว
 
 > กฎนี้ผู้ใช้ย้ำหลายครั้ง เพราะ AI หลายตัวมองข้าม **อ่านให้จบแล้วทำตาม ไม่ใช่แค่อ่านผ่าน**
 > ถ้าทำผิดกฎนี้ = งานของเทิร์นนั้นถือว่า **ยังไม่จบ** แม้คำสั่งจะสำเร็จ
@@ -1114,9 +1126,10 @@
 **ทำไม:** การยิงทีละบรรทัด/ทีละ tool ทำให้เปลือง token และเสีย round-trip รอผลโดยไม่จำเป็น
 
 ### นิยาม (อ่านก่อนยิงคำสั่งแรกของเทิร์น)
-- **1 bash call** = เรียก tool `bash` **ครั้งเดียวเท่านั้น** ต่อ 1 เทิร์น
+- **1 bash call** = เรียก tool `bash` **ครั้งเดียว** ต่อ 1 เทิร์น — นี่คือ **ค่าเริ่มต้นที่ต้องทำ**
 - งานทั้งหมดของเทิร์น — สำรวจ · ค้นหา · แก้ · รันเทสต์ · ตรวจผล · สรุป — ต้องอยู่ **ใน call นั้น**
 - **จำนวนคำสั่งภายใน call ไม่จำกัด** (10-20 คำสั่งก็ได้) ที่จำกัดคือ **จำนวน call**
+- **ห้ามรันคำสั่งเดิมซ้ำเพื่อดู output คนละแบบ** — เขียน log ครั้งเดียวแล้ว `tail`/`grep` ใน call เดียวกัน
 - `edit` / `write` / `read` นับแยกจาก bash ได้ แต่ไฟล์เดียวให้รวมการแก้หลายจุดไว้ใน `edit` call เดียว
 
 ### การแก้ไฟล์ — 1 ไฟล์ = 1 `edit` call (ผู้ใช้สั่ง 2026-11-17)

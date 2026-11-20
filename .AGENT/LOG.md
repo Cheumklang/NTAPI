@@ -3290,3 +3290,9 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - push master + tag v0.5.28 สำเร็จ · CI/Release/Prune เขียวทั้งหมด · provenance seq 155 + anchor + verify OK 155 entries
 - GitHub Desktop (Ubuntu 3.4.12): repo list ไม่ sync ข้ามเครื่อง → ต้อง File → Add Local Repository → /home/nt/NT-ALL/NTAPI (ห้าม clone NTAPI ซ้ำ) · NTAPI-releases clone ได้ (759 KB) แต่ห้าม commit asset เอง
 - บันทึก "ค้างอยู่จริง" 7 ข้อไว้หัว HANDOFF (compaction settings, ทดสอบ delta บน Windows, prune เกิน 20 รุ่น, skill 2 ช่องโหว่, PAT ที่เคยหลุด, HANDOFF เก่าล้าสมัย, check:sara 228 จุด)
+## 2026-11-20 — ค่าตั้งการย่อบทสนทนา (compaction) ในหน้า Settings
+- สาเหตุ: freepi-bridge สร้าง SettingsManager.inMemory({...}) แบบตายตัว ไม่มีใครปรับการย่อได้ และ ~/.pi/agent/settings.json ไม่ถูกอ่าน
+- bridge: sanitizeCompaction() + options.compaction → SettingsManager.inMemory · handle.setCompaction(enabled) มีผลทันที · handle.compactionSettings() คืนค่าที่ใช้จริง + contextWindow
+- main: readCompactionPrefs() + COMPACTION_DEFAULT {16384, 20000} · IPC settings:compaction (อ่าน/เขียน, ยิงสดทุกแท็บ) · settings:get แนบ compaction · Reset ล้าง compaction
+- renderer/index.html: การ์ด "การย่อบทสนทนา" (สวิตช์ + keepRecentTokens + reserveTokens + hint คำนวณจาก contextWindow) + i18n EN/TH 8 คีย์ + guard ไม่เขียนทับช่องที่กำลังพิมพ์
+- เทสต์: scripts/selftest-compaction.js (25 เช็ค, รัน sanitizer ใน vm) → npm test 90/90 · sara ไม่มีจุดใหม่ · บูตด้วย prefs.compaction={enabled:false,...} ผ่าน
