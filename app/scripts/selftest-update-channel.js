@@ -121,14 +121,14 @@ const keepCountDefault = Number(
   /keep_count:[\s\S]{0,400}?default:\s*(\d+)/.exec(pruneSrc)?.[1] || 0
 );
 check(
-  'pruning always keeps at least the latest two releases',
-  keepCountDefault >= 2,
+  'pruning keeps only the newest release',
+  keepCountDefault === 1,
   `keep_count default = ${keepCountDefault}`
 );
 
 check(
-  'pruning refuses a keep_count below 2',
-  /keep_count must be a whole number >= 2/.test(pruneSrc)
+  'pruning refuses a keep_count below 1',
+  /keep_count must be a whole number >= 1/.test(pruneSrc)
 );
 
 check(
@@ -141,9 +141,9 @@ check(
 const indexSrc = fs.readFileSync(path.join(appDir, 'src', 'renderer', 'index.html'), 'utf8');
 
 check(
-  'pruning keeps twenty releases by default',
-  /keep_count:[\s\S]*?default:\s*2\b/.test(pruneSrc),
-  'keep_count default is not 2'
+  'the manual run and the automatic run keep the same number',
+  /NTAPI_UPDATE_RETENTION:-1\b/.test(pruneSrc) && /default:\s*1\b/.test(pruneSrc),
+  'the automatic prune and the keep_count default disagree'
 );
 
 check(
@@ -154,7 +154,7 @@ check(
 
 check(
   'the automatic prune keeps the same number the app assumes',
-  /NTAPI_UPDATE_RETENTION:-2\b/.test(pruneSrc) && /const UPDATE_RETENTION = 2\b/.test(mainSrc)
+  /NTAPI_UPDATE_RETENTION:-1\b/.test(pruneSrc) && /const UPDATE_RETENTION = 1\b/.test(mainSrc)
 );
 
 check(

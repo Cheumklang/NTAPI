@@ -5287,10 +5287,11 @@ function sendUpdateState() {
  * letting that slide quietly, and the user does not want the public download
  * page to become an archive.
  *
- * Two is the smallest window that still allows a delta (latest + the one it
- * diffs against), and is what the prune workflow keeps.
+ * One is what the prune workflow keeps: the user asked for a download page that
+ * holds only the newest build (2026-11-21), accepting that every update is then
+ * a full download — a delta needs the previous blockmap to diff against.
  */
-const UPDATE_RETENTION = 2;
+const UPDATE_RETENTION = 1;
 
 /** Compare `0.5.27` style versions: negative, zero, or positive. */
 function compareVersions(a, b) {

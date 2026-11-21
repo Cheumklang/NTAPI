@@ -32,10 +32,10 @@ on:
   workflow_dispatch:
     inputs:
       keep_count:
-        description: 'Keep how many of the newest releases (must be >= 2; 2 = the app update window)'
+        description: 'Keep how many of the newest releases (must be >= 1; 1 = only the newest)'
         required: true
         type: number
-        default: 2
+        default: 1
       keep:
         description: 'Optional override: keep this version and everything newer (e.g. v0.5.0). Empty = use keep_count'
         required: false
@@ -116,7 +116,7 @@ jobs:
             # Automatic: a release just finished. Keep the window and nothing
             # else — never force a version and never delete tags.
             KEEP=""
-            KEEP_COUNT="${NTAPI_UPDATE_RETENTION:-2}"
+            KEEP_COUNT="${NTAPI_UPDATE_RETENTION:-1}"
             DRY_RUN=false
             # Tags go with the releases they point at: an old tag is what makes
             # a pruned version still look published.
@@ -158,14 +158,15 @@ jobs:
               exit 1
             fi
           else
-            # Default: the newest N releases survive. N must be at least 2 so the
-            # previous blockmap is still downloadable for the next delta update.
+            # Default: only the newest release survives (user's call, 2026-11-21).
+            # A window of one means no previous blockmap, so updates download the
+            # whole installer instead of a delta.
             MODE=count
-            if ! printf '%s' "${KEEP_COUNT:-2}" | grep -Eq '^[0-9]+$' || [ "${KEEP_COUNT:-2}" -lt 2 ]; then
-              echo "::error::keep_count must be a whole number >= 2 (got '${KEEP_COUNT:-}')"
+            if ! printf '%s' "${KEEP_COUNT:-1}" | grep -Eq '^[0-9]+$' || [ "${KEEP_COUNT:-1}" -lt 1 ]; then
+              echo "::error::keep_count must be a whole number >= 1 (got '${KEEP_COUNT:-}')"
               exit 1
             fi
-            keep="${KEEP_COUNT:-2}"
+            keep="${KEEP_COUNT:-1}"
           fi
 
           deleted=0

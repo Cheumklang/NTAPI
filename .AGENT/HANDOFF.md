@@ -2,6 +2,13 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### 🔁 เปลี่ยนกฎ retention (2026-11-21, ผู้ใช้สั่งรอบสอง) — เหลือรุ่นเดียว
+> - ลบ `v0.6.6` แล้ว (release 453331227 + tag ทั้ง `NTAPI` และ `NTAPI-releases`) → หน้า releases เหลือ **`v0.6.7`** เดียว (173 MB)
+> - ตั้ง default ให้ตรงกัน: `prune-releases.yml` `keep_count=1` / `NTAPI_UPDATE_RETENTION:-1` · `main.js` `UPDATE_RETENTION = 1`
+>   · `selftest-update-channel.js` ปรับเช็ค (เดิมบังคับ >= 2) · AGENTS.md เขียนกฎใหม่
+> - **ผลที่ตามมา:** delta ใช้ไม่ได้อีก (ไม่มี blockmap รุ่นก่อน) → อัปเดตแต่ละครั้งโหลดเต็ม ~173 MB; โค้ด delta ยังอยู่ กลับมาใช้ได้แค่ตั้ง `keep_count=2`
+> - ยังไม่ commit (จะติดไปกับรุ่นถัดไป 0.6.8) · `npm test` 95/95 · sara ok
+>
 > ### ✅ ล่าสุด (2026-11-21) — **v0.6.7 ปล่อยแล้ว** · `/skill` เห็นสกิลที่ติดตั้งเป็นแพ็กเกจ
 > - ผู้ใช้เจอจริง: `pi install` superpowers แล้วไปอยู่ `C:\Users\NT\.pi\agent\git\github.com\obra\superpowers` → `/skill` ไม่เห็น
 > - `packagedSkillDirs()` ใหม่: สแกน `<agent dir>/git/<host>/<owner>/<repo>` และ `<agent dir>/npm/node_modules/[<@scope>/]<pkg>`

@@ -3373,3 +3373,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - hint เพิ่ม `~/.pi/agent/git/<owner>/<repo>` · ยังไม่ commit
 - ปล่อย **v0.6.7** (ผู้ใช้: "ปล่อยเลยคับ") · Release run 44849249186 · provenance seq 189 (189 entries / 83 files OK)
 - delta 0.6.6→0.6.7 วัดจาก blockmap = 51 block ≈ 0.77 MB (99.6% ประหยัด)
+
+## 2026-11-21 (ต่อ) — ผู้ใช้สั่ง "ลบออกให้เหลือแค่ล่าสุดอย่างเดียว"
+- ลบ release `v0.6.6` (id 453331227) + tag ในทั้งสองรีโป → เหลือ `v0.6.7` เดียว
+- ปรับ `keep_count` default 2→1, `NTAPI_UPDATE_RETENTION:-2`→`:-1`, `UPDATE_RETENTION = 2`→`1`, selftest + AGENTS.md
+- ยอมรับผลข้างเคียง: delta ไม่ทำงานอีก (ไม่มี blockmap รุ่นก่อน) — ยังไม่ commit (ไปกับ 0.6.8)
