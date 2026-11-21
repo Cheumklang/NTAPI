@@ -7,6 +7,11 @@
  * press one thing with `act` — so the prompt, the switch and the audit log do
  * not need to know which system is underneath.
  *
+ * Pressing a published action is the safe half; the rest of what a person does
+ * needs real input, so `focus`/`launch`/`keys`/`type`/`clickat`/`scroll` go
+ * through SendInput. Every one of them refuses unless the window they name is
+ * in front, and a coordinate click has to land inside it.
+ *
  * UI Automation is part of Windows itself, so there is nothing to install and
  * nothing to rebuild when Electron changes: a helper process reads the same
  * accessibility tree a screen reader reads, and only ever presses a control
@@ -111,11 +116,60 @@ async function act({ ref, action = 'click', text = '' } = {}) {
   return run(args, { timeoutMs: 20000 });
 }
 
+/** Bring a window to the front; refuses if Windows would not allow it. */
+async function focus({ app = 0 } = {}) {
+  return run(['focus', '-App', String(app)]);
+}
+
+/**
+ * Start a program, a document or a url and report the window that appeared.
+ * `app` is -1 when nothing new showed up within the helper's wait.
+ */
+async function launch({ target = '' } = {}) {
+  const wanted = typeof target === 'string' ? target.trim() : '';
+  if (!wanted) throw failure('BAD_ARGS', 'launch needs a target: an executable, a document or a url');
+  return run(['launch', '-Target', wanted], { timeoutMs: 30000 });
+}
+
+/** A shortcut such as `ctrl+s`, pressed after the window is in front. */
+async function keys({ app = 0, keys = '' } = {}) {
+  const combo = typeof keys === 'string' ? keys.trim() : '';
+  if (!combo) throw failure('BAD_ARGS', 'keys needs a shortcut such as ctrl+s');
+  return run(['keys', '-App', String(app), '-Keys', combo]);
+}
+
+/** Type text as keystrokes — the only way into a control with no ValuePattern. */
+async function typeText({ app = 0, text = '' } = {}) {
+  if (typeof text !== 'string' || !text) throw failure('BAD_ARGS', 'type needs the text to type');
+  return run(['type', '-App', String(app), '-Text', text], { timeoutMs: 60000 });
+}
+
+/** Click a screen position, which must fall inside the named window. */
+async function clickAt({ app = 0, x, y, button = 'left' } = {}) {
+  if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+    throw failure('BAD_ARGS', 'clickat needs x and y in screen coordinates');
+  }
+  const action = button === 'right' ? 'rightclick' : 'click';
+  return run(['clickat', '-App', String(app), '-X', String(Math.round(Number(x))), '-Y', String(Math.round(Number(y))), '-Action', action]);
+}
+
+/** Wheel over the middle of a window; a negative count scrolls up. */
+async function scroll({ app = 0, notches = 3 } = {}) {
+  const count = Number.isFinite(Number(notches)) ? Math.trunc(Number(notches)) : 3;
+  return run(['scroll', '-App', String(app), '-Delta', String(count)]);
+}
+
 module.exports = {
   platform: 'win32',
   available,
   windows,
   snapshot,
   act,
+  focus,
+  launch,
+  keys,
+  type: typeText,
+  clickAt,
+  scroll,
   MAX_NODES,
 };

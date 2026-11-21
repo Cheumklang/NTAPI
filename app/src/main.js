@@ -1010,6 +1010,39 @@ const systemBridge = {
       systemAudit({ event: 'act', action: args.action || 'click', ref: args.ref });
       return result;
     }
+    if (cmd === 'focus') {
+      const result = await systemAdapter.focus({ app: args.app });
+      systemAudit({ event: 'focus', app: args.app, name: result.appName });
+      return result;
+    }
+    if (cmd === 'launch') {
+      const result = await systemAdapter.launch({ target: args.target });
+      systemAudit({ event: 'launch', target: args.target, app: result.app, name: result.appName });
+      return result;
+    }
+    if (cmd === 'keys') {
+      const result = await systemAdapter.keys({ app: args.app, keys: args.keys });
+      // The shortcut itself is the record: ctrl+s saves, alt+F4 closes.
+      systemAudit({ event: 'keys', app: args.app, keys: args.keys });
+      return result;
+    }
+    if (cmd === 'type') {
+      const result = await systemAdapter.type({ app: args.app, text: args.text });
+      // Length, not the text: a password typed into a field must not be written
+      // into a log that outlives the session.
+      systemAudit({ event: 'type', app: args.app, chars: String(args.text || '').length });
+      return result;
+    }
+    if (cmd === 'clickat') {
+      const result = await systemAdapter.clickAt({ app: args.app, x: args.x, y: args.y, button: args.button });
+      systemAudit({ event: 'clickat', app: args.app, x: args.x, y: args.y, button: args.button || 'left' });
+      return result;
+    }
+    if (cmd === 'scroll') {
+      const result = await systemAdapter.scroll({ app: args.app, notches: args.notches });
+      systemAudit({ event: 'scroll', app: args.app, notches: args.notches });
+      return result;
+    }
     const err = new Error(`Unknown desktop command ${cmd}`);
     err.code = 'BAD_ARGS';
     throw err;

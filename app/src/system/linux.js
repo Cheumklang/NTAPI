@@ -90,7 +90,28 @@ async function act({ ref, action = 'click', text = '' } = {}) {
   return run(args, { timeoutMs: 15000 });
 }
 
+/**
+ * Real input is Windows-only for now: the Windows half can reach SendInput
+ * through PowerShell with nothing to install, while Linux would need XTest or a
+ * portal that behaves differently on X11 and Wayland. Saying so honestly beats a
+ * half-version that types into the wrong window.
+ */
+function notOnLinux(name) {
+  return async () => {
+    throw failure(
+      'NOT_SUPPORTED',
+      `${name} is not implemented on Linux yet. Here the desktop tools can only press a control that publishes an accessibility action (system_act).`,
+    );
+  };
+}
+
 module.exports = {
+  focus: notOnLinux('focus'),
+  launch: notOnLinux('launch'),
+  keys: notOnLinux('keys'),
+  type: notOnLinux('type'),
+  clickAt: notOnLinux('clickAt'),
+  scroll: notOnLinux('scroll'),
   platform: 'linux',
   available,
   windows,

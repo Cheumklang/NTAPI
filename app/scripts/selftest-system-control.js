@@ -126,7 +126,12 @@ check('the windows adapter talks to the helper script', windowsHelper);
 check('the helper is UI Automation, which Windows already has', /UIAutomationClient/.test(uia) && /RootElement/.test(uia));
 check('the helper presses a control only through a published action', /InvokePattern/.test(uia) && /SelectionItemPattern/.test(uia) && /TogglePattern/.test(uia));
 check('typing goes through the value pattern', /ValuePattern/.test(uia) && /SetValue\(/.test(uia));
-check('the helper never guesses a coordinate or moves the pointer', !/mouse_event|SendInput|SetCursorPos|Cursor\.Position/.test(uia));
+// The pointer and the keyboard are reachable only through their own commands:
+// pressing a ref never quietly falls back to a coordinate.
+const actBranch = uia.slice(uia.indexOf("'act' {"), uia.indexOf("'focus' {"));
+check('pressing a ref never falls back to the pointer', actBranch.length > 0 && !/mouse_event|SendInput|NTAPIInput/.test(actBranch));
+const clickBranch = uia.slice(uia.indexOf("'clickat' {"), uia.indexOf("'scroll' {"));
+check('a coordinate click is its own command, and it is guarded', /Focus-Window/.test(clickBranch) && /OUT_OF_BOUNDS/.test(clickBranch));
 check('a control with no action is refused, not clicked anyway', /NO_ACTION/.test(uia));
 check('a moved tree is reported, not silently pressed', /STALE_REF/.test(uia));
 check('the helper is plain ASCII so Windows PowerShell 5.1 reads it right', uia.length > 0 && [...uia].every((c) => c.charCodeAt(0) < 128), 'non-ASCII byte in uia.ps1');
@@ -229,23 +234,67 @@ for (const key of ['sysTitle', 'sysWarn', 'sysBanner', 'sysConfirmTitle', 'sysSt
 
 const tools = require(path.join(root, 'src/freepi-bridge.js'));
 const toolNames = Object.keys(tools.SYSTEM_TOOLS);
-check('four desktop tools, no more', toolNames.length === 4);
+check('ten desktop tools, no more', toolNames.length === 10, toolNames.join());
 check(
   'look before pressing is the order offered',
-  toolNames[0] === 'system_windows' && toolNames[1] === 'system_snapshot' && toolNames[3] === 'system_act'
+  toolNames[0] === 'system_windows' && toolNames[1] === 'system_snapshot' && toolNames[9] === 'system_act'
 );
 check(
-  'the three reads never prompt',
+  'the reads never prompt',
   tools.SYSTEM_TOOLS.system_windows.write === false &&
     tools.SYSTEM_TOOLS.system_snapshot.write === false &&
-    tools.SYSTEM_TOOLS.system_screenshot.write === false
+    tools.SYSTEM_TOOLS.system_screenshot.write === false &&
+    tools.SYSTEM_TOOLS.system_focus.write === false
 );
-check('pressing prompts', tools.systemGuardedTools().join() === 'system_act');
+check(
+  'every kind of real input prompts',
+  tools.systemGuardedTools().join() ===
+    'system_launch,system_keys,system_type,system_click_at,system_scroll,system_act',
+  tools.systemGuardedTools().join(),
+);
 check('system_act is in the default guard list', tools.DEFAULT_GUARDED_TOOLS.includes('system_act'));
+check(
+  'the new tools are guarded by default too',
+  ['system_launch', 'system_keys', 'system_type', 'system_click_at', 'system_scroll'].every((name) =>
+    tools.DEFAULT_GUARDED_TOOLS.includes(name),
+  ),
+  tools.DEFAULT_GUARDED_TOOLS.join(),
+);
 check('the allow-list carries them when the bridge exists', /const systemToolAllowList = systemBridge \? Object\.keys\(SYSTEM_TOOLS\) : \[\];/.test(freepi));
 check('the extension is only installed with a bridge', /\.\.\.\(systemBridge \? \[systemExtension\] : \[\]\)/.test(freepi));
 check('the model is told the rules', /## Desktop control/.test(freepi) && /SYSTEM_CONTROL_OFF/.test(freepi));
-check('the prompt says the pointer cannot be moved', /pointer cannot be moved/.test(freepi));
+check(
+  'the prompt tells it how to reach a control that publishes nothing',
+  /system_click_at/.test(freepi) && /system_keys/.test(freepi) && /system_type/.test(freepi),
+);
+check(
+  'and that every real input brings the window to the front first',
+  /refuses if it did not get there/.test(freepi),
+);
+
+/* --------------------------------------------------- the Windows input half */
+
+const ps1 = fs.readFileSync(path.join(root, 'src/system', 'uia.ps1'), 'utf8');
+for (const command of ['focus', 'launch', 'keys', 'type', 'clickat', 'scroll']) {
+  check(`uia.ps1 implements ${command}`, new RegExp(`'${command}' \\{`).test(ps1));
+}
+check('uia.ps1 only sends input after the window is in front', /function Focus-Window/.test(ps1) && /NOT_FOREGROUND/.test(ps1));
+check('a coordinate click outside the window is refused', /OUT_OF_BOUNDS/.test(ps1));
+check('typing is per character, so layouts do not matter', /KEYEVENTF_UNICODE|wScan = \(ushort\)c/.test(ps1) && /dwFlags = 4u/.test(ps1));
+check('the wheel is sent over the middle of the target', /SetCursorPos\(\[int\]\(\$rect\.X\+\$rect\.Width|SetCursorPos/.test(ps1));
+check('the helper stays ASCII so PowerShell 5.1 can read it', !/[^\x00-\x7F]/.test(ps1));
+check('and keeps CRLF line endings', /\r\n/.test(ps1));
+
+const winAdapter = require(path.join(root, 'src/system/windows.js'));
+check(
+  'the adapter exposes what the tools call',
+  typeof winAdapter.focus === 'function' &&
+    typeof winAdapter.launch === 'function' &&
+    typeof winAdapter.keys === 'function' &&
+    typeof winAdapter.type === 'function' &&
+    typeof winAdapter.clickAt === 'function' &&
+    typeof winAdapter.scroll === 'function',
+);
 
 /* ------------------------------------------------------- a live look, if any */
 
@@ -317,6 +366,24 @@ check('the prompt says the pointer cannot be moved', /pointer cannot be moved/.t
 
   check('resizing keeps the panel with its chip', /window\.addEventListener\('resize', \(\) => placeSysPanel\(\)\)/.test(appSrc));
   check('scrolling the column keeps it too', /addEventListener\('scroll', \(\) => placeSysPanel\(\)/.test(appSrc));
+
+  // The refusals that need a promise, kept inside this async body.
+  const badCoords = await winAdapter
+    .clickAt({ app: 0, x: 'a', y: 0 })
+    .then(() => 'ok', (err) => err.code);
+  check('a coordinate click needs numbers', badCoords === 'BAD_ARGS', badCoords);
+
+  const linuxAdapter = require(path.join(root, 'src/system/linux.js'));
+  const linuxCodes = await Promise.all(
+    ['focus', 'launch', 'keys', 'type', 'clickAt', 'scroll'].map((name) =>
+      linuxAdapter[name]().then(() => 'ok', (err) => err.code),
+    ),
+  );
+  check(
+    'Linux says NOT_SUPPORTED instead of pretending',
+    linuxCodes.every((code) => code === 'NOT_SUPPORTED'),
+    linuxCodes.join(),
+  );
 
   if (failed) {
     console.error(`\n${failed} failure(s)`);

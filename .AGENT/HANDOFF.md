@@ -2,6 +2,20 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ เฟส 1 Desktop control เต็มรูปแบบ (Windows) — 0.6.12
+> ผู้ใช้สั่ง: "อยากให้ทำได้ทุกอย่างที่เหมือนคนนั่งอยู่หน้าคอม" (Windows หลัก, ยอมให้ยิงคีย์/คลิกพิกัด)
+> - `uia.ps1` +6 คำสั่ง: `focus` · `launch` (Start-Process + รอหน้าต่างใหม่ ≤15s) · `keys` (SendInput vk, รองรับ ctrl+s, alt+f4, F1-F24 …)
+>   · `type` (SendInput KEYEVENTF_UNICODE ทีละ char → พิมพ์ได้ทุกเลย์เอาต์/ภาษาไทย) · `clickat` (SetCursorPos + mouse_event, **screen coords**)
+>   · `scroll` (wheel ตรงกลางหน้าต่าง)
+> - **ราวกันพลาด**: ทุกคำสั่งเรียก `Focus-Window` → `SetForegroundWindow` + ตรวจ `GetForegroundWindow` ซ้ำ ถ้าไม่ขึ้นหน้า = `NOT_FOREGROUND`
+>   (ไม่ยอมพิมพ์ลงหน้าต่างผิด) · `clickat` ต้องอยู่ใน bounds ของหน้าต่างนั้น ไม่งั้น `OUT_OF_BOUNDS` · `act` (กดตาม ref) ไม่มีทาง fallback ไปยิงพิกัด
+> - adapter: `windows.js` เพิ่ม 6 เมธอด · `linux.js` ตอบ `NOT_SUPPORTED` ตรง ๆ (ยังไม่ทำ XTest/portal) · `main.js` route + audit
+>   (audit `type` บันทึกแค่จำนวนตัวอักษร ไม่บันทึกข้อความ — กันรหัสผ่านหลุดลง log)
+> - tools ใหม่: `system_focus`(read) `system_launch` `system_keys` `system_type` `system_click_at` `system_scroll` (write → ขออนุมัติ)
+>   + prompt block สอนลำดับ: snapshot → ถ้า NO_VALUE_PATTERN ใช้ system_type → ถ้าไม่มี action ใช้ system_click_at จาก bounds
+> - เทสต์: selftest-system-control เพิ่ม ~20 ข้อ (รวม ASCII/CRLF ของ ps1, NOT_SUPPORTED ฝั่ง Linux, guard list) → 96/96 · sara ok
+> - **ยังไม่ได้ทดสอบบน Windows จริง** — ขอผลเทสต์: เปิด notepad → `system_launch` → `system_type` → `system_keys ctrl+s` → `system_click_at`
+>
 > ### ✅ เพิ่ม — Browser card โชว์เวอร์ชันส่วนขยายที่ Chrome โหลดจริง (0.6.11)
 > - ปัญหา: อัปเดตแอปแล้วแต่ Chrome ยังรัน extension เก่า (ไม่ได้กด reload) → แก้แล้วก็ดูเหมือนไม่แก้
 > - extension ส่ง `extensionVersion` (จาก `chrome.runtime.getManifest().version`) มาใน hello → `browser-bridge.js`

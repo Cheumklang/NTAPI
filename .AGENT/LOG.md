@@ -3404,3 +3404,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 
 ## 2026-11-21 (ต่อ) — โชว์เวอร์ชัน extension ที่โหลดจริง
 - hello ส่ง extensionVersion · browser-bridge เก็บใน status · Browser card แสดง "ส่วนขยาย vX.Y.Z"
+
+## 2026-11-21 — Desktop control เฟส 1 (Windows): focus/launch/keys/type/clickat/scroll
+- uia.ps1 +6 คำสั่ง (SendInput/SetCursorPos) พร้อม Focus-Window guard + OUT_OF_BOUNDS
+- linux.js NOT_SUPPORTED · main.js audit (type ไม่เก็บข้อความ) · freepi-bridge +6 tools + prompt
+- selftest-system-control +20 ข้อ · npm test 96/96

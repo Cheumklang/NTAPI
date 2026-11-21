@@ -1241,8 +1241,9 @@ async function createFreePiSession(options) {
             event.systemPrompt +
             `\n\n## Desktop control\n\n` +
             `- This is the user's own computer (${DESKTOP_LABEL}), not a browser tab. system_windows lists the open windows; system_snapshot reads one window into \`ref\`s; system_act presses one element by its ref.\n` +
-            `- Snapshot before acting, and act only on refs you just received. After every action, snapshot again — the window has moved.\n` +            `- The pointer cannot be moved: only controls that publish an accessibility action can be pressed. If an app exposes nothing, say so instead of guessing coordinates.\n` +
-            `- Typing into a field is system_act with action \`settext\`; read the snapshot again to confirm the text landed.\n` +
+            `- Snapshot before acting, and act only on refs you just received. After every action, snapshot again — the window has moved.\n` +            `- Typing into a field is system_act with action \`settext\`; when that answers NO_VALUE_PATTERN, use system_type to type for real. Read the snapshot again to confirm the text landed.\n` +
+            `- A control that publishes no action can still be clicked by position with system_click_at, taking the coordinates from a node's bounds in the snapshot. Never aim at a point you have not seen, and never outside the window — it is refused.\n` +
+            `- system_keys presses a shortcut (ctrl+s, alt+f4), and system_launch starts a program, document or url. Every one of these brings the window to the front first and refuses if it did not get there, so nothing is typed into the wrong window.\n` +
             `- If a call answers SYSTEM_CONTROL_OFF, stop and ask the user to turn the desktop switch on in the sidebar. Never retry it as if it were a glitch.\n` +
             `- Anything that spends money, deletes, signs in or changes account settings is the user's call: describe what you are about to press and let them decide.\n` +
             `- The user can take the screen back at any moment with Ctrl+Alt+Esc; if a tool starts failing mid-task, that is what happened.`,
@@ -2403,6 +2404,92 @@ const SYSTEM_TOOLS = {
       properties: {
         app: { type: 'number', description: 'The app number from system_windows, if you are checking that it is this one.' },
       },
+      additionalProperties: false,
+    },
+  },
+  system_focus: {
+    cmd: 'focus',
+    write: false,
+    description:
+      'Bring one window from system_windows to the front. system_keys, system_type and system_click_at do this for you; call it on its own only to look at a window before snapshotting it.',
+    parameters: {
+      type: 'object',
+      properties: { app: { type: 'number', description: 'The app number from system_windows.' } },
+      required: ['app'],
+      additionalProperties: false,
+    },
+  },
+  system_launch: {
+    cmd: 'launch',
+    write: true,
+    description:
+      'Start a program, open a document, or open a url on the user\'s own computer, then return the window that appeared. Give an absolute path (C:\\Windows\\notepad.exe, a .docx file) or a url.',
+    parameters: {
+      type: 'object',
+      properties: { target: { type: 'string', description: 'An executable, a file path, or a url.' } },
+      required: ['target'],
+      additionalProperties: false,
+    },
+  },
+  system_keys: {
+    cmd: 'keys',
+    write: true,
+    description:
+      'Press a shortcut in one window, after bringing it to the front: ctrl+s, alt+f4, ctrl+shift+t, enter, tab, f5. This is how to drive an app that publishes no buttons. Ask only for shortcuts you mean — this is the user\'s own keyboard.',
+    parameters: {
+      type: 'object',
+      properties: {
+        app: { type: 'number', description: 'The app number from system_windows.' },
+        keys: { type: 'string', description: 'A combination such as ctrl+s, or a single key such as enter.' },
+      },
+      required: ['app', 'keys'],
+      additionalProperties: false,
+    },
+  },
+  system_type: {
+    cmd: 'type',
+    write: true,
+    description:
+      'Type text into whatever has focus in one window, character by character. Use it when system_act with settext answers NO_VALUE_PATTERN, or when a field only reacts to real keystrokes. Click or focus the field first.',
+    parameters: {
+      type: 'object',
+      properties: {
+        app: { type: 'number', description: 'The app number from system_windows.' },
+        text: { type: 'string', description: 'The text to type.' },
+      },
+      required: ['app', 'text'],
+      additionalProperties: false,
+    },
+  },
+  system_click_at: {
+    cmd: 'clickat',
+    write: true,
+    description:
+      'Click a screen position inside one window — for a control that exposes no accessibility action (a canvas, a map, a drawing tool). Take the coordinates from a snapshot node\'s bounds so the click lands on something you have seen. Refuses any point outside the window.',
+    parameters: {
+      type: 'object',
+      properties: {
+        app: { type: 'number', description: 'The app number from system_windows.' },
+        x: { type: 'number', description: 'Screen x, as snapshot bounds report it.' },
+        y: { type: 'number', description: 'Screen y, as snapshot bounds report it.' },
+        button: { type: 'string', enum: ['left', 'right'] },
+      },
+      required: ['app', 'x', 'y'],
+      additionalProperties: false,
+    },
+  },
+  system_scroll: {
+    cmd: 'scroll',
+    write: true,
+    description:
+      'Wheel over the middle of a window: positive scrolls down, negative scrolls up. Snapshot again afterwards, since what is on screen has changed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        app: { type: 'number', description: 'The app number from system_windows.' },
+        notches: { type: 'number', description: 'How many wheel notches (default 3).' },
+      },
+      required: ['app'],
       additionalProperties: false,
     },
   },
