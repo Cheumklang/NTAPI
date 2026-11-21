@@ -3449,3 +3449,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 
 ## 2026-11-21 — ทดลอง Nemotron
 - args-not-defined ใน captureAppWindow (เทสต์เดิมยืนยันบั๊ก) · handle→app สำหรับ screenshot · linux screenshot list[app]→row.app · launch reused · atspi timed() 22s→2s
+
+## 2026-11-21 — สรุป session (ย้าย session)
+- ปล่อย 0.6.19 (handle), 0.6.20 (tooltip fixed + /compact + foreground default), 0.6.21 (tooltip ตามภาษา), 0.6.22 (บั๊ก 5 ตัวจาก transcript Nemotron)
+- กฎใหม่ AGENTS.md: ห้ามปล่อยรุ่นเอง ต้องถามก่อน
+- งานค้าง: รอผลเทสต์ Windows · Electron a11y · Wayland portal screenshot · focus บน Wayland

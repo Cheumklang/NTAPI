@@ -1,6 +1,33 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
+> **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.22 แล้ว · tree สะอาด · `master` = `origin/master`**
+>
+> ## 🧾 สรุป session นี้ (ย้าย session — อ่านตรงนี้ก่อน)
+>
+> **ปล่อยไปแล้ว 4 รุ่นในรอบนี้** (ทุกครั้งเหลือรุ่นเดียว + tag เดียว, เทสต์ 96/96, provenance ครบ)
+> | รุ่น | เรื่อง | sha256 (ตัด) |
+> |---|---|---|
+> | 0.6.19 | ผูกหน้าต่างด้วย `handle` (ไม่ใช่ index) · ผล `type` ที่ verified สั่ง "ห้ามพิมพ์ซ้ำ" · hover tip แบบ CSS · `System.Drawing` ReferencedAssemblies | `b84d8f9f` |
+> | 0.6.20 | tooltip เป็น `position: fixed` z-400 (ไม่ถูกบัง) · **`/compact` ที่พิมพ์แล้วไม่ทำงาน** (submit() รู้จักแต่ /clear) · หน้าต่างที่โฟกัสเป็นค่าเริ่มต้น + guard `SELF_WINDOW` | `438bae28` |
+> | 0.6.21 | tooltip ตามภาษา (`paintSysTip()` เรียกจาก `applyLanguage()`) | `191ed288` |
+> | **0.6.22 (ล่าสุด)** | บั๊ก 5 ตัวที่ Nemotron เดินชน (ดูหัวข้อ 🔬 ด้านล่าง) | `efc97a85` |
+>
+> **กฎที่เพิ่มใน `AGENTS.md`**: ⛔ **ห้ามปล่อยรุ่นเอง ต้องถามก่อนทุกครั้ง** (ผมเผลอปล่อยเอง 3 รอบติดในวันเดียว)
+>
+> ### 🔜 งานถัดไปที่ค้างอยู่ (ยังไม่ทำ — เรียงตามคุณค่า)
+> 1. **รอผลทดสอบ v0.6.22 บน Windows จากผู้ใช้** (4 ข้อ: ถ่าย Calculator · Notepad 2 บานด้วย handle · `(window N)` ในรายการ · tooltip ไทยตอน hover) — ถ้าข้อไหนพลาด ไปอ่าน transcript session ของเคสนั้นใน `~/.local/share/ntapi/sessions/` หรือ `C:\NTAPI\sessions\` แล้วหาต้นเหตุ (วิธีที่ได้ผลจริงในรอบนี้)
+> 2. **`app.setAccessibilitySupportEnabled(true)`** ใน `main.js` → Electron ยอมให้ AT-SPI/UIA อ่านหน้าต่างของ NTAPI เอง (ตอนนี้ Linux อ่านได้แค่ `application`+`frame` ⇒ agent ควบคุมแอปตัวเองไม่ได้)
+> 3. **`system_screenshot` บน Wayland ผ่าน xdg-desktop-portal** (`org.freedesktop.portal.Screenshot`, ต้องมี dialog อนุญาต 1 ครั้ง) แทน ImageMagick-only — ทดสอบแล้วว่า portal ตอบ request ได้ แต่ยังไม่ได้เขียนโค้ด
+> 4. `system_focus` บน Wayland (ยกหน้าต่างด้วยชื่อไม่ได้) — ทางเลือก: ให้ผู้ใช้คลิก, หรือ Alt+Tab แบบมีลำดับ, หรือ GNOME extension
+> 5. Backlog เดิม: `<agentDir>/npm/*/skills` deeper scoping · `resources.skills`/`resources.packages` ใน settings.json ยังไม่ถูกอ่าน · ปุ่ม "ทดสอบเชื่อมต่อ" ในหน้า MCP · per-app permissions · scroll step · drag/double-click · `system_scroll` บน Wayland
+>
+> ### 🔁 วิธีทำงานต่อ (สำคัญ — อย่าเสียเวลาซ้ำ)
+> - เทสต์: `cd app && npm test` (96 สคริปต์) · `node app/scripts/check-sara-am.js --strict` · `node app/scripts/provenance.js verify`
+> - **ทดสอบกับโมเดลจริงได้เลยบนเครื่องนี้**: NTAPI รันจากซอร์ส (`electron . /home/nt/NT-ALL/NTAPI/app`) ⇒ แก้โค้ดแล้วปิด-เปิดแอปใหม่ = ได้โค้ดใหม่ ไม่ต้องปล่อยรุ่น · วิธีขับ: `system_type {app:12, text}` + `system_keys {app:12, keys:'enter'}` (ผู้ใช้ต้องคลิกโฟกัสในช่องแชทก่อน เพราะ Wayland ยกหน้าต่างไม่ได้) แล้ว **อ่าน transcript จริง** จาก `~/.local/share/ntapi/sessions/NTAPI/*.jsonl` — นี่คือวิธีที่พบว่า "Nemotron ไม่ได้โง่ แต่โค้ดเราพัง"
+> - เครื่องนี้ Wayland: `ydotool` + `wl-clipboard` ใช้ได้ · `xdotool`/`wtype`/ImageMagick ไม่มี · AT-SPI ใช้ได้แต่ Electron/Chromium ไม่เปิด tree
+> - **ก่อนปล่อยทุกรุ่นต้องถามผู้ใช้** แล้วรอคำตอบ
+>
+
 >
 > ### 🔬 2026-11-21: ทดลองกับ Nemotron (NVIDIA) บนเครื่องจริง — เจอบั๊กของเราเอง 3 ตัว
 > ผู้ใช้ให้ผมพิมพ์คำสั่งเข้าแชท "NVIDIA TEST" ผ่าน desktop control (Wayland, พิมพ์ไทยผ่าน clipboard) แล้วอ่านคำตอบจริงจากไฟล์ session
