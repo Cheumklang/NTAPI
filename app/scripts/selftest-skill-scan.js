@@ -35,6 +35,11 @@ if (!chunk.includes('function scanSkills(') || !chunk.includes('function readSki
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ntapi-skill-scan-'));
 const dataRoot = path.join(tmp, 'appdata');
 const elsewhere = path.join(tmp, 'elsewhere');
+// A home of our own: the scan reads the user's real one otherwise, and a test
+// that depends on what happens to be installed is not a test.
+const fakeHome = path.join(tmp, 'home');
+fs.mkdirSync(fakeHome, { recursive: true });
+
 
 function writeSkill(dir, name, description) {
   fs.mkdirSync(dir, { recursive: true });
@@ -52,8 +57,18 @@ writeSkill(path.join(dataRoot, 'skills', 'node_modules', 'dep'), 'dep', 'a depen
 writeSkill(path.join(elsewhere, 'gamma'), 'gamma', 'a skill reached through a symlink');
 fs.symlinkSync(path.join(elsewhere, 'gamma'), path.join(dataRoot, 'skills', 'linked'), 'dir');
 
+// A collection installed as a package lands in <agent dir>/git/<host>/<owner>/<repo>
+// and never in a `skills` folder at the top — exactly how superpowers arrives.
+writeSkill(
+  path.join(fakeHome, '.pi', 'agent', 'git', 'github.com', 'obra', 'superpowers', 'skills', 'brainstorming'),
+  'brainstorming',
+  'a skill from an installed package',
+);
+writeSkill(path.join(fakeHome, '.pi', 'agent', 'npm', 'node_modules', 'pkg-skills', 'skills', 'npm-skill'), 'npm-skill', 'from npm');
+
+
 // `process` is in the sandbox because the roots honour PI_CODING_AGENT_DIR.
-const sandbox = { require, fs, os, path, process, DATA_ROOT: dataRoot, Map, Set };
+const sandbox = { require, fs, os: { ...os, homedir: () => fakeHome }, path, process, DATA_ROOT: dataRoot, Map, Set };
 vm.createContext(sandbox);
 vm.runInContext(`${chunk}\nthis.__roots = skillRoots; this.__scan = scanSkills;`, sandbox);
 
@@ -62,13 +77,13 @@ check('the workspace is searched as well as the home folders', roots.some((r) =>
 check('the global skill folders are still searched', roots.some((r) => r.endsWith('.pi/agent/skills'.replace(/\//g, path.sep))));
 check(
   'the CLI global layout ~/.pi/skills is searched',
-  roots.includes(path.join(os.homedir(), '.pi', 'skills')),
+  roots.includes(path.join(fakeHome, '.pi', 'skills')),
   roots.join(' | '),
 );
 
 // People do not all use the same AI tool, so the roster has to cover the
 // folders each one already has. Read from the real list, not a copy of it.
-const homeDir = os.homedir();
+const homeDir = fakeHome;
 const brandDirs = [
   ['.claude'],
   ['.cursor'],
@@ -104,6 +119,16 @@ check(
   'a project can hold a skill in any of the documented folders',
   missingProject.length === 0,
   missingProject.join(', '),
+);
+
+// A collection installed as a package lands in <agent dir>/git/<host>/<owner>/<repo>
+// and never in a `skills` folder at the top — exactly how superpowers arrives.
+const gitRepoRoot = path.join(fakeHome, '.pi', 'agent', 'git', 'github.com', 'obra', 'superpowers');
+check('a package installed from git is searched', roots.includes(gitRepoRoot));
+check('a package installed from npm is searched', roots.includes(path.join(fakeHome, '.pi', 'agent', 'npm', 'node_modules', 'pkg-skills')));
+check(
+  'the skills inside an installed package are in the roster',
+  sandbox.__scan(roots).some((s) => s.name === 'brainstorming'),
 );
 
 // A repository root one level up must still be searched, and nothing above it:

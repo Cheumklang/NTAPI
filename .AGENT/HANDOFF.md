@@ -2,6 +2,14 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### 🔧 ค้าง (ยังไม่ commit) — `/skill` ต้องเห็นสกิลที่ติดตั้งเป็น "แพ็กเกจ"
+> - ผู้ใช้เจอจริง: `pi install` superpowers แล้วไปอยู่ `C:\Users\NT\.pi\agent\git\github.com\obra\superpowers` → `/skill` ไม่เห็น
+> - `packagedSkillDirs()` ใหม่: สแกน `<agent dir>/git/<host>/<owner>/<repo>` และ `<agent dir>/npm/node_modules/[<@scope>/]<pkg>`
+>   ของทั้ง `~/.pi/agent` และ `~/.free-pi/agent` (repo เป็น root ที่ถูกสแกน 3 ชั้น → เจอ `skills/<name>/SKILL.md` และ `skills/<หมวด>/<name>/`)
+> - ทดสอบกับข้อมูลจริงบนเครื่อง dev: roots 37 · สกิลที่เจอ 22 ตัว (superpowers + 9arm-skills) · `selftest-skill-scan.js` +3 เช็ค
+>   (ใช้ home ปลอม ไม่พึ่งเครื่องจริง) → `npm test` 95/95 · sara ok
+> - ยังไม่ commit/bump — รอผู้ใช้สั่งปล่อย (ถ้าปล่อย = 0.6.7)
+>
 > ### ✅ ล่าสุด (2026-11-21) — **v0.6.6 ปล่อยแล้ว** · `/skill` ค้นให้ถูกจุดทุกค่าย
 > - ผู้ใช้: "แต่ละคนใช้ AI ไม่เหมือนกัน … เน้นค้นหาให้เขาถูกจุดก็พอ" · **ไม่ต้องมีปุ่มนำเข้าสกิล** (ผู้ใช้ตัดออก: ผู้ใช้ส่วนใหญ่มือใหม่)
 > - `skillRoots()` (main.js) เพิ่ม 18 โฟลเดอร์ home: `.agents`, `.claude`, `.cursor`, `.copilot`, `.gemini`, `.gemini/config`, `.continue`,

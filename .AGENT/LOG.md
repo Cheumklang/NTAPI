@@ -3365,3 +3365,9 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - `renderer/app.js` `skillSearchHint()` แสดงรายการใหม่ · `selftest-skill-scan.js` +4 เช็ค → `npm test` 95/95
 - **ผู้ใช้ตัดสินใจ 2026-11-21: ไม่ทำปุ่ม "นำเข้าสกิล"** — ผู้ใช้ส่วนใหญ่เป็นมือใหม่ เน้นให้ค้นหาเจอถูกจุดแทน (ประหยัดงาน + ไม่เพิ่มความเสี่ยงจาก zip/GitHub)
 - ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
+
+## 2026-11-21 — /skill เห็นสกิลที่ติดตั้งเป็นแพ็กเกจ (`pi install`)
+- ปัญหาจริงของผู้ใช้: superpowers อยู่ที่ `C:\Users\NT\.pi\agent\git\github.com\obra\superpowers` แต่ `/skill` ว่าง
+- เพิ่ม `packagedSkillDirs()`: `git/<host>/<owner>/<repo>` + `npm/node_modules/[<@scope>/]<pkg>` ของ `~/.pi/agent`, `~/.free-pi/agent`
+- ทดสอบกับเครื่องจริง: 22 สกิล (superpowers, 9arm-skills) · `selftest-skill-scan.js` ใช้ home ปลอม +3 เช็ค · `npm test` 95/95
+- hint เพิ่ม `~/.pi/agent/git/<owner>/<repo>` · ยังไม่ commit

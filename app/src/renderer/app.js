@@ -7424,6 +7424,7 @@ function skillSearchHint() {
     '~/.codeium/windsurf/skills',
     '~/.pi/skills',
     '~/.pi/agent/skills',
+    '~/.pi/agent/git/<owner>/<repo>',
     'app-data/skills',
   ].join(', ');
 }

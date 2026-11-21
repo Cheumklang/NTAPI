@@ -2423,6 +2423,17 @@ function skillRoots(cwd) {
   ];
   const roots = [path.join(DATA_ROOT, 'skills')];
   for (const parts of HOME_DIRS) roots.push(path.join(home, ...parts));
+  // Skills that arrived as a package do not sit in a skills folder: `pi install
+  // github.com/obra/superpowers` clones the repo into
+  // <agent dir>/git/<host>/<owner>/<repo>, and the skills are inside it. Without
+  // these the user installs a collection and `/skill` still shows nothing.
+  const AGENT_DIRS = [
+    path.join(home, '.pi', 'agent'),
+    path.join(home, '.free-pi', 'agent'),
+  ];
+  for (const agentDir of AGENT_DIRS) {
+    for (const dir of packagedSkillDirs(agentDir)) roots.push(dir);
+  }
   // Someone who moved the agent dir with the documented env var keeps their
   // skills next to it, not in the default home path.
   const envAgentDir = process.env.PI_CODING_AGENT_DIR;
@@ -2452,6 +2463,48 @@ function skillRoots(cwd) {
     unique.push(root);
   }
   return unique;
+}
+
+/**
+ * The folders a package manager installs into, one level above the skills.
+ *
+ * `pi install` puts a git package at <agent dir>/git/<host>/<owner>/<repo> and an
+ * npm package at <agent dir>/npm/node_modules/<pkg>. The repo itself is the root
+ * to scan: the skills live at `skills/<name>/SKILL.md` inside it, and nothing
+ * above it ever holds one.
+ */
+function packagedSkillDirs(agentDir) {
+  const found = [];
+  const readDirs = (dir) => {
+    try {
+      return fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+  };
+  const isDir = (entry) => entry.isDirectory() || entry.isSymbolicLink();
+  // git/<host>/<owner>/<repo>
+  const gitDir = path.join(agentDir, 'git');
+  for (const host of readDirs(gitDir).filter(isDir)) {
+    const hostDir = path.join(gitDir, host.name);
+    for (const owner of readDirs(hostDir).filter(isDir)) {
+      const ownerDir = path.join(hostDir, owner.name);
+      for (const repo of readDirs(ownerDir).filter(isDir)) {
+        found.push(path.join(ownerDir, repo.name));
+      }
+    }
+  }
+  // npm/node_modules/<pkg> and npm/node_modules/@scope/<pkg>
+  const modulesDir = path.join(agentDir, 'npm', 'node_modules');
+  for (const entry of readDirs(modulesDir).filter(isDir)) {
+    if (entry.name.startsWith('@')) {
+      const scopeDir = path.join(modulesDir, entry.name);
+      for (const pkg of readDirs(scopeDir).filter(isDir)) found.push(path.join(scopeDir, pkg.name));
+      continue;
+    }
+    found.push(path.join(modulesDir, entry.name));
+  }
+  return found;
 }
 
 /** Read `name:` and `description:` out of a SKILL.md frontmatter block. */
