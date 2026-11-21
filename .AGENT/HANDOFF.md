@@ -2,6 +2,17 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ ต่อเนื่อง — อัปโหลดรอบ 2: หา input ใน shadow DOM + คลิกด้วย user gesture (0.6.10)
+> - ผู้ใช้รายงานว่า 0.6.9 ยังไม่ผ่าน และโมเดลในแอปสรุปว่า "ต้องให้ผู้ใช้กดปุ่มเองเพราะ synthetic click ไม่มี user activation"
+> - แก้: `uploadFiles()` หา `input[type=file]` ด้วย `DOM.getDocument({depth:-1, pierce:true})` → เดิน `children` + `shadowRoots` +
+>   `contentDocument` (FB เก็บ input ไว้ใน shadow root ที่ `document.querySelector` มองไม่เห็น) แล้ว `DOM.setFileInputFiles`
+>   ด้วย **backendNodeId** — ทางนี้ **ไม่ต้องมี user gesture เลย**
+> - ถ้าหน้ายังไม่มี input: คลิกด้วย `Input.dispatchMouseEvent` (เพิ่ม `buttons: 1`) แล้วถ้า picker ไม่เปิด →
+>   `pressWithGesture()` = `Runtime.evaluate({userGesture:true})` เรียก `el.click()`/`showPicker()` → Chrome ยอมให้เปิด picker
+>   (ทางนี้คือสิ่งที่ Playwright ใช้) · ถ้าปุ่มสร้าง input แทนที่จะเปิด picker → สแกนซ้ำอีกรอบแล้วยิงไฟล์ลง
+> - `browser_upload` description: ห้ามบอกผู้ใช้ให้กดปุ่มเอง (ยืนยันว่าไม่ต้องใช้ gesture จากคน) · manifest 0.3.1
+> - เทสต์: +3 (input ใน shadow root, picker ที่เปิดเฉพาะใน user gesture, gesture press) → 96/96 · sara ok
+>
 > ### ✅ ล่าสุด (2026-11-21) — แก้อัปโหลดไฟล์ผ่าน browser bridge (Facebook/TikTok) + claim ที่ไม่ขึ้น dialog
 > - ผู้ใช้เจอบน Windows และ Ubuntu: `browser_claim was not approved` (ไม่มี dialog) และ AI สรุปว่า "extension เข้าถึง file input ที่ซ่อนไม่ได้"
 > - **ซ่อม 3 จุด:**

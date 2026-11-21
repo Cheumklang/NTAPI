@@ -2594,8 +2594,9 @@ const BROWSER_TOOL_DOCS = {
   browser_upload: {
     description:
       'Attach local files to a file input — the step that uploads a video or an image. ' +
-      'Pass absolute paths in `files`; that alone is enough on Facebook and most sites, because a hidden `input type=file` is found and filled without a ref. ' +
-      'On pages that only create the input when their upload button is pressed (TikTok), also pass `text` (the button label) or `selector`: the bridge clicks it and answers the file picker itself. ' +
+      'Pass absolute paths in `files`; that alone is enough on Facebook and most sites, because a hidden `input type=file` is found and filled without a ref — shadow DOM and iframes included. ' +
+      'On pages that only create the input when their upload button is pressed (TikTok), also pass `text` (the button label) or `selector`: the bridge presses it with a real user gesture and answers the file picker itself. ' +
+      'Never ask the user to click the upload button for you — this cannot fail for lack of a gesture. ' +
       'A page can never fill its own file input, but this does not need the page to cooperate. ' +
       'The page then continues on its own; keep going with snapshot/click/wait for the rest of the form. Asks the user for approval, since it reads a file from disk.',
     snippet: 'Choose files for a file input',

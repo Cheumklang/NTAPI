@@ -3396,3 +3396,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - extension: upload 3 ทาง (selector / input แรก / file-chooser interception ด้วย CDP) · snapshot.report fileInputs · manifest 0.3.0
 - app: browser_upload spec (files พอ, +text) · formatSnapshot note · claim คืน EXTENSION_OFF/NO_TAB ให้ tool อธิบายแทนการเงียบ
 - เทสต์ +9 → npm test 96/96
+
+## 2026-11-21 (ต่อ) — อัปโหลดรอบ 2
+- upload: `DOM.getDocument(pierce)` หา input ใน shadow root/iframe → setFileInputFiles(backendNodeId) ไม่ต้องมี gesture
+- picker path: trusted click (buttons:1) → ถ้าไม่เปิด ใช้ `Runtime.evaluate({userGesture:true})` กดแทน
+- app: spec ห้ามขอให้ผู้ใช้กดเอง · extension 0.3.1 · เทสต์ 96/96

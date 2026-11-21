@@ -35,6 +35,8 @@ function makeChrome() {
     snapshotNodes: {},
     fileInputProbe: null,
     callFunctionAnswer: { tag: 'input', type: 'file' },
+    domDocument: { root: { nodeId: 1, nodeName: '#document', children: [] } },
+    chooserOnGesture: false,
     nodeId: 42,
     contextSeq: 0,
     contextFrames: {},
@@ -148,6 +150,14 @@ function makeChrome() {
             return { result: { value: state.snapshotNodes[frameId] || [] } };
           }
           if (state.evaluateOverride) return state.evaluateOverride;
+          if (params.userGesture && state.chooserOnGesture && String(params.expression || '').includes('el.click()')) {
+            setTimeout(() => {
+              eventListeners.forEach((fn) =>
+                fn({ tabId: 7 }, 'Page.fileChooserOpened', { backendNodeId: 77, mode: 'selectSingle' }),
+              );
+            }, 10);
+            return { result: { value: true } };
+          }
           const expr = params.expression || '';
           if (expr.includes('Boolean(document.querySelector')) return { result: { value: false } };
           if (expr.includes('scrollIntoView')) return { result: { value: state.evaluateAnswer } };
@@ -161,6 +171,7 @@ function makeChrome() {
         if (method === 'Runtime.callFunctionOn') return { result: { value: state.callFunctionAnswer } };
         if (method === 'DOM.requestNode') return { nodeId: state.nodeId };
         if (method === 'DOM.setFileInputFiles') return {};
+        if (method === 'DOM.getDocument') return state.domDocument;
         if (method === 'Page.setInterceptFileChooserDialog') return {};
         return {};
       },
@@ -408,11 +419,60 @@ async function main() {
   // Facebook keeps an `input type=file` hidden, and a page can never set it
   // itself — which is why uploading used to be reported as impossible.
   const uploader = loadWorker();
-  uploader.state.evaluateOverride = { result: { objectId: 'obj-1' } };
+  uploader.state.domDocument = {
+    root: {
+      nodeId: 1,
+      nodeName: '#document',
+      children: [{ nodeId: 9, nodeName: 'INPUT', backendNodeId: 42, attributes: ['type', 'file'] }],
+    },
+  };
   const uploaded = await uploader.handle('upload', { files: ['C:\\clips\\a.mp4'] });
   const setFiles = uploader.calls.filter((c) => c.name === 'cdp' && c.payload.method === 'DOM.setFileInputFiles');
   check('an upload needs only files, not a selector', setFiles.length === 1 && uploaded.via === 'input', JSON.stringify(uploaded));
-  check('the file goes to the input the page is hiding', setFiles[0] && setFiles[0].payload.params.nodeId === 42);
+  check('the file goes to the input the page is hiding', setFiles[0] && setFiles[0].payload.params.backendNodeId === 42);
+
+  // Facebook keeps the input inside a shadow root, where querySelector never
+  // reaches it — the pierce walk is what finds it.
+  const shadowed = loadWorker();
+  shadowed.state.domDocument = {
+    root: {
+      nodeId: 1,
+      nodeName: '#document',
+      children: [
+        {
+          nodeId: 5,
+          nodeName: 'DIV',
+          shadowRoots: [
+            {
+              nodeId: 6,
+              nodeName: '#shadow-root',
+              children: [{ nodeId: 7, nodeName: 'INPUT', backendNodeId: 55, attributes: ['type', 'file'] }],
+            },
+          ],
+        },
+      ],
+    },
+  };
+  await shadowed.handle('upload', { files: ['C:\\clips\\a.mp4'] });
+  check(
+    'a file input inside a shadow root is still found',
+    shadowed.calls.some(
+      (c) => c.name === 'cdp' && c.payload.method === 'DOM.setFileInputFiles' && c.payload.params.backendNodeId === 55,
+    ),
+  );
+
+  // The click that opens the picker has to carry a user gesture, or the page's
+  // own `showPicker()` is refused by Chrome.
+  const gestured = loadWorker();
+  gestured.state.chooserOnGesture = true;
+  const gestureUpload = await gestured.handle('upload', { files: ['C:\\clips\\a.mp4'], text: 'Upload' });
+  check('a picker that only opens inside a user gesture is still answered', gestureUpload.via === 'file-chooser', JSON.stringify(gestureUpload));
+  check(
+    'the gesture press is what opened it',
+    gestured.calls.some(
+      (c) => c.name === 'cdp' && c.payload.method === 'Runtime.evaluate' && c.payload.params.userGesture === true,
+    ),
+  );
 
   // --- upload: the page builds its input on click (TikTok) ---
   const chooser = loadWorker();

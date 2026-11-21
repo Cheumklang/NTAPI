@@ -929,8 +929,8 @@ async function click(args) {
     throw Object.assign(new Error('Give a selector, text, or x/y coordinates.'), { code: 'BAD_ARGS' });
   }
   await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
-  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
+  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 });
   await settleAfterAction(tabId);
   return Object.assign({ clicked: label }, await tabSummary(tabId));
 }
@@ -978,36 +978,44 @@ async function fillFields(args) {
 }
 
 /**
- * Resolve a selector (or the page's first file input) to a DOM node id.
+ * Every `input type=file` the page has, as a backend node id.
  *
- * Returns null when the element is not there or is not a file input, so the
- * caller can fall through to the next way instead of guessing. A hidden input is
- * perfectly usable: the missing ref is a rendering fact, not a permission one.
+ * `DOM.getDocument` with `pierce` walks shadow roots and same-process iframes,
+ * which is where the big sites keep this input: invisible, unref-able, and
+ * completely unreachable by `document.querySelector`. Setting a file on it needs
+ * no user gesture at all, so this is the way that works without the page
+ * cooperating.
  */
-async function fileInputNodeId(tabId, selector, frameId) {
-  const target = selector
-    ? `document.querySelector(${JSON.stringify(selector)})`
-    : "document.querySelector('input[type=file]')";
-  const found = await evalInFrame(tabId, frameId, target, { returnByValue: false });
-  const objectId = found.result && found.result.objectId;
-  if (!objectId) return null;
-  const shape = await cdp(tabId, 'Runtime.callFunctionOn', {
-    objectId,
-    functionDeclaration:
-      'function () { return { tag: (this.tagName || "").toLowerCase(), type: (this.type || "").toLowerCase() }; }',
-    returnByValue: true,
-  });
-  const info = (shape.result && shape.result.value) || {};
-  if (info.tag !== 'input' || info.type !== 'file') return null;
+async function fileInputNodes(tabId) {
   try {
     await cdp(tabId, 'DOM.enable');
   } catch {}
-  const requested = await cdp(tabId, 'DOM.requestNode', { objectId });
-  return (requested && requested.nodeId) || null;
+  const doc = await cdp(tabId, 'DOM.getDocument', { depth: -1, pierce: true });
+  const root = doc && doc.root;
+  if (!root) return [];
+  const found = [];
+  const attrOf = (node, name) => {
+    const flat = node.attributes || [];
+    for (let i = 0; i + 1 < flat.length; i += 2) if (flat[i] === name) return String(flat[i + 1]);
+    return '';
+  };
+  const walk = (node) => {
+    if (!node || found.length > 8) return;
+    const name = String(node.nodeName || '').toLowerCase();
+    if (name === 'input' && attrOf(node, 'type').toLowerCase() === 'file') {
+      if (Number.isInteger(node.backendNodeId)) found.push(node.backendNodeId);
+    }
+    for (const child of node.children || []) walk(child);
+    for (const shadow of node.shadowRoots || []) walk(shadow);
+    if (node.contentDocument) walk(node.contentDocument);
+    for (const frame of node.frameOwner || []) walk(frame);
+  };
+  walk(root);
+  return found;
 }
 
 /** Wait for the next file picker a click opens on this tab. */
-function nextFileChooser(tabId, timeoutMs = 8000) {
+function nextFileChooser(tabId, timeoutMs = 4000) {
   return new Promise((resolve, reject) => {
     const waiting = fileChoosers.get(tabId) || [];
     let timer = null;
@@ -1021,9 +1029,7 @@ function nextFileChooser(tabId, timeoutMs = 8000) {
         (fileChoosers.get(tabId) || []).filter((entry) => entry !== settle),
       );
       reject(
-        Object.assign(new Error('The page did not open a file picker. Click its upload control first, then try again.'), {
-          code: 'NO_FILE_CHOOSER',
-        }),
+        Object.assign(new Error('The page did not open a file picker.'), { code: 'NO_FILE_CHOOSER' }),
       );
     }, timeoutMs);
     waiting.push(settle);
@@ -1032,18 +1038,49 @@ function nextFileChooser(tabId, timeoutMs = 8000) {
 }
 
 /**
+ * Press the page's own upload control inside an evaluation that Chrome treats as
+ * a user gesture.
+ *
+ * Sites call `input.click()` or `input.showPicker()` from their handler, and both
+ * are refused without transient activation. A pointer event sent over CDP is
+ * trusted, but not every page listens for one; `userGesture: true` is the
+ * guarantee, and this is the call that carries it.
+ */
+async function pressWithGesture(tabId, args) {
+  const expression = `(() => {
+    const sel = ${JSON.stringify(args.selector || null)};
+    const text = ${JSON.stringify(args.text || null)};
+    let el = null;
+    if (sel) el = document.querySelector(sel);
+    else if (text) {
+      const wanted = text.trim();
+      const all = Array.from(document.querySelectorAll('a,button,input,textarea,select,[role=button],[role=link],[role=tab],[contenteditable=true]'));
+      el = all.find((n) => {
+        const r = n.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return false;
+        return (n.innerText || n.value || n.getAttribute('aria-label') || '').includes(wanted);
+      }) || null;
+    }
+    if (!el) return false;
+    el.scrollIntoView({ block: 'center', inline: 'center' });
+    if (el.tagName === 'INPUT' && el.type === 'file' && typeof el.showPicker === 'function') el.showPicker();
+    else el.click();
+    return true;
+  })()`;
+  const res = await evalInFrame(tabId, args.frameId, expression, { userGesture: true });
+  return Boolean(res.result && res.result.value);
+}
+
+/**
  * Put local files into a file input.
  *
- * A page cannot do this itself: setting `input.files` from script is blocked, and
- * clicking the input only opens the OS picker, which nothing in this bridge can
- * answer. Chrome's debugger can, so this is the one command that reaches outside
- * the page.
- *
- * Three ways, in this order, because the big sites each do it differently:
- *   1. the input the caller named — a hidden one included (Facebook keeps one);
- *   2. the page's first file input, unnamed — hidden inputs never get a ref;
- *   3. intercept the picker the upload button opens and answer it ourselves
- *      (TikTok builds the input for that one click and throws it away).
+ * A page can never set its own file input, so this always goes through the
+ * debugger. Three ways, in the order that needs least from the page:
+ *   1. the `input type=file` the page already has — hidden, in a shadow root, or
+ *      inside an iframe all count; no ref, no selector, no gesture needed;
+ *   2. the input the caller named with a selector;
+ *   3. the picker the upload button opens — click it, answer what it opens
+ *      (TikTok builds the input for one click and throws it away).
  */
 async function uploadFiles(args) {
   const files = Array.isArray(args.files) ? args.files.filter((f) => typeof f === 'string' && f) : [];
@@ -1051,19 +1088,15 @@ async function uploadFiles(args) {
   const tabId = await resolveTab(args.tab);
   const named = typeof args.selector === 'string' && args.selector ? args.selector : null;
 
-  let nodeId = named ? await fileInputNodeId(tabId, named, args.frameId) : null;
-  if (!nodeId) nodeId = await fileInputNodeId(tabId, null, args.frameId);
-  if (nodeId) {
-    try {
-      await cdp(tabId, 'DOM.enable');
-    } catch {}
-    await cdp(tabId, 'DOM.setFileInputFiles', { files, nodeId });
+  // 1 — an input that is already there.
+  const nodes = await fileInputNodes(tabId).catch(() => []);
+  if (nodes.length) {
+    await cdp(tabId, 'DOM.setFileInputFiles', { files, backendNodeId: nodes[0] });
     await settleAfterAction(tabId);
     return Object.assign({ uploaded: files, count: files.length, via: 'input' }, await tabSummary(tabId));
   }
 
-  // There is no input to write into yet: the page wants a click on its own
-  // upload control, and the picker that opens is the thing to answer.
+  // 2 — nothing to write into yet: press the control the caller named.
   const text = typeof args.text === 'string' && args.text ? args.text : null;
   if (!named && !text) {
     throw Object.assign(
@@ -1078,17 +1111,44 @@ async function uploadFiles(args) {
     await cdp(tabId, 'Page.enable');
   } catch {}
   await cdp(tabId, 'Page.setInterceptFileChooserDialog', { enabled: true });
-  const opened = nextFileChooser(tabId);
-  opened.catch(() => {});
+  const answer = (chooser) =>
+    cdp(tabId, 'DOM.setFileInputFiles', { files, backendNodeId: chooser.backendNodeId });
+  let chooser = null;
   try {
-    await (named
-      ? click({ tab: tabId, selector: named })
-      : click({ tab: tabId, text }));
-    const chooser = await opened;
+    // A trusted pointer click first, the way a person would do it.
+    const trusted = nextFileChooser(tabId);
+    trusted.catch(() => {});
     try {
-      await cdp(tabId, 'DOM.enable');
+      await (named ? click({ tab: tabId, selector: named }) : click({ tab: tabId, text }));
     } catch {}
-    await cdp(tabId, 'DOM.setFileInputFiles', { files, backendNodeId: chooser.backendNodeId });
+    chooser = await trusted.catch(() => null);
+
+    // Then the same press inside a user gesture, for pages that only react to
+    // their own handlers calling `showPicker()`.
+    if (!chooser) {
+      const gestured = nextFileChooser(tabId);
+      gestured.catch(() => {});
+      await pressWithGesture(tabId, { selector: named, text, frameId: args.frameId }).catch(() => false);
+      chooser = await gestured.catch(() => null);
+    }
+
+    if (!chooser) {
+      // The button may have created an input instead of opening a picker.
+      const late = await fileInputNodes(tabId).catch(() => []);
+      if (!late.length) {
+        throw Object.assign(
+          new Error(
+            'The upload control did not open a file picker. Pass the `text` of a different button on the page, or a `selector` for the file input itself.',
+          ),
+          { code: 'NO_FILE_CHOOSER' },
+        );
+      }
+      await cdp(tabId, 'DOM.setFileInputFiles', { files, backendNodeId: late[0] });
+      await settleAfterAction(tabId);
+      return Object.assign({ uploaded: files, count: files.length, via: 'input' }, await tabSummary(tabId));
+    }
+
+    await answer(chooser);
     await settleAfterAction(tabId);
     return Object.assign({ uploaded: files, count: files.length, via: 'file-chooser' }, await tabSummary(tabId));
   } finally {
