@@ -213,6 +213,7 @@ check('the panel carries the hotkey', /Ctrl<\/kbd><kbd>Alt<\/kbd><kbd>Esc/.test(
 check('the strip over the app is gone', !/sysBanner/.test(html) && !/sysBanner/.test(appSrc));
 check('the chip starts off', /data-state="off"/.test(html));
 check('styles cover the chip and the panel', ['.chip-btn.sys-chip', '.sys-popover'].every((sel) => read('src/renderer/styles.css').includes(sel)));
+check('a painted hover tip carries the way out', /class="sys-tip" id="sysTip"/.test(html) && /\.sys-wrap:hover \.sys-tip/.test(read('src/renderer/styles.css')));
 check(
   'the tooltip is where the way out is written',
   /sysTitleOn: 'เปิดควบคุมเครื่องอยู่[^']*Ctrl\+Alt\+Esc/.test(appSrc) && /sysTitleOn: 'Desktop control is on[^']*Ctrl\+Alt\+Esc/.test(appSrc)
@@ -329,17 +330,27 @@ check(
   check('there is a screenshot tool', /system_screenshot: \{/.test(freepi) && /cmd: 'screenshot'/.test(freepi));
   check('taking a picture is not a guarded act', /system_screenshot: \{[\s\S]{0,400}?write: false/.test(freepi));
   check(
+    'a window handle is offered alongside the shifting index',
+    /window: \{[\s\S]{0,240}?The handle from system_windows/.test(freepi) &&
+      Object.keys(tools.SYSTEM_TOOLS.system_type.parameters.properties).includes('window') &&
+      (tools.SYSTEM_TOOLS.system_type.parameters.required || []).length === 1
+  );
+  check(
+    'a verified keystroke tells the model not to type it again',
+    /do not type it a second time/.test(freepi)
+  );
+  check(
     'an unverified keystroke is labelled, not dressed up as done',
     /NOT VERIFIED/.test(freepi) && /result\.verified === false/.test(freepi)
   );
   check(
     'the prompt says sending a key is not the same as the text appearing',
-    /is not the same sentence as/.test(freepi) && /never type into an index you have not just re-read/.test(freepi)
+    /is not the same sentence as/.test(freepi) && /the handle is the only safe way/.test(freepi)
   );
   check('main photographs the window it owns', /webContents\.capturePage\(\)/.test(main));
   check(
     'another application\'s window goes to the adapter, not to a refusal',
-    /systemAdapter\.screenshot\(\{ app \}\)/.test(main)
+    /systemAdapter\.screenshot\(\{ app, window: args\.window \}\)/.test(main)
   );
   check(
     'Windows draws the window itself and falls back to the screen',

@@ -490,6 +490,8 @@ const STRINGS = {
     approvalNoMemory: 'Asks every time. "Always allow" remembers until you change the switch in the sidebar.',
     sysTitle: 'Desktop control',
     sysTitleOn: 'Desktop control is on — click to stop. Ctrl+Alt+Esc stops it at once.',
+    sysTipOff: 'Desktop control is off. Click to open it.',
+    sysTipOn: 'Desktop control is on — click to stop · Ctrl+Alt+Esc stops it at once',
     sysOff: 'Off',
     sysOn: 'On',
     sysEnable: 'Turn on control',
@@ -1037,6 +1039,8 @@ const STRINGS = {
     approvalNoMemory: 'ถามทุกครั้ง · "อนุมัติเสมอ" จะจำไว้จนกว่าจะเปลี่ยนสวิตช์ในแถบข้าง',
     sysTitle: 'ควบคุมเครื่อง',
     sysTitleOn: 'เปิดควบคุมเครื่องอยู่ — คลิกเพื่อหยุด · หยุดทันที: Ctrl+Alt+Esc',
+    sysTipOff: 'ควบคุมเครื่องปิดอยู่ — คลิกเพื่อเปิด',
+    sysTipOn: 'เปิดควบคุมเครื่องอยู่ — คลิกเพื่อหยุด · หยุดทันที: Ctrl+Alt+Esc',
     sysOff: 'ปิดอยู่',
     sysOn: 'เปิดอยู่',
     sysEnable: 'เปิดใช้งาน',
@@ -10492,6 +10496,9 @@ function applySystemState(state = {}) {
   chip.dataset.state = sysControl.enabled ? 'on' : 'off';
   chip.setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
   chip.title = sysControl.enabled ? t('sysTitleOn') : t('sysTitle');
+  // The painted tip says the same thing as the native one, so an impatient
+  // hover still learns the way out.
+  el('sysTip').textContent = sysControl.enabled ? t('sysTipOn') : t('sysTipOff');
   el('sysState').textContent = sysControl.enabled ? t('sysOn') : t('sysOff');
   el('sysToggleText').textContent = sysControl.enabled ? t('sysDisable') : t('sysEnable');
   el('sysToggle').setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');

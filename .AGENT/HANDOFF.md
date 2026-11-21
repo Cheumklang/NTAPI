@@ -2,6 +2,17 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ 0.6.19: ผูกหน้าต่างด้วย handle + บอกโมเดลว่า "พิมพ์แล้วไม่ต้องพิมพ์ซ้ำ" + hover tip
+> ผลเทสต์ 0.6.18: (1) screenshot ผ่าน **เมื่อใช้โมเดลเก่ง** (NVIDIA บอกขาด System.Drawing — ซึ่งก็แก้ไว้ด้วย) (2) พิมพ์ขึ้นจริงแต่โมเดลคิดว่ายังไม่ได้พิมพ์ → พิมพ์ซ้ำ (3) จึงไปพิมพ์บานแรกซ้ำ ไม่สนบานที่สอง (4) Linux ไทยผ่าน ✅ (5) hover tooltip ไม่ขึ้น ต้องคลิก
+> - **handle**: `uia.ps1` เพิ่ม `-Window` + `Get-Target-Element` (หา element จาก handle จริง ไม่ใช่ลำดับ) · `windows` ส่ง `handle` ต่อหน้าต่าง · `snapshot` คืน `handle`
+>   · `windows.js` มี `windowArgs()` ใช้ `-Window` ถ้ามี ไม่งั้น `-App` · ทุก action (snapshot/focus/keys/type/clickAt/scroll/screenshot) รับ `window` · main.js ส่งต่อ
+>   · tool spec: ทุก tool ที่มี `app` มี `window` เพิ่ม (6 ตัว) + focus/click_at · `required` เหลือเฉพาะข้อมูลจริง (keys/text/x-y) → เรียกด้วย handle เดี่ยวได้
+>   · `formatSystemWindows` พิมพ์ `(window <handle>)` ท้ายบรรทัด
+> - **กันพิมพ์ซ้ำ**: ผลลัพธ์ `type` ที่ verified → "Typed and checked: … The text is on screen — do not type it a second time." · prompt เพิ่ม "ถ้าผลบอกว่าข้อความอยู่บนจอ มันอยู่จริง ห้ามพิมพ์ซ้ำ" + "สองหน้าต่างแอปเดียวกัน ต้องใช้ handle เท่านั้น"
+> - **hover tip**: เพิ่ม `<span class="sys-tip" id="sysTip">` (CSS `.sys-wrap:hover .sys-tip`) ข้อความจาก `sysTipOff`/`sysTipOn` — ไม่พึ่ง native `title` อย่างเดียว (เดิมต้องรอ ~1 วิ)
+> - **System.Drawing**: `Add-Type -TypeDefinition` ไม่มี reference ให้เองบน Windows PowerShell → เพิ่ม `-ReferencedAssemblies System.Drawing` แล้ว fallback `System.Drawing.Common` (PS7) + ข้อความ `NO_SHOT_API` ที่อ่านรู้เรื่อง
+> - เทสต์ 96/96
+>
 > ### 🧪 ค้างในเครื่อง (commit แล้ว ยังไม่ build): 0.6.18 ที่ยังไม่ปล่อย
 > ผู้ใช้ยืนยัน: **Windows + VM พิมพ์ได้จริง** (โมเดลเก่ง) · ปัญหาที่เหลือคือ **โมเดล NVIDIA อ่อน**: บอกว่าพิมพ์แล้วแต่ไปพิมพ์ผิดหน้าต่าง
 > - UI: ลบแบนเนอร์ลอยทั้งก้อน (`#sysBanner` + CSS + JS + i18n) — มันบังปุ่มส่ง/แนบไฟล์ · สถานะอยู่ที่ chip + panel

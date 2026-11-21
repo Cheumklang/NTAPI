@@ -102,10 +102,25 @@ async function windows() {
   return asList(result.windows);
 }
 
-async function snapshot({ app = 0, maxNodes = MAX_NODES } = {}) {
+async function snapshot({ app = 0, maxNodes = MAX_NODES, window = '' } = {}) {
   const requested = Number.isFinite(Number(maxNodes)) ? Math.max(1, Math.min(Number(maxNodes), MAX_NODES)) : MAX_NODES;
-  const result = await run(['snapshot', '-App', String(app), '-Max', String(requested)], { timeoutMs: 30000 });
-  return { app: result.app, appName: result.appName || '', nodes: asList(result.nodes) };
+  const args = ['snapshot', '-Max', String(requested)];
+  const target = windowArgs({ app, window }, 'snapshot');
+  args.push(...target);
+  const result = await run(args, { timeoutMs: 30000 });
+  return { app: result.app, appName: result.appName || '', handle: result.handle, nodes: asList(result.nodes) };
+}
+
+/**
+ * A window is named by its handle when the caller kept one, and by its position
+ * only when it has nothing better: the positions move when windows come and go.
+ */
+function windowArgs({ app, window }, label) {
+  if (window !== undefined && window !== null && String(window).trim() !== '') {
+    return ['-Window', String(window).trim()];
+  }
+  if (!Number.isFinite(Number(app))) throw failure('BAD_ARGS', `${label} needs an app number or a window handle`);
+  return ['-App', String(app)];
 }
 
 async function act({ ref, action = 'click', text = '' } = {}) {
@@ -117,8 +132,8 @@ async function act({ ref, action = 'click', text = '' } = {}) {
 }
 
 /** Bring a window to the front; refuses if Windows would not allow it. */
-async function focus({ app = 0 } = {}) {
-  return run(['focus', '-App', String(app)]);
+async function focus({ app = 0, window = '' } = {}) {
+  return run(['focus', ...windowArgs({ app, window }, 'focus')]);
 }
 
 /**
@@ -132,25 +147,25 @@ async function launch({ target = '' } = {}) {
 }
 
 /** A shortcut such as `ctrl+s`, pressed after the window is in front. */
-async function keys({ app = 0, keys = '' } = {}) {
+async function keys({ app = 0, keys = '', window = '' } = {}) {
   const combo = typeof keys === 'string' ? keys.trim() : '';
   if (!combo) throw failure('BAD_ARGS', 'keys needs a shortcut such as ctrl+s');
-  return run(['keys', '-App', String(app), '-Keys', combo]);
+  return run(['keys', ...windowArgs({ app, window }, 'keys'), '-Keys', combo]);
 }
 
 /** Type text as keystrokes — the only way into a control with no ValuePattern. */
-async function typeText({ app = 0, text = '' } = {}) {
+async function typeText({ app = 0, text = '', window = '' } = {}) {
   if (typeof text !== 'string' || !text) throw failure('BAD_ARGS', 'type needs the text to type');
-  return run(['type', '-App', String(app), '-Text', text], { timeoutMs: 60000 });
+  return run(['type', ...windowArgs({ app, window }, 'type'), '-Text', text], { timeoutMs: 60000 });
 }
 
 /** Click a screen position, which must fall inside the named window. */
-async function clickAt({ app = 0, x, y, button = 'left' } = {}) {
+async function clickAt({ app = 0, x, y, button = 'left', window = '' } = {}) {
   if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
     throw failure('BAD_ARGS', 'clickat needs x and y in screen coordinates');
   }
   const action = button === 'right' ? 'rightclick' : 'click';
-  return run(['clickat', '-App', String(app), '-X', String(Math.round(Number(x))), '-Y', String(Math.round(Number(y))), '-Action', action]);
+  return run(['clickat', ...windowArgs({ app, window }, 'clickat'), '-X', String(Math.round(Number(x))), '-Y', String(Math.round(Number(y))), '-Action', action]);
 }
 
 /**
@@ -158,8 +173,8 @@ async function clickAt({ app = 0, x, y, button = 'left' } = {}) {
  * the temp folder; the file is read and removed here so the caller only ever
  * sees an image.
  */
-async function screenshot({ app = 0 } = {}) {
-  const result = await run(['screenshot', '-App', String(app)], { timeoutMs: 45000 });
+async function screenshot({ app = 0, window = '' } = {}) {
+  const result = await run(['screenshot', ...windowArgs({ app, window }, 'screenshot')], { timeoutMs: 45000 });
   const file = String(result.path || '');
   if (!file) throw failure('SHOT_FAILED', 'the helper returned no picture');
   let data;
@@ -180,9 +195,9 @@ async function screenshot({ app = 0 } = {}) {
 }
 
 /** Wheel over the middle of a window; a negative count scrolls up. */
-async function scroll({ app = 0, notches = 3 } = {}) {
+async function scroll({ app = 0, notches = 3, window = '' } = {}) {
   const count = Number.isFinite(Number(notches)) ? Math.trunc(Number(notches)) : 3;
-  return run(['scroll', '-App', String(app), '-Delta', String(count)]);
+  return run(['scroll', ...windowArgs({ app, window }, 'scroll'), '-Delta', String(count)]);
 }
 
 module.exports = {

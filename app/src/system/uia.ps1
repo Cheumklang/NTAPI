@@ -32,6 +32,7 @@ Run by hand to debug from PowerShell:
 param(
   [Parameter(Position = 0)][string]$Command = '',
   [int]$App = -1,
+  [string]$Window = '',
   [int]$Max = 250,
   [string]$Ref = '',
   [string]$Action = 'click',
@@ -263,11 +264,29 @@ public static class NTAPIShot {
   }
 }
 '@
+$script:ShotError = ''
 try {
   Add-Type -AssemblyName System.Drawing -ErrorAction Stop
-  Add-Type -TypeDefinition $script:ShotSource -ErrorAction Stop
 } catch {
   $script:ShotError = $_.Exception.Message
+}
+if (-not $script:ShotError) {
+  # Windows PowerShell does not reference System.Drawing for a compiled type by
+  # default, which is why the first attempt answered "missing assembly
+  # reference"; PowerShell 7 needs the other name for the same thing.
+  $added = $false
+  foreach ($reference in @('System.Drawing', 'System.Drawing.Common')) {
+    if ($added) { break }
+    try {
+      Add-Type -TypeDefinition $script:ShotSource -ReferencedAssemblies $reference -ErrorAction Stop
+      $added = $true
+    } catch {
+      $script:ShotError = $_.Exception.Message
+    }
+  }
+  if (-not $added -and -not ([System.Management.Automation.PSTypeName] 'NTAPIShot').Type) {
+    $script:ShotError = 'the drawing library could not be compiled: ' + $script:ShotError
+  }
 }
 
 try {
@@ -321,6 +340,24 @@ function Get-Window-Element([int]$index) {
     Stop-With-Error 'STALE_REF' "window $index is gone - ask for the window list again"
   }
   return $children[$index]
+}
+
+# An index is a position in a list that shifts whenever a window opens or
+# closes; a handle is the window itself. Callers that act later pass the handle.
+function Get-Target-Element() {
+  if ($Window -ne '') {
+    $wanted = [IntPtr]::Zero
+    try { $wanted = [IntPtr][int64]$Window } catch { }
+    if ($wanted -ne [IntPtr]::Zero) {
+      foreach ($candidate in (Get-Children $script:Desktop)) {
+        if (-not (Test-Is-Window $candidate)) { continue }
+        if ((Get-Window-Handle $candidate) -eq $wanted) { return $candidate }
+      }
+      Stop-With-Error 'STALE_REF' "window $Window is gone - ask for the window list again"
+    }
+    Stop-With-Error 'BAD_ARGS' "window '$Window' is not a window handle"
+  }
+  return Get-Window-Element $App
 }
 
 function Get-Window-Handle($element) {
@@ -447,6 +484,7 @@ switch ($Command.ToLowerInvariant()) {
           role = $node.role
           class = $node.class
           processId = $node.processId
+          handle = (Get-Window-Handle $children[$i])
           offscreen = $node.offscreen
           bounds = $node.bounds
         })
@@ -456,19 +494,20 @@ switch ($Command.ToLowerInvariant()) {
   }
 
   'snapshot' {
-    if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'snapshot needs --app N' }
+    if ($App -lt 0 -and $Window -eq '') { Stop-With-Error 'BAD_ARGS' 'snapshot needs --app N or --window HANDLE' }
     if ($Max -lt 1) { $Max = 1 }
     if ($Max -gt 250) { $Max = 250 }
     $script:Limit = $Max
+    $target = Get-Target-Element
+    $index = $App
     $children = Get-Children $script:Desktop
-    if ($App -ge $children.Count) {
-      Stop-With-Error 'STALE_REF' "window $App is gone - ask for the window list again"
+    for ($i = 0; $i -lt $children.Count; $i += 1) {
+      if ([object]::ReferenceEquals($children[$i], $target)) { $index = $i; break }
     }
-    $target = $children[$App]
-    Add-Tree $target "$App" 0
+    Add-Tree $target "$index" 0
     $appName = ''
     try { $appName = [string]$target.Current.Name } catch { }
-    Write-Json @{ ok = $true; app = $App; appName = $appName; nodes = @($script:Nodes) }
+    Write-Json @{ ok = $true; app = $index; appName = $appName; handle = (Get-Window-Handle $target); nodes = @($script:Nodes) }
     exit 0
   }
 
@@ -524,7 +563,7 @@ switch ($Command.ToLowerInvariant()) {
 
   'focus' {
     if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'focus needs --app N' }
-    $element = Get-Window-Element $App
+    $element = Get-Target-Element
     [void](Focus-Window $element)
     Write-Json @{ ok = $true; app = $App; appName = (Get-Window-Name $element); did = ('focused ' + (Get-Window-Name $element)) }
     exit 0
@@ -563,7 +602,7 @@ switch ($Command.ToLowerInvariant()) {
   'keys' {
     if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'keys needs --app N' }
     if ($Keys -eq '') { Stop-With-Error 'BAD_ARGS' 'keys needs --keys, for example ctrl+s' }
-    $element = Get-Window-Element $App
+    $element = Get-Target-Element
     [void](Focus-Window $element)
     [void](Focus-Text-Control $element)
     [NTAPIInput]::Reset()
@@ -578,7 +617,7 @@ switch ($Command.ToLowerInvariant()) {
   'type' {
     if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'type needs --app N' }
     if ($Text -eq '') { Stop-With-Error 'BAD_ARGS' 'type needs --text' }
-    $element = Get-Window-Element $App
+    $element = Get-Target-Element
     [void](Focus-Window $element)
     $control = Focus-Text-Control $element
     if ($null -eq $control) {
@@ -644,7 +683,7 @@ switch ($Command.ToLowerInvariant()) {
   'screenshot' {
     if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'screenshot needs --app N' }
     if ($script:ShotError) { Stop-With-Error 'NO_SHOT_API' ("the drawing library is unavailable: " + $script:ShotError) }
-    $element = Get-Window-Element $App
+    $element = Get-Target-Element
     $handle = Get-Window-Handle $element
     if ($handle -eq [IntPtr]::Zero) { Stop-With-Error 'NO_WINDOW_HANDLE' 'this window has no native handle to photograph' }
     $rect = Get-Window-Bounds $element
@@ -666,7 +705,7 @@ switch ($Command.ToLowerInvariant()) {
 
   'clickat' {
     if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'clickat needs --app N' }
-    $element = Get-Window-Element $App
+    $element = Get-Target-Element
     $rect = Get-Window-Bounds $element
     # Screen coordinates, and they must land inside the window: a click aimed at
     # one application is never delivered to whatever else is on screen.
@@ -682,7 +721,7 @@ switch ($Command.ToLowerInvariant()) {
 
   'scroll' {
     if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'scroll needs --app N' }
-    $element = Get-Window-Element $App
+    $element = Get-Target-Element
     $rect = Get-Window-Bounds $element
     [void](Focus-Window $element)
     # The wheel goes to whatever is under the pointer, not to the focused window,

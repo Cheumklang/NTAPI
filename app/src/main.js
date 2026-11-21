@@ -945,7 +945,7 @@ function systemGuard() {
  * report a flicker, which is what this is for. Naming another app answers
  * NOT_CAPTURABLE rather than returning a blank picture.
  */
-async function captureAppWindow({ app } = {}) {
+async function captureAppWindow({ app, window } = {}) {
   const target =
     (win && !win.isDestroyed() && win) ||
     BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
@@ -971,7 +971,7 @@ async function captureAppWindow({ app } = {}) {
     // asks ImageMagick; a desktop that refuses (Wayland) answers with the
     // refusal instead of a blank picture.
     if (typeof systemAdapter.screenshot === 'function') {
-      return await systemAdapter.screenshot({ app });
+      return await systemAdapter.screenshot({ app, window: args.window });
     }
     const err = new Error(
       'Only the NTAPI window can be photographed on this desktop: the compositor refuses screen capture to other programs.'
@@ -1002,7 +1002,7 @@ const systemBridge = {
       return { windows };
     }
     if (cmd === 'snapshot') {
-      const snap = await systemAdapter.snapshot({ app: args.app, maxNodes: args.maxNodes });
+      const snap = await systemAdapter.snapshot({ app: args.app, maxNodes: args.maxNodes, window: args.window });
       systemAudit({ event: 'snapshot', app: snap.app, name: snap.appName, nodes: snap.nodes.length });
       return snap;
     }
@@ -1017,7 +1017,7 @@ const systemBridge = {
       return result;
     }
     if (cmd === 'focus') {
-      const result = await systemAdapter.focus({ app: args.app });
+      const result = await systemAdapter.focus({ app: args.app, window: args.window });
       systemAudit({ event: 'focus', app: args.app, name: result.appName });
       return result;
     }
@@ -1027,25 +1027,25 @@ const systemBridge = {
       return result;
     }
     if (cmd === 'keys') {
-      const result = await systemAdapter.keys({ app: args.app, keys: args.keys });
+      const result = await systemAdapter.keys({ app: args.app, keys: args.keys, window: args.window });
       // The shortcut itself is the record: ctrl+s saves, alt+F4 closes.
       systemAudit({ event: 'keys', app: args.app, keys: args.keys });
       return result;
     }
     if (cmd === 'type') {
-      const result = await systemAdapter.type({ app: args.app, text: args.text });
+      const result = await systemAdapter.type({ app: args.app, text: args.text, window: args.window });
       // Length, not the text: a password typed into a field must not be written
       // into a log that outlives the session.
       systemAudit({ event: 'type', app: args.app, chars: String(args.text || '').length });
       return result;
     }
     if (cmd === 'clickat') {
-      const result = await systemAdapter.clickAt({ app: args.app, x: args.x, y: args.y, button: args.button });
+      const result = await systemAdapter.clickAt({ app: args.app, x: args.x, y: args.y, button: args.button, window: args.window });
       systemAudit({ event: 'clickat', app: args.app, x: args.x, y: args.y, button: args.button || 'left' });
       return result;
     }
     if (cmd === 'scroll') {
-      const result = await systemAdapter.scroll({ app: args.app, notches: args.notches });
+      const result = await systemAdapter.scroll({ app: args.app, notches: args.notches, window: args.window });
       systemAudit({ event: 'scroll', app: args.app, notches: args.notches });
       return result;
     }

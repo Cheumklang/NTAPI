@@ -5162,6 +5162,30 @@ html[lang="th"] .about-name-th {
   font-size: 11px;
   color: var(--muted);
 }
+.sys-wrap { position: relative; }
+.sys-tip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: 250px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #f4e9d6;
+  background: rgba(22, 18, 12, .98);
+  border: 1px solid rgba(245, 181, 68, .42);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, .45);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity .12s ease, transform .12s ease;
+  z-index: 70;
+}
+.sys-wrap:hover .sys-tip,
+.sys-wrap:focus-within .sys-tip { opacity: 1; transform: translateY(0); }
+.sys-wrap:has(#sysChip[aria-expanded="true"]) .sys-tip { opacity: 0; }
 .sys-kbd { display: inline-flex; gap: 3px; }
 .sys-kbd kbd {
   font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;

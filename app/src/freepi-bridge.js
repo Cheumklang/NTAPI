@@ -1245,7 +1245,8 @@ async function createFreePiSession(options) {
             `- A control that publishes no action can still be clicked by position with system_click_at, taking the coordinates from a node's bounds in the snapshot. Never aim at a point you have not seen, and never outside the window — it is refused.\n` +
             `- system_keys presses a shortcut (ctrl+s, alt+f4), and system_launch starts a program, document or url. Every one of these brings the window to the front first and refuses if it did not get there, so nothing is typed into the wrong window.\n` +
             `- A type result carries \`verified\`. When it is false, or the call answers TYPE_NOT_DELIVERED / INPUT_REJECTED, nothing was typed: say exactly that. "I sent the keystrokes" is not the same sentence as "the text is on screen".\n` +
-            `- Window numbers come from the accessibility tree and they shift when a window opens or closes. Call system_windows again before acting on a window you looked up earlier, and never type into an index you have not just re-read.\n` +
+            `- Window numbers come from the accessibility tree and they shift when a window opens or closes. system_windows also prints a window handle: pass it as \`window\` and the call finds that window itself. When two windows of the same application are open, the handle is the only safe way to say which one.\n` +
+            `- If a type result says the text is on screen, it is there. Do not type it again, and do not open a second window to check.\n` +
             `- If a call answers SYSTEM_CONTROL_OFF, stop and ask the user to turn the desktop switch on in the sidebar. Never retry it as if it were a glitch.\n` +
             `- Anything that spends money, deletes, signs in or changes account settings is the user's call: describe what you are about to press and let them decide.\n` +
             `- The user can take the screen back at any moment with Ctrl+Alt+Esc; if a tool starts failing mid-task, that is what happened.`,
@@ -1276,7 +1277,9 @@ async function createFreePiSession(options) {
                     ? formatSystemWindows(result)
                     : typed && unverified
                       ? `NOT VERIFIED: ${result.did || 'the text'} was sent, but the control did not change, so nothing is on screen. Tell the user it did not work; do not say it was typed.`
-                      : `Done: ${result.did || spec.cmd}. Snapshot again before the next action.`;
+                      : typed && result && result.verified === true
+                        ? `Typed and checked: the window now holds ${result.afterLen} characters (was ${result.beforeLen}). The text is on screen — do not type it a second time.`
+                        : `Done: ${result.did || spec.cmd}. Snapshot again before the next action.`;
               return { content: [{ type: 'text', text }], details: { ok: true } };
             } catch (err) {
               return {
@@ -2395,6 +2398,11 @@ const SYSTEM_TOOLS = {
       type: 'object',
       properties: {
         app: { type: 'number', description: 'Application number from system_windows (default 0).' },
+        window: {
+          type: 'string',
+          description:
+            'The handle from system_windows. Prefer it over app when you will come back to this window: app numbers shift whenever a window opens or closes, and the wrong number types into the wrong application.',
+        },
         maxNodes: { type: 'number', description: 'How many elements to return (default 250).' },
       },
       additionalProperties: false,
@@ -2409,6 +2417,11 @@ const SYSTEM_TOOLS = {
       type: 'object',
       properties: {
         app: { type: 'number', description: 'The app number from system_windows, if you are checking that it is this one.' },
+        window: {
+          type: 'string',
+          description:
+            'The handle from system_windows. Prefer it over app when you will come back to this window: app numbers shift whenever a window opens or closes, and the wrong number types into the wrong application.',
+        },
       },
       additionalProperties: false,
     },
@@ -2420,8 +2433,14 @@ const SYSTEM_TOOLS = {
       'Bring one window from system_windows to the front. system_keys, system_type and system_click_at do this for you; call it on its own only to look at a window before snapshotting it.',
     parameters: {
       type: 'object',
-      properties: { app: { type: 'number', description: 'The app number from system_windows.' } },
-      required: ['app'],
+      properties: {
+        app: { type: 'number', description: 'The app number from system_windows.' },
+        window: {
+          type: 'string',
+          description:
+            'The handle from system_windows. Prefer it over app when you will come back to this window: app numbers shift whenever a window opens or closes.',
+        },
+      },
       additionalProperties: false,
     },
   },
@@ -2446,9 +2465,14 @@ const SYSTEM_TOOLS = {
       type: 'object',
       properties: {
         app: { type: 'number', description: 'The app number from system_windows.' },
+        window: {
+          type: 'string',
+          description:
+            'The handle from system_windows. Prefer it over app when you will come back to this window: app numbers shift whenever a window opens or closes, and the wrong number types into the wrong application.',
+        },
         keys: { type: 'string', description: 'A combination such as ctrl+s, or a single key such as enter.' },
       },
-      required: ['app', 'keys'],
+      required: ['keys'],
       additionalProperties: false,
     },
   },
@@ -2461,9 +2485,14 @@ const SYSTEM_TOOLS = {
       type: 'object',
       properties: {
         app: { type: 'number', description: 'The app number from system_windows.' },
+        window: {
+          type: 'string',
+          description:
+            'The handle from system_windows. Prefer it over app when you will come back to this window: app numbers shift whenever a window opens or closes, and the wrong number types into the wrong application.',
+        },
         text: { type: 'string', description: 'The text to type.' },
       },
-      required: ['app', 'text'],
+      required: ['text'],
       additionalProperties: false,
     },
   },
@@ -2476,11 +2505,16 @@ const SYSTEM_TOOLS = {
       type: 'object',
       properties: {
         app: { type: 'number', description: 'The app number from system_windows.' },
+        window: {
+          type: 'string',
+          description:
+            'The handle from system_windows. Prefer it over app when you will come back to this window: app numbers shift whenever a window opens or closes, and the wrong number types into the wrong application.',
+        },
         x: { type: 'number', description: 'Screen x, as snapshot bounds report it.' },
         y: { type: 'number', description: 'Screen y, as snapshot bounds report it.' },
         button: { type: 'string', enum: ['left', 'right'] },
       },
-      required: ['app', 'x', 'y'],
+      required: ['x', 'y'],
       additionalProperties: false,
     },
   },
@@ -2493,9 +2527,13 @@ const SYSTEM_TOOLS = {
       type: 'object',
       properties: {
         app: { type: 'number', description: 'The app number from system_windows.' },
+        window: {
+          type: 'string',
+          description:
+            'The handle from system_windows. Prefer it over app when you will come back to this window: app numbers shift whenever a window opens or closes, and the wrong number types into the wrong application.',
+        },
         notches: { type: 'number', description: 'How many wheel notches (default 3).' },
       },
-      required: ['app'],
       additionalProperties: false,
     },
   },
@@ -2577,7 +2615,12 @@ function formatSystemSnapshot(result) {
 function formatSystemWindows(result) {
   const windows = (result && result.windows) || [];
   if (!windows.length) return 'No windows are open.';
-  return windows.map((win) => `${win.app} · ${win.appName || 'app'} — ${win.title || '(untitled)'}`).join('\n');
+  return windows
+    .map((win) => {
+      const handle = win.handle !== undefined && win.handle !== null && String(win.handle) !== '0' ? ` (window ${win.handle})` : '';
+      return `${win.app} · ${win.appName || 'app'} — ${win.title || '(untitled)'}${handle}`;
+    })
+    .join('\n');
 }
 
 /**

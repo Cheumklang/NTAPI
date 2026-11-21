@@ -105,6 +105,12 @@
               </svg>
               <span class="sys-dot" aria-hidden="true"></span>
             </button>
+            <!--
+              The same sentence as the native tooltip, but painted: a hover tip
+              that never appears for one second of hesitation is not a tooltip,
+              and this one carries the way out (Ctrl+Alt+Esc).
+            -->
+            <span class="sys-tip" id="sysTip" role="tooltip" aria-hidden="true"></span>
 
             <div class="sys-popover" id="sysPopover" role="dialog" aria-labelledby="sysLabel" hidden>
               <div class="sys-head">

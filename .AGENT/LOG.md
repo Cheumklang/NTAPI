@@ -3432,3 +3432,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 ## 2026-11-21 — ค้างก่อน build: banner ออก, screenshot หน้าต่างอื่น, NOT VERIFIED
 - ผู้ใช้ยืนยัน Windows/VM พิมพ์ได้ · ปัญหา = โมเดลอ่อนไม่ยอมรับว่าพลาด
 - ลบ sysBanner · uia.ps1 screenshot (PrintWindow→screen) · linux import/NOT_CAPTURABLE · NOT VERIFIED label + prompt
+
+## 2026-11-21 — 0.6.19
+- handle-based window targeting (ps1 -Window + Get-Target-Element, windows/snapshot คืน handle, windows.js windowArgs, tool specs + window)
+- type verified → "do not type it a second time" + prompt 2 ข้อ
+- hover tip แบบ CSS (sysTip) · System.Drawing ReferencedAssemblies
