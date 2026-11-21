@@ -225,6 +225,10 @@ check(
   /const named = pendingImages\.length === 0 \? findSlashCommand\(text\) : null;/.test(appSrc)
 );
 check(
+  'the hover tip follows a language switch',
+  /function paintSysTip/.test(appSrc) && /if \(typeof paintSysTip === 'function'\) paintSysTip\(\);/.test(appSrc)
+);
+check(
   'a painted hover tip carries the way out',
   /class="sys-tip" id="sysTip"/.test(html) && /sysTipOn: '[^']*Ctrl\+Alt\+Esc/.test(appSrc) && /showSysTip\(true\)/.test(appSrc)
 );

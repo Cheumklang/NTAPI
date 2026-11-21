@@ -3440,3 +3440,6 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 
 ## 2026-11-21 — 0.6.20
 - tooltip fixed + z-index 400 (placeSysTip) · /compact ใน submit() · foreground-window default + SELF_WINDOW guard + -Self
+
+## 2026-11-21 — 0.6.21
+- paintSysTip() + เรียกใน applyLanguage() — tooltip ตามภาษา

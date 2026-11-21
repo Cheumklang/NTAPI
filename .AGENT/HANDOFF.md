@@ -2,6 +2,12 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ 0.6.21: tooltip ภาษาไทย
+> ผลเทสต์ 0.6.20: (1) tooltip ขึ้นแล้ว ✅ แต่ตอนแอปเป็นภาษาไทยยังขึ้นภาษาอังกฤษ (2) `/compact` ผ่าน ✅ (3)(4) คุยกันก่อน
+> - สาเหตุ: ข้อความ tooltip เขียนจาก state ไม่ได้มาจาก `data-i18n` → `applyLanguage()` ไม่แตะ ⇒ ค้างภาษาตอนวาดครั้งแรก
+> - แก้: แยกเป็น `paintSysTip()` แล้วเรียกใน `applySystemState()` **และ** ใน `applyLanguage()` (ที่จุดเดียวกับ tooltip อื่นที่วาดด้วย JS)
+> - เทสต์ +1 → 96/96
+>
 > ### ✅ 0.6.20: hover tip ลอยเหนือทุกอย่าง + `/compact` ที่พิมพ์แล้วไม่ทำงาน + ใช้ "หน้าต่างที่โฟกัส" เป็นค่าเริ่มต้น
 > ผลเทสต์ 0.6.19: (1) tooltip ขึ้นแต่ **ถูกหน้าจอโปรแกรมบัง** และอยากให้หน้าตาเหมือน popover การอนุมัติเครื่องมือ (2) 2 Notepad ผ่าน ✅ (3)+(4) โมเดล NVIDIA หาหน้าต่างไม่เจอ → เปิด Notepad/Calculator ซ้ำ 2-3 รอบ แล้วสรุปผิดว่า "ถ่ายได้เฉพาะหน้าต่าง NTAPI" (พิมพ์ข้อความเดิม 2 รอบ) (5) /compact พิมพ์แล้วเงียบ
 > - **tooltip**: เปลี่ยนจาก absolute ใน sidebar (โดน stacking context ของ sidebar บัง) → `position: fixed; z-index: 400` + JS `placeSysTip()` คำนวณจาก `getBoundingClientRect()` ของปุ่ม (เปิดด้วย `mouseenter`/`focusin`, ปิดตอน scroll) · หน้าตาใช้ `--surface-2`/`--line-2`/`--radius` = ชุดเดียวกับ `.approval-popover`

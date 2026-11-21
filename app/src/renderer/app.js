@@ -1278,6 +1278,10 @@ function applyLanguage() {
     if (typeof paintTokenUsage === 'function') paintTokenUsage();
     if (typeof paintProviderMeter === 'function') paintProviderMeter(activeView());
   }
+  /* The desktop-control tooltip is painted from the control state, not from a
+   * data-i18n attribute, so it kept whichever language it was drawn in: switching
+   * to Thai left an English sentence under the pointer. */
+  if (typeof paintSysTip === 'function') paintSysTip();
   /* Two tooltips are written in JS rather than marked up (the approval chip and
    * its three positions), so they are repainted here as well. */
   if (typeof applyApprovalMode === 'function' && typeof currentApprovalPolicy === 'function') {
@@ -10508,9 +10512,7 @@ function applySystemState(state = {}) {
   chip.dataset.state = sysControl.enabled ? 'on' : 'off';
   chip.setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
   chip.title = sysControl.enabled ? t('sysTitleOn') : t('sysTitle');
-  // The painted tip says the same thing as the native one, so an impatient
-  // hover still learns the way out.
-  el('sysTip').textContent = sysControl.enabled ? t('sysTipOn') : t('sysTipOff');
+  paintSysTip();
   el('sysState').textContent = sysControl.enabled ? t('sysOn') : t('sysOff');
   el('sysToggleText').textContent = sysControl.enabled ? t('sysDisable') : t('sysEnable');
   el('sysToggle').setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
@@ -10529,6 +10531,18 @@ async function setSystemControl(enabled) {
   if (res && res.state) applySystemState(res.state);
   if (res && res.error) showNotice(res.error);
   return res;
+}
+
+/**
+ * The painted hover tip says the same thing as the native one, so an impatient
+ * hover still learns the way out. It is written here rather than marked with
+ * data-i18n because its sentence follows the control state, which means the
+ * language switch has to repaint it too.
+ */
+function paintSysTip() {
+  const tip = el('sysTip');
+  if (!tip) return;
+  tip.textContent = sysControl.enabled ? t('sysTipOn') : t('sysTipOff');
 }
 
 /*
