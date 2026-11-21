@@ -22,8 +22,8 @@ v0.3.0's browser control cannot deliver it for two reasons:
    single state-changing step stops for an approval dialog — a 40-step flow means
    40 interruptions.
 
-The user's words: *"อยากให้ทําได้แบบ opencode... เขาทําจนเสร็จ ads google ทํางานได้เลย
-มีแค่บางขั้นตอนที่เขาทําไม่ได้ เขาก็จะมาบอกวิธีทําให้ผมทําแทนจนเสร็จแล้วไปขั้นตอนต่อไป"*
+The user's words: *"อยากให้ทำได้แบบ opencode... เขาทำจนเสร็จ ads google ทำงานได้เลย
+มีแค่บางขั้นตอนที่เขาทำไม่ได้ เขาก็จะมาบอกวิธีทำให้ผมทำแทนจนเสร็จแล้วไปขั้นตอนต่อไป"*
 
 ## Decisions already made with the user
 
@@ -116,7 +116,7 @@ Metadata only — never page content. Two ways a tab gets claimed:
    `{ event: 'claim', tabId, url }` for the tab it was opened over.
 2. **The agent**, via a new guarded tool `browser_claim` — it asks to work in a
    tab, and the existing approval dialog shows the title + domain. This is how
-   *"ขอทํางานในแท็บนี้"* reaches the user.
+   *"ขอทำงานในแท็บนี้"* reaches the user.
 
 Claim state lives in the **main process** (`browserBridge` claims map) and is
 mirrored to `prefs.browserBridge.claim = { tabId, url, title, claimedAt }` so a
@@ -202,7 +202,7 @@ Because there is no browser pane, transparency has to come from the app:
 - While on: browser write tools aimed at the **claimed tab** skip the approval
   dialog. `bash`/`edit`/`write` and `browser_eval` still ask, always.
 - A fixed **always-ask list** stays outside autopilot: any action whose target
-  label matches a small regex (`pay|purchase|delete|remove account|ยืนยันการชําระ|ลบบัญชี`).
+  label matches a small regex (`pay|purchase|delete|remove account|ยืนยันการชำระ|ลบบัญชี`).
   *Mechanism:* the tool call carries only a ref, so main keeps a
   `tabId -> (ref -> {role, name})` map built from the last `browser_snapshot`
   result (results already flow through `browserBridge.call`, so main can cache
@@ -239,7 +239,7 @@ confused:
 
 | Control | Scope | Lifetime |
 |---|---|---|
-| *"จํา tool นี้ไว้"* (`approval:respond {rememberAll}` → `allowedTools`) | one tool name, e.g. `browser_click` | until app restart / reset |
+| *"จำ tool นี้ไว้"* (`approval:respond {rememberAll}` → `allowedTools`) | one tool name, e.g. `browser_click` | until app restart / reset |
 | *"ไม่ถามแล้ว"* (`allowEverything`) | **every** tool, including `bash`/`edit`/`write` | until app restart / reset |
 | **Autopilot** (new) | browser writes on **the claimed tab** | auto-expires (see above) |
 

@@ -166,7 +166,7 @@ State-changing (prompt): `browser_open`, `browser_goto`, `browser_click`,
   2. "คัดลอก chrome://extensions" → clipboard.
   3. The 6-digit pairing code.
   4. Steps: Developer mode → Load unpacked → pick the folder → paste the code.
-- When connected, the dialog instead offers "ดูสิ่งที่ AI ทํา" (focus the NTAPI
+- When connected, the dialog instead offers "ดูสิ่งที่ AI ทำ" (focus the NTAPI
   browser window) and "ตัดการเชื่อมต่อ".
 - Turning the chip off stops the server, asks the extension to detach, and makes
   the tools return the disabled error. Tool registration is static (pi has no

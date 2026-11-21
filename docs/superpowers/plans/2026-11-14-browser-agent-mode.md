@@ -587,7 +587,7 @@ Suggested message: `feat: แผงเลือกแท็บ แถบกิ�
 
 - [ ] **Step 1: Add the button and its handler**
 
-`chrome.tabs.query({ active: true, currentWindow: true })` → send `{ type: 'claim-here', tabId }` → show `ใช้แท็บนี้แล้ว — AI จะทํางานในแท็บนี้` or the app's refusal.
+`chrome.tabs.query({ active: true, currentWindow: true })` → send `{ type: 'claim-here', tabId }` → show `ใช้แท็บนี้แล้ว — AI จะทำงานในแท็บนี้` or the app's refusal.
 
 - [ ] **Step 2: Verify by hand**
 
@@ -622,7 +622,7 @@ Pair → claim a real tab on a page with an iframe → `browser_snapshot` shows 
 
 - [ ] **Step 4: Update the memory files**
 
-`.AGENT/HANDOFF.md`: move this work into "กําลังทํา/ค้าง", note what shipped and what is deferred (console/network, file upload, multiple claims), and set the date. Append one dated section to `.AGENT/LOG.md` with the files touched, the test result, and the commit hash once the user has committed.
+`.AGENT/HANDOFF.md`: move this work into "กำลังทำ/ค้าง", note what shipped and what is deferred (console/network, file upload, multiple claims), and set the date. Append one dated section to `.AGENT/LOG.md` with the files touched, the test result, and the commit hash once the user has committed.
 
 - [ ] **Step 5: Ask the user about the version**
 

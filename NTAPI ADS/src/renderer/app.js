@@ -74,7 +74,7 @@ const REASONS = {
   'video-too-big': `วิดีโอใหญ่เกิน ${bytesLabel(LIMITS.maxVideoBytes)}`,
   'video-too-long': `วิดีโอยาวเกิน ${LIMITS.maxVideoSeconds} วินาที`,
   'video-unreadable': 'เปิดวิดีโอไม่ได้',
-  'poster-too-big': 'ภาพปกวิดีโอใหญ่เกินกําหนด',
+  'poster-too-big': 'ภาพปกวิดีโอใหญ่เกินกำหนด',
 };
 
 function reasonText(reason) {
@@ -351,7 +351,7 @@ function afterIngest(slot, statusText, statusKind, detail) {
 }
 
 async function takeFile(slot, file) {
-  setStatus('busy', 'กําลังอ่านไฟล์...', file.name);
+  setStatus('busy', 'กำลังอ่านไฟล์...', file.name);
   try {
     const base64 = await fileToBase64(file);
     // A dropped file has no path we may trust, so the bytes travel with the slot
@@ -366,10 +366,10 @@ async function takeFile(slot, file) {
 }
 
 async function takeUrl(slot, url) {
-  setStatus('busy', 'กําลังดาวน์โหลด...', url);
+  setStatus('busy', 'กำลังดาวน์โหลด...', url);
   try {
     const res = await api.fetchMedia(url);
-    if (!res || !res.ok) throw new Error((res && res.error) || 'ดาวน์โหลดไม่สําเร็จ');
+    if (!res || !res.ok) throw new Error((res && res.error) || 'ดาวน์โหลดไม่สำเร็จ');
     await ingest(slot, { name: res.name, base64: res.base64 });
     afterIngest(slot, 'พร้อมเผยแพร่', 'ok', slot.media.note);
   } catch (err) {
@@ -380,14 +380,14 @@ async function takeUrl(slot, url) {
 }
 
 async function pickFile(slot) {
-  setStatus('busy', 'กําลังเปิดไฟล์...');
+  setStatus('busy', 'กำลังเปิดไฟล์...');
   const res = await api.pickMedia();
   if (!res || !res.ok) {
-    if (!(res && res.canceled)) setStatus('bad', 'เลือกไฟล์ไม่สําเร็จ', res && res.error);
+    if (!(res && res.canceled)) setStatus('bad', 'เลือกไฟล์ไม่สำเร็จ', res && res.error);
     else setStatus('', 'พร้อม');
     return;
   }
-  setStatus('busy', 'กําลังประมวลผล...', res.name);
+  setStatus('busy', 'กำลังประมวลผล...', res.name);
   try {
     await ingest(slot, { name: res.name, base64: res.base64, path: res.path });
     afterIngest(slot, 'พร้อมเผยแพร่', 'ok', slot.media.note);
@@ -414,7 +414,7 @@ async function applyRatio(slot, ratio) {
     paintPreview();
     return;
   }
-  setStatus('busy', 'กําลังครอปใหม่...', slot.media.ratio);
+  setStatus('busy', 'กำลังครอปใหม่...', slot.media.ratio);
   try {
     if (slot.media.type === 'video') {
       await ingestVideo(slot, slot.media.sourceName, slot.media.sourceBase64, slot.media.sourcePath);
@@ -425,7 +425,7 @@ async function applyRatio(slot, ratio) {
   } catch (err) {
     slot.media.note = err instanceof Error ? err.message : String(err);
     slot.media.noteKind = 'bad';
-    afterIngest(slot, 'ครอปใหม่ไม่สําเร็จ', 'bad', slot.media.note);
+    afterIngest(slot, 'ครอปใหม่ไม่สำเร็จ', 'bad', slot.media.note);
   }
 }
 
@@ -947,7 +947,7 @@ async function saveConfig() {
 
 async function checkRepo() {
   const out = $('repoCheck');
-  out.textContent = 'กําลังตรวจ...';
+  out.textContent = 'กำลังตรวจ...';
   out.className = 'check-result';
   const res = await api.repoCheck();
   if (!res.ok) {
@@ -967,7 +967,7 @@ async function checkRepo() {
 }
 
 async function loadFeed() {
-  setStatus('busy', 'กําลังโหลดจาก repo...');
+  setStatus('busy', 'กำลังโหลดจาก repo...');
   const res = await api.feedLoad();
   if (!res.ok) {
     setStatus('bad', 'โหลดไม่ได้', res.error);
@@ -1038,11 +1038,11 @@ async function publish() {
 
   state.busy = true;
   $('btnPublish').disabled = true;
-  setStatus('busy', 'กําลังอัปโหลด...', 'อย่าปิดหน้าต่างนี้');
+  setStatus('busy', 'กำลังอัปโหลด...', 'อย่าปิดหน้าต่างนี้');
   try {
     const res = await api.publish(payload);
     if (!res.ok) {
-      setStatus('bad', 'อัปโหลดไม่สําเร็จ', `${res.error}${res.done && res.done.length ? ` (สําเร็จ ${res.done.length} ไฟล์)` : ''}`);
+      setStatus('bad', 'อัปโหลดไม่สำเร็จ', `${res.error}${res.done && res.done.length ? ` (สำเร็จ ${res.done.length} ไฟล์)` : ''}`);
       return;
     }
     setStatus('ok', `เผยแพร่แล้ว ${res.slots} ใบ`, `NTAPI จะเห็นภายในไม่กี่นาที · ${res.done.join(', ')}`);
@@ -1050,7 +1050,7 @@ async function publish() {
     // point at the CDN copy instead of the bytes in this window's memory.
     await loadFeed();
   } catch (err) {
-    setStatus('bad', 'อัปโหลดไม่สําเร็จ', err instanceof Error ? err.message : String(err));
+    setStatus('bad', 'อัปโหลดไม่สำเร็จ', err instanceof Error ? err.message : String(err));
   } finally {
     state.busy = false;
     $('btnPublish').disabled = false;

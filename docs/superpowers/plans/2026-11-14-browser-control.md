@@ -426,7 +426,7 @@ Add `browserTitle`, `browserOff`, `browserWaiting`, `browserConnected`, `browser
 
 - [ ] **Step 5: Manual verification**
 
-Open the app: chip shows grey. Click → dialog with folder button, code, steps. Load the extension, pair, chip turns green. Click `ดูสิ่งที่ AI ทํา` → Chrome window focuses. Click the chip again → grey and `browserStatus().connected` false.
+Open the app: chip shows grey. Click → dialog with folder button, code, steps. Load the extension, pair, chip turns green. Click `ดูสิ่งที่ AI ทำ` → Chrome window focuses. Click the chip again → grey and `browserStatus().connected` false.
 
 - [ ] **Step 6: Commit**
 
