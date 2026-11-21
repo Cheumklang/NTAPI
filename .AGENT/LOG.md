@@ -3401,3 +3401,6 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - upload: `DOM.getDocument(pierce)` หา input ใน shadow root/iframe → setFileInputFiles(backendNodeId) ไม่ต้องมี gesture
 - picker path: trusted click (buttons:1) → ถ้าไม่เปิด ใช้ `Runtime.evaluate({userGesture:true})` กดแทน
 - app: spec ห้ามขอให้ผู้ใช้กดเอง · extension 0.3.1 · เทสต์ 96/96
+
+## 2026-11-21 (ต่อ) — โชว์เวอร์ชัน extension ที่โหลดจริง
+- hello ส่ง extensionVersion · browser-bridge เก็บใน status · Browser card แสดง "ส่วนขยาย vX.Y.Z"

@@ -2,6 +2,13 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ เพิ่ม — Browser card โชว์เวอร์ชันส่วนขยายที่ Chrome โหลดจริง (0.6.11)
+> - ปัญหา: อัปเดตแอปแล้วแต่ Chrome ยังรัน extension เก่า (ไม่ได้กด reload) → แก้แล้วก็ดูเหมือนไม่แก้
+> - extension ส่ง `extensionVersion` (จาก `chrome.runtime.getManifest().version`) มาใน hello → `browser-bridge.js`
+>   เก็บไว้ใน `status().extensionVersion` (ล้างเมื่อ disconnect) → `renderBrowserDialog()` แสดงท้ายบรรทัดสถานะ
+> - แก้ข้อความอังกฤษเดิม "NTAPI browser window" → "your Chrome" (แอปไม่มีหน้าต่างเบราว์เซอร์ของตัวเอง)
+> - เทสต์ +2 (รายงานเวอร์ชันที่โหลด, ล้างเมื่อ disconnect) → 96/96
+>
 > ### ✅ ต่อเนื่อง — อัปโหลดรอบ 2: หา input ใน shadow DOM + คลิกด้วย user gesture (0.6.10)
 > - ผู้ใช้รายงานว่า 0.6.9 ยังไม่ผ่าน และโมเดลในแอปสรุปว่า "ต้องให้ผู้ใช้กดปุ่มเองเพราะ synthetic click ไม่มี user activation"
 > - แก้: `uploadFiles()` หา `input[type=file]` ด้วย `DOM.getDocument({depth:-1, pierce:true})` → เดิน `children` + `shadowRoots` +

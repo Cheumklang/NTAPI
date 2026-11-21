@@ -83,7 +83,8 @@ const STRINGS = {
     browserTitle: 'Browser control',
     browserOff: 'Browser control is off. The agent cannot use your browser.',
     browserWaiting: 'Waiting for the Chrome extension to connect…',
-    browserConnected: 'Connected. The agent can drive the NTAPI browser window.',
+    browserConnected: 'Connected. The agent can drive your Chrome.',
+    browserExtensionVersion: 'extension',
     browserInstallTitle: 'One-time setup',
     browserInstallSteps: '1. Open the extension folder\n2. In Chrome: chrome://extensions -> Developer mode -> Load unpacked -> pick that folder\n3. Open the extension popup and paste the pairing code below',
     browserOpenFolder: 'Open folder',
@@ -635,7 +636,8 @@ const STRINGS = {
     browserTitle: 'ควบคุมเบราว์เซอร์',
     browserOff: 'ยังปิดอยู่ — AI จะใช้เบราว์เซอร์ของคุณไม่ได้',
     browserWaiting: 'รอส่วนขยาย Chrome เชื่อมต่อ…',
-    browserConnected: 'เชื่อมต่อแล้ว — AI ขับหน้าต่างเบราว์เซอร์ของ NTAPI ได้',
+    browserConnected: 'เชื่อมต่อแล้ว — AI ขับ Chrome ของคุณได้',
+    browserExtensionVersion: 'ส่วนขยาย',
     browserInstallTitle: 'ติดตั้งครั้งเดียว',
     browserInstallSteps: '1. เปิดโฟลเดอร์ส่วนขยาย\n2. ใน Chrome ไปที่ chrome://extensions -> เปิด Developer mode -> Load unpacked -> เลือกโฟลเดอร์นั้น\n3. เปิด popup ของส่วนขยาย แล้ววางรหัสจับคู่ด้านล่าง',
     browserOpenFolder: 'เปิดโฟลเดอร์',
@@ -9311,9 +9313,13 @@ function renderAutopilot() {
 function renderBrowserDialog() {
   const line = el('browserStatusLine');
   if (line) {
-    line.textContent = t(
+    const base = t(
       !browserState.enabled ? 'browserOff' : browserState.connected ? 'browserConnected' : 'browserWaiting'
     );
+    const version = browserState.extensionVersion
+      ? ` · ${t('browserExtensionVersion')} ${browserState.extensionVersion}`
+      : '';
+    line.textContent = base + version;
   }
   const code = el('browserCode');
   if (code) code.textContent = browserState.code || '------';

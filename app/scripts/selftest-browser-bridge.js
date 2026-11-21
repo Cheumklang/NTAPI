@@ -58,8 +58,8 @@ async function open(url, origin) {
   return ws;
 }
 
-async function hello(ws, token) {
-  ws.send(JSON.stringify({ type: 'hello', token, version: 1 }));
+async function hello(ws, token, extensionVersion) {
+  ws.send(JSON.stringify({ type: 'hello', token, version: 1, extensionVersion }));
   return new Promise((res) => ws.once('message', (d) => res(JSON.parse(d.toString()))));
 }
 
@@ -103,12 +103,16 @@ async function main() {
 
   // Right token.
   const w2 = await open(`ws://127.0.0.1:${port}`, 'chrome-extension://testext');
-  const r2 = await hello(w2, '123456');
+  const r2 = await hello(w2, '123456', '0.3.1');
   check('right token accepted', r2.ok === true);
   check('status connected', bridge.status().connected === true);
+  // Which build Chrome is running cannot be guessed from the app's own files:
+  // an app update leaves the old extension loaded until it is reloaded.
+  check('the loaded extension version is reported', bridge.status().extensionVersion === '0.3.1', bridge.status().extensionVersion);
   w2.close();
   await delay(60);
   check('disconnect clears status', bridge.status().connected === false);
+  check('and forgets the version with it', bridge.status().extensionVersion === '');
 
   // Request/response round trip with a fake extension.
   const w3 = await open(`ws://127.0.0.1:${port}`, 'chrome-extension://testext');

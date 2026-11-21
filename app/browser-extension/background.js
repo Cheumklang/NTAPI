@@ -87,7 +87,13 @@ async function connect() {
 
   ws.onopen = () => {
     connecting = false;
-    ws.send(JSON.stringify({ type: 'hello', token, version: 1 }));
+    // `extensionVersion` is the manifest version Chrome actually loaded — the
+    // only way to tell "app updated, extension never reloaded" from outside.
+    let extensionVersion = '';
+    try {
+      extensionVersion = chrome.runtime.getManifest().version;
+    } catch {}
+    ws.send(JSON.stringify({ type: 'hello', token, version: 1, extensionVersion }));
   };
 
   ws.onmessage = (event) => {

@@ -151,6 +151,7 @@ function createBrowserBridge(options = {}) {
   let server = null;
   let socket = null;
   let connected = false;
+  let extensionVersion = '';
   let seq = 0;
   let actualPort = port;
   const pending = new Map();
@@ -161,7 +162,15 @@ function createBrowserBridge(options = {}) {
   const extensionEventListeners = new Set();
 
   function status() {
-    return { enabled: Boolean(server), connected, port: actualPort, paired: Boolean(token) };
+    return {
+      enabled: Boolean(server),
+      connected,
+      port: actualPort,
+      paired: Boolean(token),
+      // Which extension Chrome is actually running: "the app was updated but
+      // the extension was never reloaded" is invisible without this.
+      extensionVersion: connected ? extensionVersion : '',
+    };
   }
 
   function emit() {
@@ -338,6 +347,7 @@ function createBrowserBridge(options = {}) {
         paired = true;
         socket = ws;
         connected = true;
+        extensionVersion = typeof msg.extensionVersion === 'string' ? msg.extensionVersion : '';
         ws.send(JSON.stringify({ type: 'hello', ok: true, extensionId }));
         emit();
         return;
