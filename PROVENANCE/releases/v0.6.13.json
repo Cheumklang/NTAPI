@@ -1,0 +1,22 @@
+{
+  "version": "0.6.13",
+  "tag": "v0.6.13",
+  "recordedAt": "2026-11-21T15:52:47.694Z",
+  "git": {
+    "head": "ca170c4df06915fa71b65b3c14e8a8ada16ebe7a",
+    "branch": "master",
+    "tree": "21854fb74fa8d2c783b679f8ae6c4f686454f815",
+    "subject": "chore(release): 0.6.13 — Linux gets the input it can have",
+    "authorDate": "2026-11-21T22:49:16+07:00",
+    "commitCount": 437
+  },
+  "ci": "",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.13.exe",
+      "size": null,
+      "sha256": null
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.13"
+}
