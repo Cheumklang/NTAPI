@@ -91,11 +91,24 @@ function sameSite(urlA, urlB) {
  */
 const MAX_CLAIMS = 8;
 
+/**
+ * Tabs the agent opened for itself, at most this many remembered.
+ *
+ * "Go and check example.com" must not mean "hand me a tab first": a site the
+ * user never opened is unreachable unless the agent may open it. The tab it
+ * opened is its own — it created it, it knows the page — so it may work in it
+ * without a hand-over. What that must never become is permission to read the
+ * user's own tabs: those are still granted one at a time, by the user.
+ */
+const MAX_OWNED = 8;
+
 function createClaims(options = {}) {
   const now = typeof options.now === 'function' ? options.now : Date.now;
   /** tabId -> claim. Insertion-ordered so the browser card lists them by arrival. */
   const byTab = new Map();
   let lastTabId = null;
+  /** tabId -> tab the agent opened itself (never a hand-over). */
+  const ownedTabs = new Map();
 
   function build({ tabId, url, title } = {}) {
     if (!Number.isInteger(tabId)) {
@@ -166,6 +179,51 @@ function createClaims(options = {}) {
   }
 
   /**
+   * Remember a tab the agent opened. Re-opening the same tab refreshes it and
+   * moves it to the end, so "the tab I am working in" stays the newest one.
+   * Past `MAX_OWNED` the oldest is forgotten — it is a memory limit, not a
+   * permission: the tab itself is still open in Chrome.
+   */
+  function own({ tabId, url, title } = {}) {
+    if (!Number.isInteger(tabId)) return null;
+    ownedTabs.delete(tabId);
+    ownedTabs.set(tabId, {
+      tabId,
+      url: String(url || ''),
+      title: String(title || ''),
+      ownedAt: now(),
+    });
+    while (ownedTabs.size > MAX_OWNED) {
+      const oldest = ownedTabs.keys().next().value;
+      ownedTabs.delete(oldest);
+    }
+    return ownedTabs.get(tabId);
+  }
+
+  function disown(tabId) {
+    if (!Number.isInteger(tabId)) return;
+    ownedTabs.delete(tabId);
+  }
+
+  function isOwned(tabId) {
+    return Number.isInteger(tabId) && ownedTabs.has(tabId);
+  }
+
+  function owned(tabId) {
+    return isOwned(tabId) ? ownedTabs.get(tabId) : null;
+  }
+
+  /** The tab the agent opened last, or null — the default when nothing is claimed. */
+  function lastOwned() {
+    const ids = [...ownedTabs.keys()];
+    return ids.length ? ownedTabs.get(ids[ids.length - 1]) : null;
+  }
+
+  function ownedList() {
+    return [...ownedTabs.values()];
+  }
+
+  /**
    * Would navigating take a claimed tab off the site it was trusted for?
    * `tabId` is optional: without it, the most recent claim is checked, which is
    * what the single-tab call sites did before several tabs could be held.
@@ -184,7 +242,22 @@ function createClaims(options = {}) {
     return domain !== claimEntry.domain;
   }
 
-  return { claim, release, get, list, isClaimed, leavesSite, MAX_CLAIMS };
+  return {
+    claim,
+    release,
+    get,
+    list,
+    isClaimed,
+    leavesSite,
+    own,
+    disown,
+    isOwned,
+    owned,
+    lastOwned,
+    ownedList,
+    MAX_CLAIMS,
+    MAX_OWNED,
+  };
 }
 
 /**

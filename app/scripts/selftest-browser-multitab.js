@@ -128,6 +128,43 @@ check('the app pushes the whole hand-over list', /claims: browserClaims\.list\(\
 check('one tab can be taken back on its own', /releaseBrowserTab\('user', tabId\)/.test(mainSrc));
 check('a closed tab releases only itself', /releaseBrowserTab\('tabClosed', event\.tabId\)/.test(mainSrc));
 
+/* ------------------------------------- a tab the agent opened for itself */
+
+// The user's report (2026-11-21): "the extension cannot go to another website on
+// its own". Opening it worked, but the tab was not covered by any hand-over, so
+// the snapshot that follows the open — and every later read — was refused.
+const mine = createClaims({});
+const ownBridge = createBrowserBridge({});
+ownBridge.setClaims(mine);
+
+check('nothing is usable before a tab is opened or handed over', ownBridge.targetFor(5).ok === false && ownBridge.targetFor().tabId === null);
+
+mine.own({ tabId: 5, url: 'https://example.com/', title: 'Example Domain' });
+check('a tab the agent opened is usable by its id', ownBridge.targetFor(5).ok === true && ownBridge.targetFor(5).tabId === 5);
+check('a tab the agent did not open is still refused', ownBridge.targetFor(6).ok === false && ownBridge.targetFor(6).code === 'NOT_CLAIMED');
+check('with no hand-over the opened tab becomes the default', ownBridge.targetFor().tabId === 5);
+check('an opened tab is reported as owned, not as handed over', mine.isOwned(5) === true && mine.isClaimed(5) === false);
+
+mine.claim({ tabId: 21, url: 'https://www.facebook.com/reels/create', title: 'Facebook Reels' });
+check('a hand-over still wins as the default tab', ownBridge.targetFor().tabId === 21);
+check('the opened tab stays usable next to it', ownBridge.targetFor(5).ok === true);
+
+mine.disown(5);
+check('closing the tab takes the permission with it', ownBridge.targetFor(5).ok === false);
+
+for (let i = 100; i < 120; i += 1) mine.own({ tabId: i, url: `https://site${i}.example/` });
+check('the owned list is bounded, oldest forgotten first', mine.ownedList().length === mine.MAX_OWNED && mine.isOwned(119) && !mine.isOwned(100));
+
+const bridgeSrc = read('src/browser-bridge.js');
+check('opening a tab records it as the agent\'s own', /rememberOwnership\(cmd, callArgs, result\)/.test(bridgeSrc) && /cmd === 'open'/.test(bridgeSrc));
+check('closing a tab forgets it', /cmd === 'close'/.test(bridgeSrc) && /claims\.disown\(id\)/.test(bridgeSrc));
+
+const prompt = read('src/freepi-bridge.js');
+check('the prompt says a site with no tab is reachable', /call browser_open with the URL/.test(prompt));
+check('the prompt no longer forbids opening its own tabs', !/Do not guess URLs or open your own tabs/.test(prompt));
+check('the prompt names the two kinds of usable tab', /tabs the user handed over, or tabs you opened yourself/.test(prompt));
+check('browser_open no longer claims it needs a hand-over', !/Requires a tab handed over first/.test(prompt) && /tab it returns is the agent's own/.test(prompt));
+
 const preload = read('src/preload.js');
 check('the window can release one tab', /browserRelease: \(tabId\) => ipcRenderer\.invoke\('browser:release', \{ tabId \}\)/.test(preload));
 

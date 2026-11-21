@@ -225,16 +225,20 @@ function createBrowserBridge(options = {}) {
   /**
    * Which tab a call may act on.
    *
-   * An explicit tab id is honoured **only** when it is the tab the user handed
-   * over. Any other id is refused — that is the whole difference between "the
-   * agent may act" and "the agent may act anywhere". With no claim at all, a
-   * call that names no tab is passed through untouched, so the agent's own
-   * browser window keeps working exactly as it did before claims existed.
+   * There are exactly two kinds of tab the agent may touch: one the user handed
+   * over, and one it opened itself. An explicit tab id is honoured only for
+   * those; every other id is refused, which is the whole difference between
+   * "the agent may act" and "the agent may act anywhere".
+   *
+   * The tab the agent opened only became usable after it found out that opening
+   * a site the user had not handed over left it with a tab it could not read
+   * back (`NOT_CLAIMED` on the very snapshot that followed the `open`).
    */
   function targetFor(argsTab) {
     const held = claims && typeof claims.list === 'function' ? claims.list() : [];
+    const isOwned = (id) => Boolean(claims && typeof claims.isOwned === 'function' && claims.isOwned(id));
     if (Number.isInteger(argsTab)) {
-      if (!held.some((entry) => entry.tabId === argsTab)) {
+      if (!held.some((entry) => entry.tabId === argsTab) && !isOwned(argsTab)) {
         return {
           ok: false,
           code: 'NOT_CLAIMED',
@@ -246,7 +250,28 @@ function createBrowserBridge(options = {}) {
       return { ok: true, tabId: argsTab };
     }
     const newest = claims && typeof claims.get === 'function' ? claims.get() : null;
-    return { ok: true, tabId: newest ? newest.tabId : null };
+    if (newest) return { ok: true, tabId: newest.tabId };
+    const own = claims && typeof claims.lastOwned === 'function' ? claims.lastOwned() : null;
+    return { ok: true, tabId: own ? own.tabId : null };
+  }
+
+  /**
+   * A tab the agent opened is its own to work in, and a tab it closed is gone.
+   * Recorded here rather than in the extension: the app is the side that has to
+   * decide whether a later `read` or `click` may touch that tab.
+   */
+  function rememberOwnership(cmd, args, result) {
+    if (!claims) return;
+    try {
+      if (cmd === 'open' && result && Number.isInteger(result.tabId) && typeof claims.own === 'function') {
+        claims.own({ tabId: result.tabId, url: result.url, title: result.title });
+        return;
+      }
+      if (cmd === 'close' && typeof claims.disown === 'function') {
+        const id = result && Number.isInteger(result.tabId) ? result.tabId : args && args.tab;
+        if (Number.isInteger(id)) claims.disown(id);
+      }
+    } catch {}
   }
 
   function prepareAudit() {
@@ -395,10 +420,12 @@ function createBrowserBridge(options = {}) {
   function annotateTabs(result) {
     if (!result || !Array.isArray(result.tabs)) return result;
     const held = claimedTabs().map((entry) => entry.tabId);
+    const mine = claims && typeof claims.ownedList === 'function' ? claims.ownedList().map((t) => t.tabId) : [];
     return {
       ...result,
       handedOver: held,
-      tabs: result.tabs.map((tab) => ({ ...tab, claimed: held.includes(tab.id) })),
+      openedByAgent: mine,
+      tabs: result.tabs.map((tab) => ({ ...tab, claimed: held.includes(tab.id), owned: mine.includes(tab.id) })),
     };
   }
 
@@ -455,6 +482,7 @@ function createBrowserBridge(options = {}) {
       }, timeoutMs);
       pending.set(id, {
         resolve: (result) => {
+          rememberOwnership(cmd, callArgs, result);
           record(true);
           resolve(cmd === 'tabs-real' ? annotateTabs(result) : result);
         },

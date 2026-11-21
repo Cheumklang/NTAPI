@@ -1124,7 +1124,7 @@ async function createFreePiSession(options) {
           ? `- A tab is ALREADY handed over and ready: tab ${tab.tabId} — ${tab.url || 'unknown URL'}` +
             `${tab.title ? ` ("${tab.title}")` : ''}. ` +
             `Do NOT call browser_claim for it — start with browser_snapshot. Only ask again if the tab was released or the extension reports it gone.\n`
-          : `- No tab is handed over yet. Call browser_claim once; if it is refused, tell the user, in their language, to open the browser card in the app's left sidebar and press the button that hands over their current tab. Do not guess URLs or open your own tabs to work around it.\n`;
+          : `- No tab is handed over yet. If the task needs one of the user's own pages, call browser_claim once; if it is refused, tell the user, in their language, to open the browser card in the app's left sidebar and press the button that hands over their current tab. A site the user has no tab for needs no hand-over at all — call browser_open with the URL instead.\n`;
         return {
           systemPrompt:
             event.systemPrompt +
@@ -1132,11 +1132,12 @@ async function createFreePiSession(options) {
             `- You drive the user's own Google Chrome through a companion extension they installed. This app has no browser window of its own, so never talk about an "NTAPI browser" — it is always the user's Chrome.\n` +
             `- The user saying "the page I have open", "this news item", "ผมเปิดให้แล้ว" and the like refers to their Chrome tab. Never ask them to paste a URL or copy the text when a tab can be read.\n` +
             tabLine +
+            `- A site no tab covers is still reachable: call browser_open with the URL (the app asks the user to approve it). The tab that opens is yours — work in it by the tab id it returned, and do not ask for a hand-over for it.\n` +
             `- Take a browser_snapshot before acting on a page, and act by the \`ref\` it returns — do not guess a CSS selector when you have a ref.\n` +
             `- Every action returns a fresh snapshot: read it rather than assuming what changed.\n` +
             `- If a ref is rejected as stale, take a snapshot again — the page moved under you.\n` +
             `- When a page will not cooperate, call ask_user saying what you expected and what you see, then snapshot again before continuing.\n` +
-            `- Work only in the tab the user handed over. With none, ask for one with browser_claim.\n` +
+            `- Work only in tabs the user handed over, or tabs you opened yourself. Every other tab is off limits, and naming one is refused.\n` +
             `- Doing the work without a dialog per step never covers browser_eval, and never an action that pays, purchases or deletes — those still ask.`,
         };
       });
@@ -2574,7 +2575,7 @@ const BROWSER_TOOL_DOCS = {
   },
   browser_open: {
     description:
-      "Open a URL in a tab of the user's own Google Chrome, which they are already signed in to. Requires a tab handed over first (see browser_claim); without one this fails with NOT_CLAIMED. Use `window: 'user'` to open it in the window the user is looking at instead of the agent's own window.",
+      "Open a URL in a tab of the user's own Google Chrome, which they are already signed in to. This is how a site the user has not opened gets reached: the tab it returns is the agent's own, usable straight away without a hand-over. Use `window: 'user'` to open it in the window the user is looking at instead of the agent's own window.",
     snippet: 'Open a URL in the user\'s Chrome',
     required: ['url'],
     props: {
