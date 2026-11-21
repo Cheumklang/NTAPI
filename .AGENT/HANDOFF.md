@@ -1,6 +1,17 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.4 แล้ว · tree สะอาด · `master` = `origin/master`**
+> **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
+>
+> ### ✅ v0.6.5 (2026-11-21) — ทำไมผู้ใช้ยังโหลดเต็ม 181 MB แล้วแก้อะไร
+> - **ต้นเหตุจริง (อ่านจาก `electron-updater/out/AppUpdater.js:686`):** differential download อ่านไฟล์ติดตั้งรุ่นเก่าจาก `<updaterCacheDir>/installer.exe`
+>   แต่ **ไม่มีโค้ดส่วนไหนเขียนไฟล์นั้น** — ตัวที่โหลดมาอยู่ที่ `pending/installer.exe` และถูกลบหลังติดตั้ง
+>   → `fs.open(oldFile)` ล้ม → catch → **fallback โหลดเต็มทุกครั้ง** (ไม่เกี่ยวกับ blockmap ที่เราลบ/ไม่ลบ)
+> - **แก้:** `main.js` `keepInstallerForNextDelta()` คัดลอก `pending/installer.exe` → `installer.exe` ตอน `update-downloaded`
+>   (ครั้งหน้าจะมี oldFile ให้ diff) + `updaterCacheDir()` อ่านชื่อโฟลเดอร์จาก `app-update.yml`
+> - **log:** `updater.logger` เขียนลง `<DATA_ROOT>/update.log` (ตัดที่ 512 KB) — ในแอป Windows ไม่มี console ให้ดู
+> - **ผลที่คาด:** `0.6.4 → 0.6.5` ยังโหลดเต็ม (โค้ดที่ทำ copy อยู่ใน 0.6.5 ไม่ใช่ 0.6.4) · **ตั้งแต่ `0.6.5 → 0.6.6` เป็นต้นไปจึงเป็น delta**
+>   · ตรวจได้ที่ `%LOCALAPPDATA%\ntapi-updater\installer.exe` (ต้องมี ~181 MB หลังอัปเดต 0.6.5) และ `C:\NTAPI\update.log` ต้องมีบรรทัด `Download block maps (old: …, new: …)`
+> - asset `NTAPI-Setup-0.6.5.exe` 181,449,491 B · sha256 `845247de…7485` · Release run `44842961168` success · provenance seq 182
 >
 > ### ค้างอยู่จริง (ณ วันนี้)
 > 1. ~~ทดสอบ delta update จริง~~ → **✅ ผู้ใช้ทดสอบบน Windows แล้ว (2026-11-21)** · **ตัดแนวทาง Linux/AppImage ออกโดยเจตนา (ผู้ใช้สั่ง 2026-11-21)** — ผู้ใช้จริงเป็น Windows ทั้งหมด เครื่อง Ubuntu มีแค่ผู้พัฒนา → ห้ามเสนอ `build.linux` / job `ubuntu-latest` ซ้ำ · การยืนยันฝั่ง asset ทำได้แค่: ทุกรุ่นต้องมี `.exe.blockmap` + `latest.yml` ครบ

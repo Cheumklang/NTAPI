@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-21T00:09:56.487Z
-entries 179
-head_hash 0107bd073f6045e207d365b689edbf5785cdc29be8d1c53ed60fdbc517c2a8b9
-git 81231e110f098ad1e21fe9185ea0b9907a986669
+updated 2026-11-21T00:23:40.381Z
+entries 182
+head_hash 106f5d45e4394c08d746015c74e64b12b5d2dc6cdf55155aeea58cbc1c03421b
+git cce0809287a3e49d914f61df005ad1b95930a3b4
 
 latest entries:
-  #172 2026-11-21T00:04:27.254Z commit — chore(release): keep two releases, not twenty
-  #173 2026-11-21T00:04:27.544Z commit — fix(text): spell ทุก สระอำ with U+0E33 (228 places)
-  #174 2026-11-21T00:04:27.845Z commit — docs(agent): handoff matches v0.6.3, plus the two new rules
   #175 2026-11-21T00:04:32.989Z commit — chore(provenance): ledger for the browser-tab fix and the prune rule
   #176 2026-11-21T00:04:33.296Z commit — chore(release): 0.6.4 — the agent can open a site no tab covers
   #177 2026-11-21T00:04:33.896Z commit — chore(provenance): ledger v0.6.4
   #178 2026-11-21T00:04:38.438Z commit — chore(provenance): close ledger for v0.6.4
   #179 2026-11-21T00:09:56.262Z release — Released version 0.6.4
+  #180 2026-11-21T00:18:34.068Z commit — fix(update): keep the installer so the next update is a delta
+  #181 2026-11-21T00:18:34.407Z commit — chore(release): 0.6.5 — an update that is only the bytes that changed
+  #182 2026-11-21T00:23:40.164Z release — Released version 0.6.5

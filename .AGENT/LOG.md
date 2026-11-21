@@ -3348,3 +3348,10 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **prune ทำงานครั้งแรกจริง:** releases 7 → 2 (`v0.6.4`, `v0.6.3`) คืนพื้นที่ ~850 MB
 - กับดัก: `record-release` ครั้งแรกใส่ sha256 ของ blockmap ผิด (คัดลอกขนาดไฟล์) → ตัด ledger `seq 179` + ลบ JSON แล้วบันทึกใหม่ครั้งเดียว + `anchor` + `verify` OK 179 entries / 80 files
 - กฎใหม่ใน `AGENTS.md`: ทุกครั้งที่ปล่อยต้องลบรุ่นเก่าให้เหลือ 2 (เหตุผล: delta ต้องใช้ blockmap ของรุ่นก่อนหน้า)
+
+## 2026-11-21 — v0.6.5: อัปเดตเป็น delta ได้จริง (ผู้ใช้ท้วงว่ายังโหลด 181 MB)
+- ตรวจซอร์ส `electron-updater`: differential ต้องมี `<cacheDir>/installer.exe` เป็นไฟล์รุ่นเก่า แต่ไลบรารีไม่เคยเขียนไฟล์นั้น (ของจริงอยู่ `pending/installer.exe` แล้วถูกลบ) → fallback เต็มทุกครั้ง
+- `main.js`: `keepInstallerForNextDelta()` copy ตอน `update-downloaded` · `updaterCacheDir()` อ่าน `updaterCacheDirName` จาก `app-update.yml` · `logUpdate()` → `<DATA_ROOT>/update.log` (cap 512 KB)
+- `selftest-update-channel.js` +3 เช็ค → `npm test` 95/95 · `check:sara` ok
+- ปล่อย v0.6.5: commit `8c8d648`, bump `9afada4`, Release run `44842961168` success · asset 181,449,491 B sha256 `845247dea0e8b36494a4160aefa28575f9742d4aa89cad3d9d89abbfb6227485` · provenance seq 182 · prune เหลือ 2 รุ่น (0.6.5 + 0.6.4)
+- คาดการณ์: 0.6.4→0.6.5 ยังเต็ม (โค้ด copy อยู่ใน 0.6.5) · 0.6.5→0.6.6 เป็น delta แรก

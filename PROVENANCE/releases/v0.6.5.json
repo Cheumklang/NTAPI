@@ -1,0 +1,22 @@
+{
+  "version": "0.6.5",
+  "tag": "v0.6.5",
+  "recordedAt": "2026-11-21T00:23:40.156Z",
+  "git": {
+    "head": "cce0809287a3e49d914f61df005ad1b95930a3b4",
+    "branch": "master",
+    "tree": "70cc30ade5a506197ba3c4b6bf16fe1c42d16e5b",
+    "subject": "chore(provenance): ledger for the delta fix",
+    "authorDate": "2026-11-21T07:18:34+07:00",
+    "commitCount": 405
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44842961168",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.5.exe",
+      "size": 181449491,
+      "sha256": "845247dea0e8b36494a4160aefa28575f9742d4aa89cad3d9d89abbfb6227485"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.5"
+}
