@@ -81,20 +81,20 @@ cd "NTAPI ADS" && npm test && npm run check:render
 ## ผู้ให้บริการ (providers)
 `freepi-bridge.js` + `provider-plan.js` รองรับ:
 `free-pi` (เลนฟรี), `coarena`, `zro`, `nvidia`, `tokenharbor`, `llm7`
-(เรียงตาม priority; key ที่ไม่มีจะทําให้ provider นั้นซ่อน)
+(เรียงตาม priority; key ที่ไม่มีจะทำให้ provider นั้นซ่อน)
 
 ---
 
 # ภาคผนวก — ย้ายมาจาก README.md เดิม
-> (root `README.md` ถูกลบตามคําสั่งผู้ใช้ เนื้อหาที่ใช้ได้ย้ายมาที่นี่ แก้จุดที่ล้าสมัยแล้ว)
+> (root `README.md` ถูกลบตามคำสั่งผู้ใช้ เนื้อหาที่ใช้ได้ย้ายมาที่นี่ แก้จุดที่ล้าสมัยแล้ว)
 
 ## ความต้องการของระบบ
 - Windows, Node.js 18+ (มีอยู่แล้วถ้า `npx free-pi-cli` ใช้ได้)
 - บัญชี free-pi ที่เคยใช้อย่างน้อย 1 ครั้ง (ให้ `~/.free-pi/agent/credentials.json` มีอยู่)
   ถ้าไม่มี แอปจะเริ่ม guest session ให้เอง
 
-## หลักการทํางาน
-`free-pi-cli` ไม่มีโหมด machine-readable ทางเข้าเปิด TUI เสมอ แอปจึงทําแบบเดียวกับ `launchPi()`:
+## หลักการทำงาน
+`free-pi-cli` ไม่มีโหมด machine-readable ทางเข้าเปิด TUI เสมอ แอปจึงทำแบบเดียวกับ `launchPi()`:
 1. อ่าน token จาก `~/.free-pi/agent/credentials.json` (guest ถ้าไม่มี/ถูกปฏิเสธ)
 2. ดึง catalog โมเดลสดจาก `GET /client-version`
 3. ลงทะเบียน provider `free-pi` ชี้ไป `https://api.freepi.ai/v1` ด้วย token นั้น
@@ -105,14 +105,14 @@ cd "NTAPI ADS" && npm test && npm run check:render
 
 ## ฟีเจอร์ที่มีวันนี้
 - tool set เต็มของ free-pi + `look_at_image`, `web_search`, `docs_lookup`, `generate_image`, `free_pi_usage`
-- หลาย session ในแท็บ (คนละโมเดล/ประวัติ/เทิร์น) ทํางานเบื้องหลังได้; `Ctrl+T` เปิด, `Ctrl+W` ปิด,
+- หลาย session ในแท็บ (คนละโมเดล/ประวัติ/เทิร์น) ทำงานเบื้องหลังได้; `Ctrl+T` เปิด, `Ctrl+W` ปิด,
   `Ctrl+Tab` สลับ; กู้แท็บเดิมเมื่อเปิดแอปใหม่
 - แนบรูป: ปุ่ม Image / วางด้วย `Ctrl+V` / ลากไฟล์เข้าวินโดว์
 - ถามอนุมัติก่อน `bash`/`edit`/`write` (Enter อนุญาต, Esc ปฏิเสธ)
 - การ์ด tool กางดู arguments/output ได้; หยุดเทิร์นที่รันอยู่ได้
 - แสดงเหตุจริงเมื่อถูกปฏิเสธ (ads, เครดิต, session limit, โมเดลเต็ม) ไม่ปล่อยเงียบ
 - แถบโฆษณาที่ free-pi ให้มาในเทิร์นนั้น
-- ตัวเลือก workspace จําข้ามการเปิดใหม่, เปิด session ล่าสุดให้เอง
+- ตัวเลือก workspace จำข้ามการเปิดใหม่, เปิด session ล่าสุดให้เอง
 - ลิสต์ session ต่อโฟลเดอร์: คลิกสลับ, เปลี่ยนชื่อในที่, right-click → ลบถาวร (มี confirm)
   (เรียงตามเวลาสร้าง ใหม่→เก่า ไม่สลับที่ — commit `50338cc`)
 - model picker แยกกลุ่มตาม provider มีค้นหาได้
@@ -128,15 +128,15 @@ cd "NTAPI ADS" && npm test && npm run check:render
 | `web_search` | `POST /tools/web-search` | ต่อไว้ (ตอนเขียน backend 502) |
 | `docs_lookup` | `POST /tools/docs` | ต่อไว้ (ตอนเขียน backend 502) |
 
-POST tools retry 502/503/504 3 ครั้งก่อนรายงานว่า fail (agent รู้ว่าล้มเหลว ไม่เดาคําตอบ)
+POST tools retry 502/503/504 3 ครั้งก่อนรายงานว่า fail (agent รู้ว่าล้มเหลว ไม่เดาคำตอบ)
 
-## ads — ทําไมเทิร์นถึงเงียบ
+## ads — ทำไมเทิร์นถึงเงียบ
 free-pi ฟรีเพราะมีโฆษณา ถ้าไม่ขอ ad/ไม่รายงาน impression จะโดน
-`403 {"code":"ads_required"...}` แอปทําแบบ extension `pi-ads` ใน `src/freepi-bridge.js` (`createAdsClient`):
+`403 {"code":"ads_required"...}` แอปทำแบบ extension `pi-ads` ใน `src/freepi-bridge.js` (`createAdsClient`):
 1. ข้อความผู้ใช้เริ่มเทิร์น (uuid ใหม่)
 2. `GET /ads/next?slot=banner` พร้อม `x-turn-id`
 3. เรนเดอร์ในแถบโฆษณา + `POST /ads/impression` (+ pixel Gravity ถ้ามาจาก ad network)
-4. คําขอ completion ส่ง `x-turn-id` เดียวกัน
+4. คำขอ completion ส่ง `x-turn-id` เดียวกัน
 
 ดึง 1 ad ตอนเริ่ม session และ 1 ad ต่อข้อความ; คลิกเปิดในเบราว์เซอร์ ไม่เปิดในหน้าต่างแอป
 
@@ -146,14 +146,14 @@ free-pi ฟรีเพราะมีโฆษณา ถ้าไม่ขอ a
 - `concurrent_session` — บัญชีมี 4 session รันอยู่แล้ว (ปิดหน้าต่างอื่น หรือ `/close-other-session`)
 แอปกู้คืนไม่เกิน 4 แท็บ (1 ต่อ 1 session file) จึงไม่ชนเพดานนี้เอง
 
-## รูปภาพทํางานยังไง
+## รูปภาพทำงานยังไง
 โมเดล free-pi เป็น text-only (`input:["text"]`) ส่งรูปเป็น content ไม่ได้ แนบรูปจึง:
 1. เซฟไป `<workspace>/.ntapi-attachments/`
 2. ใส่ path ใน prompt
 3. สั่ง agent เรียก `look_at_image`
 
 `look_at_image` โพสต์ไป `/tools/vision` (กิน allowance, upstream 502 เป็นครั้งคราว)
-ส่งรูปจึงกิน 2 คําขอ (vision + model turn)
+ส่งรูปจึงกิน 2 คำขอ (vision + model turn)
 
 ## ยังไม่มี (Not yet)
 - MCP — **มีแล้ว** (Phase 1+2): config ที่ `C:\NTAPI\mcp.json`, เปิด/ปิดใน Settings > MCP
@@ -162,7 +162,7 @@ free-pi ฟรีเพราะมีโฆษณา ถ้าไม่ขอ a
   `free_pi_docs`, `free_pi_buy_credits`
   (**หมายเหตุ:** `todo` และ `ask_user` ถูกลงทะเบียนแล้วใน `freepi-bridge.js`)
 - usage panel อ่าน `remaining_credits_today`/`allowance_credits`; ถ้า payload เปลี่ยนจะโชว์ `n/a`
-- แถบโฆษณาแสดง 1 banner/เทิร์น; inline ads, `/support`, credit meter ของ CLI ยังไม่ทํา
+- แถบโฆษณาแสดง 1 banner/เทิร์น; inline ads, `/support`, credit meter ของ CLI ยังไม่ทำ
 - `/close-other-session` ยังไม่มีปุ่ม
 
 ## ที่เก็บข้อมูล (Where data lives)
@@ -171,7 +171,7 @@ free-pi ฟรีเพราะมีโฆษณา ถ้าไม่ขอ a
 - ตั้ง `NTAPI_DATA_DIR` เพื่อชี้ที่อื่นได้ (ยังรับ `FREEPI_DATA_DIR`)
 
 ## หา pi SDK
-`main.js` (`resolveSdk` + `src/sdk-path.js`) หา `@earendil-works/pi-coding-agent` เรียงลําดับ:
+`main.js` (`resolveSdk` + `src/sdk-path.js`) หา `@earendil-works/pi-coding-agent` เรียงลำดับ:
 1. **bundle มากับแอป** (`app/node_modules/@earendil-works/pi-coding-agent`) — เครื่องใหม่เปิดได้เลย
 2. `NTAPI_SDK_PATH` / `FREEPI_SDK_PATH`
 3. npx cache (`AppData/Local/npm-cache/_npx/*/node_modules/@earendil-works/pi-coding-agent`)
@@ -181,7 +181,7 @@ SDK เป็น ESM-only และ `exports` ไม่มี `require` → ต�
 ## Security notes
 - token อ่านจากไฟล์เดียวกับ CLI และไม่หลุดเข้า renderer
 - renderer: `nodeIntegration:false`, `contextIsolation:true` เรียกได้แค่ IPC ใน `preload.js`
-- agent มีสิทธิ์ไฟล์/เชลล์จริงในโฟลเดอร์ที่เลือก; ป้องกันด้วย approval prompt สําหรับ `bash`/`edit`/`write`
+- agent มีสิทธิ์ไฟล์/เชลล์จริงในโฟลเดอร์ที่เลือก; ป้องกันด้วย approval prompt สำหรับ `bash`/`edit`/`write`
   (read-only tools รันไม่ถาม; อยากให้ถามทุกตัว เพิ่มใน `guardedTools` ที่ `freepi-bridge.js`)
 - path ของ attachment ถูกตรวจให้อยู่ใน workspace ก่อน `look_at_image` อ่าน
 - ลบ session จะถูกปฏิเสธถ้า path ไม่อยู่ใน session store และไม่ลงท้าย `.jsonl`

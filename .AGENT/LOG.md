@@ -35,7 +35,7 @@
 - แก้: ci.yml + release.yml ใช้ `node-version: 22`
 - เทสใต้ Node 22: 18 scripts PASS (ไม่ bump เพราะแอปไม่เปลี่ยน)
 
-## 2026-11-14 — ผลปล่อย v0.2.6: สําเร็จ
+## 2026-11-14 — ผลปล่อย v0.2.6: สำเร็จ
 - commit: `f382f33` (Batch A/B/C), `ff39b94` (เวอร์ชัน 0.2.6)
 - release `v0.2.6` ออนไลน์; assets: NTAPI-Setup-0.2.6.exe (117.7 MB), latest.yml, blockmap
 - `/releases/latest` ชี้ v0.2.6; installer โตจาก 0.2.5 (102→117.7 MB) เพราะ bundle pi SDK
@@ -51,18 +51,18 @@
 - แยก `src/sdk-path.js` + `selftest-resolve-sdk.js`; asarUnpack SDK + quickjs-wasi
 - เทส 18 scripts PASS; dist บิลด์ผ่าน; installer 118.7 MB (+16); ยังไม่ commit
 
-## 2026-11-14 — เก็บไฟล์หลุด + ทํา Polish Batch A
+## 2026-11-14 — เก็บไฟล์หลุด + ทำ Polish Batch A
 - ผู้ใช้เลือกเก็บงาน MCP ของผม — ลบ spec MCP ที่ซ้ำ (`2026-11-14-mcp-ui-design.md`)
 - รับช่วงไฟล์จาก session "polish": system-info.js / selftest-system-info.js / run-unit-tests.js / แผน
-- ทํา Batch A จบ: CI, error boundary + copy system info, focus ring, settings inert+trap, microcopy
+- ทำ Batch A จบ: CI, error boundary + copy system info, focus ring, settings inert+trap, microcopy
 - เทส: `npm test` 17 scripts PASS, smoke test PASS; ยังไม่ commit
 
-## 2026-11-14 — ผลปล่อย v0.2.5: สําเร็จ
+## 2026-11-14 — ผลปล่อย v0.2.5: สำเร็จ
 - commit: `0577f5e` (MCP Phase 1+2), `737b8a6` (เวอร์ชัน 0.2.5)
 - release `v0.2.5` ออนไลน์; assets: NTAPI-Setup-0.2.5.exe, latest.yml, blockmap
 - `/releases/latest` ชี้ v0.2.5 แล้ว
 - ⚠️ พบ spec MCP ของ session อื่น (untracked): `docs/superpowers/specs/2026-11-14-mcp-ui-design.md`
-  แนวทางต่าง (config `~/.free-pi/agent`, UI แบบ list) — ต้องให้ผู้ใช้ตัดสินใจก่อนทําซ้ำ
+  แนวทางต่าง (config `~/.free-pi/agent`, UI แบบ list) — ต้องให้ผู้ใช้ตัดสินใจก่อนทำซ้ำ
 
 ## 2026-11-14 — MCP Phase 2: ใช้ได้จริง (Settings + config ที่ C:\NTAPI)
 - Phase 2: config ย้ายมาที่ `C:\NTAPI\mcp.json`, opt-in ปิดดีฟอลต์, Settings แท็บ MCP แก้/บันทึกได้
@@ -76,7 +76,7 @@
 - ไฟล์: `app/src/freepi-bridge.js`, `app/src/main.js`, `app/src/renderer/app.js`, `app/scripts/selftest-mcp-guard.js`
 - เทส selftest-mcp-guard PASS; ยังไม่ commit
 
-## 2026-11-14 — ผลปล่อย v0.2.4: สําเร็จ
+## 2026-11-14 — ผลปล่อย v0.2.4: สำเร็จ
 - commit: `f6483b9` (model picker + Coarena), `efc866b` (single-instance),
   `19497a8` (ไอคอนมุมโค้ง), `9b14db4` (เวอร์ชัน 0.2.4)
 - release `v0.2.4` ออนไลน์; assets: NTAPI-Setup-0.2.4.exe (102,341,110 B), latest.yml, blockmap
@@ -84,7 +84,7 @@
 - เหลือ: ผู้ใช้อัปเดตโปรแกรมที่ติดตั้งเอง + ทดสอบ (A-Z/ดาว/tooltip/ไอคอนโค้ง/single-instance)
 
 ## 2026-11-14 — ปรับ model picker + สถานะ Coarena (ยังไม่ commit)
-- ลบปุ่มคําสั่ง (Ctrl+P) จาก sidebar
+- ลบปุ่มคำสั่ง (Ctrl+P) จาก sidebar
 - model picker เรียง A-Z (ค่าย + โมเดล)
 - เพิ่มดาวโปรด (โฟลเดอร์รายการโปรดบนสุด, localStorage) + tooltip โลโก้ค่ายเป็นฟองอากาศ
 - Coarena: เพิ่มแถบ % งบรายวัน + เวลารีเซ็ต
@@ -95,7 +95,7 @@
 - รับงาน single-instance ของ session อื่น (เทส PASS) รวมเข้า release
 - เริ่มปล่อย v0.2.4
 
-## 2026-11-14 — ผลปล่อย v0.2.3: สําเร็จ
+## 2026-11-14 — ผลปล่อย v0.2.3: สำเร็จ
 - commit: `1f05f90` (แก้ steer + จุดขยับ), `8071707` (เวอร์ชัน 0.2.3)
 - release `v0.2.3` ออนไลน์ (ไม่ draft); assets: NTAPI-Setup-0.2.3.exe (102,276,580 B), latest.yml, .blockmap
 - `/releases/latest` ชี้ v0.2.3 แล้ว
@@ -107,20 +107,20 @@
 
 ## 2026-11-14 — เริ่มปล่อยเวอร์ชัน 0.2.3 (ผู้ใช้อนุมัติ)
 - bump 0.2.2 → 0.2.3, commit + push tag v0.2.3 → GitHub Actions ปล่อยขึ้น NTAPI-releases
-- งานในชุดนี้: แก้ steer เรียงลําดับ + จุดขยับคําว่า "กำลังทำงาน..."
+- งานในชุดนี้: แก้ steer เรียงลำดับ + จุดขยับคำว่า "กำลังทำงาน..."
 
-## 2026-11-14 — จุดขยับที่คําว่า "กำลังทำงาน..."
+## 2026-11-14 — จุดขยับที่คำว่า "กำลังทำงาน..."
 - ต่อท้ายข้อความ busy ด้วยจุด 3 จุดเด้งสลับจังหวะ ให้ดูไม่ค้าง (`hint-dots`)
 - ไฟล์: `app/src/renderer/app.js` (`setBusy`), `app/src/renderer/styles.css`
 - รองรับ reduced-motion; node --check ผ่าน
 
-## 2026-11-14 — แก้ข้อความส่งกลางเทิร์นโผล่ผิดลําดับ (steer)
+## 2026-11-14 — แก้ข้อความส่งกลางเทิร์นโผล่ผิดลำดับ (steer)
 - ปัญหา: ส่งข้อความระหว่าง AI ทำงาน → อยู่ล่างสุด และคำตอบสตรีมกลับไปเหนือข้อความ
 - แก้: เพิ่ม event `turn_start` → renderer ปิดบล็อกเดิมตอนขึ้นเทิร์นใหม่ ให้คำตอบอยู่ใต้ข้อความ
 - ไฟล์: `app/src/main.js`, `app/src/preload.js`, `app/src/renderer/app.js`
 - เทส: node --check 3 ไฟล์ + selftest 3 ตัว PASS; ยังไม่ commit / ยังไม่ bump / ยังไม่ทดสอบ UI
 
-## 2026-11-14 — ผลปล่อย v0.2.2: สําเร็จ
+## 2026-11-14 — ผลปล่อย v0.2.2: สำเร็จ
 - GitHub Actions บิลด์เสร็จ ~4 นาที; release `v0.2.2` ออนไลน์ (ไม่ draft)
 - assets: `NTAPI-Setup-0.2.2.exe` (102,275,727 B), `latest.yml` (version 0.2.2), `.blockmap`
 - `/releases/latest` ชี้ที่ v0.2.2 แล้ว → electron-updater เห็นรุ่นใหม่
@@ -136,7 +136,7 @@
 - ย้ายเนื้อหา README เดิม (214 บรรทัด) เข้า `.AGENT/PROJECT.md` ภาคผนวก พร้อมแก้จุดล้าสมัย
   (แชทไม่แชร์กับ CLI แล้ว, `todo`/`ask_user` ลงทะเบียนแล้ว, ลิสต์แชทเรียงตาม created)
 - `git rm README.md`
-- ต่อไป: bump version + release (ผู้ใช้ทําเอง)
+- ต่อไป: bump version + release (ผู้ใช้ทำเอง)
 
 ## 2026-11-14 — commit + push 3 ตัว (ผู้ใช้อนุญาต)
 - `82844d7` เพิ่ม .AGENT ส่งต่องานข้าม session และ AGENTS.md ให้ AI อ่านก่อน
@@ -688,7 +688,7 @@ auth check ก่อนค่อย `_startRun` จึงเกิดช่อ�
 - `scroll-behavior: smooth` = async → อ่าน `scrollTop` ทันทีได้ค่าเก่า ต้อง `insertCSS` ปิดก่อนวัด
 - เทสต์ Electron ต้องโหลด `preload.js` ไม่งั้น `api.getWinState()` throw แล้ว listener ทั้งไฟล์
   ไม่ถูกผูก → เทสต์รายงานผ่านทั้งที่ไม่มีอะไรทำงาน
-- Python heredoc/`-c` กิน backslash ทําให้ `\n` กลายเป็นบรรทัดใหม่จริง → string JS แตก ต้องใช้ `edit`
+- Python heredoc/`-c` กิน backslash ทำให้ `\n` กลายเป็นบรรทัดใหม่จริง → string JS แตก ต้องใช้ `edit`
 - `look_at_image` ใช้กับไฟล์ใน session นี้ไม่ได้เลย
 
 ## 2026-11-14 — แก้ไข/ลากลำดับคิว (`e30114e`)
@@ -1734,7 +1734,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
     · กด 1:1 → 1072×1072 · เผยแพร่พา `ratio:'1:1'` · รีโหลดหลังเผยแพร่ → ปุ่ม active กลับมาเป็น `4:5` และกล่อง preview เป็น 4:5
 - **หมายเหตุ:** ภาพที่ harness เซฟเป็นเฟรมเก่า เพราะหน้าต่าง `show:false` ไม่ compose ใหม่ → หลักฐานจริงคือ DOM assertions
 - **ไม่ได้ทำ:** ยังไม่ทดสอบด้วยตาในโปรแกรมจริง · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS (คง `0.1.0`)
-- **กฎที่ทําได้ครบรอบนี้:** 1 เทิร์น = 1 bash call (รันทั้ง 3 สูทในคําสั่งเดียว + สรุป PASS/FAIL ท้ายสคริปต์) · 1 ไฟล์ = 1 edit call
+- **กฎที่ทำได้ครบรอบนี้:** 1 เทิร์น = 1 bash call (รันทั้ง 3 สูทในคำสั่งเดียว + สรุป PASS/FAIL ท้ายสคริปต์) · 1 ไฟล์ = 1 edit call
 
 **ย้ายคอลัมน์เครื่องมือไปขวา (ผู้ใช้สั่งต่อ 2026-11-17)**
 - หลังผู้ใช้ดูหน้าใหม่แล้วบอกว่าชอบ แต่ขอ "ย้ายแท็บทั้งหมดที่อยู่ซ้ายไปอยู่ขวา"
@@ -1742,9 +1742,9 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   · `.tools` ได้ `width/flex-basis: 296px` + เปลี่ยนเส้นคั่นเป็น `border-left` (เดิม `border-right`)
   · `.board` ได้ `flex: 1 1 auto; min-width: 0` (แทน `minmax(0, 1fr)` ของ grid)
   · media query ≤940px ย้ายจาก `.shell { grid-template-columns }` → `.tools { width/flex-basis: 260px }`
-- ทําไมเลือก `row-reverse` แทนสลับบล็อกใน HTML: งานเล็กกว่าและไม่เสี่ยงกับบล็อกยาว ~150 บรรทัด
-  (แลกกับ tab order ที่ยังเป็นเครื่องมือก่อนกระดาน — ยอมรับได้สําหรับเครื่องมือภายใน)
-- **เพิ่มเทสต์กันถอย 3 checks** ใน `check-render.js` (ตําแหน่งจริงจาก `getBoundingClientRect`):
+- ทำไมเลือก `row-reverse` แทนสลับบล็อกใน HTML: งานเล็กกว่าและไม่เสี่ยงกับบล็อกยาว ~150 บรรทัด
+  (แลกกับ tab order ที่ยังเป็นเครื่องมือก่อนกระดาน — ยอมรับได้สำหรับเครื่องมือภายใน)
+- **เพิ่มเทสต์กันถอย 3 checks** ใน `check-render.js` (ตำแหน่งจริงจาก `getBoundingClientRect`):
   เครื่องมืออยู่ขวาของกระดาน · ขวาสุดไม่ล้นจอ · กระดานกว้างกว่าเครื่องมือ
 - ผล: `ADS npm test` 5 suites · `ADS check:render` **42/42** (39 → 42) · ไม่ต้องรัน `app npm test` เพราะไม่แตะ NTAPI
 - ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
@@ -1771,7 +1771,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - แก้: ลบ `customWrap`/`setCustom`/`onCustom` ออกจาก `ratioRow()` → ปุ่ม "กำหนดเอง" เรียก `openSizeDialog(slot, opener)`
   · ไดอะล็อกสร้างด้วย JS ต่อท้าย `document.body` (z-index 60 เหนือ drawer 40) · ค่าเริ่มต้น 3:2
   · มีตัวอย่างขนาดจริงสด ๆ · นอกช่วง = ปุ่มยืนยันดับ + บอกเหตุผลในไดอะล็อก (เดิมใช้ `setStatus` ที่มุมล่างซ้าย)
-  · ปิด 3 ทาง: ✕ · scrim · Escape — และ Escape ต้องปิดไดอะล็อกก่อน drawer (แก้ handler ให้มีลําดับ)
+  · ปิด 3 ทาง: ✕ · scrim · Escape — และ Escape ต้องปิดไดอะล็อกก่อน drawer (แก้ handler ให้มีลำดับ)
   · `stepperRow()` สร้าง −/input/+ เอง + ซ่อน native spinner ของ `input[type=number]` **ทุกตัว** ในไฟล์
   · `.step-btn` ปรับใหม่: พื้น gradient · hover เป็น accent · active ขยับลง 1px (ใช้ร่วมกับ stepper ของ "หมุนเวียนทุก")
 - **เทสต์กันถอย 7 checks** (`check-render.js`): ช่องขนาดไม่ค้างใน editor · กดแล้วไดอะล็อกเปิด · 1:20 ถูกปฏิเสธ+ไดอะล็อกยังเปิด
@@ -1794,7 +1794,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   2. **กับดักที่สำคัญกว่า:** `electron scripts/check-render.js` คืน exit code 0 แม้ harness ตั้ง `process.exitCode = 1`
      → สคริปต์สรุปของผมขึ้น PASS ทั้งที่ผลคือ `1/54 checks FAILED`
      · แก้สคริปต์สรุปให้ grep `checks FAILED` ใน output ด้วย ไม่ดูแค่ rc
-     · **ต้องจํา:** อย่าตัดสิน pass/fail จาก exit code ของ electron อย่างเดียว ต้องอ่าน output
+     · **ต้องจำ:** อย่าตัดสิน pass/fail จาก exit code ของ electron อย่างเดียว ต้องอ่าน output
 - ผล: `ADS npm test` 5 suites · `ADS check:render` **54/54** (53 → 54)
 - ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
 
@@ -1807,7 +1807,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - **เทสต์กันถอย 2 checks** (`check-render.js`):
   · ต้องเป็น `<button>` เต็มความกว้าง มีลูกศร สูง ≥ 26px (จับได้ถ้ามีคนเปลี่ยนกลับเป็นลิงก์)
   · คลิกแล้ว stub `shell:open` ต้องได้ `https://github.com/settings/personal-access-tokens...`
-- **ข้อผิดพลาดของผมในรอบนี้ (บันทึกไว้):** หลังแก้ CSS ผมรันเทสต์แล้วพิมพ์ในคําตอบว่า "ตรวจ geometry"
+- **ข้อผิดพลาดของผมในรอบนี้ (บันทึกไว้):** หลังแก้ CSS ผมรันเทสต์แล้วพิมพ์ในคำตอบว่า "ตรวจ geometry"
   ทั้งที่ในสคริปต์มีแค่ `echo` เปล่า ๆ — เป็นการอ้างเกินหลักฐาน จึงเพิ่มเช็คจริงแล้วรันซ้ำ (54 → 56)
 - ผล: `ADS npm test` 5 suites · `ADS check:render` **56/56**
 - ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
@@ -1836,7 +1836,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - **สาเหตุจริง:** `HTMLMediaElement` ที่ถูกถอดออกจาก document **ยังเล่นต่อ**
   · `paintPreview()` เรียก `host.replaceChildren()` ทุกครั้ง (รวมทุกคีย์ที่พิมพ์ชื่อ) → ทิ้ง `<video>` ที่ยังดัง
   · ผลคือ mute ไปโดน element ใหม่ที่เงียบอยู่ ส่วนตัวเก่ายังเล่นเป็นเสียงผี
-- **สาเหตุร่วม:** ป้ายชิปผูกกับ *สถานะ* ไม่ใช่ *การกระทำ* — ตอนเงียบเขียน "ปิดเสียง" กดแล้วเปิดเสียง (ตรงข้ามกับคํา)
+- **สาเหตุร่วม:** ป้ายชิปผูกกับ *สถานะ* ไม่ใช่ *การกระทำ* — ตอนเงียบเขียน "ปิดเสียง" กดแล้วเปิดเสียง (ตรงข้ามกับคำ)
 - แก้: `releaseVideos(root)` = `pause()` + `removeAttribute('src')` + `load()` เรียกก่อน `replaceChildren()`
   ทั้ง `paintPreview` และ `paintCardThumb` · `applyMuteNow()` mute ของที่อยู่บนจอโดยไม่ rebuild
   · `paintPreviewText()` แยกจาก `paintPreview()` → พิมพ์ชื่อไม่รีสตาร์ทคลิป
@@ -1852,7 +1852,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - **ต้นเหตุจริง:** `closeEditor()` แค่ `$('drawer').hidden = true`
   · media element ไม่หยุดเมื่อ ancestor เป็น `display:none` → คลิปเล่นต่อ
   · ชิปเสียงอยู่ในแผง → หายไปพร้อมแผง → เหลือเสียงที่ไม่มีปุ่มให้กดปิด
-  · คําว่า "กดปิด" ของผู้ใช้คือปุ่มปิด (✕) ไม่ใช่ชิปเสียง — ผมตีความรอบแรกแคบไป
+  · คำว่า "กดปิด" ของผู้ใช้คือปุ่มปิด (✕) ไม่ใช่ชิปเสียง — ผมตีความรอบแรกแคบไป
 - แก้: `closeEditor()` → `releaseVideos($('frameMedia'))` + `replaceChildren()`
   · `paintCardThumb()` → `video.muted = true` ตรง ๆ (ไม่พึ่ง content attribute อย่างเดียว)
   · `applyMuteNow()` → เมื่อ mute ให้ mute `<video>` ทุกตัวในหน้าต่าง (ตาข่ายกันเสียงหลุด)
@@ -1860,7 +1860,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   ปิดแผงแล้วคลิปถูก pause · ไม่มี media ค้างใน preview · `#drawer` ถูกซ่อนจริง
 - ผล: `ADS npm test` 5 suites · `ADS check:render` **66/66** (63 → 66)
 - **บทเรียน (สำคัญ):** อาการ "กดปิดแล้วยังดัง" ต้องถามให้ชัดว่าปุ่มไหน — "ปิด" ของผู้ใช้อาจหมายถึงปิดทั้งหน้าต่าง
-  ไม่ใช่ปิดเสียง · ครั้งหน้าถ้าเป็น UI ที่มีหลายปุ่มคําเดียวกัน ให้ยืนยันก่อนแก้
+  ไม่ใช่ปิดเสียง · ครั้งหน้าถ้าเป็น UI ที่มีหลายปุ่มคำเดียวกัน ให้ยืนยันก่อนแก้
 - **ผู้ใช้ยืนยันแล้ว 2026-11-17:** "ผ่านแล้วคับโอเคแล้ว" — เสียงหายจริง
 - ค้าง: ยังไม่ commit · ยังไม่ bump เวอร์ชัน ADS
 
@@ -1877,8 +1877,8 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - **เทสต์ใหม่ 2 checks** (`selftest-session-marks-ui.js`): ไม่มีกรอบม่วงเหลือ + ไม่มีวงที่สองในแถวสี
 - ผล: `app npm test` **63 scripts ผ่าน** · `check-session-marks` ผ่านทุกข้อ
 - **บทเรียน (ตัวตรวจจริงของผมเอง):** สคริปต์สรุปใช้ `grep -E 'FAIL|failed'` กับ output ทั้งก้อน
-  → ขึ้น FAIL ทั้งที่ทุกอย่างผ่าน เพราะ **ชื่อเทสต์มีคําว่า "failed"** (เช่น "PASS a failed turn is dropped")
-  · ต้องดูบรรทัดสรุปท้าย (`PASS: all N scripts passed`) ไม่ใช่ grep คําเดี่ยว
+  → ขึ้น FAIL ทั้งที่ทุกอย่างผ่าน เพราะ **ชื่อเทสต์มีคำว่า "failed"** (เช่น "PASS a failed turn is dropped")
+  · ต้องดูบรรทัดสรุปท้าย (`PASS: all N scripts passed`) ไม่ใช่ grep คำเดี่ยว
 - ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน
 
 **NTAPI: โฆษณาวิดีโอ 9:16 ไม่ยอมปรับขนาด (ผู้ใช้แจ้ง 2026-11-17)**
@@ -1897,12 +1897,12 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - ผล: `npm test` **63 scripts ผ่าน** · layout ผ่านหมด **ยกเว้น 1 ข้อที่ค้างมานาน**
   (`each creative keeps its own shape, fitted not cropped` — เกิดจาก `object-fit: cover` ที่ผู้ใช้เลือกเอง)
 - **ค้างตัดสินใจ:** ฟีดจริงมี 1:1 + 9:16 ผสม → แถบจองที่ 9:16 ทำให้รูป 1:1 ถูกครอปแนวตั้ง
-  ทางเลือก: (ก) คง cover อย่างเดิม (ข) เปลี่ยนเป็น fit มีแถบดํา (ค) แยกกรอบต่อสล็อต
+  ทางเลือก: (ก) คง cover อย่างเดิม (ข) เปลี่ยนเป็น fit มีแถบดำ (ค) แยกกรอบต่อสล็อต
 - ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ยังไม่ bump เวอร์ชัน
 
 **NTAPI: ล็อค sidebar ไม่ให้ยืด/หด (ผู้ใช้สั่ง 2026-11-17 · เลือกแบบ A)**
 - ผู้ใช้: "อยากให้แก้ sidebar ให้ล็อคอยู่กับที่ ... ถ้าผู้ใช้งานขยับมันจะเปลี่ยนมุมมองที่ตั้งเอาไว้ของโฆษณา"
-  · ผมเสนอ A = ล็อคที่ความกว้างที่เห็นตอนนี้ (คํานวณจากข้อความยาวสุด) · B = ค่าคงที่ที่ระบุ
+  · ผมเสนอ A = ล็อคที่ความกว้างที่เห็นตอนนี้ (คำนวณจากข้อความยาวสุด) · B = ค่าคงที่ที่ระบุ
   · ผู้ใช้ถามว่า "ใช่เลขเดียวกับที่ตั้งให้ย่นสุดได้ไหม" → ใช่ (305px) → **เลือก A**
 - **ถอดออก:** `#sidebarResizer` (HTML+CSS) · drag handler ทั้งชุด · `dblclick` (ตัวคั่น + พื้น sidebar) ·
   คีย์ ←/→ · `Home` · `resetSidebarWidth()` · การเขียน prefs `sidebarWidth` · i18n `sidebarReset` (th/en) ·
@@ -1910,7 +1910,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - **ของใหม่:** `applySidebarWidth()` ไม่รับ argument → `clamp(sidebarMinWidth())`
   · `lockSidebarWidth()` เรียกตอนบูต + วัดใหม่เมื่อ resize / fonts.ready / สลับภาษา
   · ค่า `prefs.sidebarWidth` เก่าถูกเมิน (ไม่ลบ — แค่ไม่เคยอ่าน)
-- **เหตุผลที่ต้องล็อค (สําหรับอนาคต):** `.sponsor-media` ครอปตามความกว้างคอลัมน์
+- **เหตุผลที่ต้องล็อค (สำหรับอนาคต):** `.sponsor-media` ครอปตามความกว้างคอลัมน์
   → ความกว้างที่ต่างกัน = ครอปโฆษณาต่างกัน ⇒ กรอบโฆษณาต้องคงที่
 - **เทสต์เขียนใหม่ 2 ไฟล์ + แก้ 2 ไฟล์:**
   · `selftest-sidebar-reset.js` เปลี่ยนจาก "reset+save" → "ถอดการลากแล้ว" (7 checks)
@@ -1924,7 +1924,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 **โฆษณา 1:1 + 9:16 ผสมกัน — ผู้ใช้เลือก ก (2026-11-17)**
 - ผมเสนอ 3 ทาง (ก คง cover / ข fit มีแถบ / ค แยกกรอบต่อสล็อต) · ผู้ใช้ตอบ "ก ดีฟ่า 555 แต่มันยุ่งยาก
   เพราะแบบนี้มันสมส่วนดีแล้ว" → **คง cover** ไม่เพิ่มความซับซ้อน
-- **ปิด FAIL ค้างที่สําคัญ:** `check-sponsor-layout.js` เดิม assert "each creative keeps its own shape,
+- **ปิด FAIL ค้างที่สำคัญ:** `check-sponsor-layout.js` เดิม assert "each creative keeps its own shape,
   fitted not cropped" → ขัดกับ `object-fit: cover` ที่ผู้ใช้สั่งไว้ตั้งแต่ต้น ทำให้แดงค้างมาหลายรอบ
   · แก้ที่ **เทสต์** (ไม่ใช่ที่หน้าตา): เปลี่ยนชื่อเป็น "every creative fills the reserved band, cropped on purpose"
     และยืนยันว่าทั้งสองใบใช้สัดส่วนที่จองไว้ (0.8)
@@ -1948,7 +1948,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 
 **ปล่อย v0.5.5 + ลบรุ่นเก่าออกจาก GitHub (ผู้ใช้สั่ง 2026-11-17)**
 - ผู้ใช้: "ส่งอัปเดตก่อนนะคับ ให้มี 0.5.5 ก่อน" แล้วต่อด้วย "ลบเวอร์ชั่นเก่าๆ tag ที่ไม่ได้ใช้ ... เอาทุกเวอร์ชั่นยกเว้นล่าสุด"
-- **ขั้นตอนที่ทํา:** push master → tag `v0.5.5` → push tag → poll CI → ตรวจ asset → ลบของเก่า
+- **ขั้นตอนที่ทำ:** push master → tag `v0.5.5` → push tag → poll CI → ตรวจ asset → ลบของเก่า
   · CI `Release` **success** (run 43703513191) · assets: `NTAPI-Setup-0.5.5.exe` + `latest.yml` + blockmap
   · release body อัตโนมัติ = 1 บรรทัด (commit ที่ขึ้นต้น `internal:` ถูกกรองทั้งหมด)
 - **ลบของเก่า — ตรวจก่อนลบ:** ยืนยันว่า release ใหม่สุดคือ `v0.5.5` และมี `latest.yml`
@@ -1956,29 +1956,29 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   · ลบ releases `v0.5.4…v0.5.0` (HTTP 204 ทั้งหมด) + tags ใน `NTAPI-releases`
   · ลบ tags เก่าใน source `NTAPI` 28 ตัว (เหลือ `v0.5.5`) + tags ในเครื่อง
 - **ผลสุดท้าย:** releases = `v0.5.5` · tags (rel) = `v0.5.5` · tags (src) = `v0.5.5` · local tags = `v0.5.5`
-- **ทําไมคง tag `v0.5.5` ไว้:** workflow หาแท็กก่อนหน้าด้วย `git describe --tags --abbrev=0 "$tag^"`
+- **ทำไมคง tag `v0.5.5` ไว้:** workflow หาแท็กก่อนหน้าด้วย `git describe --tags --abbrev=0 "$tag^"`
   → ถ้าลบตัวล่าสุด รอบถัดไปจะหาจุดตั้งต้นของ release notes ไม่ได้
 - **ใช้ API ไม่ใช่เบราว์เซอร์:** token จาก `git credential fill` (scope `repo`) ลบได้ 204 ทุกตัว
   · `git credential fill` อ่านจาก credential manager ของ GitHub Desktop · ไม่พิมพ์ token ลง log
 - **รอบปล่อยครั้งถัดไป = `0.5.6`**
 
 **NTAPI: ตัวหมุนในรายการแชทค้าง + เบียดชื่อไปขวา (ผู้ใช้แจ้ง 2026-11-17)**
-- ผู้ใช้: "AI ทํางานเสร็จแล้ว ... ยังมีตัวหมุน ๆ อยู่ เหมือน AI กําลังทํางาน แล้วมันควรจะขยับไปติดทางซ้าย
+- ผู้ใช้: "AI ทำงานเสร็จแล้ว ... ยังมีตัวหมุน ๆ อยู่ เหมือน AI กำลังทำงาน แล้วมันควรจะขยับไปติดทางซ้าย
   แต่ตัวหมุนกับชื่อมันออกมาขวานิดนึง"
 - **ต้นเหตุ 1:** `renderSessions()` ถูกเรียกเฉพาะตอนรายการเปลี่ยน · `onSettled` ตั้ง `view.busy = false`
   แต่ไม่มีใครวาดใหม่ → `.s-spin` ค้างจนกว่าจะมีอย่างอื่นวาด sidebar
 - **ต้นเหตุ 2:** สปินเนอร์อยู่ใน `.s-title` หน้า 이름 → `margin-right: 6px` + กว้าง 7px ดันชื่อไปขวา 13px ทุกเทิร์น
 - แก้: ย้ายไปใน `.s-pin-slot` (ช่องซ้าย 14px ที่ทุกแถวจองไว้) · ตัด `margin-right` ของ `.s-spin`
   · เพิ่ม `refreshSessionBusy()` → เรียกใน `onBusy`/`onSettled`/`onError`
-  · ระหว่างทํางาน แถวที่ปักหมุดจะเห็นสปินเนอร์แทนหมุด (ใช้ช่องเดียวกัน) แล้วหมุดกลับมาเอง
+  · ระหว่างทำงาน แถวที่ปักหมุดจะเห็นสปินเนอร์แทนหมุด (ใช้ช่องเดียวกัน) แล้วหมุดกลับมาเอง
 - **เทสต์ใหม่ 2 checks** (`selftest-session-marks-ui.js`) · `npm test` **63 scripts** · `check-session-marks` ผ่านหมด
 - **FAIL รอบแรกเป็นความผิดผมเอง:** เทสต์ใช้ `renderer.indexOf('api.onSettled(')` → เจอตัวแรกที่บรรทัด 6607
   (`refreshUsage`) ไม่ใช่ handler จริง จึงเปลี่ยนไปจับแบบ adjacency regex แทน — บันทึกเป็นบทเรียน:
-  **อย่าหาตําแหน่ง handler ด้วย `indexOf` ของชื่อที่ซ้ําได้**
+  **อย่าหาตำแหน่ง handler ด้วย `indexOf` ของชื่อที่ซ้ำได้**
 - ค้าง: ยังไม่ทดสอบด้วยตา · ยังไม่ commit · ควรออกเป็น `0.5.6` เมื่อผู้ใช้สั่ง
 
 **NTAPI: ชุดความสวย batch 1a + 1b (ผู้ใช้สั่ง 2026-11-17)**
-- โจทย์: "ทําให้โปรแกรมสวยขึ้น ดูน่าใช้ ทันสมัย — เหมือนเดิมแต่สวยขึ้น" + ตัวอย่าง: "ตัวหมุนหน้าชื่อ →
+- โจทย์: "ทำให้โปรแกรมสวยขึ้น ดูน่าใช้ ทันสมัย — เหมือนเดิมแต่สวยขึ้น" + ตัวอย่าง: "ตัวหมุนหน้าชื่อ →
   ขอเป็นวงหมุนรอบกรอบการ์ดแชทที่เลือกอยู่" + "fade ตอนกดปุ่ม/เปิดเมนู + รายการ model อ้วนขึ้นนุ่ม ๆ"
 - **ใช้ brainstorming + visual companion:** เปิดเซิร์ฟเวอร์ม็อกอัป (.superpowers/brainstorm/...)
   เสนอ 3 แบบ (A วงหมุน · B กรอบหายใจ · C แถบซ้ายไหล) → **ผู้ใช้เลือก B** และสั่ง "เพิ่มความสว่าง"
@@ -2000,7 +2000,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
 - **เทสต์:** 4 checks ใหม่ใน `selftest-session-marks-ui.js` + `selftest-boot-skeleton.js` (4 checks ใหม่)
   · `npm test` **64 scripts ผ่าน** · geometry 8 ตัวผ่านหมด (sidebar 305 · ชื่อแชท [42,42,42] · pill · โฆษณา · transcript)
 - **FAIL 2 ครั้งจากเทสต์ของผมเอง:** `lastIndexOf('@media (prefers-reduced-motion…)')` เจอบล็อกอื่น
-  → เปลี่ยนเป็นค้นทุกบล็อก · **บทเรียนซ้ำ:** selector/ชื่อที่ซ้ําได้ ห้ามใช้ indexOf/lastIndexOf หาตําแหน่ง
+  → เปลี่ยนเป็นค้นทุกบล็อก · **บทเรียนซ้ำ:** selector/ชื่อที่ซ้ำได้ ห้ามใช้ indexOf/lastIndexOf หาตำแหน่ง
 **รอบ 0.5.7 (2026-11-15):** ปิดช่องว่างของสเปก UI polish 2 ข้อ + แก้โฆษณาที่ผู้ใช้แจ้ง
 - **ข้อ 2 fade ตอนปิด:** เปิดมีอนิเมชันแต่ปิดหายวับ → ตาอ่านเป็น "กระพริบ"
   · ใช้ `allow-discrete` + `@starting-style` (เบราว์เซอร์เก่า = ปิดทันทีเหมือนเดิม ไม่พัง)
@@ -2013,13 +2013,13 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
     → ช่องจอง = min = 4:5 (270×338) → ครีเอทีฟ 1:1 ถูก `cover` ตัดข้างละ ~27px
   · **เชิงโครงสร้าง:** ADS ใช้ `frameSize()` ตามอัตราส่วนครีเอทีฟเอง แต่ NTAPI ใช้เฟรมร่วม 1 เฟรม
   · **ผู้ใช้เลือกแบบ ข** (เฟรมตามครีเอทีฟ) เพราะตรงกับ ADS ที่เขาชอบ
-  · **เทคนิคสําคัญ:** `reserved = min(ทุกสล็อต)` ⇒ `slotRatio >= reserved` เสมอ ⇒ **ความกว้างเป็นตัวบังคับเสมอ**
+  · **เทคนิคสำคัญ:** `reserved = min(ทุกสล็อต)` ⇒ `slotRatio >= reserved` เสมอ ⇒ **ความกว้างเป็นตัวบังคับเสมอ**
     → `.sponsor-frame { width:100%; aspect-ratio: var(--slot-r) }` เต็มความกว้าง ความสูงสั้นกว่าช่องจอง ⇒ cover ไม่ครอป
   · **เทสต์เก่าที่ต้องกลับด้าน:** `every creative fills the reserved band, cropped on purpose`
     → เปลี่ยนเป็น "each creative keeps its own shape, so nothing is cropped" (สัญญาเปลี่ยนโดยตั้งใจ)
 - **ผลวัด:** `ratios [2, 0.8]` · `heights [338,338]` (ไม่กระตุก) · `fits [true,true]` · `widths [270,270]`
 
-**บทเรียนซ้ํา (2026-11-15):** อย่าลดค่าที่ตกลงไว้ในสเปกโดยไม่บอกผู้ใช้ — เคส 1.012 vs 1.035
+**บทเรียนซ้ำ (2026-11-15):** อย่าลดค่าที่ตกลงไว้ในสเปกโดยไม่บอกผู้ใช้ — เคส 1.012 vs 1.035
 
 **รอบ 0.5.8 (2026-11-16): `/skill` + แปลข้อความเตือน**
 - **ผู้ใช้ขอ:** "พิมพ์ /skill ขึ้นโชว์ตอนก่อนส่งได้ไหม ว่ามีอะไรบ้าง" · คุยก่อนทำ · เลือก **1 ค / 2 ก / 3 ก / A**
@@ -2036,7 +2036,7 @@ summary: `kept: v0.5.0 and newer · would delete: 23 · untouched: 1` ✅
   · ลบ probe ทิ้งแล้ว (ตามที่รับปากว่าจะลบ)
   · สแกน 72 call site ของ `showNotice()` → ไม่ผ่าน `t()` 16 จุด · ในนั้น **ฝังอังกฤษจริง 5 จุด**
     (`Could not delete` · `Deleted session from disk.` · `Could not read the path` · `Could not switch model` + main 2 จุด)
-  · **main.js เป็นตัวการสําคัญ:** `sendTab('agent:notice', { text: '...' })` ไม่มี `key` → renderer แปลไม่ได้เลย
+  · **main.js เป็นตัวการสำคัญ:** `sendTab('agent:notice', { text: '...' })` ไม่มี `key` → renderer แปลไม่ได้เลย
 - **ผู้ใช้เลือก ข** (แปลง error ผู้ให้บริการด้วย) และถามว่า "เปลือง token ผู้ใช้ไหม" → **ไม่** ตาราง regex ในเครื่อง
 - **บั๊กในเทสต์ของผมเอง 3 รอบ:** `\'` หลุดใน string · `SOURCE` ไม่มี (ตัวแปรชื่อ `app`) · `soften(text)` ไม่ส่ง lang
   → default `'th'` · และ assertion ที่คาด `/เชื่อมต่อไม่ได้/` ทั้งที่ข้อความจริงคือ `/เซิร์ฟเวอร์ไม่ได้/`
@@ -2646,16 +2646,16 @@ e้า diff ของ `turnFailure()` + `tabState` synthetic error banner ต�
 ## 2026-11-17 — ปิดช่องโหว่ทางกฎหมาย 4 ข้อ (ในเครื่องเท่านั้น — ยังไม่ commit/ปล่อย)
 
 ผู้ใช้ถามว่า "โปรแกรมเราครอบคลุมเรื่องกฎหมายดีหรือยัง" → ตรวจ TERMS/PRIVACY/LICENSE vs โค้ดจริง
-แล้วเสนอ 4 ข้อ · ผู้ใช้สั่ง **"เริ่มทําได้เลย แต่อย่าพึ่งปล่อยอัปเดต"**
+แล้วเสนอ 4 ข้อ · ผู้ใช้สั่ง **"เริ่มทำได้เลย แต่อย่าพึ่งปล่อยอัปเดต"**
 
 **สิ่งที่แก้:**
-1. **หน้ายอมรับข้อกําหนดตอนเปิดครั้งแรก** — เดิมไม่มี clickwrap เลย (ติดตั้ง = ยอมรับ อย่างเดียว)
+1. **หน้ายอมรับข้อกำหนดตอนเปิดครั้งแรก** — เดิมไม่มี clickwrap เลย (ติดตั้ง = ยอมรับ อย่างเดียว)
    → `#termsOverlay` (ไม่มีปุ่มปิด/ไม่มี Escape) · `TERMS_VERSION = '2026-11-17'` ผูกกับวันที่ใน TERMS.md
    · `acceptTerms()` เขียน prefs · `prefs:set` รับเฉพาะ `YYYY-MM-DD` · ไกด์รอจนกว่าจะยอมรับ
 2. **`PRIVACY.md` — ระยะเวลาเก็บรักษาข้อมูล** (PDPA ม.23 ที่ขาดอยู่) 4 แถว + English summary
-   · ตรวจของจริงก่อนเขียน: `crash.log` เป็น `appendFileSync` ไม่มี rotation → เขียนตามจริงว่าไม่มีกําหนดอัตโนมัติ
+   · ตรวจของจริงก่อนเขียน: `crash.log` เป็น `appendFileSync` ไม่มี rotation → เขียนตามจริงว่าไม่มีกำหนดอัตโนมัติ
 3. **`PRIVACY.md` §7 อายุ** — "13 ปีขึ้นไป" เป็นหลัก COPPA สหรัฐ ไม่ใช่ PDPA → เปลี่ยนเป็นมาตรา 20 (10 ปี / 10–20 ปี)
-4. **`TERMS.md`** — เพดานความรับผิด 1,000 บาท · indemnity · §9 ขอยอมรับใหม่เมื่อข้อกําหนดเปลี่ยน
+4. **`TERMS.md`** — เพดานความรับผิด 1,000 บาท · indemnity · §9 ขอยอมรับใหม่เมื่อข้อกำหนดเปลี่ยน
    · §11 ใหม่ (severability/entire agreement/assignment/no waiver/ภาษาไทยเป็นหลัก) · English summary
 
 **เทสต์:** `selftest-legal-docs.js` +6 checks (**18 ผ่าน**) · `npm test` **71/71** · `check:legal` 7 · `check:pill` ผ่าน
@@ -2680,7 +2680,7 @@ e้า diff ของ `turnFailure()` + `tabState` synthetic error banner ต�
 **ไฟล์ใหม่:** `app/src/usage-totals.js` (fold usage → session + turns, `previousTurns()`)
 · `app/src/fx-rate.js` (`open.er-api.com`, TTL 6 ชม., never throws, เก็บ rate เดิมเมื่อล้ม)
 · `app/scripts/selftest-token-usage.js` (18 checks: เลข 5 แถว, tool call 3 ครั้ง = 1 รอบ,
-reasoning ไม่บวกซ้ำ, junk ไม่ทําให้ NaN, cost 0 ≠ ฟรีเสมอ, fx 5 เคส, wiring)
+reasoning ไม่บวกซ้ำ, junk ไม่ทำให้ NaN, cost 0 ≠ ฟรีเสมอ, fx 5 เคส, wiring)
 
 **จุดที่ต้องเลือกเอง:** (1) กับ (4) จะซ้ำกันถ้านับ cache ทั้งคู่ → ตั้งนิยาม
 `ใช้ไปทั้งหมด`=input+แคช+ตอบ · `ส่งให้ AI`=input+แคช · `ส่ง+ตอบ`=input+ตอบ (ไม่รวมแคช)
@@ -2861,7 +2861,7 @@ note ยังอยู่ครบ) คืน `imagePaths` · `messagesForUi` �
 
 ## 2026-11-17 — DeepSeek + เลื่อนตามล่าสุด + รูปในคิว + วันที่ พ.ศ. + Light/Dark
 
-ผู้ใช้ส่งงานมา 5 เรื่องต่อเนื่อง ทําตามคิวทีละเรื่องจนจบ
+ผู้ใช้ส่งงานมา 5 เรื่องต่อเนื่อง ทำตามคิวทีละเรื่องจนจบ
 
 **1) DeepSeek (api-docs.deepseek.com)** — `app/src/deepseek.js` ใหม่
 - 2 รุ่น: `deepseek-flash` (V4.1, vision, ctx 1M, max out 384K) · `deepseek-v4-pro` (text only)
@@ -2900,20 +2900,20 @@ note ยังอยู่ครบ) คืน `imagePaths` · `messagesForUi` �
 
 ## 2026-11-17 — โปรแกรมเปิดมาใช้ไม่ได้ (กด/พิมพ์อะไรไม่ได้) — แก้แล้ว 2 บั๊ก
 
-ผู้ใช้แจ้ง: เปิดแอปจากซอร์สแล้วทําอะไรไม่ได้ ต้องกลับไปใช้ exe ที่ติดตั้ง · ส่งภาพหน้าจอมาด้วย
+ผู้ใช้แจ้ง: เปิดแอปจากซอร์สแล้วทำอะไรไม่ได้ ต้องกลับไปใช้ exe ที่ติดตั้ง · ส่งภาพหน้าจอมาด้วย
 
 **ต้นเหตุ (1) — markup พัง:** ตอนเพิ่มปุ่มธีม ผมใส่ `</div>` เกิน 1 ตัวหลัง `.sidebar-tools`
-→ `#sidebar` ปิดก่อนกําหนด → pickFolder / sessionList / Token Status / **#composer**
+→ `#sidebar` ปิดก่อนกำหนด → pickFolder / sessionList / Token Status / **#composer**
 หลุดออกจากโครง กลายเป็น sibling ของ `#app` → ช่องพิมพ์ถูกดันตกขอบล่างจอ
 · ไม่มี error เลยเพราะทุก script รันได้หมด — CSS ก็ไม่ผิด ผิดที่ nesting อย่างเดียว
 
 **ต้นเหตุ (2) — เจอระหว่างทดสอบ:** `theme-boot.js` อ่าน `window.api`
 แต่ preload เปิดชื่อ `window.freepi` → ธีมที่บันทึกไว้ไม่ถูกใช้ตอนเปิดโปรแกรม
-(ฟีเจอร์ "ไม่วาว" ไม่เคยทํางานจริง) → แก้เป็น `window.freepi || window.api`
+(ฟีเจอร์ "ไม่วาว" ไม่เคยทำงานจริง) → แก้เป็น `window.freepi || window.api`
 
 **กันซ้ำ:**
 - `scripts/selftest-markup-structure.js` (18 checks) — เดิน tag stack ทั้ง index.html
-  + ยืนยัน nesting ที่สําคัญ (`#composer` ใน `#main`, `#pickFolder`/`#sessionList`/`#themeBtn` ใน `#sidebar`)
+  + ยืนยัน nesting ที่สำคัญ (`#composer` ใน `#main`, `#pickFolder`/`#sessionList`/`#themeBtn` ใน `#sidebar`)
   · พิสูจน์แล้วว่าใส่ `</div>` เกินกลับไป → FAIL จริง
 - `scripts/check-shell-usable.js` + `npm run check:shell` (23 checks, เปิดหน้าต่างจริง)
   — composer อยู่ใน #main, ช่องพิมพ์มองเห็น/โฟกัส/พิมพ์ได้, ไม่มีอะไรบัง, Send ติด,
@@ -2936,7 +2936,7 @@ note ยังอยู่ครบ) คืน `imagePaths` · `messagesForUi` �
 
 **แก้ — เพิ่ม token ในทั้งสองธีม**
 - `--on-accent` (ขาว บนปุ่มที่เติมสี) — ใช้แทน `#fff` ที่เหลือ
-- `--accent-fill` / `--danger-fill` — **สําคัญ:** `--accent` ถูกปรับให้เป็น "สีข้อความ"
+- `--accent-fill` / `--danger-fill` — **สำคัญ:** `--accent` ถูกปรับให้เป็น "สีข้อความ"
   บนพื้นมืด (5.4:1) จึงเหลือแค่ 3.5:1 เมื่อมีตัวขาวทับ → ปุ่มต้องใช้ fill ที่เข้มกว่า
   (dark `#6444e0` = 6.1:1, `#d93a44` = 4.53:1 · light ใช้ accent เดิม = 6.17:1)
 - `--titlebar-fg`, `--titlebar-fg-hover`, `--code-accent`, `--file-fg`, `--dim-fg`, `--disabled-fg`
@@ -2948,12 +2948,12 @@ note ยังอยู่ครบ) คืน `imagePaths` · `messagesForUi` �
 - `check-shell-usable.js`: เพิ่ม probe วัด contrast **จริงในโหมดสว่าง** 7 จุด
   (bold ในข้อความ, tool chip, shell header, guide text, chat title, settings tab, window button)
   → **31 checks** · พิสูจน์แล้วว่าใส่ `#fff` กลับ → FAIL `1:1`
-  (เจอจุดอ่อนของ probe เองด้วย: ดึง `<strong>` ออกจาก `.md` ทําให้กฎไม่ match → แก้ให้วัดในบริบทจริง)
+  (เจอจุดอ่อนของ probe เองด้วย: ดึง `<strong>` ออกจาก `.md` ทำให้กฎไม่ match → แก้ให้วัดในบริบทจริง)
 
 **เทสต์รวม:** `npm test` 80/80 · check:shell 31/31 · prove:verify OK 61
 **ค้าง:** ยังไม่ commit · 0.5.15
 
-## 2026-11-17 — notice สีเหลืองค้างไม่หาย + บั๊ก sendSync ทําให้ check script ค้าง
+## 2026-11-17 — notice สีเหลืองค้างไม่หาย + บั๊ก sendSync ทำให้ check script ค้าง
 
 ผู้ใช้: ใส่คีย์ DeepSeek แล้วขึ้น "บันทึกคีย์ DeepSeek แล้ว" สีเหลืองค้าง ไม่ยอมหาย
 · ขอ 5 วิ + นับถอยหลัง + หยุดนับเมื่อเอาเมาส์ชี้ (เผื่อเลือก/copy ข้อความ)
@@ -2970,8 +2970,8 @@ note ยังอยู่ครบ) คืน `imagePaths` · `messagesForUi` �
 - `#notice` แยกเป็น `#noticeText` + `#noticeCount` (เดิมเขียนทับ textContent ทั้งก้อน → เลขหาย)
 - CSS `.notice-count` (+ `.paused`) · `.notice { user-select: text }`
 
-**บั๊กที่ 2 (เจอระหว่างทาง — สําคัญ):** ธีมส่งผ่าน `ipcRenderer.sendSync('prefs:themeSync')`
-ทําให้ **หน้าเว็บที่โหลดโดยไม่มี main process ค้าง** = สคริปต์ `scripts/check-*.js` ทุกตัว
+**บั๊กที่ 2 (เจอระหว่างทาง — สำคัญ):** ธีมส่งผ่าน `ipcRenderer.sendSync('prefs:themeSync')`
+ทำให้ **หน้าเว็บที่โหลดโดยไม่มี main process ค้าง** = สคริปต์ `scripts/check-*.js` ทุกตัว
 (ก่อนหน้านี้ `npm run check:read` เคย timeout 420 วิ, และมี electron ค้างค้างอยู่ PID 6972)
 → เปลี่ยนเป็น `webPreferences.additionalArguments: ['--ntapi-theme=…']` อ่านจาก `process.argv`
 · ลบ `ipcMain.on('prefs:themeSync')` · `backgroundColor` ของหน้าต่างตามธีม
@@ -3152,14 +3152,14 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - commit `8346de8` = กฎสระอำใน `AGENTS.md` + `check-sara-am.js` + `npm run check:sara`
 - เก็บขยะ: ไฟล์ข้อความชั่วคราวหลุดเข้า repo ตอน commit → ลบใน `732f4f4` (บทเรียน:
   เขียนไฟล์ commit message ไว้นอก repo เสมอ เช่น `C:\NTAPI\outputs\`)
-- ผู้ใช้สั่ง **ไม่ต้องไล่แก้ ํา ในไฟล์เก่า** — session หน้าจะเห็นแล้วแก้เอง
+- ผู้ใช้สั่ง **ไม่ต้องไล่แก้ ำ ในไฟล์เก่า** — session หน้าจะเห็นแล้วแก้เอง
 - สถานะปิดงาน: source `master` = origin (0/0) · releases `main` = origin (0/0) ·
   `npm test` 84/84 · provenance verify OK · เหลือค้างตามดีไซน์แค่ `PROVENANCE/ledger.jsonl` 1 บรรทัด
 
 ## 2026-11-17 — Gemini: ติดป้ายโมเดลฟรี
 
-- ผู้ใช้ถามว่า "ทําไม gemini ไม่มีโมเดลฟรี" → ต้นเหตุคือ `GOOGLE_PLAN = 'paid'` ตายตัวใน
-  `app/src/google-ai.js` ไม่ใช่ข้อจํากัดของ API (Gemini มีโควต้าฟรีรายวัน ยกเว้น EEA/UK/CH)
+- ผู้ใช้ถามว่า "ทำไม gemini ไม่มีโมเดลฟรี" → ต้นเหตุคือ `GOOGLE_PLAN = 'paid'` ตายตัวใน
+  `app/src/google-ai.js` ไม่ใช่ข้อจำกัดของ API (Gemini มีโควต้าฟรีรายวัน ยกเว้น EEA/UK/CH)
 - ผู้ใช้เลือกแนวทาง 1: ติดป้าย `free` ให้ Flash + Flash Lite พร้อมโควต้าฟรี, Pro คงไว้ `paid`
 - แก้ `google-ai.js` (`plan` ราย candidate, `planNote: ''` บนแถวฟรี, `toModel` พา plan ไปด้วย)
   · `provider-plan.js` (default = แถวฟรีตัวแรก `plan === 'free'` เข้ม)
@@ -3167,7 +3167,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - เทสต์: `selftest-google-ai.js` +5, `selftest-provider-plan.js` +2 → `npm test` 84/84
 - ยังไม่ commit / ยังไม่ bump
 
-## 2026-11-17 — v0.5.18: โควต้าฟรี Gemini (แผน 2) + ย้อนกลับ/เปลี่ยนโมเดลระหว่าง AI ทํางาน
+## 2026-11-17 — v0.5.18: โควต้าฟรี Gemini (แผน 2) + ย้อนกลับ/เปลี่ยนโมเดลระหว่าง AI ทำงาน
 
 - ผู้ใช้เปลี่ยนจากแนวทาง 1 (ติดป้าย `free`) มาเป็น **แนวทาง 2**: คง `plan: 'paid'` + ราคา แล้วเพิ่ม
   `freeTier: true` แยก → chip “มีโควต้าฟรี” อยู่ข้างราคา ทั้งในเมนูและบนปุ่มที่ปิดอยู่
@@ -3180,8 +3180,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
   - `chooseModel`: busy → dialog `modelBusy` → `applyModelChoice` (แยกจาก handler ของ `<select>`)
   - i18n EN/TH: `undoBusyTitle/Sub/Meta/Action`, `modelBusyTitle/Sub/Meta/Action`, `planFreeTier*`
 - เทสต์ใหม่ `scripts/selftest-busy-guards.js` (ตรวจ source + i18n ทั้งสองภาษา) → `npm test` **85/85**
-- ปล่อยรุ่น `0.5.18` (commit + tag v0.5.18 + push) ตามคําสั่ง “ส่งอัปเดต”
-- บทเรียน: `edit` ที่มี oldText เป็นภาษาไทยเสี่ยงไม่แมตช์ (สระอําเขียนได้หลายรหัส)
+- ปล่อยรุ่น `0.5.18` (commit + tag v0.5.18 + push) ตามคำสั่ง “ส่งอัปเดต”
+- บทเรียน: `edit` ที่มี oldText เป็นภาษาไทยเสี่ยงไม่แมตช์ (สระอำเขียนได้หลายรหัส)
   → ใช้ `node -e` ตัดบรรทัดตามคีย์ภาษาอังกฤษแทน (ใช้แล้วกับ `googleFreeLimits`)
 
 ## 2026-11-17 — ปิดงาน v0.5.18 (บทเรียน)
@@ -3202,7 +3202,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
   เที่ยงคืน/เที่ยงวันเป็น 12)
 - `formatSessionDate` และ `formatShortDateTime` เรียก `clockText` — ไม่มี `getHours()` เหลือในไฟล์
 - `scripts/selftest-session-date.js`: `loadFormatter` ใส่ `clockText` เข้า sandbox + เพิ่มเคส 7 ข้อ (บ่าย/ตี 2/เที่ยงคืน/เที่ยงวัน/ไม่มีจุด)
-- `npm test` 85/85 · ปล่อย `0.5.19` (commit + tag + push ตามคําสั่ง “ส่งแค่อัปเดต”)
+- `npm test` 85/85 · ปล่อย `0.5.19` (commit + tag + push ตามคำสั่ง “ส่งแค่อัปเดต”)
 
 ## 2026-11-17 — v0.5.20: คีย์ i18n ที่ขาด (queueAttach) + ลบรุ่นเก่า
 
@@ -3211,20 +3211,20 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - สแกนทั้งไฟล์เพิ่ม: เจอคีย์ขาดอีก 3 ตัวที่ใช้ผ่าน `data-i18n` — `approvalKeys`, `browserPairCode`, `guestBadge` → เพิ่มครบ
 - เทสต์ใหม่ `scripts/selftest-i18n-keys.js` (86 ตัวในชุด): เทียบคีย์ที่ใช้กับพจนานุกรมทั้งสองภาษา
   + ตรวจความเท่ากันของชุดคีย์ + คีย์ของคิว 3 ตัว
-- บทเรียน: `edit` บล็อกภาษาไทยทําให้ `ำ` กลายเป็น U+0E4D+U+0E32 (3 บรรทัดในคิว) → แก้ด้วย node
+- บทเรียน: `edit` บล็อกภาษาไทยทำให้ `ำ` กลายเป็น U+0E4D+U+0E32 (3 บรรทัดในคิว) → แก้ด้วย node
   normalize เฉพาะคีย์ที่แตะ · `selftest-queue-edit.js` เป็นตัวจับ
 - ลบรุ่นเก่าบน GitHub ด้วย workflow prune (marker ใน commit message) เหลือ `v0.5.20` รุ่นเดียว
 - ปล่อย `0.5.20`: commit + tag + push · provenance record-release + anchor + verify
 
-## 2026-11-17 — v0.5.21: ภาษาในกล่องข้อกําหนด + ภาษาเริ่มต้นตามระบบ
+## 2026-11-17 — v0.5.21: ภาษาในกล่องข้อกำหนด + ภาษาเริ่มต้นตามระบบ
 
 - ผู้ใช้ขอ: ให้เลือกภาษาได้ตอนติดตั้ง / อย่างน้อยในกล่องยอมรับเงื่อนไข — คุยกันแล้วเลือก **ทาง A**
-  (ชิปสลับภาษาในกล่อง + ค่าเริ่มต้นตาม Windows) ไม่ทํา NSIS language selector
+  (ชิปสลับภาษาในกล่อง + ค่าเริ่มต้นตาม Windows) ไม่ทำ NSIS language selector
 - `index.html`: `.terms-lang` + ปุ่ม `#termsLangTh`/`#termsLangEn` (`aria-pressed`)
 - `app.js`: `paintTermsLang()` ใน `showTerms()` + `applyLanguage()` · ปุ่มเรียก `setLanguage()`
 - `styles.css`: `.terms-lang-btn` + สถานะ active
 - `main.js`: `initialLang(prefs)` → `prefs.lang` มาก่อน, ไม่งั้น `app.getLocale()` เริ่มด้วย `th`
-- **ทดสอบจริงบนเครื่องผู้ใช้:** เปิด source run ด้วย `NTAPI_DATA_DIR` ใหม่ → กล่องขึ้น, ชิปทํางาน
+- **ทดสอบจริงบนเครื่องผู้ใช้:** เปิด source run ด้วย `NTAPI_DATA_DIR` ใหม่ → กล่องขึ้น, ชิปทำงาน
   · เครื่องนี้ `app.getLocale()` = en-US (แม้ display language = th-TH) → ผู้ใช้เลือก “คงตามระบบ”
 - เทสต์ใหม่ `scripts/selftest-first-run-lang.js` (13 เช็ค, source-level) → `npm test` 87/87
 - ปล่อย `0.5.21` + prune เหลือรุ่นเดียว
@@ -3325,3 +3325,18 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - 2026-11-21 (ต่อ 12): i18n การอนุมัติ — `#approvalLabel`, สามตัวเลือก, `#approvalNote`, `#approvalBtnText` เป็นไทยฝังใน HTML ไม่มี data-i18n → โหมด EN ยังเห็นไทย (ตรวจด้วย probe สแกน U+0E00–U+0E7F ทั้งหน้า) · เพิ่มคีย์ `approvalShort*` / `approvalOpt*` / `approvalNote` ทั้งสองภาษา + chip อ่านผ่าน `t()` · เหลือไทยเฉพาะชื่อเจ้าของ/สงวนลิขสิทธิ์/ป้าย "ไทย" ในตัวเลือกภาษา (ตั้งใจ) · ปล่อย **v0.6.1** (665deaf, release run 44787120528, asset 181,440,016 B, sha256 6e26aa74…)
 - 2026-11-21 (ต่อ 13): ขนาดอัปเดตก่อนกดโหลด — main เก็บ `size` (จาก `info.files[0].size`) ตอน `update-available`, เก็บ `got`/`total` จาก `download-progress` (คือขนาด delta จริง) และเก็บไว้ตอน `update-downloaded` · การ์ด Settings โชว์ "ตัวติดตั้ง 173 MB" ก่อนโหลด, "2.3 จาก 12.4 MB (35%)" ระหว่างโหลด, "ดาวน์โหลดแล้ว …" ตอนพร้อมติดตั้ง · การ์ดบังคับอัปเดตบอกขนาดเต็มในประโยค · ปล่อย **v0.6.2** (7c9b186, release run 44788780873)
 - 2026-11-21 (ต่อ 14): **v0.6.3** (45f9953, release run 44790136898) — bump เปล่าเพื่อให้คนที่อยู่ 0.6.2 เห็นขนาดอัปเดต (ฟีเจอร์ขนาดเพิ่งมาใน 0.6.2 จึงยังไม่ทำงานตอน 0.6.1 → 0.6.2)
+
+## 2026-11-21 — กวาดเอกสาร + แก้สระอำทั้งรีโป (ผู้ใช้สั่งตรวจข้อ 5/6)
+- **check:sara:** 228 จุด ใน 12 ไฟล์ (U+0E4D+U+0E32 แทน U+0E33) → `node scripts/check-sara-am.js --fix` แก้แล้ว = 0 จุด
+  · ที่แตะจริงในโค้ด: `NTAPI ADS/src/renderer/app.js` 15 จุด (ข้อความ UI: "กำลัง…", "ไม่สำเร็จ") · ที่เหลือเป็นเอกสาร/`.AGENT`/mockup/spec
+  · ยืนยัน: `app npm test` 95/95 PASS · `NTAPI ADS npm test` 5/5 PASS
+- **HANDOFF กวาดให้ตรงความจริง:** หัวไฟล์จาก v0.5.29/`00f31de` → **v0.6.3/`ef8e491`** · รายการค้างใหม่ตามที่ผู้ใช้ยืนยัน (delta update ✅ ผู้ใช้ทดสอบแล้ว · PAT ✅ แก้แล้ว · sara ✅ · HANDOFF ✅ · skill 2 ช่องโหว่ ยังไม่ได้ลอง · prune ยังไม่ถึงรุ่นที่ 21) · เพิ่มค้างที่ยังไม่มีใครบันทึก: **ยังไม่มี adapter ควบคุมเครื่องฝั่ง Windows** + ระยะ 2 (`nsis-web`)
+- **ติดป้าย ARCHIVE:** บล็อก 2026-11-20 (อัปเดตไม่กวน/ระยะ 1 update) เปลี่ยน “ยังไม่ commit” → รุ่นที่ปล่อยจริง (v0.5.28) · §1a–1zzzz · §2 · “รอปล่อย 7 เรื่อง” (ยืนยันแล้ว: ป้าย “โฆษณาจาก FREEPI.AI” อยู่ในโค้ด; ลากปรับ sidebar ถูกแทนด้วย `applySidebarWidth()`) · แผนอัปเดตระยะ 2
+- **AGENTS.md:** บรรทัด “รอบปล่อยถัดไป = 0.5.14” (ค้างตั้งแต่ พ.ย. 17) → `0.6.4` + บอกให้เช็ก `app/package.json` แทนการเชื่อเอกสาร
+- **บริบทใหม่ที่บันทึกไว้:** มี Windows VM บนเครื่อง Ubuntu (`/home/nt/NT-ALL/NTVM`) → ทดสอบฝั่ง Windows ได้เอง
+- ยังไม่ commit (รอผู้ใช้สั่ง) · tree มีไฟล์แก้: `.AGENT/{HANDOFF,LOG}.md`, `AGENTS.md`, `NTAPI ADS/src/renderer/app.js`, เอกสาร 5 + mockup/plan/spec 4
+- 2026-11-21 (ต่อ): **แก้ "extension ไปเว็บอื่นเองไม่ได้"** — ต้นเหตุ 2 ชั้น: (1) `browser_claims` รู้จักแต่แท็บที่ผู้ใช้มอบให้ แท็บที่ agent เปิดเอง (`browser_open`) จึงไม่ถูกครอบ → snapshot ที่ตามหลัง open และการอ่าน/คลิกถัดมาถูกปฏิเสธด้วย `NOT_CLAIMED` (2) system prompt สั่งตรง ๆ ว่า "Work only in the tab the user handed over" + tool description ของ `browser_open` เขียนว่า "Requires a tab handed over first" → โมเดลเลยไม่กล้าเปิดแท็บเอง
+  · `src/browser-claims.js`: `own/disown/isOwned/owned/lastOwned/ownedList` + `MAX_OWNED = 8` (ลืมตัวเก่าสุดเมื่อเกิน, ไม่ใช่เพดานสิทธิ์) — hand-over ยังต้องมาจากผู้ใช้เท่านั้น
+  · `src/browser-bridge.js`: `targetFor()` รับแท็บที่ mอบหรือที่ agent เปิดเอง (อื่นยัง `NOT_CLAIMED`) · ไม่มีแท็บเลยใช้แท็บที่ agent เปิดล่าสุด · `rememberOwnership()` จำตอน `open` สำเร็จ / ลืมตอน `close` · `annotateTabs()` คืน `openedByAgent` + `owned` ต่อแถว
+  · `src/freepi-bridge.js`: prompt เพิ่มบรรทัด "site ที่ไม่มีแท็บ → เรียก browser_open ได้ แท็บที่เปิดเป็นของ agent ไม่ต้องขอ hand-over" · เปลี่ยนกฎสุดท้ายเป็น "tabs the user handed over, or tabs you opened yourself" · แก้ description ของ `browser_open` ให้ตรงความจริง
+  · เทสต์: `selftest-browser-multitab.js` +12 เช็ค (แท็บที่เปิดเองใช้ได้, แท็บอื่นยังถูกปฏิเสธ, hand-over ยังชนะเป็นดีฟอลต์, disown, เพดาน 8, prompt/description) → `npm test` **95/95** · sara สะอาด
