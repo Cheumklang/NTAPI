@@ -1,12 +1,2 @@
-# The evidence ledger is hashed byte for byte, so its content must never be
-# rewritten by line-ending conversion on checkout. Without this, the recorded
-# SHA-256 of a record file stops matching on a machine whose git is set to CRLF —
-# and the ledger would look tampered with when it is not.
-# Every other tracked file is source: store LF and check out LF, so a copy
-# brought over from Windows cannot leave ~90 files looking modified.
-* text=auto eol=lf
-
-# Must come after the general rule: the last matching line wins, and the ledger
-# is hashed byte for byte.
-PROVENANCE/** -text
-.githooks/* text eol=lf
+*.ps1 text eol=crlf
+*.py text eol=lf

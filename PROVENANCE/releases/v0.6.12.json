@@ -1,0 +1,22 @@
+{
+  "version": "0.6.12",
+  "tag": "v0.6.12",
+  "recordedAt": "2026-11-21T15:34:43.120Z",
+  "git": {
+    "head": "61bad2cd313783281368d6e3e2551c03fa7d373b",
+    "branch": "master",
+    "tree": "cdc34808b66e753d144556fb0342cb8131fd1edb",
+    "subject": "chore(release): 0.6.12 — real input on Windows",
+    "authorDate": "2026-11-21T22:31:05+07:00",
+    "commitCount": 434
+  },
+  "ci": "",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.12.exe",
+      "size": null,
+      "sha256": null
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.12"
+}
