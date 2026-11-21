@@ -2,6 +2,15 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ ล่าสุด (2026-11-21) — `/skill` ค้นให้ถูกจุดทุกค่าย (ยังไม่ commit/ไม่ปล่อยรุ่น)
+> - ผู้ใช้: "แต่ละคนใช้ AI ไม่เหมือนกัน … เน้นค้นหาให้เขาถูกจุดก็พอ" · **ไม่ต้องมีปุ่มนำเข้าสกิล** (ผู้ใช้ตัดออก: ผู้ใช้ส่วนใหญ่มือใหม่)
+> - `skillRoots()` (main.js) เพิ่ม 18 โฟลเดอร์ home: `.agents`, `.claude`, `.cursor`, `.copilot`, `.gemini`, `.gemini/config`, `.continue`,
+>   `.aider-desk`, `.openclaw`, `.codeium/windsurf`, `.config/{agents,crush,devin,goose}` (XDG ใช้ได้บน Linux; บน Windows ถ้าไม่มีก็ข้าม)
+>   + ระดับโปรเจกต์ 8 โฟลเดอร์ (`skills`, `.agents`, `.claude`, `.pi`, `.cursor`, `.github`, `.gemini`, `.windsurf`)
+>   + **ไต่โฟลเดอร์แม่ขึ้นไปถึง repo root** (สูงสุด 12 ชั้น) เหมือน SDK · dedupe แบบ case-insensitive บน Windows
+> - hint ในเมนู `/skill` ตอนว่างอัปเดตให้ตรง (`skillSearchHint()`)
+> - เทสต์ `selftest-skill-scan.js` +4 เช็ค (ทุกค่ายถูกค้น, ลำดับ `.agents` มาก่อน, 8 โฟลเดอร์โปรเจกต์, ไต่ถึง repo root แล้วหยุด) → `npm test` 95/95 · sara ok
+>
 > ### 🧹 ทำความสะอาด releases (2026-11-21, ผู้ใช้สั่งอีกรอบ)
 > - releases 7 → **1** (`v0.6.5` · v0.6.4 ลบทิ้ง 173 MB) · tags รีโปนี้ 22 → **1** · tags ใน `NTAPI-releases` 22 → **1**
 > - workflow `prune-releases.yml`: โหมดอัตโนมัติตอนนี้ลบ **แท็ก** ด้วย (`TAGS=true`) ทั้งในรีโปนี้และในรีโป release

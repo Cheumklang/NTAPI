@@ -66,6 +66,60 @@ check(
   roots.join(' | '),
 );
 
+// People do not all use the same AI tool, so the roster has to cover the
+// folders each one already has. Read from the real list, not a copy of it.
+const homeDir = os.homedir();
+const brandDirs = [
+  ['.claude'],
+  ['.cursor'],
+  ['.copilot'],
+  ['.gemini'],
+  ['.gemini', 'config'],
+  ['.continue'],
+  ['.aider-desk'],
+  ['.openclaw'],
+  ['.codeium', 'windsurf'],
+  ['.config', 'agents'],
+  ['.config', 'crush'],
+  ['.config', 'devin'],
+  ['.config', 'goose'],
+];
+const missing = brandDirs.filter((parts) => !roots.includes(path.join(homeDir, ...parts, 'skills')));
+check('every agent\'s own home folder is searched', missing.length === 0, missing.map((m) => m.join('/')).join(', '));
+check('the portable folders come first, so they win a name clash', roots.indexOf(path.join(homeDir, '.agents', 'skills')) < roots.indexOf(path.join(homeDir, '.cursor', 'skills')));
+
+const workspace = path.join(tmp, 'workspace');
+const projectExpected = [
+  path.join(workspace, 'skills'),
+  path.join(workspace, '.claude', 'skills'),
+  path.join(workspace, '.agents', 'skills'),
+  path.join(workspace, '.pi', 'skills'),
+  path.join(workspace, '.cursor', 'skills'),
+  path.join(workspace, '.github', 'skills'),
+  path.join(workspace, '.gemini', 'skills'),
+  path.join(workspace, '.windsurf', 'skills'),
+];
+const missingProject = projectExpected.filter((dir) => !roots.includes(dir));
+check(
+  'a project can hold a skill in any of the documented folders',
+  missingProject.length === 0,
+  missingProject.join(', '),
+);
+
+// A repository root one level up must still be searched, and nothing above it:
+// walking all the way to C:\ would let an unrelated folder decide what the
+// agent can do.
+const proj = path.join(tmp, 'proj');
+fs.mkdirSync(path.join(proj, '.git'), { recursive: true });
+writeSkill(path.join(proj, '.claude', 'skills', 'from-repo'), 'from-repo', 'kept beside the repo');
+const deepRoots = sandbox.__roots(path.join(proj, 'pkg', 'sub'));
+check('a skill beside the repository root is found from a subfolder', deepRoots.includes(path.join(proj, '.claude', 'skills')));
+check('the walk stops at the repository root', !deepRoots.includes(path.join(tmp, '.claude', 'skills')));
+check(
+  'that repository-level skill is in the roster',
+  sandbox.__scan(deepRoots).some((s) => s.name === 'from-repo'),
+);
+
 const skills = sandbox.__scan(roots);
 const names = skills.map((s) => s.name);
 

@@ -3359,3 +3359,9 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - 2026-11-21 (ต่อ): ทำความสะอาด release/tags ตามคำสั่งผู้ใช้ — ลบ release v0.6.4 (id 453311923) เหลือ `v0.6.5` เดียว · ลบ tag 21 ตัวในรีโปนี้ (เหลือ v0.6.5) · ลบ tag 21 ตัวใน `Cheumklang/NTAPI-releases` (เหลือ v0.6.5) · คืนพื้นที่รวม ~1.0 GB
 - `prune-releases.yml`: automatic path ตั้ง TAGS=true + step ลบแท็กใน release repo ด้วย (`repos/$TARGET_REPO/git/refs/tags/$tag`) — เดิมแท็กค้างทำให้รุ่นที่ลบแล้วยังดูมีอยู่
 - `AGENTS.md`: กฎ prune ระบุเรื่องแท็กทั้ง 2 รีโป + บันทึกว่าทำมือแล้ว 1 ครั้ง (releases 7→1, tags 22→1 ทั้งสองรีโป)
+
+## 2026-11-21 — /skill ค้นทุกค่าย AI (ผู้ใช้สั่ง "เอาเข้ามาไว้เลย") และตัดปุ่มนำเข้าสกิล
+- `skillRoots()`: home 18 โฟลเดอร์ (`.claude`, `.agents`, `.cursor`, `.copilot`, `.gemini`, `.gemini/config`, `.continue`, `.aider-desk`, `.openclaw`, `.codeium/windsurf`, `.config/{agents,crush,devin,goose}`, `.pi`, `.free-pi`) + โปรเจกต์ 8 โฟลเดอร์ + ไต่โฟลเดอร์แม่ถึง `.git` (สูงสุด 12 ชั้น) + dedupe case-insensitive บน Windows
+- `renderer/app.js` `skillSearchHint()` แสดงรายการใหม่ · `selftest-skill-scan.js` +4 เช็ค → `npm test` 95/95
+- **ผู้ใช้ตัดสินใจ 2026-11-21: ไม่ทำปุ่ม "นำเข้าสกิล"** — ผู้ใช้ส่วนใหญ่เป็นมือใหม่ เน้นให้ค้นหาเจอถูกจุดแทน (ประหยัดงาน + ไม่เพิ่มความเสี่ยงจาก zip/GitHub)
+- ยังไม่ commit / ยังไม่ bump

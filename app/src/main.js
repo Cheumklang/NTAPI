@@ -2383,32 +2383,75 @@ function tabIdForTab(target) {
  */
 function skillRoots(cwd) {
   const home = os.homedir();
-  const roots = [
-    path.join(DATA_ROOT, 'skills'),
-    // `~/.pi/skills` is where the CLI's global skills sit on a real install
-    // (`C:\Users\<name>\.pi\skills` on Windows) — the layout a user reported
-    // having, and the one this list was missing while every folder around it
-    // was already here. `~/.pi/agent/skills` stays for the agent-dir layout.
-    path.join(home, '.pi', 'skills'),
-    path.join(home, '.pi', 'agent', 'skills'),
-    path.join(home, '.free-pi', 'skills'),
-    path.join(home, '.free-pi', 'agent', 'skills'),
-    path.join(home, '.agents', 'skills'),
-    path.join(home, '.claude', 'skills'),
+  // Every folder a real agent keeps its own skills in, relative to the user's
+  // home. One list serves both platforms: on Windows the XDG entries simply do
+  // not exist and cost a single stat, and on Linux the Windows-only ones do the
+  // same. `~/.agents/skills` is the cross-client convention (Codex, Cursor,
+  // Gemini CLI, Copilot, Amp, Cline, Warp) and `~/.claude/skills` is Claude
+  // Code's own; the rest are the per-brand folders people already have.
+  const HOME_DIRS = [
+    ['.pi', 'skills'],
+    ['.pi', 'agent', 'skills'],
+    ['.free-pi', 'skills'],
+    ['.free-pi', 'agent', 'skills'],
+    ['.agents', 'skills'],
+    ['.claude', 'skills'],
+    ['.cursor', 'skills'],
+    ['.copilot', 'skills'],
+    ['.gemini', 'skills'],
+    ['.gemini', 'config', 'skills'],
+    ['.continue', 'skills'],
+    ['.aider-desk', 'skills'],
+    ['.openclaw', 'skills'],
+    ['.codeium', 'windsurf', 'skills'],
+    ['.config', 'agents', 'skills'],
+    ['.config', 'crush', 'skills'],
+    ['.config', 'devin', 'skills'],
+    ['.config', 'goose', 'skills'],
   ];
+  // Folders a project may hold a skill in. `.agents`/`.claude` are the portable
+  // ones; the rest are where each vendor's own client looks.
+  const PROJECT_DIRS = [
+    ['skills'],
+    ['.agents', 'skills'],
+    ['.claude', 'skills'],
+    ['.pi', 'skills'],
+    ['.cursor', 'skills'],
+    ['.github', 'skills'],
+    ['.gemini', 'skills'],
+    ['.windsurf', 'skills'],
+  ];
+  const roots = [path.join(DATA_ROOT, 'skills')];
+  for (const parts of HOME_DIRS) roots.push(path.join(home, ...parts));
   // Someone who moved the agent dir with the documented env var keeps their
   // skills next to it, not in the default home path.
   const envAgentDir = process.env.PI_CODING_AGENT_DIR;
   if (envAgentDir) roots.push(path.join(envAgentDir, 'skills'));
   if (cwd) {
-    roots.push(
-      path.join(cwd, 'skills'),
-      path.join(cwd, '.agents', 'skills'),
-      path.join(cwd, '.pi', 'skills'),
-      path.join(cwd, '.claude', 'skills'),
-    );
+    // The working directory first, then its parents up to the repository root:
+    // the agent often runs from a package three folders deep, and the skill the
+    // user put beside the repo must still be found. Twelve levels and the
+    // filesystem root stop it from walking somewhere unrelated.
+    let dir = path.resolve(cwd);
+    for (let depth = 0; depth < 12; depth += 1) {
+      for (const parts of PROJECT_DIRS) roots.push(path.join(dir, ...parts));
+      const parent = path.dirname(dir);
+      if (parent === dir || fs.existsSync(path.join(dir, '.git'))) break;
+      dir = parent;
+    }
   }
-  return roots;
+
+  // The same folder can arrive twice (home dir listed twice, project == home on
+  // Windows). Windows paths are case-insensitive, so dedupe that way there.
+  const seen = new Set();
+  const unique = [];
+  for (const root of roots) {
+    const key = process.platform === 'win32' ? root.toLowerCase() : root;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(root);
+  }
+  return unique;
 }
 
 /** Read `name:` and `description:` out of a SKILL.md frontmatter block. */

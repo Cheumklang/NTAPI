@@ -7412,8 +7412,20 @@ function skillSlashItems(query) {
 /** Where a skill may be dropped, in the short form a tooltip can hold. */
 function skillSearchHint() {
   const cwd = activeView()?.cwd;
-  const local = cwd ? ['skills/', '.pi/skills', '.agents/skills'] : [];
-  return [...local, '~/.pi/skills', '~/.pi/agent/skills', '~/.agents/skills', '~/.claude/skills', 'app-data/skills'].join(', ');
+  const local = cwd ? ['skills/', '.claude/skills', '.agents/skills', '.cursor/skills', '.github/skills'] : [];
+  return [
+    ...local,
+    '~/.claude/skills',
+    '~/.agents/skills',
+    '~/.cursor/skills',
+    '~/.copilot/skills',
+    '~/.gemini/skills',
+    '~/.continue/skills',
+    '~/.codeium/windsurf/skills',
+    '~/.pi/skills',
+    '~/.pi/agent/skills',
+    'app-data/skills',
+  ].join(', ');
 }
 
 function applySlashItems(items) {
