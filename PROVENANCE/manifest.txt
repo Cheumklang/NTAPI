@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-20T12:55:00.144Z
-entries 159
-head_hash 7a7ae6aa5e6f5662c26c1e4ba24ede0b98399bbacac265d724c3a4d84ef03958
-git d0ec11f3fd8baf8809f384a4a9ad054bb2c6251c
+updated 2026-11-21T00:09:56.487Z
+entries 179
+head_hash 0107bd073f6045e207d365b689edbf5785cdc29be8d1c53ed60fdbc517c2a8b9
+git 81231e110f098ad1e21fe9185ea0b9907a986669
 
 latest entries:
-  #152 2026-11-20T12:21:06.671Z commit — docs: HANDOFF + LOG บันทึกงานอัปเดต delta และข้อความแดงที่ปิดได้
-  #153 2026-11-20T12:21:12.635Z commit — internal: บันทึกหลักฐานหลัง commit
-  #154 2026-11-20T12:21:18.488Z commit — chore: ledger
-  #155 2026-11-20T12:32:53.117Z release — Released version 0.5.28
-  #156 2026-11-20T12:51:27.158Z commit — feat: ปรับการย่อบทสนทนาได้ในหน้า Settings — สวิตช์เปิด/ปิด + token ที่เก็บไว้ตามเดิม/กันไว้ให้คำตอบ
-  #157 2026-11-20T12:51:27.358Z commit — docs: กฎ bash — ค่าเริ่มต้น 1 call ต่อเทิร์น แยกได้เฉพาะกรณีจำเป็นจริง (ก/ข/ค)
-  #158 2026-11-20T12:51:28.059Z commit — chore: 0.5.29
-  #159 2026-11-20T12:54:59.999Z release — Released version 0.5.29
+  #172 2026-11-21T00:04:27.254Z commit — chore(release): keep two releases, not twenty
+  #173 2026-11-21T00:04:27.544Z commit — fix(text): spell ทุก สระอำ with U+0E33 (228 places)
+  #174 2026-11-21T00:04:27.845Z commit — docs(agent): handoff matches v0.6.3, plus the two new rules
+  #175 2026-11-21T00:04:32.989Z commit — chore(provenance): ledger for the browser-tab fix and the prune rule
+  #176 2026-11-21T00:04:33.296Z commit — chore(release): 0.6.4 — the agent can open a site no tab covers
+  #177 2026-11-21T00:04:33.896Z commit — chore(provenance): ledger v0.6.4
+  #178 2026-11-21T00:04:38.438Z commit — chore(provenance): close ledger for v0.6.4
+  #179 2026-11-21T00:09:56.262Z release — Released version 0.6.4

@@ -3340,3 +3340,11 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
   · `src/browser-bridge.js`: `targetFor()` รับแท็บที่ mอบหรือที่ agent เปิดเอง (อื่นยัง `NOT_CLAIMED`) · ไม่มีแท็บเลยใช้แท็บที่ agent เปิดล่าสุด · `rememberOwnership()` จำตอน `open` สำเร็จ / ลืมตอน `close` · `annotateTabs()` คืน `openedByAgent` + `owned` ต่อแถว
   · `src/freepi-bridge.js`: prompt เพิ่มบรรทัด "site ที่ไม่มีแท็บ → เรียก browser_open ได้ แท็บที่เปิดเป็นของ agent ไม่ต้องขอ hand-over" · เปลี่ยนกฎสุดท้ายเป็น "tabs the user handed over, or tabs you opened yourself" · แก้ description ของ `browser_open` ให้ตรงความจริง
   · เทสต์: `selftest-browser-multitab.js` +12 เช็ค (แท็บที่เปิดเองใช้ได้, แท็บอื่นยังถูกปฏิเสธ, hand-over ยังชนะเป็นดีฟอลต์, disown, เพดาน 8, prompt/description) → `npm test` **95/95** · sara สะอาด
+
+## 2026-11-21 — ปล่อย v0.6.4 (agent เปิดเว็บเองได้ + prune เหลือ 2 รุ่น)
+- commit: `60eb93d` fix(browser) แท็บที่ agent เปิดเองใช้ได้ · `2b2672f` prune 2 รุ่น (`keep_count` default 2, `NTAPI_UPDATE_RETENTION:-2`, `UPDATE_RETENTION = 2`) · `081c353` สระอำ 228 จุด · `62ad8f4` bump 0.6.4 · ledger 4 commits
+- `npm test` 95/95 · `NTAPI ADS npm test` 5/5 · `check:sara --strict` ok
+- Release run 44841387074 (windows-latest) success · asset `NTAPI-Setup-0.6.4.exe` 181,446,462 B sha256 `7f3615a446c01e3df8f255c8c1b3dd04c465db45a569bd1bae1ac80d9b3b9075` · blockmap 229,703 B `d9ec12f9…`
+- **prune ทำงานครั้งแรกจริง:** releases 7 → 2 (`v0.6.4`, `v0.6.3`) คืนพื้นที่ ~850 MB
+- กับดัก: `record-release` ครั้งแรกใส่ sha256 ของ blockmap ผิด (คัดลอกขนาดไฟล์) → ตัด ledger `seq 179` + ลบ JSON แล้วบันทึกใหม่ครั้งเดียว + `anchor` + `verify` OK 179 entries / 80 files
+- กฎใหม่ใน `AGENTS.md`: ทุกครั้งที่ปล่อยต้องลบรุ่นเก่าให้เหลือ 2 (เหตุผล: delta ต้องใช้ blockmap ของรุ่นก่อนหน้า)

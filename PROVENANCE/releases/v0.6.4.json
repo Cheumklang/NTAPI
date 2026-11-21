@@ -1,0 +1,27 @@
+{
+  "version": "0.6.4",
+  "tag": "v0.6.4",
+  "recordedAt": "2026-11-21T00:09:56.253Z",
+  "git": {
+    "head": "81231e110f098ad1e21fe9185ea0b9907a986669",
+    "branch": "master",
+    "tree": "ea2b8b6bb1ae7842a9edff5639b28de715c6e64d",
+    "subject": "chore(provenance): record the closing ledger commit",
+    "authorDate": "2026-11-21T07:04:51+07:00",
+    "commitCount": 400
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44841387074",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.4.exe",
+      "size": 181446462,
+      "sha256": "7f3615a446c01e3df8f255c8c1b3dd04c465db45a569bd1bae1ac80d9b3b9075"
+    },
+    {
+      "name": "NTAPI-Setup-0.6.4.exe.blockmap",
+      "size": 229703,
+      "sha256": "d9ec12f9545855f24eeb6b32509543c3e2e8b34cd9cd08c9816ad7c15e9d2012"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.4"
+}

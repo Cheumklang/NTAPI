@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-21 · กวาดเอกสารรอบนี้): ปล่อย v0.6.3 แล้ว · tree สะอาด · `master` = `origin/master` (`ef8e491`)**
+> **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.4 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
 > ### ค้างอยู่จริง (ณ วันนี้)
 > 1. ~~ทดสอบ delta update จริง~~ → **✅ ผู้ใช้ทดสอบบน Windows แล้ว (2026-11-21)** · **ตัดแนวทาง Linux/AppImage ออกโดยเจตนา (ผู้ใช้สั่ง 2026-11-21)** — ผู้ใช้จริงเป็น Windows ทั้งหมด เครื่อง Ubuntu มีแค่ผู้พัฒนา → ห้ามเสนอ `build.linux` / job `ubuntu-latest` ซ้ำ · การยืนยันฝั่ง asset ทำได้แค่: ทุกรุ่นต้องมี `.exe.blockmap` + `latest.yml` ครบ
@@ -12,7 +12,11 @@
 > 7. **ยังไม่มี adapter ควบคุมเครื่องฝั่ง Windows** — `src/system/index.js` คืน adapter แค่ linux (AT-SPI2) · แพลตฟอร์มอื่น = `UNSUPPORTED` · ผู้ใช้จริงเป็น Windows → งานที่มีค่าที่สุดถัดไป
 > 8. **ระยะ 2 ของแผนอัปเดต (`nsis-web`)** — ยังไม่ทำ · ทำเมื่อตัวติดตั้ง 181 MB รับไม่ได้
 >
-> ### ✅ ล่าสุด (2026-11-21) — "extension ไปเว็บอื่นเองไม่ได้" แก้แล้ว (ยังไม่ commit/ไม่ปล่อยรุ่น)
+> ### ✅ v0.6.4 ออกแล้ว (2026-11-21) — "extension ไปเว็บอื่นเองไม่ได้" + ลบ release เก่าเหลือ 2
+> - commit `60eb93d` (browser) · `2b2672f` (prune 2 รุ่น) · `081c353` (สระอำ 228 จุด) · `62ad8f4` (bump) · tag `v0.6.4` · Release run `44841387074` success · provenance seq 179
+> - asset `NTAPI-Setup-0.6.4.exe` 181,446,462 B · sha256 `7f3615a4…b9075` · blockmap 229,703 B `d9ec12f9…`
+> - **prune ทำงานจริงแล้วครั้งแรก:** จาก 7 รุ่น (1.21 GB) → เหลือ **2 รุ่น** (`v0.6.4` + `v0.6.3`, ~364 MB) — กฎใหม่ใน `AGENTS.md`: เก็บ 2 รุ่นล่าสุดเสมอ (`keep_count` default 2, `UPDATE_RETENTION = 2`)
+> - ยังต้องมีคนกดใช้จริงบน Windows: เปิดแอป → ถามให้ agent เปิดเว็บที่ไม่มีแท็บอยู่ → ควรเปิดเองได้และอ่าน/คลิกต่อได้
 > - ต้นเหตุ: (1) แท็บที่ agent เปิดเองไม่ถูกนับเป็นแท็บที่ใช้ได้ → `NOT_CLAIMED` ทันทีใน snapshot ที่ตามหลัง `open`
 >   (2) prompt สั่งว่า "Work only in the tab the user handed over" + description ของ `browser_open` เขียนว่า "Requires a tab handed over first" → โมเดลไม่กล้าเปิดแท็บเอง
 > - แก้: `browser-claims.js` เพิ่ม `own/disown/isOwned/lastOwned/ownedList` (`MAX_OWNED = 8`) · `browser-bridge.js` `targetFor()` รับแท็บที่ agent เปิดเอง + `rememberOwnership()` + `annotateTabs()` คืน `openedByAgent`
