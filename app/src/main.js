@@ -1284,12 +1284,14 @@ async function askApproval(tabId, { toolName, args, label, kind }) {
       // Returning false here without a word is what made a missing tab look like
       // the user refusing: no dialog appeared, yet the agent reported a refusal.
       // Say so, and leave the agent no way to mistake it for consent.
-      console.log('[browser] claim refused: no usable tab to hand over (agent window and blank tabs excluded)');
-      // Tell the window as well: silence here looked exactly like a refusal.
+      // Nothing to hand over. Refusing here produced "the user did not approve"
+      // for a user who was never asked, so let the tool answer instead — with the
+      // real reason (extension off, or no tab open) the agent can act on.
+      console.log('[browser] claim has no target; the tool will explain why');
       sendTab(tabId, 'app:log', {
-        text: 'ไม่มีแท็บให้มอบให้ agent — เปิดหน้าที่ต้องการใน Chrome ก่อน แล้วกดปุ่ม «ใช้แท็บที่เปิดอยู่» อีกครั้ง',
+        text: 'ยังไม่มีแท็บให้มอบให้ agent — เปิดหน้าที่ต้องการใน Chrome หรือเชื่อมต่อส่วนขยายก่อน',
       });
-      return false;
+      return true;
     }
     pendingClaimTarget = target;
     label = `${target.title || target.url} — ${hostOfUrl(target.url)}`;
@@ -2281,7 +2283,23 @@ async function attachTab(tabId, manager, cwd) {
     claimTab: async () => {
       const target = pendingClaimTarget || (await resolveClaimTarget());
       pendingClaimTarget = null;
-      if (!target) return { ok: false, error: 'No browser tab was open to hand over.' };
+      if (!target) {
+        const status = browserBridge.status();
+        if (!status.enabled || !status.connected) {
+          return {
+            ok: false,
+            code: 'EXTENSION_OFF',
+            error:
+              'The browser extension is not connected, so no tab could be handed over. Ask the user to open the Browser card in the sidebar and connect Chrome, then try again.',
+          };
+        }
+        return {
+          ok: false,
+          code: 'NO_TAB',
+          error:
+            'Chrome is connected but no tab is open to hand over. Ask the user to open the page in Chrome, then try again.',
+        };
+      }
       return claimBrowserTab({ tabId: target.id, url: target.url, title: target.title });
     },
     browserBridge,

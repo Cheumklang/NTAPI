@@ -1069,7 +1069,12 @@ async function createFreePiSession(options) {
       }
       const claimed = await claimTab();
       if (!claimed || !claimed.ok) {
-        return browserErrorResult('NO_CLAIM', (claimed && claimed.error) || 'The user did not hand a tab over.');
+        // The reason matters: "the extension is not connected" and "no tab is
+        // open" need different actions from the user, and neither is a refusal.
+        return browserErrorResult(
+          (claimed && claimed.code) || 'NO_CLAIM',
+          (claimed && claimed.error) || 'The request did not go through.',
+        );
       }
       const claim = claimed.claim || {};
       return {
@@ -2588,13 +2593,18 @@ const BROWSER_TOOL_DOCS = {
   },
   browser_upload: {
     description:
-      'Attach local files to a file input on the page — the step that uploads a video or an image. Give the ref of the `input type=file` from the snapshot, and absolute paths to the files (one job = one file). The page then continues on its own; keep going with snapshot/click/wait for the rest of the form. Asks the user for approval, since it reads a file from disk.',
+      'Attach local files to a file input — the step that uploads a video or an image. ' +
+      'Pass absolute paths in `files`; that alone is enough on Facebook and most sites, because a hidden `input type=file` is found and filled without a ref. ' +
+      'On pages that only create the input when their upload button is pressed (TikTok), also pass `text` (the button label) or `selector`: the bridge clicks it and answers the file picker itself. ' +
+      'A page can never fill its own file input, but this does not need the page to cooperate. ' +
+      'The page then continues on its own; keep going with snapshot/click/wait for the rest of the form. Asks the user for approval, since it reads a file from disk.',
     snippet: 'Choose files for a file input',
     required: ['files'],
     props: {
       tab: { type: 'integer' },
       ref: { type: 'string', description: 'The file input, from the snapshot' },
-      selector: { type: 'string', description: 'CSS selector, if you have no ref' },
+      selector: { type: 'string', description: 'CSS selector, or the upload button to press when there is no input yet' },
+      text: { type: 'string', description: 'Visible text of the upload button, for pages that build the input on click' },
       files: {
         type: 'array',
         description: 'Absolute paths of the files to attach (at most 5)',

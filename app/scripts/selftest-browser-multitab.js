@@ -70,6 +70,15 @@ check('and still refuses an id', bare.targetFor(22).ok === false);
 check('find_tab exists and only reads', BROWSER_TOOLS.browser_find_tab?.write === false);
 check('find_tab asks Chrome for the tab list', BROWSER_TOOLS.browser_find_tab?.cmd === 'tabs-real');
 check('upload is a write tool', BROWSER_TOOLS.browser_upload?.write === true);
+// A page cannot fill its own file input, and "the user did not approve" was
+// being said about a user who was never asked. Both are app-side truths now.
+check(
+  'no tab to hand over is explained instead of read as a refusal',
+  (() => {
+    const src = read('src/main.js');
+    return /claim has no target/.test(src) && /EXTENSION_OFF/.test(src) && /NO_TAB/.test(src);
+  })(),
+);
 check('upload speaks to the extension', BROWSER_TOOLS.browser_upload?.cmd === 'upload');
 check('upload needs approval like any other write', browserGuardedTools().includes('browser_upload'));
 
@@ -77,6 +86,11 @@ const specs = browserToolSpecs();
 const specFor = (name) => specs.find((s) => s.name === name) || {};
 const findSpec = specFor('browser_find_tab');
 const uploadSpec = specFor('browser_upload');
+check(
+  'the upload explains pages that build their input on click',
+  /file picker itself/.test(uploadSpec.description || ''),
+  uploadSpec.description,
+);
 const openSpec = specFor('browser_open');
 
 check('find_tab tells the model what to type', /url or title/i.test(findSpec.description || ''));

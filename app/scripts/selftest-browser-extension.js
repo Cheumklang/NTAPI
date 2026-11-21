@@ -33,6 +33,9 @@ function makeChrome() {
     attachFails: false,
     frameTree: null,
     snapshotNodes: {},
+    fileInputProbe: null,
+    callFunctionAnswer: { tag: 'input', type: 'file' },
+    nodeId: 42,
     contextSeq: 0,
     contextFrames: {},
     allTabs: null,
@@ -139,6 +142,9 @@ function makeChrome() {
           if (params.contextId) {
             const frameId = state.contextFrames[params.contextId];
             if (String(params.expression || '').includes('scrollIntoView')) return { result: { value: state.evaluateAnswer } };
+            if (String(params.expression || '').includes('input[type=file]')) {
+              return { result: { value: state.fileInputProbe || { total: 0, hidden: 0 } } };
+            }
             return { result: { value: state.snapshotNodes[frameId] || [] } };
           }
           if (state.evaluateOverride) return state.evaluateOverride;
@@ -152,6 +158,10 @@ function makeChrome() {
           return { result: { value: true } };
         }
         if (method === 'Page.captureScreenshot') return { data: 'AAAA' };
+        if (method === 'Runtime.callFunctionOn') return { result: { value: state.callFunctionAnswer } };
+        if (method === 'DOM.requestNode') return { nodeId: state.nodeId };
+        if (method === 'DOM.setFileInputFiles') return {};
+        if (method === 'Page.setInterceptFileChooserDialog') return {};
         return {};
       },
     },
@@ -305,7 +315,10 @@ async function main() {
   check('snapshot returns every frame', snap.frames.length === 2, JSON.stringify(snap.frames));
   check('the main frame is reported without a prefix', snap.frames[0].frameId === '' && snap.frames[1].frameId === 'F2');
   check('snapshot tags nodes with their frame', snap.nodes.filter((n) => n.frameId === 'F2').length === 1);
-  check('the collector runs once per frame with its own context', cdpCalls('Runtime.evaluate').filter((c) => c.payload.params.contextId).length === 2);
+  const collectorCalls = cdpCalls('Runtime.evaluate').filter(
+    (c) => c.payload.params.contextId && !String(c.payload.params.expression || '').includes('input[type=file]'),
+  );
+  check('the collector runs once per frame with its own context', collectorCalls.length === 2);
   check('the collector clears old refs as it runs', String(cdpCalls('Runtime.evaluate').find((c) => c.payload.params.contextId).payload.params.expression).includes('removeAttribute'));
   check('out-of-process iframes are auto-attached', cdpCalls('Target.setAutoAttach').length === 1);
 
@@ -391,6 +404,54 @@ async function main() {
 
   // --- the app must hear about the two things that end a hand-over run ---
   const frames = () => ws.sent.map((s) => JSON.parse(s));
+  // --- upload: a hidden input needs no ref and no selector ---
+  // Facebook keeps an `input type=file` hidden, and a page can never set it
+  // itself — which is why uploading used to be reported as impossible.
+  const uploader = loadWorker();
+  uploader.state.evaluateOverride = { result: { objectId: 'obj-1' } };
+  const uploaded = await uploader.handle('upload', { files: ['C:\\clips\\a.mp4'] });
+  const setFiles = uploader.calls.filter((c) => c.name === 'cdp' && c.payload.method === 'DOM.setFileInputFiles');
+  check('an upload needs only files, not a selector', setFiles.length === 1 && uploaded.via === 'input', JSON.stringify(uploaded));
+  check('the file goes to the input the page is hiding', setFiles[0] && setFiles[0].payload.params.nodeId === 42);
+
+  // --- upload: the page builds its input on click (TikTok) ---
+  const chooser = loadWorker();
+  chooser.state.callFunctionAnswer = { tag: 'div', type: '' };
+  const started = chooser.handle('upload', { files: ['C:\\clips\\a.mp4'], text: 'Upload' });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  chooser.emitEvent({ tabId: 7 }, 'Page.fileChooserOpened', { backendNodeId: 77, mode: 'selectSingle' });
+  const chosen = await started;
+  check('the picker a click opens is answered by the bridge', chosen.via === 'file-chooser', JSON.stringify(chosen));
+  check(
+    'the intercepted picker receives the file',
+    chooser.calls.some(
+      (c) => c.name === 'cdp' && c.payload.method === 'DOM.setFileInputFiles' && c.payload.params.backendNodeId === 77,
+    ),
+  );
+  check(
+    'interception is switched off again',
+    chooser.calls.some(
+      (c) => c.name === 'cdp' && c.payload.method === 'Page.setInterceptFileChooserDialog' && c.payload.params.enabled === false,
+    ),
+  );
+
+  // --- upload: a page with nothing to click says what to do ---
+  const stuck = loadWorker();
+  stuck.state.callFunctionAnswer = { tag: 'div', type: '' };
+  check('no input and no button is NO_FILE_INPUT', (await expectError(() => stuck.handle('upload', { files: ['C:\\a.mp4'] }))) === 'NO_FILE_INPUT');
+
+  // --- snapshot: the hidden input is reported ---
+  const prober = loadWorker();
+  prober.state.frameTree = { frame: { id: 'MAIN', url: 'https://www.facebook.com' } };
+  prober.state.snapshotNodes = { MAIN: [{ ref: 'e1', tag: 'a', text: 'Home' }] };
+  prober.state.fileInputProbe = { total: 2, hidden: 1 };
+  const probed = await prober.handle('snapshot', {});
+  check(
+    'a snapshot says how many hidden file inputs the page has',
+    probed.fileInputs && probed.fileInputs.total === 2 && probed.fileInputs.hidden === 1,
+    JSON.stringify(probed.fileInputs),
+  );
+
   ws.sent.length = 0;
   dispatchTabRemoved(3);
   check('closing a tab is reported to the app', frames().some((f) => f.event === 'tabClosed' && f.tabId === 3), JSON.stringify(ws.sent));

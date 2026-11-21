@@ -169,8 +169,25 @@ function formatSnapshot(raw, options = {}) {
     });
   }
 
+  // A hidden file input is the one element an upload needs and the one the tree
+  // cannot show, so its existence is stated instead of left to be discovered.
+  const fileInputs = source.fileInputs && typeof source.fileInputs === 'object' ? source.fileInputs : null;
+  const notes = [];
+  if (fileInputs && fileInputs.total > 0) {
+    const hidden = Number(fileInputs.hidden) > 0 ? `, ${fileInputs.hidden} hidden` : '';
+    notes.push(
+      `file inputs: ${fileInputs.total}${hidden}. browser_upload fills them by itself — pass files; add text/selector only when the page has no input until its upload button is pressed.`,
+    );
+  }
+
   if (!nodes.length) {
-    return { text: NO_ELEMENTS_TEXT, table, shown: 0, total: 0, truncated: false };
+    return {
+      text: [NO_ELEMENTS_TEXT, ...notes].join('\n'),
+      table,
+      shown: 0,
+      total: 0,
+      truncated: false,
+    };
   }
 
   const shown = Math.max(0, Math.min(nodes.length, maxNodes));
@@ -213,7 +230,13 @@ function formatSnapshot(raw, options = {}) {
   const truncated = nodes.length > shown || used < lines.length;
   if (truncated) body = body ? `${body}\n${notice}` : notice;
 
-  return { text: cutChars(body, maxChars), table, shown, total: nodes.length, truncated };
+  return {
+    text: [cutChars(body, maxChars), ...notes].filter(Boolean).join('\n'),
+    table,
+    shown,
+    total: nodes.length,
+    truncated,
+  };
 }
 
 /**

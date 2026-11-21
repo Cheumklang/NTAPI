@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NTAPI Browser Bridge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Lets the NTAPI desktop agent drive this browser, with the app asking before any change.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkqqduhj/Qybyd5kmm3lisKAugj8rftLmBEfaF/TkYgUkZcvq61p+S/K59SpVmu/wciERVxrbL9ZRvvpmoiawg8prtdeCOf9zsld3A1wWbAuyxgdGnAtOUsmVAqj0Fu0eU6VZ5cmDONsg+mpiRq2RQrAvS3IwI2rj0CwZZkelS9N8zQBo4OS0iFzzHlPrkvZqHLonheJ2h7b6LzHY+xhpiNzpb/Qpza426eIpEOT0YXrKIQaB3BDyD9gtcBUDUykMdsFB1UJAPwuDgxCzpINkWYKW3zBb7oMWdCjrOBIRpkZgEeGrZgKRIZ8aGHQDSKENUL085GFDF2Zop2wVdMZogwIDAQAB",
   "permissions": [

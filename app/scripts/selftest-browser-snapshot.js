@@ -98,6 +98,20 @@ check('an empty page formats to a clear message', /no interactive elements/i.tes
 check('an empty page has an empty table', empty.table.size === 0 && empty.shown === 0 && empty.truncated === false);
 check('a missing raw is handled, not a crash', /no interactive elements/i.test(formatSnapshot(undefined, {}).text));
 
+// A hidden file input is the one element the tree cannot show and an upload
+// cannot do without, so the snapshot has to say it exists.
+const withFiles = formatSnapshot(
+  { frames: [], nodes: [{ ref: 'e1', frameId: '', tag: 'a', text: 'Home' }], fileInputs: { total: 2, hidden: 1 } },
+  {},
+);
+check('a snapshot states the hidden file inputs', /file inputs: 2, 1 hidden/.test(withFiles.text), withFiles.text);
+check('and says what fills them', /browser_upload/.test(withFiles.text));
+const withoutFiles = formatSnapshot(
+  { frames: [], nodes: [{ ref: 'e1', frameId: '', tag: 'a', text: 'Home' }] },
+  {},
+);
+check('a page with no file input gets no such line', !/file inputs/.test(withoutFiles.text), withoutFiles.text);
+
 const quiet = formatSnapshot(raw, { maxNodes: 500 });
 check('no truncation notice when nothing was cut', !/truncated/i.test(quiet.text));
 check('long names are cut to maxNameChars in the text', (() => {

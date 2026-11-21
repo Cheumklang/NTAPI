@@ -2,6 +2,19 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ ล่าสุด (2026-11-21) — แก้อัปโหลดไฟล์ผ่าน browser bridge (Facebook/TikTok) + claim ที่ไม่ขึ้น dialog
+> - ผู้ใช้เจอบน Windows และ Ubuntu: `browser_claim was not approved` (ไม่มี dialog) และ AI สรุปว่า "extension เข้าถึง file input ที่ซ่อนไม่ได้"
+> - **ซ่อม 3 จุด:**
+>   1. `uploadFiles()` (extension): 3 ทาง — (ก) input ที่ระบุ selector (ซ่อนได้) (ข) `input[type=file]` ตัวแรกที่เจอ
+>      โดยไม่ต้องมี ref (ค) **`Page.setInterceptFileChooserDialog` + `Page.fileChooserOpened`** → ตอบ file picker เอง
+>      (แบบเดียวกับ Playwright) = เคส TikTok/YouTube ที่สร้าง input ตอนคลิกแล้วทิ้ง
+>   2. `snapshotPage()` รายงาน `fileInputs: {total, hidden}` และ `formatSnapshot` พิมพ์บรรทัดบอกว่ามี input ซ่อนกี่ตัว
+>   3. `browser_claim`: เดิมไม่มีแท็บ → คืน false เงียบ ๆ (โมเดลอ่านว่า "ผู้ใช้ปฏิเสธ") → ตอนนี้ปล่อยให้ tool ตอบ
+>      `EXTENSION_OFF` / `NO_TAB` พร้อมบอกว่าต้องทำอะไร
+> - `browser_upload` spec: `files` อย่างเดียวพอ + เพิ่ม prop `text` (ป้ายปุ่มอัปโหลด) · manifest extension 0.2.0 → **0.3.0**
+> - เทสต์: extension +4 (input ซ่อน, chooser interception, NO_FILE_INPUT, snapshot fileInputs) · snapshot +3 · multitab +2 → **96/96** · sara ok
+> - **ต้อง reload extension ใน Chrome** (`chrome://extensions` → ปุ่ม reload) หลังอัปเดตแอป ไม่งั้นยังเป็นโค้ดเก่า
+>
 > ### 🔧 ค้าง (ยังไม่ commit) — data root บน Linux/macOS ใช้ XDG
 > - ผู้ใช้ตั้ง `export NTAPI_DATA_DIR=...` แล้วหาไม่เจอ → สาเหตุ: เปิดแอปจาก `.desktop` ซึ่งไม่รับ env; ข้อมูลจริงอยู่ `app/C:\NTAPI/`
 > - `platformDataRoot()` ใหม่: win32 = `C:\NTAPI` · อื่น ๆ = `$XDG_DATA_HOME/ntapi` (fallback `~/.local/share/ntapi`)

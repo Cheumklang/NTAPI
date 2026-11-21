@@ -380,6 +380,8 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * next result instead of leaving it to guess why nothing happens.
  */
 const openDialogs = new Map();
+/** File pickers the last click opened, per tab, waiting for `upload` to answer. */
+const fileChoosers = new Map();
 /** Requests still in flight per tab, for `wait { networkIdle: true }`. */
 const inflight = new Map();
 /** Tabs whose Network domain is already enabled. */
@@ -388,6 +390,15 @@ const networkOn = new Set();
 chrome.debugger.onEvent.addListener((source, method, params) => {
   const tabId = source && source.tabId;
   if (!Number.isInteger(tabId)) return;
+
+  if (method === 'Page.fileChooserOpened') {
+    const waiting = fileChoosers.get(tabId) || [];
+    if (waiting.length) {
+      fileChoosers.set(tabId, waiting.slice(1));
+      waiting[0](params || {});
+    }
+    return;
+  }
 
   if (method === 'Page.javascriptDialogOpening') {
     const info = {
@@ -674,10 +685,29 @@ async function snapshotPage(args = {}) {
     const list = (res.result && res.result.value) || [];
     for (const node of list) nodes.push(Object.assign({}, node, { frameId: ctx.frameId }));
   }
+  // A hidden file input is invisible in the tree and in the snapshot, but it is
+  // exactly what an upload needs — so its existence is reported by name.
+  let fileInputs = { total: 0, hidden: 0 };
+  for (const ctx of contexts) {
+    if (ctx.contextId === null || ctx.contextId === undefined) continue;
+    try {
+      const probe = await cdp(tabId, 'Runtime.evaluate', {
+        expression:
+          "(() => { const all = Array.from(document.querySelectorAll('input[type=file]')); const hidden = all.filter((el) => { const r = el.getBoundingClientRect(); return r.width === 0 || r.height === 0; }).length; return { total: all.length, hidden }; })()",
+        contextId: ctx.contextId,
+        returnByValue: true,
+      });
+      const value = (probe.result && probe.result.value) || null;
+      if (value) {
+        fileInputs = { total: fileInputs.total + (value.total || 0), hidden: fileInputs.hidden + (value.hidden || 0) };
+      }
+    } catch {}
+  }
   return Object.assign(
     {
       frames: contexts.map((c) => ({ frameId: c.frameId, url: c.url })),
       nodes,
+      fileInputs,
       truncated: nodes.length >= MAX_SNAPSHOT_NODES,
     },
     await tabSummary(tabId)
@@ -948,27 +978,19 @@ async function fillFields(args) {
 }
 
 /**
- * Put local files into a file input.
+ * Resolve a selector (or the page's first file input) to a DOM node id.
  *
- * A page cannot do this itself: setting `input.files` from script is blocked, and
- * clicking the input only opens the OS picker, which nothing in this bridge can
- * answer. Chrome's debugger can, so this is the one command that reaches outside
- * the page. `files` are absolute paths on the machine running Chrome; the app
- * checks they exist before the command is ever sent.
+ * Returns null when the element is not there or is not a file input, so the
+ * caller can fall through to the next way instead of guessing. A hidden input is
+ * perfectly usable: the missing ref is a rendering fact, not a permission one.
  */
-async function uploadFiles(args) {
-  const files = Array.isArray(args.files) ? args.files.filter((f) => typeof f === 'string' && f) : [];
-  if (!files.length) throw Object.assign(new Error('`files` is required.'), { code: 'BAD_ARGS' });
-  if (typeof args.selector !== 'string' || !args.selector) {
-    throw Object.assign(new Error('`selector` is required: the file input to fill.'), { code: 'BAD_ARGS' });
-  }
-  const tabId = await resolveTab(args.tab);
-  const contextId = await frameContextId(tabId, args.frameId);
-  const params = { expression: `document.querySelector(${JSON.stringify(args.selector)})`, returnByValue: false };
-  if (contextId !== null && contextId !== undefined) params.contextId = contextId;
-  const found = await cdp(tabId, 'Runtime.evaluate', params);
+async function fileInputNodeId(tabId, selector, frameId) {
+  const target = selector
+    ? `document.querySelector(${JSON.stringify(selector)})`
+    : "document.querySelector('input[type=file]')";
+  const found = await evalInFrame(tabId, frameId, target, { returnByValue: false });
   const objectId = found.result && found.result.objectId;
-  if (!objectId) throw Object.assign(new Error('No element matched that selector.'), { code: 'NO_ELEMENT' });
+  if (!objectId) return null;
   const shape = await cdp(tabId, 'Runtime.callFunctionOn', {
     objectId,
     functionDeclaration:
@@ -976,18 +998,104 @@ async function uploadFiles(args) {
     returnByValue: true,
   });
   const info = (shape.result && shape.result.value) || {};
-  if (info.tag !== 'input' || info.type !== 'file') {
-    throw Object.assign(new Error('That element is not a file input.'), { code: 'NO_FILE_INPUT' });
-  }
+  if (info.tag !== 'input' || info.type !== 'file') return null;
   try {
     await cdp(tabId, 'DOM.enable');
   } catch {}
   const requested = await cdp(tabId, 'DOM.requestNode', { objectId });
-  const nodeId = requested && requested.nodeId;
-  if (!nodeId) throw Object.assign(new Error('Could not address the file input.'), { code: 'NO_ELEMENT' });
-  await cdp(tabId, 'DOM.setFileInputFiles', { files, nodeId });
-  await settleAfterAction(tabId);
-  return Object.assign({ uploaded: files, count: files.length }, await tabSummary(tabId));
+  return (requested && requested.nodeId) || null;
+}
+
+/** Wait for the next file picker a click opens on this tab. */
+function nextFileChooser(tabId, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const waiting = fileChoosers.get(tabId) || [];
+    let timer = null;
+    const settle = (params) => {
+      clearTimeout(timer);
+      resolve(params);
+    };
+    timer = setTimeout(() => {
+      fileChoosers.set(
+        tabId,
+        (fileChoosers.get(tabId) || []).filter((entry) => entry !== settle),
+      );
+      reject(
+        Object.assign(new Error('The page did not open a file picker. Click its upload control first, then try again.'), {
+          code: 'NO_FILE_CHOOSER',
+        }),
+      );
+    }, timeoutMs);
+    waiting.push(settle);
+    fileChoosers.set(tabId, waiting);
+  });
+}
+
+/**
+ * Put local files into a file input.
+ *
+ * A page cannot do this itself: setting `input.files` from script is blocked, and
+ * clicking the input only opens the OS picker, which nothing in this bridge can
+ * answer. Chrome's debugger can, so this is the one command that reaches outside
+ * the page.
+ *
+ * Three ways, in this order, because the big sites each do it differently:
+ *   1. the input the caller named — a hidden one included (Facebook keeps one);
+ *   2. the page's first file input, unnamed — hidden inputs never get a ref;
+ *   3. intercept the picker the upload button opens and answer it ourselves
+ *      (TikTok builds the input for that one click and throws it away).
+ */
+async function uploadFiles(args) {
+  const files = Array.isArray(args.files) ? args.files.filter((f) => typeof f === 'string' && f) : [];
+  if (!files.length) throw Object.assign(new Error('`files` is required.'), { code: 'BAD_ARGS' });
+  const tabId = await resolveTab(args.tab);
+  const named = typeof args.selector === 'string' && args.selector ? args.selector : null;
+
+  let nodeId = named ? await fileInputNodeId(tabId, named, args.frameId) : null;
+  if (!nodeId) nodeId = await fileInputNodeId(tabId, null, args.frameId);
+  if (nodeId) {
+    try {
+      await cdp(tabId, 'DOM.enable');
+    } catch {}
+    await cdp(tabId, 'DOM.setFileInputFiles', { files, nodeId });
+    await settleAfterAction(tabId);
+    return Object.assign({ uploaded: files, count: files.length, via: 'input' }, await tabSummary(tabId));
+  }
+
+  // There is no input to write into yet: the page wants a click on its own
+  // upload control, and the picker that opens is the thing to answer.
+  const text = typeof args.text === 'string' && args.text ? args.text : null;
+  if (!named && !text) {
+    throw Object.assign(
+      new Error(
+        'This page has no file input until its upload button is pressed. Call upload again with the `text` or `selector` of that button.',
+      ),
+      { code: 'NO_FILE_INPUT' },
+    );
+  }
+
+  try {
+    await cdp(tabId, 'Page.enable');
+  } catch {}
+  await cdp(tabId, 'Page.setInterceptFileChooserDialog', { enabled: true });
+  const opened = nextFileChooser(tabId);
+  opened.catch(() => {});
+  try {
+    await (named
+      ? click({ tab: tabId, selector: named })
+      : click({ tab: tabId, text }));
+    const chooser = await opened;
+    try {
+      await cdp(tabId, 'DOM.enable');
+    } catch {}
+    await cdp(tabId, 'DOM.setFileInputFiles', { files, backendNodeId: chooser.backendNodeId });
+    await settleAfterAction(tabId);
+    return Object.assign({ uploaded: files, count: files.length, via: 'file-chooser' }, await tabSummary(tabId));
+  } finally {
+    try {
+      await cdp(tabId, 'Page.setInterceptFileChooserDialog', { enabled: false });
+    } catch {}
+  }
 }
 
 const KEY_CODES = {
