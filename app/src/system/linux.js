@@ -116,6 +116,16 @@ function ydotoolSocket() {
   return String(process.env.YDOTOOL_SOCKET || '/tmp/.ydotool_socket');
 }
 
+/**
+ * ydotool 1.0.4 looks in `$XDG_RUNTIME_DIR/.ydotool_socket`, while the daemon
+ * here is a system service with a fixed path — so the path travels with the
+ * call instead of being assumed.
+ */
+function envFor(binary) {
+  if (binary !== 'ydotool') return undefined;
+  return { ...process.env, YDOTOOL_SOCKET: ydotoolSocket() };
+}
+
 function daemonRunning() {
   try {
     return fs.statSync(ydotoolSocket()).isSocket();
@@ -232,17 +242,33 @@ function buildSteps(action, input = {}, caps = { backend: '' }) {
     return { steps: [{ binary: 'wtype', args }] };
   }
 
-  if (action === 'click' || action === 'scroll') {
-    if (backend !== 'xdotool') {
-      return { missing: 'only xdotool can move the pointer and wheel here; on Wayland that needs ydotool with its daemon running as root.' };
-    }
-    if (action === 'click') {
+  if (action === 'click') {
+    const hasPoint = Number.isFinite(Number(input.x)) && Number.isFinite(Number(input.y));
+    if (backend === 'xdotool') {
       const steps = [];
-      if (Number.isFinite(Number(input.x)) && Number.isFinite(Number(input.y))) {
+      if (hasPoint) {
         steps.push({ binary: 'xdotool', args: ['mousemove', '--sync', String(Math.round(Number(input.x))), String(Math.round(Number(input.y)))] });
       }
       steps.push({ binary: 'xdotool', args: ['click', input.button === 'right' ? '3' : '1'] });
       return { steps };
+    }
+    if (backend === 'ydotool') {
+      // 0xC0 is BTN_LEFT with the press and release bits set, 0xC1 is the right
+      // button. The pointer has to be moved first: ydotool clicks where it is.
+      const steps = [];
+      if (hasPoint) {
+        steps.push({ binary: 'ydotool', args: ['mousemove', '--absolute', String(Math.round(Number(input.x))), String(Math.round(Number(input.y)))] });
+      }
+      steps.push({ binary: 'ydotool', args: ['click', input.button === 'right' ? '0xC1' : '0xC0'] });
+      return { steps };
+    }
+    return { missing: 'wtype cannot move the pointer. Install ydotool (Wayland) or xdotool (X11) to click by coordinate.' };
+  }
+
+  if (action === 'scroll') {
+    if (backend !== 'xdotool') {
+      // ydotool 1.0.4 has no wheel: its click only presses buttons.
+      return { missing: 'scrolling a window needs xdotool on X11; the ydotool version here cannot turn the wheel.' };
     }
     const notches = Math.abs(Math.trunc(Number(input.notches) || 3)) || 3;
     // Wheel up is button 4 and wheel down is 5 in X11; one click per notch.
@@ -268,7 +294,7 @@ function buildSteps(action, input = {}, caps = { backend: '' }) {
 
 function runTool(step, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
-    execFile(step.binary, step.args, { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 }, (err) => {
+    execFile(step.binary, step.args, { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024, env: envFor(step.binary) }, (err) => {
       if (!err) {
         resolve();
         return;
@@ -390,6 +416,7 @@ module.exports = {
   scroll,
   capabilities,
   buildSteps,
+  envFor,
   available,
   windows,
   snapshot,

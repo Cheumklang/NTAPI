@@ -2,6 +2,13 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ Wayland ได้ click เพิ่ม (0.6.15)
+> - `ydotool mousemove --absolute X Y` + `ydotool click 0xC0` (ซ้าย) / `0xC1` (ขวา) → `system_click_at` ใช้ได้บน Wayland แล้ว
+> - **กับดักสำคัญ**: ydotool client หา socket ที่ `$XDG_RUNTIME_DIR/.ydotool_socket` (ของเครื่องนี้ `/run/user/1000/…`) ไม่ใช่ `/tmp/.ydotool_socket` ของ daemon
+>   → เพิ่ม `envFor(binary)` ส่ง `YDOTOOL_SOCKET` ไปกับทุก call (ทดสอบสด: `ydotool mousemove --absolute 600 400` exit 0)
+> - scroll บน Wayland ยังไม่ได้: ydotool 1.0.4 ไม่มี wheel → ตอบ missing ตรง ๆ
+> - เทสต์ +3 (click 2 จังหวะ, ปุ่มขวา 0xC1, socket env) → 96/96
+>
 > ### ✅ ติดตั้ง ydotool daemon บนเครื่องจริง (Linux Wayland) — 0.6.14
 > - Ubuntu มี `ydotool` 1.0.4 แต่ **ไม่มี unit file** → `systemctl enable ydotool` ล้มเหลว ("Unit does not exist")
 > - แก้ด้วยการสร้าง `/etc/systemd/system/ydotool.service` เอง (สำเนาเก็บใน `docs/ydotool.service`):

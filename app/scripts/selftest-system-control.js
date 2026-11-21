@@ -402,6 +402,20 @@ check(
   check('wtype holds the modifier around the key', wKeys.steps && wKeys.steps[0].args.join(' ') === '-M ctrl -k s -m ctrl', JSON.stringify(wKeys));
   const wYdotool = linuxAdapter.buildSteps('keys', { keys: 'ctrl+s' }, { backend: 'ydotool' });
   check('ydotool refuses shortcuts rather than guessing keycodes', typeof wYdotool.missing === 'string' && /keycodes|unavailable/.test(wYdotool.missing));
+  const yClick = linuxAdapter.buildSteps('click', { x: 600, y: 400 }, { backend: 'ydotool', ydotoolReady: true });
+  check(
+    'ydotool moves the pointer, then presses the left button',
+    yClick.steps && yClick.steps.length === 2 && yClick.steps[1].args.join(' ') === 'click 0xC0',
+    JSON.stringify(yClick),
+  );
+  const yRight = linuxAdapter.buildSteps('click', { x: 1, y: 2, button: 'right' }, { backend: 'ydotool', ydotoolReady: true });
+  check('the right button is 0xC1', yRight.steps && yRight.steps[1].args[1] === '0xC1', JSON.stringify(yRight));
+  check(
+    'the socket path travels with the ydotool call',
+    linuxAdapter.envFor('ydotool').YDOTOOL_SOCKET === '/tmp/.ydotool_socket' &&
+      linuxAdapter.envFor('xdotool') === undefined,
+    String(linuxAdapter.envFor('ydotool') && linuxAdapter.envFor('ydotool').YDOTOOL_SOCKET),
+  );
   const stale = linuxAdapter.buildSteps('type', { text: 'x' }, { backend: 'ydotool', ydotoolReady: false });
   check(
     'an installed ydotool with no daemon says how to start it',

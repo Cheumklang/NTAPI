@@ -3416,3 +3416,6 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 
 ## 2026-11-21 — ydotool daemon บนเครื่องจริง
 - สร้าง /etc/systemd/system/ydotool.service (Ubuntu ไม่มีให้) · docs/ydotool.service · linux.js ตรวจ ydotoolReady
+
+## 2026-11-21 — Wayland click ผ่าน ydotool (+ socket env)
+- click: mousemove --absolute + click 0xC0/0xC1 · envFor ส่ง YDOTOOL_SOCKET ทุกครั้ง
