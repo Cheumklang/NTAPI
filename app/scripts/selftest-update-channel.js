@@ -158,6 +158,26 @@ check(
 );
 
 check(
+  'the downloaded installer is kept where the next delta looks for it',
+  /function keepInstallerForNextDelta\(/.test(mainSrc) &&
+    /path\.join\(dir, 'pending', 'installer\.exe'\)/.test(mainSrc) &&
+    /path\.join\(dir, 'installer\.exe'\)/.test(mainSrc) &&
+    /keepInstallerForNextDelta\(\);/.test(mainSrc)
+);
+
+check(
+  'the updater cache folder is found from app-update.yml, not guessed alone',
+  /updaterCacheDirName/.test(mainSrc) && /app-update\.yml/.test(mainSrc)
+);
+
+check(
+  'the updater writes its own log to a file, not to a console nobody can see',
+  /updater\.logger = \{/.test(mainSrc) &&
+    /path\.join\(DATA_ROOT, 'update\.log'\)/.test(mainSrc) &&
+    !/updater\.logger = console/.test(mainSrc)
+);
+
+check(
   'the app asks how far behind it is before deciding to auto-download',
   /async function releasesBehindNow/.test(mainSrc) &&
     /updater\.autoDownload = !mandatory/.test(mainSrc) &&

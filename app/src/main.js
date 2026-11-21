@@ -5250,6 +5250,82 @@ async function releasesBehindNow(force = false) {
 /** Set by `setUpdates`; the manual "check now" button runs the same path. */
 let runUpdateCheck = null;
 
+/**
+ * Where electron-updater keeps what it downloaded.
+ *
+ * The directory is named by `updaterCacheDirName` in `app-update.yml`; the two
+ * fallbacks are there so a build without that file still finds the folder the
+ * library is using instead of silently keeping nothing.
+ */
+function updaterCacheDir() {
+  const base = app.getPath('cache');
+  let configured = null;
+  try {
+    const yml = fs.readFileSync(path.join(process.resourcesPath, 'app-update.yml'), 'utf8');
+    const found = /^updaterCacheDirName:\s*['"]?([^'"\r\n]+)['"]?\s*$/m.exec(yml);
+    if (found) configured = found[1].trim();
+  } catch {}
+  const names = [
+    configured,
+    `${app.getName()}-updater`,
+    'ntapi-updater',
+  ].filter(Boolean);
+  for (const name of names) {
+    const dir = path.join(base, name);
+    if (fs.existsSync(dir)) return dir;
+  }
+  return names.length ? path.join(base, names[0]) : null;
+}
+
+/**
+ * Keep the installer we just downloaded, as `installer.exe`, where the *next*
+ * update looks for the old file to diff against.
+ *
+ * electron-updater's differential download reads `<cache>/installer.exe` and
+ * never writes it itself: `pending/installer.exe` is deleted once the installer
+ * has run, so the old file was always missing and every update fell back to the
+ * whole 181 MB — the exact complaint this fixes. Copying it once means the next
+ * update only downloads the blocks that changed.
+ */
+function keepInstallerForNextDelta() {
+  const dir = updaterCacheDir();
+  if (!dir) return null;
+  const from = path.join(dir, 'pending', 'installer.exe');
+  const to = path.join(dir, 'installer.exe');
+  try {
+    if (!fs.existsSync(from)) return null;
+    fs.copyFileSync(from, to);
+    console.log(`[update] kept the installer for the next delta: ${to}`);
+    return to;
+  } catch (err) {
+    console.warn('[update] could not keep the installer:', err && err.message ? err.message : err);
+    return null;
+  }
+}
+
+/**
+ * The updater's own words, on disk.
+ *
+ * A console logger is invisible in a packaged Windows app, so the one
+ * line that says whether a delta was used (“Download block maps (old: …, new:
+ * …)”) never reached anyone. It goes to a file now, capped so it cannot grow.
+ */
+const UPDATE_LOG = path.join(DATA_ROOT, 'update.log');
+const UPDATE_LOG_MAX = 512 * 1024;
+
+function logUpdate(line) {
+  try {
+    fs.mkdirSync(DATA_ROOT, { recursive: true });
+    try {
+      if (fs.statSync(UPDATE_LOG).size > UPDATE_LOG_MAX) fs.writeFileSync(UPDATE_LOG, '');
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    fs.appendFileSync(UPDATE_LOG, `${new Date().toISOString()} ${line}\n`);
+  } catch {}
+  console.log(`[update] ${line}`);
+}
+
 function setUpdates() {
   if (!app.isPackaged) return;
   let autoUpdater;
@@ -5266,8 +5342,14 @@ function setUpdates() {
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
   // Without this the delta-vs-full decision is invisible when someone reports
-  // that an update took minutes. It only writes to the app's own log.
-  updater.logger = console;
+  // that an update took minutes. It goes to `<DATA_ROOT>/update.log` because a
+  // packaged Windows app has no console to read.
+  updater.logger = {
+    info: (m) => logUpdate(String(m)),
+    warn: (m) => logUpdate(`WARN ${m}`),
+    error: (m) => logUpdate(`ERROR ${m}`),
+    debug: () => {},
+  };
 
   // First check a little after launch (startup is busy: splash, session load)
   // and then four times a day. Both timers are unref'd so a pending check can
@@ -5352,7 +5434,10 @@ function setUpdates() {
       total: fmtBytes(p?.total) || updateState.total || null,
     })
   );
-  updater.on('update-downloaded', (info) =>
+  updater.on('update-downloaded', (info) => {
+    // Before the installer runs and its file is cleaned up: keep a copy so the
+    // *next* update can be a delta instead of another 181 MB.
+    keepInstallerForNextDelta();
     set({
       status: 'ready',
       version: info?.version || null,
@@ -5360,8 +5445,8 @@ function setUpdates() {
       // Whatever this download actually weighed — the honest number to show
       // before an install.
       size: updateState.total || updateState.size || fmtBytes(updateState.sizeBytes) || null,
-    })
-  );
+    });
+  });
 }
 
 ipcMain.handle('update:state', () => ({
