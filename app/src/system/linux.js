@@ -111,6 +111,25 @@ function sessionType() {
   return String(process.env.XDG_SESSION_TYPE || '').toLowerCase();
 }
 
+/** Raw keycodes for ydotool, which speaks posix keycodes and not key names. */
+const KEYCODES = {
+  ctrl: 29, control: 29, shift: 42, alt: 56, super: 125, win: 125, meta: 125,
+  enter: 28, return: 28, tab: 15, esc: 1, escape: 1, space: 57, backspace: 14,
+  delete: 111, del: 111, home: 102, end: 107, pageup: 104, pagedown: 109,
+  up: 103, down: 108, left: 105, right: 106,
+  a: 30, b: 48, c: 46, d: 32, e: 18, f: 33, g: 34, h: 35, i: 23, j: 36, k: 37,
+  l: 38, m: 50, n: 49, o: 24, p: 25, q: 16, r: 19, s: 31, t: 20, u: 22, v: 47,
+  w: 17, x: 45, y: 21, z: 44,
+  1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8, 8: 9, 9: 10, 0: 11,
+  '-': 12, '=': 13, '[': 26, ']': 27, ';': 39, "'": 40, '`': 41, ',': 51, '.': 52, '/': 53, '\\': 43,
+};
+for (let n = 1; n <= 12; n += 1) KEYCODES[`f${n}`] = 58 + n;
+
+/** True when the text needs more than a keycode per character. */
+function needsUnicode(text) {
+  return /[^\x20-\x7e\t\n]/.test(text);
+}
+
 /** Where the ydotool client looks for the daemon unless told otherwise. */
 function ydotoolSocket() {
   return String(process.env.YDOTOOL_SOCKET || '/tmp/.ydotool_socket');
@@ -158,7 +177,15 @@ async function capabilities() {
   else if (wtype) backend = 'wtype';
   // An installed binary is not the same as a running daemon: without it every
   // keystroke fails with "failed to connect socket", which reads like a bug.
-  capsCache = { session, xdotool, wtype, ydotool, backend, ydotoolReady: ydotool ? daemonRunning() : false };
+  capsCache = {
+    session,
+    xdotool,
+    wtype,
+    ydotool,
+    backend,
+    ydotoolReady: ydotool ? daemonRunning() : false,
+    clipboard: ['wl-copy', 'xclip', 'xsel'].some((tool) => commandExists(tool)),
+  };
   return capsCache;
 }
 
@@ -213,7 +240,33 @@ function buildSteps(action, input = {}, caps = { backend: '' }) {
     const text = String(input.text || '');
     if (!text) return { missing: 'nothing to type' };
     if (backend === 'xdotool') return { steps: [{ binary: 'xdotool', args: ['type', '--clearmodifiers', '--delay', '20', '--', text] }] };
-    if (backend === 'ydotool') return { steps: [{ binary: 'ydotool', args: ['type', '--', text] }] };
+    if (backend === 'ydotool') {
+      // ydotool's type maps one keycode per character, so it stays silent about
+      // Thai, emoji and anything else outside ASCII: those go through the
+      // clipboard and one real ctrl+v instead of being dropped.
+      if (!needsUnicode(text)) return { steps: [{ binary: 'ydotool', args: ['type', '--', text] }] };
+      if (!caps.clipboard) {
+        return {
+          missing:
+            'ydotool can only type plain ASCII. Install wl-clipboard (`sudo apt install wl-clipboard`) so other text can be pasted, or wtype on a wlroots session.',
+        };
+      }
+      return {
+        steps: [
+          {
+            binary: process.env.NTAPI_CLIPBOARD || (commandExists('wl-copy') ? 'wl-copy' : 'xclip'),
+            // xclip needs to be told which clipboard; wl-copy has only one.
+            args: commandExists('wl-copy') ? [] : ['-selection', 'clipboard'],
+            stdin: text,
+            // wl-copy keeps running to serve the selection, so it must not be
+            // waited on — only its first write matters here.
+            holdsClipboard: true,
+          },
+          { binary: 'ydotool', args: ['key', '29:1', '47:1', '47:0', '29:0'] },
+        ],
+        note: 'typed by pasting: ydotool cannot type text outside ASCII',
+      };
+    }
     return { steps: [{ binary: 'wtype', args: ['--', text] }] };
   }
 
@@ -222,9 +275,17 @@ function buildSteps(action, input = {}, caps = { backend: '' }) {
     if (!combo) return { missing: 'nothing to press' };
     if (backend === 'xdotool') return { steps: [{ binary: 'xdotool', args: ['key', '--clearmodifiers', combo] }] };
     if (backend === 'ydotool') {
-      // ydotool wants numeric keycodes per press, which is a table this adapter
-      // would only get wrong for layouts it has never seen.
-      return { missing: 'ydotool cannot press shortcuts reliably, so system_keys is unavailable here. Use system_type, or run an X11 session with xdotool.' };
+      const parts = combo.split('+').map((part) => part.trim().toLowerCase()).filter(Boolean);
+      if (!parts.length) return { missing: 'nothing to press' };
+      const codes = [];
+      for (const part of parts) {
+        const code = KEYCODES[part];
+        if (code === undefined) return { missing: `ydotool has no keycode for '${part}'` };
+        codes.push(code);
+      }
+      // Held in order, released in reverse: press each down, then each up.
+      const seq = [...codes.map((code) => `${code}:1`), ...codes.slice().reverse().map((code) => `${code}:0`)];
+      return { steps: [{ binary: 'ydotool', args: ['key', ...seq] }] };
     }
     const parts = combo.split('+').map((part) => part.trim().toLowerCase()).filter(Boolean);
     if (!parts.length) return { missing: 'nothing to press' };
@@ -294,21 +355,40 @@ function buildSteps(action, input = {}, caps = { backend: '' }) {
 
 function runTool(step, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
-    execFile(step.binary, step.args, { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024, env: envFor(step.binary) }, (err) => {
-      if (!err) {
-        resolve();
-        return;
-      }
+    const child = spawn(step.binary, step.args, { env: envFor(step.binary), stdio: ['pipe', 'ignore', 'pipe'] });
+    let stderr = '';
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(failure('TIMEOUT', `${step.binary} did not finish within ${Math.round(timeoutMs / 1000)}s`));
+    }, timeoutMs);
+    child.stderr.on('data', (chunk) => { stderr += String(chunk); });
+    child.on('error', (err) => {
+      clearTimeout(timer);
       if (err.code === 'ENOENT') {
-        reject(failure('NOT_INPUT', `${step.binary} is not installed`));
+        reject(failure('NOT_SUPPORTED', `${step.binary} is not installed`));
         return;
       }
-      if (err.killed) {
-        reject(failure('TIMEOUT', `${step.binary} did not finish in time`));
-        return;
-      }
-      reject(failure('INPUT_FAILED', (err.message || '').split('\n')[0] || `${step.binary} failed`));
+      reject(failure('INPUT_FAILED', `${step.binary} failed: ${err.message}`));
     });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve({ binary: step.binary, args: step.args, stderr: stderr.trim() });
+        return;
+      }
+      // ydotool says "failed to connect socket" when its daemon is down, and
+      // that sentence is worth more to the caller than the exit code.
+      const detail = stderr.trim() || `exit code ${code}`;
+      reject(failure(/socket/i.test(detail) ? 'NO_INPUT_DAEMON' : 'INPUT_FAILED', `${step.binary}: ${detail}`));
+    });
+    if (step.stdin !== undefined) child.stdin.end(String(step.stdin));
+    else child.stdin.end();
+    if (step.holdsClipboard) {
+      clearTimeout(timer);
+      child.unref();
+      // Give it a moment to own the selection before the paste key is sent.
+      setTimeout(() => resolve({ binary: step.binary, args: step.args }), 250);
+    }
   });
 }
 

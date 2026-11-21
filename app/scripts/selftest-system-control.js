@@ -401,7 +401,23 @@ check(
   const wKeys = linuxAdapter.buildSteps('keys', { keys: 'ctrl+s' }, { backend: 'wtype' });
   check('wtype holds the modifier around the key', wKeys.steps && wKeys.steps[0].args.join(' ') === '-M ctrl -k s -m ctrl', JSON.stringify(wKeys));
   const wYdotool = linuxAdapter.buildSteps('keys', { keys: 'ctrl+s' }, { backend: 'ydotool' });
-  check('ydotool refuses shortcuts rather than guessing keycodes', typeof wYdotool.missing === 'string' && /keycodes|unavailable/.test(wYdotool.missing));
+  check(
+    'ydotool presses a shortcut as keycodes, modifiers held first and released last',
+    wYdotool.steps && wYdotool.steps[0].args.join(' ') === 'key 29:1 31:1 31:0 29:0',
+    JSON.stringify(wYdotool),
+  );
+  const yThai = linuxAdapter.buildSteps('type', { text: 'ทดสอบ 456' }, { backend: 'ydotool', ydotoolReady: true, clipboard: true });
+  check(
+    'Thai text is pasted, because ydotool would silently drop it',
+    yThai.steps && yThai.steps[0].binary === 'wl-copy' && yThai.steps[0].stdin === 'ทดสอบ 456' && yThai.steps[1].args.includes('47:1'),
+    JSON.stringify(yThai),
+  );
+  const yThaiNoClip = linuxAdapter.buildSteps('type', { text: 'ทดสอบ' }, { backend: 'ydotool', ydotoolReady: true, clipboard: false });
+  check(
+    'without a clipboard tool it says what to install instead of dropping Thai',
+    /wl-clipboard/.test(yThaiNoClip.missing || ''),
+    String(yThaiNoClip.missing),
+  );
   const yClick = linuxAdapter.buildSteps('click', { x: 600, y: 400 }, { backend: 'ydotool', ydotoolReady: true });
   check(
     'ydotool moves the pointer, then presses the left button',

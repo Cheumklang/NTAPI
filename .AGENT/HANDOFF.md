@@ -2,6 +2,21 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ แก้ 2 บั๊กจากผลเทสต์จริงของผู้ใช้ (0.6.16)
+> ผู้ใช้เทสต์ Windows: (1) launch ✅ (2) type "บอกว่าพิมพ์แล้วแต่ไม่ขึ้น" (3) keys "บอกว่ากดแล้วแต่ Save As ไม่มา" (4) clickat ✅ (รอบสอง)
+> ผู้ใช้เทสต์ Linux: type ไทย พิมพ์แค่ "456" (ไทยหาย) · click ✅
+> - **Windows type/keys = SendInput ถูกปฏิเสธเงียบ ๆ**: เดิมไม่เคยเช็คค่าที่ `SendInput` คืนมา → รายงานสำเร็จทั้งที่ไม่มีอะไรมาก
+>   · เพิ่ม `LastSend`/`LastError`/`Failed` + `Reset()` ใน C# → ถ้า 0 → `INPUT_REJECTED` (พร้อม error code; มักเป็นแอปที่รัน as admin ซึ่งบล็อก input)
+>   · เพิ่ม `Focus-Text-Control()`: ยกหน้าต่างขึ้นมาแล้วไม่พอ ต้องSetFocus ที่ Edit/Document ก่อน (นี่คือสาเหตุที่คีย์ไปไม่ถึง)
+>   · เพิ่ม `Get-FocusedText()` อ่านข้อความในคอนโทรลก่อน/หลัง → `verified` แปลว่าของจริง
+>   · ถ้า SendInput ผ่านแต่คอนโทรลไม่เปลี่ยน → fallback 2 ชั้น: `ValuePattern.SetValue` → `Set-Clipboard` + `ctrl+v` → ถ้ายังไม่เปลี่ยนตอบ `TYPE_NOT_DELIVERED` (ไม่โกหก)
+>   · keys เช็ค `Failed` ด้วย เช่นเดียวกัน
+> - **Linux type ไทยหาย**: `ydotool type` map ได้แค่ ASCII (exit 0 เงียบ ๆ) → ข้อความที่มี non-ASCII ใช้ทาง `wl-copy` + `ydotool key 29:1 47:1 47:0 29:0` (ctrl+v) แทน
+>   · `wl-copy` ไม่จบเอง (มันค้างเพื่อถือ selection) → step มี `holdsClipboard: true` ไม่รอ close
+>   · ติดตั้ง `wl-clipboard` บนเครื่องจริงแล้ว (apt) · ถ้าไม่มี จะตอบให้ไปติดตั้ง ไม่ปล่อยไทยหายเงียบ
+>   · แถม: `system_keys` บน Wayland ใช้ได้แล้วผ่าน keycode table (ctrl+s = 29:1 31:1 31:0 29:0)
+> - เทสต์: แก้ข้อ ydotool keys เดิม + เพิ่ม 4 ข้อ (keycode combo, ไทย→wl-copy, ไม่มี clipboard → บอกให้ติดตั้ง) → 96/96
+>
 > ### ✅ Wayland ได้ click เพิ่ม (0.6.15)
 > - `ydotool mousemove --absolute X Y` + `ydotool click 0xC0` (ซ้าย) / `0xC1` (ขวา) → `system_click_at` ใช้ได้บน Wayland แล้ว
 > - **กับดักสำคัญ**: ydotool client หา socket ที่ `$XDG_RUNTIME_DIR/.ydotool_socket` (ของเครื่องนี้ `/run/user/1000/…`) ไม่ใช่ `/tmp/.ydotool_socket` ของ daemon

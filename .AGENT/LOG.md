@@ -3419,3 +3419,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 
 ## 2026-11-21 — Wayland click ผ่าน ydotool (+ socket env)
 - click: mousemove --absolute + click 0xC0/0xC1 · envFor ส่ง YDOTOOL_SOCKET ทุกครั้ง
+
+## 2026-11-21 — แก้ type/keys จากผลเทสต์ผู้ใช้
+- Windows: เช็ค SendInput return + Focus-Text-Control + verify ด้วย UIA + fallback ValuePattern/clipboard
+- Linux: ไทยผ่าน wl-copy+ctrl+v · system_keys ผ่าน ydotool keycodes · ติดตั้ง wl-clipboard

@@ -190,12 +190,21 @@ public static class NTAPIInput {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int cmd);
 
+  // SendInput answers with the number of events it accepted. Zero means nothing
+  // was typed, and the reason is in GetLastError - so it is kept, not swallowed.
+  public static uint LastSend = 0;
+  public static int LastError = 0;
+  public static int Failed = 0;
+
+  public static void Reset() { LastSend = 0; LastError = 0; Failed = 0; }
+
   public static void Key(ushort vk, bool up) {
     INPUT[] one = new INPUT[1];
     one[0].type = 1;
     one[0].u.ki.wVk = vk;
     one[0].u.ki.dwFlags = up ? 2u : 0u;
-    SendInput(1, one, Marshal.SizeOf(typeof(INPUT)));
+    LastSend = SendInput(1, one, Marshal.SizeOf(typeof(INPUT)));
+    if (LastSend == 0) { Failed++; LastError = Marshal.GetLastWin32Error(); }
   }
 
   // One UTF-16 unit per event with the UNICODE flag: this types what the user
@@ -205,7 +214,8 @@ public static class NTAPIInput {
       INPUT[] pair = new INPUT[2];
       pair[0].type = 1; pair[0].u.ki.wVk = 0; pair[0].u.ki.wScan = (ushort)c; pair[0].u.ki.dwFlags = 4u;
       pair[1].type = 1; pair[1].u.ki.wVk = 0; pair[1].u.ki.wScan = (ushort)c; pair[1].u.ki.dwFlags = 6u;
-      SendInput(2, pair, Marshal.SizeOf(typeof(INPUT)));
+      LastSend = SendInput(2, pair, Marshal.SizeOf(typeof(INPUT)));
+      if (LastSend == 0) { Failed++; LastError = Marshal.GetLastWin32Error(); }
     }
   }
 
@@ -306,6 +316,44 @@ function Focus-Window($element) {
     Stop-With-Error 'NOT_FOREGROUND' ("Windows would not bring '" + (Get-Window-Name $element) + "' to the front. Ask the user to click that window, then try again.")
   }
   return $handle
+}
+
+# What the caret is in right now, as the accessibility layer sees it. Reading it
+# before and after a keystroke is the only way to tell "typed" from "hoped".
+function Get-FocusedText {
+  try {
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    if ($null -eq $focused) { return $null }
+    $pattern = $null
+    if ($focused.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
+      return [string]$pattern.Current.Value
+    }
+    if ($focused.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, [ref]$pattern)) {
+      return [string]$pattern.DocumentRange.GetText(4096)
+    }
+  } catch { }
+  return $null
+}
+
+# A window in front is not a window whose text area has the caret, which is why
+# keys can arrive nowhere. Focus the control that takes text, the way a person
+# clicks into the box before starting to type.
+function Focus-Text-Control($element) {
+  try {
+    $scope = [System.Windows.Automation.TreeScope]::Descendants
+    $edit = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)
+    $target = $element.FindFirst($scope, $edit)
+    if ($null -eq $target) {
+      $document = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Document)
+      $target = $element.FindFirst($scope, $document)
+    }
+    if ($null -ne $target) {
+      $target.SetFocus()
+      Start-Sleep -Milliseconds 80
+      return $true
+    }
+  } catch { }
+  return $false
 }
 
 function Get-Window-Bounds($element) {
@@ -456,8 +504,13 @@ switch ($Command.ToLowerInvariant()) {
     if ($Keys -eq '') { Stop-With-Error 'BAD_ARGS' 'keys needs --keys, for example ctrl+s' }
     $element = Get-Window-Element $App
     [void](Focus-Window $element)
+    [void](Focus-Text-Control $element)
+    [NTAPIInput]::Reset()
     Send-Combo $Keys
-    Write-Json @{ ok = $true; app = $App; did = ('pressed ' + $Keys) }
+    if ([NTAPIInput]::Failed -gt 0) {
+      Stop-With-Error 'INPUT_REJECTED' ("Windows rejected the key events (error " + [NTAPIInput]::LastError + "). A window running as administrator ignores input from a normal program; nothing was pressed.")
+    }
+    Write-Json @{ ok = $true; app = $App; did = ('pressed ' + $Keys); method = 'sendinput' }
     exit 0
   }
 
@@ -466,8 +519,51 @@ switch ($Command.ToLowerInvariant()) {
     if ($Text -eq '') { Stop-With-Error 'BAD_ARGS' 'type needs --text' }
     $element = Get-Window-Element $App
     [void](Focus-Window $element)
+    [void](Focus-Text-Control $element)
+    $before = Get-FocusedText
+    [NTAPIInput]::Reset()
     [NTAPIInput]::Text($Text)
-    Write-Json @{ ok = $true; app = $App; did = ('typed ' + $Text.Length + ' characters') }
+    Start-Sleep -Milliseconds 150
+    $after = Get-FocusedText
+    $method = 'sendinput'
+    $verified = $false
+    if ($null -ne $before -and $null -ne $after) {
+      if ($after -eq $before) {
+        # The events were accepted but the control is unchanged, so write the
+        # text into it directly rather than reporting a keystroke that did not
+        # happen.
+        $pattern = $null
+        $wrote = $false
+        try {
+          $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+          if ($null -ne $focused -and $focused.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
+            $pattern.SetValue([string]$pattern.Current.Value + $Text)
+            Start-Sleep -Milliseconds 120
+            if ((Get-FocusedText) -ne $before) { $wrote = $true; $method = 'value-pattern' }
+          }
+        } catch { }
+        if (-not $wrote) {
+          # Second try: the clipboard. A paste needs no caret in the right
+          # place, and it is what a person would do with text that will not type.
+          try {
+            Set-Clipboard -Value $Text
+            Start-Sleep -Milliseconds 150
+            Send-Combo 'ctrl+v'
+            Start-Sleep -Milliseconds 250
+            if ((Get-FocusedText) -ne $before) { $wrote = $true; $method = 'clipboard-paste' }
+          } catch { }
+        }
+        if (-not $wrote) {
+          if ([NTAPIInput]::Failed -gt 0) {
+            Stop-With-Error 'INPUT_REJECTED' ("Windows rejected " + [NTAPIInput]::Failed + " of the key events (error " + [NTAPIInput]::LastError + "). A window running as administrator ignores input from a normal program; nothing was typed.")
+          }
+          Stop-With-Error 'TYPE_NOT_DELIVERED' 'the text was sent but the control did not change - the window may not have a text field with the caret, so click into it and try again'
+        }
+      } else {
+        $verified = $true
+      }
+    }
+    Write-Json @{ ok = $true; app = $App; did = ('typed ' + $Text.Length + ' characters'); method = $method; verified = $verified }
     exit 0
   }
 
