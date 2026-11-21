@@ -118,7 +118,9 @@ jobs:
             KEEP=""
             KEEP_COUNT="${NTAPI_UPDATE_RETENTION:-2}"
             DRY_RUN=false
-            TAGS=false
+            # Tags go with the releases they point at: an old tag is what makes
+            # a pruned version still look published.
+            TAGS=true
           else
             KEEP="$KEEP_INPUT"
             KEEP_COUNT="$COUNT_INPUT"
@@ -227,8 +229,11 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Delete the same tags in this repo
+      - name: Delete the same tags in this repo and in the release repo
         if: env.DELETE_TAGS == 'true' && env.DRY_RUN != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          TARGET_REPO: Cheumklang/NTAPI-releases
         run: |
           set -euo pipefail
           [ -s pruned.txt ] || { echo "nothing to tag-delete"; exit 0; }
@@ -242,4 +247,9 @@ jobs:
             else
               echo "tag already gone: $tag"
             fi
+            # The release repo keeps its own tags; one left behind there is a
+            # version still visible on the releases page.
+            gh api -X DELETE "repos/$TARGET_REPO/git/refs/tags/$tag" >/dev/null 2>&1 \
+              && echo "deleted release-repo tag: $tag" \
+              || echo "release-repo tag already gone: $tag"
           done < pruned.txt

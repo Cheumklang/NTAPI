@@ -3355,3 +3355,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - `selftest-update-channel.js` +3 เช็ค → `npm test` 95/95 · `check:sara` ok
 - ปล่อย v0.6.5: commit `8c8d648`, bump `9afada4`, Release run `44842961168` success · asset 181,449,491 B sha256 `845247dea0e8b36494a4160aefa28575f9742d4aa89cad3d9d89abbfb6227485` · provenance seq 182 · prune เหลือ 2 รุ่น (0.6.5 + 0.6.4)
 - คาดการณ์: 0.6.4→0.6.5 ยังเต็ม (โค้ด copy อยู่ใน 0.6.5) · 0.6.5→0.6.6 เป็น delta แรก
+
+- 2026-11-21 (ต่อ): ทำความสะอาด release/tags ตามคำสั่งผู้ใช้ — ลบ release v0.6.4 (id 453311923) เหลือ `v0.6.5` เดียว · ลบ tag 21 ตัวในรีโปนี้ (เหลือ v0.6.5) · ลบ tag 21 ตัวใน `Cheumklang/NTAPI-releases` (เหลือ v0.6.5) · คืนพื้นที่รวม ~1.0 GB
+- `prune-releases.yml`: automatic path ตั้ง TAGS=true + step ลบแท็กใน release repo ด้วย (`repos/$TARGET_REPO/git/refs/tags/$tag`) — เดิมแท็กค้างทำให้รุ่นที่ลบแล้วยังดูมีอยู่
+- `AGENTS.md`: กฎ prune ระบุเรื่องแท็กทั้ง 2 รีโป + บันทึกว่าทำมือแล้ว 1 ครั้ง (releases 7→1, tags 22→1 ทั้งสองรีโป)
