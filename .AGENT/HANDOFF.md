@@ -17,6 +17,7 @@
 > - asset `NTAPI-Setup-0.6.4.exe` 181,446,462 B · sha256 `7f3615a4…b9075` · blockmap 229,703 B `d9ec12f9…`
 > - **prune ทำงานจริงแล้วครั้งแรก:** จาก 7 รุ่น (1.21 GB) → เหลือ **2 รุ่น** (`v0.6.4` + `v0.6.3`, ~364 MB) — กฎใหม่ใน `AGENTS.md`: เก็บ 2 รุ่นล่าสุดเสมอ (`keep_count` default 2, `UPDATE_RETENTION = 2`)
 > - ยังต้องมีคนกดใช้จริงบน Windows: เปิดแอป → ถามให้ agent เปิดเว็บที่ไม่มีแท็บอยู่ → ควรเปิดเองได้และอ่าน/คลิกต่อได้
+> - **ขนาดอัปเดตจริง 0.6.3 → 0.6.4 = ~0.89 MB** (วัดจาก blockmap จริง: 11,856 บล็อก × 15,304 B, เปลี่ยน 58 บล็อก · ที่เห็น 181 MB บนหน้า release คือไฟล์ติดตั้งเต็มสำหรับเครื่องใหม่ ไม่ใช่สิ่งที่ผู้ใช้เดิมโหลด)
 > - ต้นเหตุ: (1) แท็บที่ agent เปิดเองไม่ถูกนับเป็นแท็บที่ใช้ได้ → `NOT_CLAIMED` ทันทีใน snapshot ที่ตามหลัง `open`
 >   (2) prompt สั่งว่า "Work only in the tab the user handed over" + description ของ `browser_open` เขียนว่า "Requires a tab handed over first" → โมเดลไม่กล้าเปิดแท็บเอง
 > - แก้: `browser-claims.js` เพิ่ม `own/disown/isOwned/lastOwned/ownedList` (`MAX_OWNED = 8`) · `browser-bridge.js` `targetFor()` รับแท็บที่ agent เปิดเอง + `rememberOwnership()` + `annotateTabs()` คืน `openedByAgent`
