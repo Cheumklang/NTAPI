@@ -113,6 +113,7 @@ const TESTS = [
   'selftest-single-instance.js',
   'selftest-sse-guard.js',
   'selftest-system-info.js',
+  'selftest-data-root.js',
   'selftest-update-channel.js',
 ];
 

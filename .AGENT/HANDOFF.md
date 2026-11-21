@@ -2,6 +2,14 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### 🔧 ค้าง (ยังไม่ commit) — data root บน Linux/macOS ใช้ XDG
+> - ผู้ใช้ตั้ง `export NTAPI_DATA_DIR=...` แล้วหาไม่เจอ → สาเหตุ: เปิดแอปจาก `.desktop` ซึ่งไม่รับ env; ข้อมูลจริงอยู่ `app/C:\NTAPI/`
+> - `platformDataRoot()` ใหม่: win32 = `C:\NTAPI` · อื่น ๆ = `$XDG_DATA_HOME/ntapi` (fallback `~/.local/share/ntapi`)
+> - `moveDataRoot()` ย้ายข้อมูลเดิมอัตโนมัติครั้งแรก (rename → fallback cpSync) + `rewriteLegacyPathsInPrefs`
+>   · แก้บั๊กเดิมของ rewriter: guard เช็คแค่รูปแบบ raw ทำให้ path แบบ JSON-escaped (`C:\\NTAPI`) ไม่ถูกแทน
+> - เทสต์ใหม่ `scripts/selftest-data-root.js` (14 เช็ค, ใน `npm test` แล้ว) → **96/96** · sara ok
+> - หลังอัปเดต/รีสตาร์ท: ข้อมูลจะย้ายไป `~/.local/share/ntapi` เอง และ `mcp.json` อยู่ที่นั่น
+>
 > ### ✅ ล่าสุด (2026-11-21) — **v0.6.8 ปล่อยแล้ว** · desktop control บน Windows
 > - commit `e1f2b42` (adapter) + `23c6da6` (bump 0.6.8) · tag `v0.6.8` · Release run 44851010019 success
 >   · asset 181,457,003 B sha256 `5e9fc9cb…73b23` · provenance seq 194 · เหลือ **v0.6.8 รุ่นเดียว** (แท็กเหลือ 1 ทั้งสองรีโป)

@@ -280,29 +280,68 @@ function rewriteLegacyPathsInPrefs(root, from, to) {
   const file = path.join(root, 'prefs.json');
   try {
     const text = fs.readFileSync(file, 'utf8');
-    if (!text.includes(from)) return;
-    // JSON on disk escapes backslashes, so patch both the raw and the escaped form.
-    const next = text.split(from).join(to).split(from.replace(/\\/g, '\\\\')).join(to.replace(/\\/g, '\\\\'));
+    let next = text;
+    if (next.includes(from)) next = next.split(from).join(to);
+    // JSON on disk escapes backslashes, so the old path also appears in its
+    // escaped form — and the replacement has to keep that escaping, or the file
+    // stops being valid JSON. The guard used to test only the raw form, which
+    // silently left the escaped one (a Windows path, seen from Linux) in place.
+    const escapedFrom = from.replace(/\\/g, '\\\\');
+    const escapedTo = to.replace(/\\/g, '\\\\');
+    if (escapedFrom !== from && next.includes(escapedFrom)) next = next.split(escapedFrom).join(escapedTo);
     if (next !== text) fs.writeFileSync(file, next);
   } catch {}
 }
 
 /**
- * App data root: one obvious folder people can find, back up, or copy to
- * another machine. `C:\NTAPI` by default; override with NTAPI_DATA_DIR
- * (FREEPI_DATA_DIR still works, for setups that set it before the rename).
+ * The data folder this platform expects when nothing overrides it.
  *
- * Upgrading from the old build: when `C:\NTAPI` does not exist yet but the old
- * `C:\Freepiai` does, the old folder is renamed to `C:\NTAPI` once, at startup.
- * That folder holds the provider keys and every saved chat, so moving it is what
- * makes an existing install both keep its data and end up with the new name.
- * The rename is only attempted before any session touches a file; if Windows
- * refuses (a lock, a permission), the old folder is used in place instead so the
- * app still opens with everything intact.
+ * Windows keeps `C:\NTAPI`: one obvious folder people can find, back up, or copy
+ * to another machine. Linux and macOS get the XDG data home instead — a folder
+ * literally named `C:\NTAPI` means nothing there, and on Linux that name is a
+ * *relative* path, so every install scattered its settings into whichever
+ * directory the app happened to be started from (on this project: the source
+ * tree, where a `C:\NTAPI` folder is now sitting).
+ */
+function platformDataRoot(platform = process.platform) {
+  if (platform === 'win32') return 'C:\\NTAPI';
+  const base = process.env.XDG_DATA_HOME || path.join(app.getPath('home'), '.local', 'share');
+  return path.join(base, 'ntapi');
+}
+
+/**
+ * Move a data folder an older build created into the one this build uses.
+ *
+ * Renaming is what makes an existing install keep its keys and every saved chat.
+ * A folder that cannot be renamed (another filesystem, a permission) is copied
+ * instead and the original is left alone: a duplicated settings folder is
+ * harmless, a lost one is not.
+ */
+function moveDataRoot(target, legacy) {
+  if (fs.existsSync(target) || !fs.existsSync(legacy)) return false;
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.renameSync(legacy, target);
+  } catch {
+    try {
+      fs.cpSync(legacy, target, { recursive: true });
+    } catch {
+      return false;
+    }
+  }
+  // prefs.json remembers the open tab's session file by absolute path; without
+  // this rewrite the app reopens a tab it can no longer find.
+  rewriteLegacyPathsInPrefs(target, legacy, target);
+  return true;
+}
+
+/**
+ * App data root — one folder, chosen before any session touches a file.
  *
  * Deliberately NOT inside the workspace, so switching projects never strands
  * settings, and NOT inside `~/.free-pi`, because that folder belongs to the CLI
- * and to every other agent on the machine.
+ * and to every other agent on the machine. Override with NTAPI_DATA_DIR
+ * (FREEPI_DATA_DIR still works, for setups that set it before the rename).
  *
  * If the drive refuses to be written (UAC, read-only, missing drive letter) we
  * quietly fall back to the standard per-user location so the app still opens.
@@ -311,22 +350,27 @@ function resolveDataRoot() {
   const LEGACY_ROOT = 'C:\\Freepiai';
   const NEW_ROOT = 'C:\\NTAPI';
   const explicit = process.env.NTAPI_DATA_DIR || process.env.FREEPI_DATA_DIR;
+  const preferred = platformDataRoot();
 
-  // One-time rename of the old data folder. Only when nothing overrides the
-  // location and the new folder has not been created yet.
-  if (!explicit && !fs.existsSync(NEW_ROOT) && fs.existsSync(LEGACY_ROOT)) {
-    try {
-      fs.renameSync(LEGACY_ROOT, NEW_ROOT);
-      // prefs.json remembers the open tab's session file by absolute path; without
-      // this rewrite the app would reopen and fail to find its own session.
-      rewriteLegacyPathsInPrefs(NEW_ROOT, LEGACY_ROOT, NEW_ROOT);
-    } catch {
-      // Locked or read-only: keep using the old folder below.
+  // One-time move of whatever the previous build left behind, before a session
+  // reads anything. Windows moved its folder once already (`C:\Freepiai` to
+  // `C:\NTAPI`); Linux and macOS are moving now, from a folder that only
+  // exists relative to the directory the old build was started in.
+  if (!explicit) {
+    if (process.platform === 'win32') {
+      moveDataRoot(NEW_ROOT, LEGACY_ROOT);
+    } else {
+      moveDataRoot(preferred, NEW_ROOT);
+      moveDataRoot(preferred, LEGACY_ROOT);
     }
   }
 
+  // An explicit folder wins, then this platform's own, then the old
+  // Windows-shaped paths (a machine that cannot write the default still opens
+  // with the data it already has), then Electron's per-user folder.
   const candidates = [
     explicit,
+    preferred,
     NEW_ROOT,
     LEGACY_ROOT,
     path.join(app.getPath('userData'), 'data'),

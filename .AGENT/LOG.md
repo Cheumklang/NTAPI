@@ -3386,3 +3386,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 ## 2026-11-21 — ปล่อย v0.6.8 (desktop control Windows)
 - Release run 44851010019 · asset 181,457,003 B sha256 5e9fc9cb68c26cc4902ada658168952f3ecbe70e3ef7357078cd2760f0873b23 · provenance seq 194
 - อุบัติเหตุ: `git push --tags` ปลุกแท็กเก่า v0.6.5/v0.6.6 → Release รันซ้ำ 2 รอบ (prune ลบรุ่นเก่าให้) · แก้: ลบแท็กเก่าในเครื่อง + กฎใหม่ใน AGENTS.md
+
+## 2026-11-21 — data root ของ Linux/macOS เป็น XDG (ผู้ใช้เลือกทาง B)
+- `resolveDataRoot()`: win32 คง `C:\NTAPI`; linux/darwin ใช้ `$XDG_DATA_HOME/ntapi` + ย้ายข้อมูลเดิมให้เอง (`moveDataRoot`)
+- แก้ `rewriteLegacyPathsInPrefs` ให้แทน path รูปแบบ escaped ใน JSON ได้ (เดิม guard เช็คแค่ raw)
+- `scripts/selftest-data-root.js` 14 เช็ค + ลงทะเบียนใน run-unit-tests → `npm test` 96/96
