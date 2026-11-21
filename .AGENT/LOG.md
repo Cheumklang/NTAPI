@@ -3409,3 +3409,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - uia.ps1 +6 คำสั่ง (SendInput/SetCursorPos) พร้อม Focus-Window guard + OUT_OF_BOUNDS
 - linux.js NOT_SUPPORTED · main.js audit (type ไม่เก็บข้อความ) · freepi-bridge +6 tools + prompt
 - selftest-system-control +20 ข้อ · npm test 96/96
+
+## 2026-11-21 — Linux real input (best-effort)
+- linux.js: capabilities() + buildSteps() (pure) → xdotool/wtype/ydotool · launch ผ่าน spawn ตรง + นับหน้าต่างใหม่
+- NOT_SUPPORTED พร้อมวิธีติดตั้งตาม session · เทสต์ +10 → 96/96

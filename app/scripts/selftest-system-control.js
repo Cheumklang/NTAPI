@@ -374,15 +374,57 @@ check(
   check('a coordinate click needs numbers', badCoords === 'BAD_ARGS', badCoords);
 
   const linuxAdapter = require(path.join(root, 'src/system/linux.js'));
+  const linuxSrc = fs.readFileSync(path.join(root, 'src/system', 'linux.js'), 'utf8');
+
+  // The command lines are pure decisions, so they can be checked without any of
+  // these tools installed and without touching a real desktop.
+  const xType = linuxAdapter.buildSteps('type', { text: 'สวัสดี' }, { backend: 'xdotool' });
+  check(
+    'xdotool types unicode text',
+    xType.steps && xType.steps[0].binary === 'xdotool' && xType.steps[0].args.includes('สวัสดี'),
+    JSON.stringify(xType),
+  );
+  const xClick = linuxAdapter.buildSteps('click', { x: 10.4, y: 20.6, button: 'right' }, { backend: 'xdotool' });
+  check(
+    'a click moves the pointer first, then clicks the right button',
+    xClick.steps && xClick.steps.length === 2 && xClick.steps[1].args.join(' ') === 'click 3',
+    JSON.stringify(xClick),
+  );
+  const xScroll = linuxAdapter.buildSteps('scroll', { notches: -2 }, { backend: 'xdotool' });
+  check('scrolling up is wheel button 4', xScroll.steps && xScroll.steps[0].args.join(' ').endsWith('4'), JSON.stringify(xScroll));
+  const xFocus = linuxAdapter.buildSteps('focus', { title: 'a (b) [c]' }, { backend: 'xdotool' });
+  check(
+    'focus escapes the title before matching it',
+    xFocus.steps && xFocus.steps[0].args.some((arg) => arg.includes('a \\(b\\)')),
+    JSON.stringify(xFocus),
+  );
+  const wKeys = linuxAdapter.buildSteps('keys', { keys: 'ctrl+s' }, { backend: 'wtype' });
+  check('wtype holds the modifier around the key', wKeys.steps && wKeys.steps[0].args.join(' ') === '-M ctrl -k s -m ctrl', JSON.stringify(wKeys));
+  const wYdotool = linuxAdapter.buildSteps('keys', { keys: 'ctrl+s' }, { backend: 'ydotool' });
+  check('ydotool refuses shortcuts rather than guessing keycodes', typeof wYdotool.missing === 'string' && /keycodes|unavailable/.test(wYdotool.missing));
+  const nothing = linuxAdapter.buildSteps('type', { text: 'x' }, { session: 'wayland', backend: '' });
+  check(
+    'a session with no input tool names what to install',
+    /ydotool|wtype|xdotool/.test(nothing.missing || ''),
+    String(nothing.missing),
+  );
+
+  // And the live calls answer honestly. The backend is forced off so this test
+  // never types into whatever window happens to be focused on the machine.
+  process.env.NTAPI_LINUX_INPUT = 'none';
   const linuxCodes = await Promise.all(
-    ['focus', 'launch', 'keys', 'type', 'clickAt', 'scroll'].map((name) =>
-      linuxAdapter[name]().then(() => 'ok', (err) => err.code),
+    ['keys', 'type', 'clickAt', 'scroll'].map((name) =>
+      linuxAdapter[name]({ app: 0, keys: 'ctrl+s', text: 'x', x: 1, y: 1 }).then(() => 'ok', (err) => err.code),
     ),
   );
   check(
     'Linux says NOT_SUPPORTED instead of pretending',
     linuxCodes.every((code) => code === 'NOT_SUPPORTED'),
     linuxCodes.join(),
+  );
+  check(
+    'starting a program does not need an input backend',
+    !/NOT_SUPPORTED/.test(linuxSrc.slice(linuxSrc.indexOf('async function launch'), linuxSrc.indexOf('async function keys'))),
   );
 
   if (failed) {

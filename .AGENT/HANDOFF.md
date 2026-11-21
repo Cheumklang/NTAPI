@@ -2,6 +2,16 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ Linux: real input แบบ best-effort (0.6.13)
+> ผู้ใช้: "Windows หลัก แต่ต้องรองรับ Linux ด้วยเพราะผมต้องใช้เหมือนกัน"
+> - `linux.js` ไม่ตอบ NOT_SUPPORTED ทั้งก้อนแล้ว: ตรวจ session + หา tool ที่มีจริง (`xdotool` → `ydotool` → `wtype`) แล้วสร้างคำสั่งตาม backend
+>   · X11/xdotool: type (unicode ได้), keys (`xdotool key --clearmodifiers ctrl+s`), click (mousemove+click 1/3), scroll (wheel 4/5), focus (search --name + windowactivate, escape ชื่อ)
+>   · Wayland/wtype: type + keys (`-M ctrl -k s -m ctrl`) · Wayland/ydotool: type (keys ไม่รองรับ เพราะต้องใช้ keycode ต่อ layout → ตอบ missing ตรง ๆ)
+>   · ไม่มีอะไรเลย → `NOT_SUPPORTED` พร้อมบอกวิธีติดตั้งตาม session (Wayland แนะ ydotool+daemon / wtype, X11 แนะ xdotool)
+> - `launch` ใช้ได้ทุก session: spawn ตรง (ไม่ผ่าน shell → ไม่มี shell injection) + นับหน้าต่างใหม่แบบ count (xterm สองตัวชื่อเดียวกันก็ยังจับได้) · ทดสอบสดบนเครื่องนี้: เปิด xterm เจอหน้าต่างจริง
+> - `buildSteps()` เป็น pure function → เทสต์ command line ของทุก backend ได้โดยไม่ต้องติดตั้งอะไร (selftest-system-control +10 ข้อ) → 96/96
+> - ข้อจำกัดที่ยังเหลือบน Linux: screenshot แอปอื่น (Wayland ห้าม), focus/click บน Wayland ที่ไม่มี ydotool
+>
 > ### ✅ เฟส 1 Desktop control เต็มรูปแบบ (Windows) — 0.6.12
 > ผู้ใช้สั่ง: "อยากให้ทำได้ทุกอย่างที่เหมือนคนนั่งอยู่หน้าคอม" (Windows หลัก, ยอมให้ยิงคีย์/คลิกพิกัด)
 > - `uia.ps1` +6 คำสั่ง: `focus` · `launch` (Start-Process + รอหน้าต่างใหม่ ≤15s) · `keys` (SendInput vk, รองรับ ctrl+s, alt+f4, F1-F24 …)

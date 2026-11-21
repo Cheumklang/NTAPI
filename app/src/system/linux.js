@@ -3,13 +3,19 @@
 /**
  * The Linux adapter: one JSON job to `atspi.py`, one JSON answer back.
  *
- * Deliberately narrow. It knows how to look (`windows`, `snapshot`) and how to
- * press one thing (`act`); it does not decide whether it is allowed to — that
- * is the main process's job, so the same guard covers every caller.
+ * It knows how to look (`windows`, `snapshot`) and how to press one thing
+ * (`act`); it does not decide whether it is allowed to — that is the main
+ * process's job, so the same guard covers every caller.
+ *
+ * Real input is a different story on Linux: there is no built-in SendInput. The
+ * adapter therefore asks what the session actually has — xdotool on X11, wtype
+ * or ydotool on Wayland — and builds the command for whichever it finds. When
+ * the session has nothing, it says so and names what to install instead of
+ * typing into the void.
  */
 
 const path = require('node:path');
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const { helperPath } = require('./helper-path');
 
 const HELPER = helperPath('atspi.py');
@@ -90,29 +96,277 @@ async function act({ ref, action = 'click', text = '' } = {}) {
   return run(args, { timeoutMs: 15000 });
 }
 
+/* ------------------------------------------------------------- real input */
+
 /**
- * Real input is Windows-only for now: the Windows half can reach SendInput
- * through PowerShell with nothing to install, while Linux would need XTest or a
- * portal that behaves differently on X11 and Wayland. Saying so honestly beats a
- * half-version that types into the wrong window.
+ * Which input backend this session has.
+ *
+ * xdotool first: on X11 (and XWayland) it types, clicks and focuses by name.
+ * On Wayland only a virtual-keyboard client can do it, and whether one exists at
+ * all depends on the compositor — wtype needs wlroots or KDE, ydotool needs its
+ * uinput daemon running as root. Nothing is assumed; each is looked for.
  */
-function notOnLinux(name) {
-  return async () => {
-    throw failure(
-      'NOT_SUPPORTED',
-      `${name} is not implemented on Linux yet. Here the desktop tools can only press a control that publishes an accessibility action (system_act).`,
-    );
-  };
+function sessionType() {
+  return String(process.env.XDG_SESSION_TYPE || '').toLowerCase();
+}
+
+function commandExists(binary) {
+  return new Promise((resolve) => {
+    execFile('sh', ['-c', `command -v ${binary} >/dev/null 2>&1`], (err) => resolve(!err));
+  });
+}
+
+let capsCache = null;
+async function capabilities() {
+  if (String(process.env.NTAPI_LINUX_INPUT || '').toLowerCase() === 'none') {
+    return { session: sessionType(), xdotool: false, wtype: false, ydotool: false, backend: '' };
+  }
+  if (capsCache) return capsCache;
+  const session = sessionType();
+  const [xdotool, wtype, ydotool] = await Promise.all([
+    commandExists('xdotool'),
+    commandExists('wtype'),
+    commandExists('ydotool'),
+  ]);
+  let backend = '';
+  if (xdotool) backend = 'xdotool';
+  else if (ydotool) backend = 'ydotool';
+  else if (wtype) backend = 'wtype';
+  capsCache = { session, xdotool, wtype, ydotool, backend };
+  return capsCache;
+}
+
+/** The install line for the session in front of us, when nothing is there. */
+function installHint(caps) {
+  if (caps.session === 'wayland') {
+    return 'Wayland needs a virtual-keyboard tool: install ydotool and start its daemon (`sudo systemctl enable --now ydotool`), or wtype on a wlroots compositor. X11 users can install xdotool.';
+  }
+  return 'Install xdotool (`sudo apt install xdotool`), which types, clicks and focuses windows on X11.';
+}
+
+const WTYPE_MODIFIERS = { ctrl: 'ctrl', control: 'ctrl', shift: 'shift', alt: 'alt', altgr: 'altgr', win: 'logo', meta: 'logo' };
+const WTYPE_KEYS = {
+  enter: 'Return',
+  return: 'Return',
+  tab: 'Tab',
+  escape: 'Escape',
+  esc: 'Escape',
+  space: 'space',
+  backspace: 'BackSpace',
+  delete: 'Delete',
+  up: 'Up',
+  down: 'Down',
+  left: 'Left',
+  right: 'Right',
+  home: 'Home',
+  end: 'End',
+  pageup: 'Prior',
+  pagedown: 'Next',
+  insert: 'Insert',
+};
+
+/**
+ * Turn one action into the commands to run. Pure on purpose: every backend's
+ * command line is decided here, so it can be tested without any of them
+ * installed and without touching a real desktop.
+ *
+ * @returns {{steps: Array<{binary: string, args: string[]}>}|{missing: string}}
+ */
+function buildSteps(action, input = {}, caps = { backend: '' }) {
+  const backend = caps.backend || '';
+  if (!backend) return { missing: installHint(caps) };
+
+  if (action === 'type') {
+    const text = String(input.text || '');
+    if (!text) return { missing: 'nothing to type' };
+    if (backend === 'xdotool') return { steps: [{ binary: 'xdotool', args: ['type', '--clearmodifiers', '--delay', '20', '--', text] }] };
+    if (backend === 'ydotool') return { steps: [{ binary: 'ydotool', args: ['type', '--', text] }] };
+    return { steps: [{ binary: 'wtype', args: ['--', text] }] };
+  }
+
+  if (action === 'keys') {
+    const combo = String(input.keys || '').trim();
+    if (!combo) return { missing: 'nothing to press' };
+    if (backend === 'xdotool') return { steps: [{ binary: 'xdotool', args: ['key', '--clearmodifiers', combo] }] };
+    if (backend === 'ydotool') {
+      // ydotool wants numeric keycodes per press, which is a table this adapter
+      // would only get wrong for layouts it has never seen.
+      return { missing: 'ydotool cannot press shortcuts reliably, so system_keys is unavailable here. Use system_type, or run an X11 session with xdotool.' };
+    }
+    const parts = combo.split('+').map((part) => part.trim().toLowerCase()).filter(Boolean);
+    if (!parts.length) return { missing: 'nothing to press' };
+    const args = [];
+    const held = [];
+    for (const part of parts.slice(0, -1)) {
+      const modifier = WTYPE_MODIFIERS[part];
+      if (!modifier) return { missing: `wtype does not know the modifier '${part}'` };
+      held.push(modifier);
+      args.push('-M', modifier);
+    }
+    const last = parts[parts.length - 1];
+    args.push('-k', WTYPE_KEYS[last] || last);
+    for (const modifier of held.reverse()) args.push('-m', modifier);
+    return { steps: [{ binary: 'wtype', args }] };
+  }
+
+  if (action === 'click' || action === 'scroll') {
+    if (backend !== 'xdotool') {
+      return { missing: 'only xdotool can move the pointer and wheel here; on Wayland that needs ydotool with its daemon running as root.' };
+    }
+    if (action === 'click') {
+      const steps = [];
+      if (Number.isFinite(Number(input.x)) && Number.isFinite(Number(input.y))) {
+        steps.push({ binary: 'xdotool', args: ['mousemove', '--sync', String(Math.round(Number(input.x))), String(Math.round(Number(input.y)))] });
+      }
+      steps.push({ binary: 'xdotool', args: ['click', input.button === 'right' ? '3' : '1'] });
+      return { steps };
+    }
+    const notches = Math.abs(Math.trunc(Number(input.notches) || 3)) || 3;
+    // Wheel up is button 4 and wheel down is 5 in X11; one click per notch.
+    const button = Number(input.notches) < 0 ? '4' : '5';
+    return { steps: [{ binary: 'xdotool', args: ['click', '--repeat', String(notches), '--delay', '40', button] }] };
+  }
+
+  if (action === 'focus') {
+    const title = String(input.title || '').trim();
+    if (!title) return { missing: 'this window reports no title, so xdotool cannot find it' };
+    if (backend !== 'xdotool') {
+      return { missing: 'on Wayland a window cannot be raised by name; click it, or switch to it from the task switcher.' };
+    }
+    // `search` matches a pattern, so a literal title has to be escaped.
+    const literal = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return {
+      steps: [{ binary: 'xdotool', args: ['search', '--name', `^${literal}$`, 'windowactivate', '--sync'] }],
+    };
+  }
+
+  return { missing: `unknown action ${action}` };
+}
+
+function runTool(step, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    execFile(step.binary, step.args, { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 }, (err) => {
+      if (!err) {
+        resolve();
+        return;
+      }
+      if (err.code === 'ENOENT') {
+        reject(failure('NOT_INPUT', `${step.binary} is not installed`));
+        return;
+      }
+      if (err.killed) {
+        reject(failure('TIMEOUT', `${step.binary} did not finish in time`));
+        return;
+      }
+      reject(failure('INPUT_FAILED', (err.message || '').split('\n')[0] || `${step.binary} failed`));
+    });
+  });
+}
+
+async function perform(action, input) {
+  const caps = await capabilities();
+  const planned = buildSteps(action, input, caps);
+  if (planned.missing) throw failure('NOT_SUPPORTED', planned.missing);
+  for (const step of planned.steps) await runTool(step);
+  return caps.backend;
+}
+
+/** Raise the window at `app` by the title the snapshot reported. */
+async function focus({ app = 0, title = '' } = {}) {
+  let name = title;
+  if (!name) {
+    const list = await windows();
+    const found = list.find((entry) => Number(entry.app) === Number(app));
+    name = (found && (found.title || found.appName)) || '';
+  }
+  const backend = await perform('focus', { title: name });
+  return { ok: true, app, appName: name, did: `focused ${name}`, backend };
+}
+
+/**
+ * Start a program or open a document, then report the window that appeared.
+ * Spawning detached works the same under X11 and Wayland, so only the "which
+ * window is new" part needs the accessibility tree.
+ */
+async function launch({ target = '' } = {}) {
+  const wanted = String(target || '').trim();
+  if (!wanted) throw failure('BAD_ARGS', 'launch needs a target: a program, a document or a url');
+  // Counted, not remembered: a second terminal has the same title as the first,
+  // so "a title I have not seen" would miss it while "one more of that title"
+  // catches it.
+  const keyOf = (entry) => `${entry.appName}|${entry.title}`;
+  const before = new Map();
+  for (const entry of await windows().catch(() => [])) {
+    const key = keyOf(entry);
+    before.set(key, (before.get(key) || 0) + 1);
+  }
+  // No shell: the target is a path or a url, and passing it as one argument means
+  // nothing in it can be read as a second command.
+  const isUrl = /^(https?|file):\/\//i.test(wanted);
+  const child = isUrl
+    ? spawn('xdg-open', [wanted], { detached: true, stdio: 'ignore' })
+    : spawn(wanted, [], { detached: true, stdio: 'ignore' });
+  child.unref();
+  child.on('error', () => {});
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const list = await windows().catch(() => []);
+    const tally = new Map();
+    let fresh = null;
+    for (const entry of list) {
+      const key = keyOf(entry);
+      const seen = (tally.get(key) || 0) + 1;
+      tally.set(key, seen);
+      if (!fresh && seen > (before.get(key) || 0) && (entry.title || '').trim()) fresh = entry;
+    }
+    if (fresh) {
+      return { ok: true, app: Number(fresh.app), appName: fresh.title || fresh.appName || '', did: `started ${wanted}` };
+    }
+  }
+  return { ok: true, app: -1, appName: '', did: `started ${wanted} but no window appeared` };
+}
+
+async function keys({ app = 0, keys = '' } = {}) {
+  const combo = String(keys || '').trim();
+  if (!combo) throw failure('BAD_ARGS', 'keys needs a shortcut such as ctrl+s');
+  await focus({ app }).catch(() => null);
+  const backend = await perform('keys', { keys: combo });
+  return { ok: true, app, did: `pressed ${combo}`, backend };
+}
+
+async function typeText({ app = 0, text = '' } = {}) {
+  if (typeof text !== 'string' || !text) throw failure('BAD_ARGS', 'type needs the text to type');
+  await focus({ app }).catch(() => null);
+  const backend = await perform('type', { text });
+  return { ok: true, app, did: `typed ${text.length} characters`, backend };
+}
+
+async function clickAt({ app = 0, x, y, button = 'left' } = {}) {
+  if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+    throw failure('BAD_ARGS', 'clickat needs x and y in screen coordinates');
+  }
+  await focus({ app }).catch(() => null);
+  const backend = await perform('click', { x, y, button });
+  return { ok: true, app, did: `clicked ${Math.round(Number(x))},${Math.round(Number(y))}`, backend };
+}
+
+async function scroll({ app = 0, notches = 3 } = {}) {
+  await focus({ app }).catch(() => null);
+  const backend = await perform('scroll', { notches });
+  return { ok: true, app, did: `scrolled ${notches} notches`, backend };
 }
 
 module.exports = {
-  focus: notOnLinux('focus'),
-  launch: notOnLinux('launch'),
-  keys: notOnLinux('keys'),
-  type: notOnLinux('type'),
-  clickAt: notOnLinux('clickAt'),
-  scroll: notOnLinux('scroll'),
   platform: 'linux',
+  focus,
+  launch,
+  keys,
+  type: typeText,
+  clickAt,
+  scroll,
+  capabilities,
+  buildSteps,
   available,
   windows,
   snapshot,
