@@ -1,0 +1,22 @@
+{
+  "version": "0.6.7",
+  "tag": "v0.6.7",
+  "recordedAt": "2026-11-21T01:21:47.822Z",
+  "git": {
+    "head": "7335668ce7d86e1f88354f1ebb432347381a2c48",
+    "branch": "master",
+    "tree": "a58a12c0b730b4c6296d1f7da18e062211315935",
+    "subject": "chore(release): 0.6.7 — skills installed as a package show up",
+    "authorDate": "2026-11-21T08:17:04+07:00",
+    "commitCount": 413
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44849249186",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.7.exe",
+      "size": 181453353,
+      "sha256": "41eddfea2f5dada098ee0a6841e4e9f922d69de97a9467cc6f69ed0221b490fe"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.7"
+}

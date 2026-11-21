@@ -3371,3 +3371,5 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - เพิ่ม `packagedSkillDirs()`: `git/<host>/<owner>/<repo>` + `npm/node_modules/[<@scope>/]<pkg>` ของ `~/.pi/agent`, `~/.free-pi/agent`
 - ทดสอบกับเครื่องจริง: 22 สกิล (superpowers, 9arm-skills) · `selftest-skill-scan.js` ใช้ home ปลอม +3 เช็ค · `npm test` 95/95
 - hint เพิ่ม `~/.pi/agent/git/<owner>/<repo>` · ยังไม่ commit
+- ปล่อย **v0.6.7** (ผู้ใช้: "ปล่อยเลยคับ") · Release run 44849249186 · provenance seq 189 (189 entries / 83 files OK)
+- delta 0.6.6→0.6.7 วัดจาก blockmap = 51 block ≈ 0.77 MB (99.6% ประหยัด)
