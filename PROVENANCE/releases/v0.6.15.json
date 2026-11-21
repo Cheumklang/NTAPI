@@ -1,0 +1,22 @@
+{
+  "version": "0.6.15",
+  "tag": "v0.6.15",
+  "recordedAt": "2026-11-21T16:35:29.803Z",
+  "git": {
+    "head": "3cacdd2ad8c058776c980edc29f9d46de0464a95",
+    "branch": "master",
+    "tree": "44981e70c6c5dcb5dbd0290cf7c98b859b9f6019",
+    "subject": "chore(release): 0.6.15 — Wayland clicks",
+    "authorDate": "2026-11-21T23:30:44+07:00",
+    "commitCount": 443
+  },
+  "ci": "",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.15.exe",
+      "size": null,
+      "sha256": null
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.15"
+}
