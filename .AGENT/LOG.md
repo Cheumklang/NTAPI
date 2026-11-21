@@ -3026,14 +3026,14 @@ boot วาดครั้งเดียว, ย้าย `resolveSdk()` ไป
 - เกจ %: `.usage-bar-fill` เป็น span inline → width ไม่ทำงาน · แก้เป็น `display:block`
 - แถวล่างตรงคอลัมน์แถวบน: ชิปอนุมัติเป็นไอคอน 30px · `sidebarMinWidth()` ใช้ `brand.scrollWidth`
   + วัดใหม่เมื่อ badge โผล่ (เดิมล้น 6px)
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
 
 ## 2026-11-17 — จอเล็ก: ระดับความคิดเป็น dropdown + topbar ไม่ล้น
 
 - `#thinkingSwitch` (5 ช่อง ~194px) → dropdown `#thinkingBtn`/`#thinkingMenu` เปิดเมื่อ hover
 - `#statusProviderMeter` ellipsis + ซ่อน ≤1240 · media ใหม่ 1240/1120/1000/960 ย้ายไปท้ายไฟล์
 - `check-thinking-switch.js` เขียนใหม่ 17 checks · npm test 81/81
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
 
 ## 2026-11-17 — ป๊อปอัปสถานะบรรทัดเดียว + ชิปบอกชื่อโมเดล + สกุลเงินตามภาษา
 
@@ -3042,7 +3042,7 @@ boot วาดครั้งเดียว, ย้าย `resolveSdk()` ไป
 - สกุลเงิน: `moneyText()`/`moneyUnit()` → ไทย ฿ (เมื่อมีเรต FX) / อังกฤษ $ ·
   `deepseekPrice` i18n สร้างจาก `view.model.cost` · หน่วย `tokCostUnit` = บาท/USD
 - แก้เทสต์: `check-status-pill` (ป๊อปอัปกึ่งกลาง), `selftest-usage-pill` (left 50%, pillName=modelName)
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
 
 ## 2026-11-17 — tooltip ตามภาษา + ค่าเงิน ฿/$ ตามภาษา
 
@@ -3050,7 +3050,7 @@ boot วาดครั้งเดียว, ย้าย `resolveSdk()` ไป
 - `APPROVAL_TITLES` → `approvalTitle(mode)` ใช้ `t()`; ปุ่มลบไฟล์แนบ `removeTitle`
 - ราคา DeepSeek: เพิ่ม `cost` ใน `modelEntry()`/`deepseekModelEntries()` → ไทย ฿ อังกฤษ $
 - `ensureUsdThb()`: TTL 6 ชม. + retry 60 วิ + รีเฟรชทุก 6 ชม.
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
 
 ## 2026-11-17 — ป้ายปัจจุบันตามภาษา + ปุ่มโมเดลไม่ล้นกรอบตอน EN
 
@@ -3058,7 +3058,7 @@ boot วาดครั้งเดียว, ย้าย `resolveSdk()` ไป
 - `.model-picker-btn`: `max-width: min(310px, 100%)` แทน `width:100%` (เดิมบีบช่องความคิดจนค่า "Off" ถูกตัด)
 - `.think-slot` กลับเป็น `flex: 0 0 auto`; ซ่อนคำ "การคิด/Reasoning" ที่ ≤1280
 - ตรวจด้วยภาพหน้าจอ TH/EN ที่ 1240px: ไม่มีอะไรล้น
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
 
 ## 2026-11-17 — แชทใหม่ช้า + ข้อความลบแชทหายตอน hover
 
@@ -3078,7 +3078,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ต้นเหตุ: `paintModelTrigger()` อ่าน `plan` จาก `view.model` (pi ส่งแค่ id/name) → โมเดล paid ขึ้น "ฟรี"
 - แก้: `modelEntryFor()` ดึง entry จาก `menuModels`/`activeView().models` + ย้าย `menuModels=models` มาก่อน `paintModelTrigger()`
 - เทสต์: เพิ่ม check `paidBadge` ใน `selftest-model-picker.js` · `npm test` 81/81 · picker selftest ผ่าน
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
 
 ## 2026-11-17 — ขนาดหน้าต่างขั้นต่ำ
 
@@ -3090,7 +3090,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ต้นเหตุ: `reconcileBusy` (วิ่งทุก 4 วิ) เห็น `view.busy=true` แต่ `tab.busy=false` (เพราะ `tab.busy` ตั้งที่ `agent_start` ทีหลัง) → เข้าใจผิดว่ามี settle หลุด → drain คิวข้อถัดไปทั้งที่เทิร์นแรกยังไม่เริ่ม
 - แก้: `prompt:send` ตั้ง `tab.busy=true` + `agent:busy(true)` ทันทีตอนรับ prompt
 - ปุ่มอัปเดต: ไม่ใช่บั๊ก — ใช้ได้เฉพาะตัวติดตั้ง (`setUpdates` return เมื่อ `!app.isPackaged`)
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
 
 ## 2026-11-17 — เพิ่ม provider Claude + Gemini
 
@@ -3103,7 +3103,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - เทสต์ใหม่ selftest-anthropic / selftest-google-ai + เคสใน provider-plan/provider-ui/check-buy
 - npm test 83/83 · check:buy ผ่าน
 - ชิปสถานะเปลี่ยนเป็นชื่อบริษัท (tooltip = บริษัท · โมเดล) แทนชื่อโมเดล
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
 
 ## 2026-11-17 — ปล่อย v0.5.17
 
@@ -3165,7 +3165,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
   · `provider-plan.js` (default = แถวฟรีตัวแรก `plan === 'free'` เข้ม)
   · `renderer/app.js` (มิเตอร์ฟรี + คีย์ i18n `googleFreeTier`/`googleFreeLimits` EN/TH)
 - เทสต์: `selftest-google-ai.js` +5, `selftest-provider-plan.js` +2 → `npm test` 84/84
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น
 
 ## 2026-11-17 — v0.5.18: โควต้าฟรี Gemini (แผน 2) + ย้อนกลับ/เปลี่ยนโมเดลระหว่าง AI ทำงาน
 
@@ -3364,4 +3364,4 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - `skillRoots()`: home 18 โฟลเดอร์ (`.claude`, `.agents`, `.cursor`, `.copilot`, `.gemini`, `.gemini/config`, `.continue`, `.aider-desk`, `.openclaw`, `.codeium/windsurf`, `.config/{agents,crush,devin,goose}`, `.pi`, `.free-pi`) + โปรเจกต์ 8 โฟลเดอร์ + ไต่โฟลเดอร์แม่ถึง `.git` (สูงสุด 12 ชั้น) + dedupe case-insensitive บน Windows
 - `renderer/app.js` `skillSearchHint()` แสดงรายการใหม่ · `selftest-skill-scan.js` +4 เช็ค → `npm test` 95/95
 - **ผู้ใช้ตัดสินใจ 2026-11-21: ไม่ทำปุ่ม "นำเข้าสกิล"** — ผู้ใช้ส่วนใหญ่เป็นมือใหม่ เน้นให้ค้นหาเจอถูกจุดแทน (ประหยัดงาน + ไม่เพิ่มความเสี่ยงจาก zip/GitHub)
-- ยังไม่ commit / ยังไม่ bump
+- ปล่อย **v0.6.6** (ผู้ใช้สั่ง: "ปล่อยเลยคับเพราะ AI ใน windows ที่ผมทดสอบมันหาสกิลนานมากๆ") · Release run 44845195691 · provenance seq 185 (185 entries / 82 files OK) · prune เก็บ 2 รุ่น

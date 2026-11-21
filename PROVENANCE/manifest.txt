@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-21T00:23:40.381Z
-entries 182
-head_hash 106f5d45e4394c08d746015c74e64b12b5d2dc6cdf55155aeea58cbc1c03421b
-git cce0809287a3e49d914f61df005ad1b95930a3b4
+updated 2026-11-21T00:59:25.106Z
+entries 185
+head_hash 35a63f700e5dcff748b8d17ae3123dcc9225060a90d8d2564f9e146f817244be
+git a96289f4574035e7526d914ac73f90efd9f2879e
 
 latest entries:
-  #175 2026-11-21T00:04:32.989Z commit — chore(provenance): ledger for the browser-tab fix and the prune rule
-  #176 2026-11-21T00:04:33.296Z commit — chore(release): 0.6.4 — the agent can open a site no tab covers
-  #177 2026-11-21T00:04:33.896Z commit — chore(provenance): ledger v0.6.4
   #178 2026-11-21T00:04:38.438Z commit — chore(provenance): close ledger for v0.6.4
   #179 2026-11-21T00:09:56.262Z release — Released version 0.6.4
   #180 2026-11-21T00:18:34.068Z commit — fix(update): keep the installer so the next update is a delta
   #181 2026-11-21T00:18:34.407Z commit — chore(release): 0.6.5 — an update that is only the bytes that changed
   #182 2026-11-21T00:23:40.164Z release — Released version 0.6.5
+  #183 2026-11-21T00:38:41.355Z commit — skills: find every agent's folder, not just ours
+  #184 2026-11-21T00:38:44.247Z commit — chore(release): 0.6.6 — skills found in every AI tool's folder
+  #185 2026-11-21T00:59:24.843Z release — Released version 0.6.6

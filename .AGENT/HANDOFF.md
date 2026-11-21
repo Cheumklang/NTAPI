@@ -2,7 +2,7 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
-> ### ✅ ล่าสุด (2026-11-21) — `/skill` ค้นให้ถูกจุดทุกค่าย (ยังไม่ commit/ไม่ปล่อยรุ่น)
+> ### ✅ ล่าสุด (2026-11-21) — **v0.6.6 ปล่อยแล้ว** · `/skill` ค้นให้ถูกจุดทุกค่าย
 > - ผู้ใช้: "แต่ละคนใช้ AI ไม่เหมือนกัน … เน้นค้นหาให้เขาถูกจุดก็พอ" · **ไม่ต้องมีปุ่มนำเข้าสกิล** (ผู้ใช้ตัดออก: ผู้ใช้ส่วนใหญ่มือใหม่)
 > - `skillRoots()` (main.js) เพิ่ม 18 โฟลเดอร์ home: `.agents`, `.claude`, `.cursor`, `.copilot`, `.gemini`, `.gemini/config`, `.continue`,
 >   `.aider-desk`, `.openclaw`, `.codeium/windsurf`, `.config/{agents,crush,devin,goose}` (XDG ใช้ได้บน Linux; บน Windows ถ้าไม่มีก็ข้าม)
@@ -351,14 +351,16 @@
 >   `check-provider-buy-links.js` · `npm test` **83/83** · `check:buy` ผ่าน
 > - **ชิปสถานะ = ชื่อบริษัท** (แทนชื่อโมเดล): `pillName.textContent = company` (เช่น Token Harbor)
 >   · tooltip ยังเป็น `company · model` · แก้เทสต์ `selftest-usage-pill.js` ตาม
-> - ยังไม่ commit / ยังไม่ bump
+> - ปล่อยรุ่นแล้ว: commits `93b3c0a` (สกิล) + `a96289f` (bump 0.6.6) · tag `v0.6.6` · Release run 44845195691 success
+>   · asset 181,451,477 B sha256 `b6d11fe2…ff172` · provenance seq 185 · prune เก็บ **v0.6.6 + v0.6.5** (แท็กเหลือ 2 ทั้งสองรีโป)
 
 > **⚠️ ล่าสุด (2026-11-17): แก้บั๊กระบบคิวส่งพร้อมกัน 2 ข้อความ**
 > - **ต้นเหตุ:** `reconcileBusy` (heal ที่วิ่งทุก 4 วิ) เห็น renderer `view.busy=true` แต่ main `tab.busy=false` เพราะ `tab.busy` ถูกตั้งที่ `agent_start` (ทีหลัง) → เข้าใจผิดว่ามี settle หลุดแล้ว drain คิวข้อถัดไปออกไปทั้งที่เทิร์นแรกยังไม่เริ่ม → คิว 2 อันส่งพร้อมกัน
 > - **แก้:** `prompt:send` (main.js) ตั้ง `tab.busy = true` + ส่ง `agent:busy(true)` ทันทีตอนรับ prompt (ก่อน `session.prompt`) — ปิดหน้าต่าง race
 > - **ปุ่มอัปเดต:** ไม่ใช่บั๊ก — `setUpdates()` return ทันทีเมื่อ `!app.isPackaged` (ตอนรันจากซอร์สไม่มี updater) · ปุ่มจะขึ้น `updateDev` "ระบบอัปเดตใช้ได้กับเวอร์ชันที่ติดตั้งแล้วเท่านั้น" · publish config ชี้ `Cheumklang/NTAPI-releases` ถูกแล้ว → ใช้ได้เฉพาะตัวติดตั้ง
 > - **ไฟล์:** `app/src/main.js`
-> - ยังไม่ commit / ยังไม่ bump
+> - ปล่อยรุ่นแล้ว: commits `93b3c0a` (สกิล) + `a96289f` (bump 0.6.6) · tag `v0.6.6` · Release run 44845195691 success
+>   · asset 181,451,477 B sha256 `b6d11fe2…ff172` · provenance seq 185 · prune เก็บ **v0.6.6 + v0.6.5** (แท็กเหลือ 2 ทั้งสองรีโป)
 
 > **⚠️ ล่าสุด (2026-11-17): ป้าย "ฟรี" โผล่บนโมเดลที่เสียเงิน — แก้แล้ว**
 > - **ต้นเหตุ:** `paintModelTrigger()` อ่าน `plan` จาก `view.model` แต่ pi ส่งมาแค่ `{provider,id,name}` (ไม่มี `plan`) → `FPProvider.modelPlan()` คืน "free" เสมอสำหรับโมเดลที่เลือกอยู่ (รายการในเมนูถูกอยู่แล้ว เพราะอ่านจาก entry ที่มี `plan`)
@@ -366,7 +368,8 @@
 > - **เทสต์:** `selftest-model-picker.js` เพิ่ม check `paidBadge` (โมเดล paid → badge `paid` + `$0.30/$1.20`) · `npm test` 81/81 · picker selftest ผ่าน
 > - **ไฟล์:** `app/src/renderer/app.js`, `app/scripts/selftest-model-picker.js`
 > - **หน้าต่าง:** `minWidth`/`minHeight` = `1240×840` (เดิม `900×560`) — ย่อเล็กกว่าตอนเปิดมาไม่ได้ ขยายได้ · `app/src/main.js`
-> - ยังไม่ commit / ยังไม่ bump
+> - ปล่อยรุ่นแล้ว: commits `93b3c0a` (สกิล) + `a96289f` (bump 0.6.6) · tag `v0.6.6` · Release run 44845195691 success
+>   · asset 181,451,477 B sha256 `b6d11fe2…ff172` · provenance seq 185 · prune เก็บ **v0.6.6 + v0.6.5** (แท็กเหลือ 2 ทั้งสองรีโป)
 
 > **⚠️ ล่าสุด (2026-11-17): จัดแถวบน sidebar + ซ่อมเกจ % — ยังไม่ commit / ยังไม่ออกเวอร์ชัน**
 > - **โฟลเดอร์งาน (ที่ผู้ใช้วงสีแดง)** ย้ายขึ้นแถวเดียวกับปุ่มธีม/อนุมัติ → อยู่ใน `.sidebar-tools`

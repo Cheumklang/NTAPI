@@ -1,0 +1,22 @@
+{
+  "version": "0.6.6",
+  "tag": "v0.6.6",
+  "recordedAt": "2026-11-21T00:59:24.833Z",
+  "git": {
+    "head": "a96289f4574035e7526d914ac73f90efd9f2879e",
+    "branch": "master",
+    "tree": "99625538316ebaa9bd8e0a0dca781ede477b8300",
+    "subject": "chore(release): 0.6.6 — skills found in every AI tool's folder",
+    "authorDate": "2026-11-21T07:38:43+07:00",
+    "commitCount": 409
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44845195691",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.6.exe",
+      "size": 181451477,
+      "sha256": "b6d11fe22b6cde0f5fcaf5dda8475e5ce27271d7e82dc68c118e59203d2ff172"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.6"
+}
