@@ -5182,9 +5182,14 @@ html[lang="th"] .about-name-th {
 /* The strip is fixed, so it never reflows the conversation under it. */
 .sys-banner {
   position: fixed;
-  left: 50%;
-  bottom: 20px;
-  transform: translateX(-50%);
+  /* The corner, not the middle: centred over the composer it covered the line
+     being typed, and a status strip must never hide the words going into the
+     chat. Shrinks to a dot + stop button when the window gets narrow. */
+  left: auto;
+  right: 18px;
+  bottom: 16px;
+  transform: none;
+  max-width: min(42vw, 380px);
   z-index: 60;
   display: flex;
   align-items: center;
@@ -5213,7 +5218,14 @@ html[lang="th"] .about-name-th {
 @media (prefers-reduced-motion: reduce) {
   .sys-banner-dot { animation: none; }
 }
-.sys-banner-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
+.sys-banner-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 860px) {
+  .sys-banner { max-width: 46vw; gap: 8px; }
+  .sys-banner-kbd { display: none; }
+}
+@media (max-width: 620px) {
+  .sys-banner-text { display: none; }
+}
 .sys-banner-stop {
   padding: 5px 12px;
   font-size: 11.5px;

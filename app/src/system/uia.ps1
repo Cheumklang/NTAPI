@@ -318,27 +318,10 @@ function Focus-Window($element) {
   return $handle
 }
 
-# What the caret is in right now, as the accessibility layer sees it. Reading it
-# before and after a keystroke is the only way to tell "typed" from "hoped".
-function Get-FocusedText {
-  try {
-    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
-    if ($null -eq $focused) { return $null }
-    $pattern = $null
-    if ($focused.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
-      return [string]$pattern.Current.Value
-    }
-    if ($focused.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, [ref]$pattern)) {
-      return [string]$pattern.DocumentRange.GetText(4096)
-    }
-  } catch { }
-  return $null
-}
-
 # A window in front is not a window whose text area has the caret, which is why
-# keys can arrive nowhere. Focus the control that takes text, the way a person
-# clicks into the box before starting to type.
-function Focus-Text-Control($element) {
+# keys can arrive nowhere. Find the control that takes text, give it the caret,
+# and when it refuses that, click into it - the same thing a person does.
+function Get-Text-Control($element) {
   try {
     $scope = [System.Windows.Automation.TreeScope]::Descendants
     $edit = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)
@@ -347,13 +330,52 @@ function Focus-Text-Control($element) {
       $document = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Document)
       $target = $element.FindFirst($scope, $document)
     }
-    if ($null -ne $target) {
-      $target.SetFocus()
-      Start-Sleep -Milliseconds 80
-      return $true
+    return $target
+  } catch { }
+  return $null
+}
+
+function Focus-Text-Control($element) {
+  $target = Get-Text-Control $element
+  if ($null -eq $target) { return $null }
+  try {
+    $target.SetFocus()
+    Start-Sleep -Milliseconds 100
+  } catch { }
+  $here = $null
+  try { $here = [System.Windows.Automation.AutomationElement]::FocusedElement } catch { }
+  $inside = $false
+  try {
+    if ($null -ne $here -and $here.Current.ProcessId -eq $element.Current.ProcessId) { $inside = $true }
+  } catch { }
+  if (-not $inside) {
+    try {
+      $rect = $target.Current.BoundingRectangle
+      if ((-not $rect.IsEmpty) -and $rect.Width -gt 6 -and $rect.Height -gt 6) {
+        $x = [int]($rect.X + [Math]::Min(40, $rect.Width / 2))
+        $y = [int]($rect.Y + [Math]::Min(20, $rect.Height / 2))
+        [NTAPIInput]::Click($x, $y, $false)
+        Start-Sleep -Milliseconds 180
+      }
+    } catch { }
+  }
+  return $target
+}
+
+# What the control holds right now, read through the accessibility layer: the
+# only way to tell "typed" from "hoped".
+function Get-Control-Text($control) {
+  if ($null -eq $control) { return $null }
+  try {
+    $pattern = $null
+    if ($control.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
+      return [string]$pattern.Current.Value
+    }
+    if ($control.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, [ref]$pattern)) {
+      return [string]$pattern.DocumentRange.GetText(8192)
     }
   } catch { }
-  return $false
+  return $null
 }
 
 function Get-Window-Bounds($element) {
@@ -519,51 +541,64 @@ switch ($Command.ToLowerInvariant()) {
     if ($Text -eq '') { Stop-With-Error 'BAD_ARGS' 'type needs --text' }
     $element = Get-Window-Element $App
     [void](Focus-Window $element)
-    [void](Focus-Text-Control $element)
-    $before = Get-FocusedText
+    $control = Focus-Text-Control $element
+    if ($null -eq $control) {
+      try { $control = [System.Windows.Automation.AutomationElement]::FocusedElement } catch { }
+    }
+    $before = Get-Control-Text $control
     [NTAPIInput]::Reset()
     [NTAPIInput]::Text($Text)
-    Start-Sleep -Milliseconds 150
-    $after = Get-FocusedText
+    Start-Sleep -Milliseconds 200
+    $after = Get-Control-Text $control
     $method = 'sendinput'
     $verified = $false
-    if ($null -ne $before -and $null -ne $after) {
-      if ($after -eq $before) {
-        # The events were accepted but the control is unchanged, so write the
-        # text into it directly rather than reporting a keystroke that did not
-        # happen.
+    if (($null -ne $before) -and ($null -ne $after) -and ($after -ne $before)) { $verified = $true }
+
+    if ((-not $verified) -and ($null -ne $control)) {
+      # Second way: write the text straight into the control.
+      try {
         $pattern = $null
-        $wrote = $false
-        try {
-          $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
-          if ($null -ne $focused -and $focused.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
-            $pattern.SetValue([string]$pattern.Current.Value + $Text)
-            Start-Sleep -Milliseconds 120
-            if ((Get-FocusedText) -ne $before) { $wrote = $true; $method = 'value-pattern' }
-          }
-        } catch { }
-        if (-not $wrote) {
-          # Second try: the clipboard. A paste needs no caret in the right
-          # place, and it is what a person would do with text that will not type.
-          try {
-            Set-Clipboard -Value $Text
-            Start-Sleep -Milliseconds 150
-            Send-Combo 'ctrl+v'
-            Start-Sleep -Milliseconds 250
-            if ((Get-FocusedText) -ne $before) { $wrote = $true; $method = 'clipboard-paste' }
-          } catch { }
+        if ($control.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
+          $pattern.SetValue([string]$pattern.Current.Value + $Text)
+          Start-Sleep -Milliseconds 150
+          if ((Get-Control-Text $control) -ne $before) { $verified = $true; $method = 'value-pattern' }
         }
-        if (-not $wrote) {
-          if ([NTAPIInput]::Failed -gt 0) {
-            Stop-With-Error 'INPUT_REJECTED' ("Windows rejected " + [NTAPIInput]::Failed + " of the key events (error " + [NTAPIInput]::LastError + "). A window running as administrator ignores input from a normal program; nothing was typed.")
-          }
-          Stop-With-Error 'TYPE_NOT_DELIVERED' 'the text was sent but the control did not change - the window may not have a text field with the caret, so click into it and try again'
-        }
-      } else {
-        $verified = $true
-      }
+      } catch { }
     }
-    Write-Json @{ ok = $true; app = $App; did = ('typed ' + $Text.Length + ' characters'); method = $method; verified = $verified }
+
+    if ((-not $verified) -and ($null -ne $before)) {
+      # Third way: the clipboard. A paste needs no caret in the right place.
+      try {
+        Set-Clipboard -Value $Text
+        Start-Sleep -Milliseconds 150
+        Send-Combo 'ctrl+v'
+        Start-Sleep -Milliseconds 350
+        if ((Get-Control-Text $control) -ne $before) { $verified = $true; $method = 'clipboard-paste' }
+      } catch { }
+    }
+
+    $controlName = ''
+    try { $controlName = [string]$control.Current.ClassName } catch { }
+    # The lengths are the evidence: a control that grew by the number of
+    # characters sent really received them.
+    $beforeLen = -1
+    if ($null -ne $before) { $beforeLen = ([string]$before).Length }
+    $afterLen = -1
+    $afterNow = Get-Control-Text $control
+    if ($null -ne $afterNow) { $afterLen = ([string]$afterNow).Length }
+    if ($null -eq $before) {
+      # There is nothing to read back, so the result says exactly that instead of
+      # claiming the text arrived.
+      Write-Json @{ ok = $true; app = $App; did = ('sent ' + $Text.Length + ' characters'); method = $method; verified = $false; control = $controlName; beforeLen = $beforeLen; afterLen = $afterLen; sendInput = [NTAPIInput]::LastSend; lastError = [NTAPIInput]::LastError }
+      exit 0
+    }
+    if (-not $verified) {
+      if ([NTAPIInput]::Failed -gt 0) {
+        Stop-With-Error 'INPUT_REJECTED' ("Windows rejected " + [NTAPIInput]::Failed + " of the key events (error " + [NTAPIInput]::LastError + "). A window running as administrator ignores input from a normal program, so nothing was typed.")
+      }
+      Stop-With-Error 'TYPE_NOT_DELIVERED' ("the text was sent three ways and the control '" + $controlName + "' did not change. Click into the text area and try again.")
+    }
+    Write-Json @{ ok = $true; app = $App; did = ('typed ' + $Text.Length + ' characters'); method = $method; verified = $true; control = $controlName; beforeLen = $beforeLen; afterLen = $afterLen }
     exit 0
   }
 

@@ -2,6 +2,16 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ 0.6.17: Windows type ตรวจ 3 ทาง + ย้ายแบนเนอร์ + ตรวจคลิปบอร์ดก่อน paste
+> ผู้ใช้: Windows type ยังไม่ขึ้น · Linux ไทยยังหาย (ASCII ขึ้น) · แบนเนอร์สถานะบังช่องแชท
+> - **Windows `type`**: เพิ่ม `Get-Text-Control` (หา Edit → Document), `Focus-Text-Control` (SetFocus; ถ้าโฟกัสยังไม่อยู่ใน process นั้น → **คลิกเข้าควบคุมจริง** ตาม bounds ซึ่งอยู่ในหน้าต่างที่ยกมาแล้ว), `Get-Control-Text` (อ่านค่าผ่าน Value/TextPattern)
+>   · ลำดับ: SendInput → `ValuePattern.SetValue` → `Set-Clipboard`+`ctrl+v` → ถ้าไม่มีอะไรเปลี่ยนจริง ตอบ `TYPE_NOT_DELIVERED` / `INPUT_REJECTED`
+>   · ผลลัพธ์มีหลักฐานให้อ่าน: `verified`, `method`, `control`, `beforeLen`, `afterLen`, `sendInput`, `lastError`
+>   · ถ้าอ่านข้อความไม่ได้เลย (`beforeLen = -1`) จะตอบ `verified:false` ตรง ๆ ไม่แกล้งบอกว่าสำเร็จ
+> - **Linux paste**: ก่อนส่ง ctrl+v จะ `wl-paste` เทียบว่าคลิปบอร์ดมีข้อความจริง (2.5 s timeout) → ถ้าไม่ตรงตอบ `CLIPBOARD_EMPTY` (เดิมเงียบ)
+> - **UI**: `.sys-banner` ย้ายจาก `left:50%; bottom:20px` (กลางล่าง ทับช่องพิมพ์) → **มุมขวาล่าง** `right:18px; bottom:16px`, `max-width: min(42vw,380px)`; จอแคบ <860px ตัดปุ่มลัดออก, <620px เหลือ dot + ปุ่มหยุด
+> - เทสต์ 96/96 · ยังรอข้อมูลจากผู้ใช้: เวอร์ชันที่ใช้เทสต์ Linux และคำตอบของ AI ตอนเทสต์ type บน Windows
+>
 > ### ✅ แก้ 2 บั๊กจากผลเทสต์จริงของผู้ใช้ (0.6.16)
 > ผู้ใช้เทสต์ Windows: (1) launch ✅ (2) type "บอกว่าพิมพ์แล้วแต่ไม่ขึ้น" (3) keys "บอกว่ากดแล้วแต่ Save As ไม่มา" (4) clickat ✅ (รอบสอง)
 > ผู้ใช้เทสต์ Linux: type ไทย พิมพ์แค่ "456" (ไทยหาย) · click ✅

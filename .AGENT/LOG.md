@@ -3423,3 +3423,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 ## 2026-11-21 — แก้ type/keys จากผลเทสต์ผู้ใช้
 - Windows: เช็ค SendInput return + Focus-Text-Control + verify ด้วย UIA + fallback ValuePattern/clipboard
 - Linux: ไทยผ่าน wl-copy+ctrl+v · system_keys ผ่าน ydotool keycodes · ติดตั้ง wl-clipboard
+
+## 2026-11-21 — 0.6.17
+- Windows type: focus text control + click into it, verify via Text/ValuePattern, 3-way fallback, diagnostics fields
+- Linux: wl-paste ตรวจคลิปบอร์ดก่อน ctrl+v (CLIPBOARD_EMPTY)
+- UI: sys-banner ย้ายไปมุมขวาล่าง (ไม่ทับช่องพิมพ์)

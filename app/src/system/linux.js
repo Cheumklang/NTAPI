@@ -265,6 +265,7 @@ function buildSteps(action, input = {}, caps = { backend: '' }) {
           { binary: 'ydotool', args: ['key', '29:1', '47:1', '47:0', '29:0'] },
         ],
         note: 'typed by pasting: ydotool cannot type text outside ASCII',
+        verifyClipboard: 'wl-paste',
       };
     }
     return { steps: [{ binary: 'wtype', args: ['--', text] }] };
@@ -392,11 +393,35 @@ function runTool(step, timeoutMs = 15000) {
   });
 }
 
+async function clipboardHolds(binary, text) {
+  return new Promise((resolve) => {
+    const child = spawn(binary, [], { stdio: ['ignore', 'pipe', 'ignore'] });
+    let out = '';
+    const done = (value) => {
+      try { child.kill('SIGKILL'); } catch { }
+      resolve(value);
+    };
+    const timer = setTimeout(() => done(false), 2500);
+    child.stdout.on('data', (chunk) => { out += String(chunk); });
+    child.on('error', () => { clearTimeout(timer); done(false); });
+    child.on('close', () => { clearTimeout(timer); done(out.trim() === String(text).trim()); });
+  });
+}
+
 async function perform(action, input) {
   const caps = await capabilities();
   const planned = buildSteps(action, input, caps);
   if (planned.missing) throw failure('NOT_SUPPORTED', planned.missing);
-  for (const step of planned.steps) await runTool(step);
+  for (const [index, step] of planned.steps.entries()) {
+    await runTool(step);
+    // A paste that reads an empty selection types nothing and says nothing, so
+    // the clipboard is checked before the ctrl+v goes out.
+    if (planned.verifyClipboard && index === 0) {
+      if (!(await clipboardHolds(planned.verifyClipboard, input.text))) {
+        throw failure('CLIPBOARD_EMPTY', 'the text did not reach the clipboard, so there is nothing to paste. Install wl-clipboard (`sudo apt install wl-clipboard`) and try again.');
+      }
+    }
+  }
   return caps.backend;
 }
 
