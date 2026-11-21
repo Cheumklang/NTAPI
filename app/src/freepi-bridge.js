@@ -1235,7 +1235,7 @@ async function createFreePiSession(options) {
           systemPrompt:
             event.systemPrompt +
             `\n\n## Desktop control\n\n` +
-            `- This is the user's own computer (Linux desktop), not a browser tab. system_windows lists the open windows; system_snapshot reads one window into \`ref\`s; system_act presses one element by its ref.\n` +
+            `- This is the user's own computer (${DESKTOP_LABEL}), not a browser tab. system_windows lists the open windows; system_snapshot reads one window into \`ref\`s; system_act presses one element by its ref.\n` +
             `- Snapshot before acting, and act only on refs you just received. After every action, snapshot again — the window has moved.\n` +            `- The pointer cannot be moved: only controls that publish an accessibility action can be pressed. If an app exposes nothing, say so instead of guessing coordinates.\n` +
             `- Typing into a field is system_act with action \`settext\`; read the snapshot again to confirm the text landed.\n` +
             `- If a call answers SYSTEM_CONTROL_OFF, stop and ask the user to turn the desktop switch on in the sidebar. Never retry it as if it were a glitch.\n` +
@@ -2359,17 +2359,19 @@ function clearSnapshotTable(tabId) {
 
 /* --------------------------- desktop control tools ---------------------------
  *
- * The agent looks at the user's own Linux desktop and presses one element at a
- * time. The tools are dumb on purpose: whether this is allowed at all is decided
+ * The agent looks at the user's own desktop and presses one element at a time. The tools are dumb on purpose: whether this is allowed at all is decided
  * in the main process (`systemBridge`), so the same switch covers the model, the
  * audit log and the stop hotkey.
  */
+/** Windows and Linux are the two the app ships on; the prompt says which one. */
+const DESKTOP_LABEL = process.platform === 'win32' ? 'Windows desktop' : 'Linux desktop';
+
 const SYSTEM_TOOLS = {
   system_windows: {
     cmd: 'windows',
     write: false,
     description:
-      "List the windows open on the user's own computer (Linux desktop). Call this first: system_snapshot needs the app number it returns.",
+      `List the windows open on the user's own computer (${DESKTOP_LABEL}). Call this first: system_snapshot needs the app number it returns.`,
     parameters: { type: 'object', properties: {}, additionalProperties: false },
   },
   system_snapshot: {

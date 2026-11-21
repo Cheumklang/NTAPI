@@ -31,6 +31,15 @@ const html = read('src/renderer/index.html');
 const preload = read('src/preload.js');
 const freepi = read('src/freepi-bridge.js');
 const linux = read('src/system/linux.js');
+const win = read('src/system/windows.js');
+const uiaPath = path.join(root, 'src/system/uia.ps1');
+let uia = '';
+try {
+  uia = fs.readFileSync(uiaPath, 'utf8');
+} catch {
+  uia = '';
+}
+const windowsHelper = win.includes('uia.ps1');
 const index = read('src/system/index.js');
 const helperPath = path.join(root, 'src/system/atspi.py');
 let systemScreenshotContent = null;
@@ -103,7 +112,47 @@ check('the adapter exposes look and press', ['available', 'windows', 'snapshot',
 const systemIndex = require(path.join(root, 'src/system/index.js'));
 check('the hotkey is one constant', systemIndex.SYSTEM_STOP_HOTKEY === 'Control+Alt+Escape');
 check('linux gets an adapter', Boolean(systemIndex.createSystem({ platform: 'linux' })));
-check('other platforms say "no adapter" instead of pretending', systemIndex.createSystem({ platform: 'win32' }) === null);
+check('windows gets an adapter', Boolean(systemIndex.createSystem({ platform: 'win32' })));
+check('other platforms say "no adapter" instead of pretending', systemIndex.createSystem({ platform: 'darwin' }) === null);
+
+/* ------------------------------ windows ------------------------------- */
+
+// The user's machines are Windows, so this half is the one that has to be
+// right. It cannot be run here, so the checks are the promises the helper
+// makes: it reads UI Automation, it presses only what publishes an action, it
+// never moves the pointer, and it names its failures instead of hanging.
+check('the windows adapter looks and presses like the linux one', ['available', 'windows', 'snapshot', 'act'].every((fn) => new RegExp(`async function ${fn}\\b|${fn},`).test(win)));
+check('the windows adapter talks to the helper script', windowsHelper);
+check('the helper is UI Automation, which Windows already has', /UIAutomationClient/.test(uia) && /RootElement/.test(uia));
+check('the helper presses a control only through a published action', /InvokePattern/.test(uia) && /SelectionItemPattern/.test(uia) && /TogglePattern/.test(uia));
+check('typing goes through the value pattern', /ValuePattern/.test(uia) && /SetValue\(/.test(uia));
+check('the helper never guesses a coordinate or moves the pointer', !/mouse_event|SendInput|SetCursorPos|Cursor\.Position/.test(uia));
+check('a control with no action is refused, not clicked anyway', /NO_ACTION/.test(uia));
+check('a moved tree is reported, not silently pressed', /STALE_REF/.test(uia));
+check('the helper is plain ASCII so Windows PowerShell 5.1 reads it right', uia.length > 0 && [...uia].every((c) => c.charCodeAt(0) < 128), 'non-ASCII byte in uia.ps1');
+check('the helper prints utf-8 whatever the console code page is', /\[Console\]::OutputEncoding/.test(uia));
+check('the helper caps how much it returns', /MAX_NODES\s*=\s*\d+/.test(win) && /--max|-Max/.test(uia));
+check('a hung window is named', /TIMEOUT/.test(win) && /killed/.test(win));
+check('a missing powershell is named', /NO_POWERSHELL/.test(win));
+check('the shell can be pointed at another binary', /NTAPI_POWERSHELL/.test(win));
+check('no console window flashes on the user\'s screen', /windowsHide: true/.test(win));
+check('a one-item answer still arrives as a list', /function asList\(/.test(win));
+check('the helper is not run interactively', /-NonInteractive/.test(win));
+// Packaged builds: app.asar is a virtual filesystem Electron patches into its
+// own fs. powershell.exe and python3 read the disk, so a helper left inside the
+// archive fails only for people who installed the app — the worst place to
+// find out.
+const pkg = JSON.parse(read('package.json'));
+const unpacked = (pkg.build && pkg.build.asarUnpack) || [];
+check(
+  'both helpers are unpacked beside the archive',
+  unpacked.includes('src/system/uia.ps1') && unpacked.includes('src/system/atspi.py'),
+  JSON.stringify(unpacked)
+);
+check(
+  'each adapter asks where the helper really is',
+  /helperPath\('atspi\.py'\)/.test(linux) && /helperPath\('uia\.ps1'\)/.test(win)
+);
 
 /* --------------------------------------------------------------- the gate */
 

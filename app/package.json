@@ -81,7 +81,9 @@
     ],
     "asarUnpack": [
       "node_modules/@earendil-works/**",
-      "node_modules/quickjs-wasi/**"
+      "node_modules/quickjs-wasi/**",
+      "src/system/atspi.py",
+      "src/system/uia.ps1"
     ],
     "win": {
       "target": [

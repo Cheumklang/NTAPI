@@ -2,6 +2,18 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### 🖥️ Desktop control — Windows adapter เขียนเสร็จ (2026-11-21, ยังไม่ commit/ไม่ปล่อย)
+> - เพิ่ม `src/system/uia.ps1` (UI Automation ผ่าน Windows PowerShell 5.1 — ไม่ต้องติดตั้งอะไร ไม่ต้อง rebuild native module)
+>   · คำสั่งเดียวกับฝั่ง Linux: `probe` / `windows` / `snapshot --app N --max K` / `act --ref a/b/c --action click|settext --text T`
+>   · ref = child-index path จาก desktop root (แบบเดียวกับ AT-SPI) · กดได้เฉพาะ element ที่ประกาศ pattern (Invoke/Select/Toggle/Expand) — **ไม่ขยับเมาส์ ไม่เดาพิกัด**
+> - `src/system/windows.js` (adapter, mirrors linux.js: NO_POWERSHELL / TIMEOUT / windowsHide / asList กัน PowerShell ยุบ array)
+> - `src/system/index.js` → `platform === 'win32'` คืน adapter จริง (เดิมคืน null = "ยังไม่รองรับ")
+> - `src/system/helper-path.js` + `build.asarUnpack` เพิ่ม `src/system/{uia.ps1,atspi.py}` — สำคัญ: ไฟล์ใน `app.asar` นั้น powershell.exe/python3 อ่านไม่ได้
+>   (บั๊กเดิมของ atspi.py ที่จะเจอเฉพาะคนติดตั้งจากตัวติดตั้ง — แก้แล้ว)
+> - prompt/tool description ใช้ `DESKTOP_LABEL` (Windows/Linux desktop) แทนคำว่า Linux ตายตัว
+> - `selftest-system-control.js` +18 เช็ค (windows adapter, pattern-only, ASCII ของ .ps1, asarUnpack, -NonInteractive, ฯลฯ) → `npm test` 95/95 · sara ok
+> - **ยังไม่ได้รันบน Windows จริง** — ต้องทดสอบ: เปิดสวิตช์ในแผง → `system_windows` → snapshot → กดปุ่ม → settext
+>
 > ### 🔁 เปลี่ยนกฎ retention (2026-11-21, ผู้ใช้สั่งรอบสอง) — เหลือรุ่นเดียว
 > - ลบ `v0.6.6` แล้ว (release 453331227 + tag ทั้ง `NTAPI` และ `NTAPI-releases`) → หน้า releases เหลือ **`v0.6.7`** เดียว (173 MB)
 > - ตั้ง default ให้ตรงกัน: `prune-releases.yml` `keep_count=1` / `NTAPI_UPDATE_RETENTION:-1` · `main.js` `UPDATE_RETENTION = 1`

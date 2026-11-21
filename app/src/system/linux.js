@@ -10,8 +10,9 @@
 
 const path = require('node:path');
 const { execFile } = require('node:child_process');
+const { helperPath } = require('./helper-path');
 
-const HELPER = path.join(__dirname, 'atspi.py');
+const HELPER = helperPath('atspi.py');
 const PYTHON = process.env.NTAPI_PYTHON || 'python3';
 /** What a snapshot returns unless the caller asks for less. */
 const MAX_NODES = 250;

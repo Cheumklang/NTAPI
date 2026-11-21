@@ -3378,3 +3378,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ลบ release `v0.6.6` (id 453331227) + tag ในทั้งสองรีโป → เหลือ `v0.6.7` เดียว
 - ปรับ `keep_count` default 2→1, `NTAPI_UPDATE_RETENTION:-2`→`:-1`, `UPDATE_RETENTION = 2`→`1`, selftest + AGENTS.md
 - ยอมรับผลข้างเคียง: delta ไม่ทำงานอีก (ไม่มี blockmap รุ่นก่อน) — ยังไม่ commit (ไปกับ 0.6.8)
+
+## 2026-11-21 — Windows adapter สำหรับ desktop control
+- `uia.ps1` (UIAutomationClient) + `windows.js` + `index.js` wire + `helper-path.js` (asar unpack) + prompt platform-aware
+- `selftest-system-control.js` +18 เช็ค · `npm test` 95/95 · sara ok · ยังไม่ทดสอบบน Windows จริง
