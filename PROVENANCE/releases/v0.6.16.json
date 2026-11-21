@@ -1,0 +1,22 @@
+{
+  "version": "0.6.16",
+  "tag": "v0.6.16",
+  "recordedAt": "2026-11-21T17:11:47.019Z",
+  "git": {
+    "head": "9ceb268e1dbf0aa77c51fa0274fe3517984ee3db",
+    "branch": "master",
+    "tree": "4326946e16b7ba5bfe929a259ed8cdbfad03d022",
+    "subject": "chore(release): 0.6.16 — evidence instead of claims",
+    "authorDate": "2026-11-22T00:07:11+07:00",
+    "commitCount": 446
+  },
+  "ci": "",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.16.exe",
+      "size": null,
+      "sha256": null
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.16"
+}
