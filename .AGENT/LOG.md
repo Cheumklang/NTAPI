@@ -3428,3 +3428,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - Windows type: focus text control + click into it, verify via Text/ValuePattern, 3-way fallback, diagnostics fields
 - Linux: wl-paste ตรวจคลิปบอร์ดก่อน ctrl+v (CLIPBOARD_EMPTY)
 - UI: sys-banner ย้ายไปมุมขวาล่าง (ไม่ทับช่องพิมพ์)
+
+## 2026-11-21 — ค้างก่อน build: banner ออก, screenshot หน้าต่างอื่น, NOT VERIFIED
+- ผู้ใช้ยืนยัน Windows/VM พิมพ์ได้ · ปัญหา = โมเดลอ่อนไม่ยอมรับว่าพลาด
+- ลบ sysBanner · uia.ps1 screenshot (PrintWindow→screen) · linux import/NOT_CAPTURABLE · NOT VERIFIED label + prompt

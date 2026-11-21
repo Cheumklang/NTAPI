@@ -210,23 +210,26 @@ check(
 check('the chip opens a panel', /id="sysPopover"/.test(html));
 check('the warning is a sentence in the panel', /class="sys-warn" id="sysWarn"/.test(html));
 check('the panel carries the hotkey', /Ctrl<\/kbd><kbd>Alt<\/kbd><kbd>Esc/.test(html));
-check('the strip is fixed at the foot of the window', /class="sys-banner" id="sysBanner" role="status" hidden/.test(html));
-check('the strip has its own stop button', /id="sysBannerStop"/.test(html));
-check('the strip starts hidden and off', /data-state="off"/.test(html));
-check('styles cover chip, panel and strip', ['.chip-btn.sys-chip', '.sys-popover', '.sys-banner', '.sys-banner-stop'].every((sel) => read('src/renderer/styles.css').includes(sel)));
+check('the strip over the app is gone', !/sysBanner/.test(html) && !/sysBanner/.test(appSrc));
+check('the chip starts off', /data-state="off"/.test(html));
+check('styles cover the chip and the panel', ['.chip-btn.sys-chip', '.sys-popover'].every((sel) => read('src/renderer/styles.css').includes(sel)));
+check(
+  'the tooltip is where the way out is written',
+  /sysTitleOn: 'เปิดควบคุมเครื่องอยู่[^']*Ctrl\+Alt\+Esc/.test(appSrc) && /sysTitleOn: 'Desktop control is on[^']*Ctrl\+Alt\+Esc/.test(appSrc)
+);
 
 check('one function paints every indicator', /function applySystemState\(state = \{\}\)/.test(appSrc));
 check('the panel can explain why it is unavailable', /systemProbe: \(\) => ipcRenderer\.invoke\('system:probe'\)/.test(preload));
 check('and says it in the panel, not only a toast', /el\('sysNote'\)\.textContent = probe\.reason/.test(appSrc));
 check('a refused global grab is reported, not hidden', /hotkeyActive: Boolean\(systemHotkeyOn\)/.test(main) && /sysHotkeyDown/.test(appSrc));
 check('the hotkey also works inside the window', /!event\.ctrlKey \|\| !event\.altKey \|\| event\.key !== 'Escape'/.test(appSrc));
-check('the strip follows the switch', /el\('sysBanner'\)\.hidden = !sysControl\.enabled;/.test(appSrc));
+check('the chip carries the on state as text, not only colour', /el\('sysState'\)\.textContent = sysControl\.enabled \? t\('sysOn'\)/.test(appSrc));
 check('turning it on goes through the dialog', /kind: 'system',\n\s*title: t\('sysConfirmTitle'\)/.test(appSrc));
 check('the dialog branch turns the switch on', /state\.kind === 'system'[\s\S]{0,80}setSystemControl\(true\)/.test(appSrc));
 check('the hotkey stop reaches the window', /payload\.via === 'hotkey' \? t\('sysStoppedHotkey'\)/.test(appSrc));
 
 const countOf = (needle) => (appSrc.match(new RegExp(`\\b${needle}:`, 'g')) || []).length;
-for (const key of ['sysTitle', 'sysWarn', 'sysBanner', 'sysConfirmTitle', 'sysStoppedHotkey', 'sysUnsupported']) {
+for (const key of ['sysTitle', 'sysWarn', 'sysConfirmTitle', 'sysStoppedHotkey', 'sysUnsupported']) {
   check(`both languages carry ${key}`, countOf(key) === 2);
 }
 
@@ -325,7 +328,27 @@ check(
 
   check('there is a screenshot tool', /system_screenshot: \{/.test(freepi) && /cmd: 'screenshot'/.test(freepi));
   check('taking a picture is not a guarded act', /system_screenshot: \{[\s\S]{0,400}?write: false/.test(freepi));
+  check(
+    'an unverified keystroke is labelled, not dressed up as done',
+    /NOT VERIFIED/.test(freepi) && /result\.verified === false/.test(freepi)
+  );
+  check(
+    'the prompt says sending a key is not the same as the text appearing',
+    /is not the same sentence as/.test(freepi) && /never type into an index you have not just re-read/.test(freepi)
+  );
   check('main photographs the window it owns', /webContents\.capturePage\(\)/.test(main));
+  check(
+    'another application\'s window goes to the adapter, not to a refusal',
+    /systemAdapter\.screenshot\(\{ app \}\)/.test(main)
+  );
+  check(
+    'Windows draws the window itself and falls back to the screen',
+    /NTAPIShot\]::Print\(\$handle/.test(ps1) && /'screen'/.test(ps1) && /PrintWindow/.test(ps1)
+  );
+  check(
+    'Wayland refuses to photograph another application',
+    /NOT_CAPTURABLE/.test(read('src/system/linux.js')) && /printwindow/.test(read('src/system/windows.js'))
+  );
   check('another app is refused with a reason', /NOT_CAPTURABLE/.test(main));
   check('the refusal names the compositor, not a bug', /compositor refuses screen capture/.test(main));
   check('the attempt is audited', /event: 'screenshot'/.test(main));

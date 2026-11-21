@@ -1244,6 +1244,8 @@ async function createFreePiSession(options) {
             `- Snapshot before acting, and act only on refs you just received. After every action, snapshot again — the window has moved.\n` +            `- Typing into a field is system_act with action \`settext\`; when that answers NO_VALUE_PATTERN, use system_type to type for real. Read the snapshot again to confirm the text landed.\n` +
             `- A control that publishes no action can still be clicked by position with system_click_at, taking the coordinates from a node's bounds in the snapshot. Never aim at a point you have not seen, and never outside the window — it is refused.\n` +
             `- system_keys presses a shortcut (ctrl+s, alt+f4), and system_launch starts a program, document or url. Every one of these brings the window to the front first and refuses if it did not get there, so nothing is typed into the wrong window.\n` +
+            `- A type result carries \`verified\`. When it is false, or the call answers TYPE_NOT_DELIVERED / INPUT_REJECTED, nothing was typed: say exactly that. "I sent the keystrokes" is not the same sentence as "the text is on screen".\n` +
+            `- Window numbers come from the accessibility tree and they shift when a window opens or closes. Call system_windows again before acting on a window you looked up earlier, and never type into an index you have not just re-read.\n` +
             `- If a call answers SYSTEM_CONTROL_OFF, stop and ask the user to turn the desktop switch on in the sidebar. Never retry it as if it were a glitch.\n` +
             `- Anything that spends money, deletes, signs in or changes account settings is the user's call: describe what you are about to press and let them decide.\n` +
             `- The user can take the screen back at any moment with Ctrl+Alt+Esc; if a tool starts failing mid-task, that is what happened.`,
@@ -1265,12 +1267,16 @@ async function createFreePiSession(options) {
                 );
                 return await systemScreenshotContent(result, { imagesDir, cwd, canSeeImages });
               }
+              const typed = spec.cmd === 'type' || spec.cmd === 'keys';
+              const unverified = spec.cmd === 'type' && result && result.verified === false;
               const text =
                 spec.cmd === 'snapshot'
                   ? formatSystemSnapshot(result)
                   : spec.cmd === 'windows'
                     ? formatSystemWindows(result)
-                    : `Done: ${result.did || spec.cmd}. Snapshot again before the next action.`;
+                    : typed && unverified
+                      ? `NOT VERIFIED: ${result.did || 'the text'} was sent, but the control did not change, so nothing is on screen. Tell the user it did not work; do not say it was typed.`
+                      : `Done: ${result.did || spec.cmd}. Snapshot again before the next action.`;
               return { content: [{ type: 'text', text }], details: { ok: true } };
             } catch (err) {
               return {
@@ -2398,7 +2404,7 @@ const SYSTEM_TOOLS = {
     cmd: 'screenshot',
     write: false,
     description:
-      'A picture of the NTAPI window itself. Use it when the words on screen are not enough — layout, whether something really showed up. Only this application can be photographed: the compositor refuses screen capture to other programs.',
+      'A picture of one window from system_windows, so layout and "did that really appear" can be seen instead of guessed. On Windows any window can be photographed, even one that is covered; on Linux only the NTAPI window unless the session is X11; a Wayland session refuses and says so.',
     parameters: {
       type: 'object',
       properties: {

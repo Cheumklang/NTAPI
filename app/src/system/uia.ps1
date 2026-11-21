@@ -231,6 +231,45 @@ public static class NTAPIInput {
   }
 }
 '@
+# Photographing a window that is not ours. PrintWindow asks the window to draw
+# itself into a bitmap, which works even when another window covers it; when a
+# window refuses, CopyFromScreen is the honest fallback and the answer says so.
+$script:ShotSource = @'
+using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
+public static class NTAPIShot {
+  [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
+
+  public static bool Print(IntPtr hwnd, int width, int height, string path) {
+    using (Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
+    using (Graphics g = Graphics.FromImage(bmp)) {
+      IntPtr hdc = g.GetHdc();
+      bool ok = PrintWindow(hwnd, hdc, 2);
+      if (!ok) { ok = PrintWindow(hwnd, hdc, 0); }
+      g.ReleaseHdc(hdc);
+      bmp.Save(path, ImageFormat.Png);
+      return ok;
+    }
+  }
+
+  public static void Screen(int x, int y, int width, int height, string path) {
+    using (Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
+    using (Graphics g = Graphics.FromImage(bmp)) {
+      g.CopyFromScreen(x, y, 0, 0, new Size(width, height));
+      bmp.Save(path, ImageFormat.Png);
+    }
+  }
+}
+'@
+try {
+  Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+  Add-Type -TypeDefinition $script:ShotSource -ErrorAction Stop
+} catch {
+  $script:ShotError = $_.Exception.Message
+}
+
 try {
   Add-Type -TypeDefinition $script:InputSource -ErrorAction Stop
 } catch {
@@ -599,6 +638,29 @@ switch ($Command.ToLowerInvariant()) {
       Stop-With-Error 'TYPE_NOT_DELIVERED' ("the text was sent three ways and the control '" + $controlName + "' did not change. Click into the text area and try again.")
     }
     Write-Json @{ ok = $true; app = $App; did = ('typed ' + $Text.Length + ' characters'); method = $method; verified = $true; control = $controlName; beforeLen = $beforeLen; afterLen = $afterLen }
+    exit 0
+  }
+
+  'screenshot' {
+    if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'screenshot needs --app N' }
+    if ($script:ShotError) { Stop-With-Error 'NO_SHOT_API' ("the drawing library is unavailable: " + $script:ShotError) }
+    $element = Get-Window-Element $App
+    $handle = Get-Window-Handle $element
+    if ($handle -eq [IntPtr]::Zero) { Stop-With-Error 'NO_WINDOW_HANDLE' 'this window has no native handle to photograph' }
+    $rect = Get-Window-Bounds $element
+    $width = [int]$rect.Width
+    $height = [int]$rect.Height
+    if ($width -lt 8 -or $height -lt 8) { Stop-With-Error 'NO_BOUNDS' 'this window reports no size, so there is nothing to photograph' }
+    $path = Join-Path $env:TEMP ('ntapi-shot-' + [Guid]::NewGuid().ToString('N') + '.png')
+    $method = 'printwindow'
+    $drawn = [NTAPIShot]::Print($handle, $width, $height, $path)
+    if (-not $drawn) {
+      # Nothing came back from PrintWindow, so take the pixels that are on screen.
+      $method = 'screen'
+      [NTAPIShot]::Screen([int]$rect.X, [int]$rect.Y, $width, $height, $path)
+    }
+    if (-not (Test-Path $path)) { Stop-With-Error 'SHOT_FAILED' 'the picture could not be written' }
+    Write-Json @{ ok = $true; app = $App; title = (Get-Window-Name $element); path = $path; width = $width; height = $height; method = $method }
     exit 0
   }
 

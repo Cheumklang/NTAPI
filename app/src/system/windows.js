@@ -153,6 +153,32 @@ async function clickAt({ app = 0, x, y, button = 'left' } = {}) {
   return run(['clickat', '-App', String(app), '-X', String(Math.round(Number(x))), '-Y', String(Math.round(Number(y))), '-Action', action]);
 }
 
+/**
+ * A picture of another application's window. The helper draws it into a PNG in
+ * the temp folder; the file is read and removed here so the caller only ever
+ * sees an image.
+ */
+async function screenshot({ app = 0 } = {}) {
+  const result = await run(['screenshot', '-App', String(app)], { timeoutMs: 45000 });
+  const file = String(result.path || '');
+  if (!file) throw failure('SHOT_FAILED', 'the helper returned no picture');
+  let data;
+  try {
+    data = require('node:fs').readFileSync(file).toString('base64');
+  } finally {
+    try { require('node:fs').unlinkSync(file); } catch { }
+  }
+  return {
+    app: result.app,
+    title: result.title || '',
+    width: result.width,
+    height: result.height,
+    method: result.method || 'printwindow',
+    mimeType: 'image/png',
+    data,
+  };
+}
+
 /** Wheel over the middle of a window; a negative count scrolls up. */
 async function scroll({ app = 0, notches = 3 } = {}) {
   const count = Number.isFinite(Number(notches)) ? Math.trunc(Number(notches)) : 3;
@@ -171,5 +197,6 @@ module.exports = {
   type: typeText,
   clickAt,
   scroll,
+  screenshot,
   MAX_NODES,
 };

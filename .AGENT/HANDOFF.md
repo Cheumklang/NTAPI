@@ -2,6 +2,16 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### 🧪 ค้างในเครื่อง (commit แล้ว ยังไม่ build): 0.6.18 ที่ยังไม่ปล่อย
+> ผู้ใช้ยืนยัน: **Windows + VM พิมพ์ได้จริง** (โมเดลเก่ง) · ปัญหาที่เหลือคือ **โมเดล NVIDIA อ่อน**: บอกว่าพิมพ์แล้วแต่ไปพิมพ์ผิดหน้าต่าง
+> - UI: ลบแบนเนอร์ลอยทั้งก้อน (`#sysBanner` + CSS + JS + i18n) — มันบังปุ่มส่ง/แนบไฟล์ · สถานะอยู่ที่ chip + panel
+>   · tooltip chip ตอนเปิด: "เปิดควบคุมเครื่องอยู่ — คลิกเพื่อหยุด · หยุดทันที: Ctrl+Alt+Esc" (ทั้ง EN/TH) · เทสต์เปลี่ยนจาก "มีแบนเนอร์" → "ไม่มีแบนเนอร์ + tooltip บอกทางออก"
+> - **Phase 2: ให้ AI เห็นจออื่น** — `uia.ps1` คำสั่ง `screenshot`: `PrintWindow(PW_RENDERFULLCONTENT=2)` → ถ้าไม่สำเร็จลอง flag 0 → ถ้ายังไม่ไหว `CopyFromScreen` (ตอบ `method: printwindow|screen`) · `windows.js screenshot()` อ่าน PNG ใน TEMP แล้วลบทิ้ง คืน base64
+>   · Linux: X11 ใช้ `import -window <title>` (ImageMagick) · Wayland → `NOT_CAPTURABLE` ตรง ๆ · main.js: ถ้า `app` ไม่ใช่หน้าต่างตัวเอง ส่งต่อให้ adapter
+>   · tool description อัปเดต: Windows ถ่ายได้ทุกหน้าต่าง (แม้ถูกบัง), Linux X11 ได้, Wayland ไม่ได้
+> - **ความซื่อสัตย์ของโมเดลอ่อน**: tool result ของ `type` ที่ `verified:false` นำหน้าด้วย `NOT VERIFIED: ... Tell the user it did not work` + prompt เพิ่ม 2 ข้อ ("ส่งคีย์ ≠ ข้อความขึ้นจอ", "index หน้าต่างเลื่อนได้ ต้องอ่าน `system_windows` ใหม่")
+> - เทสต์ 96/96 · ยังไม่ bump version / ยังไม่ tag (รอบก่อนหน้า ผู้ใช้ขอให้ลองในเครื่องก่อน)
+>
 > ### ✅ 0.6.17: Windows type ตรวจ 3 ทาง + ย้ายแบนเนอร์ + ตรวจคลิปบอร์ดก่อน paste
 > ผู้ใช้: Windows type ยังไม่ขึ้น · Linux ไทยยังหาย (ASCII ขึ้น) · แบนเนอร์สถานะบังช่องแชท
 > - **Windows `type`**: เพิ่ม `Get-Text-Control` (หา Edit → Document), `Focus-Text-Control` (SetFocus; ถ้าโฟกัสยังไม่อยู่ใน process นั้น → **คลิกเข้าควบคุมจริง** ตาม bounds ซึ่งอยู่ในหน้าต่างที่ยกมาแล้ว), `Get-Control-Text` (อ่านค่าผ่าน Value/TextPattern)

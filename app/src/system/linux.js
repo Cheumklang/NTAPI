@@ -15,6 +15,7 @@
  */
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { execFile, spawn } = require('node:child_process');
 const { helperPath } = require('./helper-path');
@@ -505,6 +506,36 @@ async function clickAt({ app = 0, x, y, button = 'left' } = {}) {
   return { ok: true, app, did: `clicked ${Math.round(Number(x))},${Math.round(Number(y))}`, backend };
 }
 
+/**
+ * A picture of another application's window, where the desktop allows one. X11
+ * has no such rule, so ImageMagick is asked for the window by name; Wayland
+ * refuses outright and says so rather than returning a blank rectangle.
+ */
+async function screenshot({ app = 0 } = {}) {
+  const list = await windows();
+  const row = list[Number(app) || 0];
+  if (!row) throw failure('STALE_REF', `window ${app} is gone - ask for the window list again`);
+  const caps = await capabilities();
+  if (caps.session !== 'x11') {
+    throw failure(
+      'NOT_CAPTURABLE',
+      "this desktop does not let a program photograph another application's window. Only the NTAPI window can be captured here."
+    );
+  }
+  if (!(await commandExists('import'))) {
+    throw failure('NOT_SUPPORTED', 'photographing a window on X11 needs ImageMagick: `sudo apt install imagemagick`');
+  }
+  const target = path.join(os.tmpdir(), `ntapi-shot-${Date.now()}.png`);
+  await runTool({ binary: 'import', args: ['-window', String(row.title || 'root'), target] }, 20000);
+  let data;
+  try {
+    data = fs.readFileSync(target).toString('base64');
+  } finally {
+    try { fs.unlinkSync(target); } catch { }
+  }
+  return { app: row.app, title: row.title || '', method: 'import', mimeType: 'image/png', data };
+}
+
 async function scroll({ app = 0, notches = 3 } = {}) {
   await focus({ app }).catch(() => null);
   const backend = await perform('scroll', { notches });
@@ -519,6 +550,7 @@ module.exports = {
   type: typeText,
   clickAt,
   scroll,
+  screenshot,
   capabilities,
   buildSteps,
   envFor,

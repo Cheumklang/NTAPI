@@ -489,7 +489,7 @@ const STRINGS = {
     approvalAlwaysDone: 'Approved from now on. The approval switch in the sidebar asks again.',
     approvalNoMemory: 'Asks every time. "Always allow" remembers until you change the switch in the sidebar.',
     sysTitle: 'Desktop control',
-    sysTitleOn: 'Desktop control is on — click to stop',
+    sysTitleOn: 'Desktop control is on — click to stop. Ctrl+Alt+Esc stops it at once.',
     sysOff: 'Off',
     sysOn: 'On',
     sysEnable: 'Turn on control',
@@ -497,7 +497,6 @@ const STRINGS = {
     sysWarn:
       'The agent can see your open windows and press buttons in them — the same reach you have. Turn it off when you are done.',
     sysHotkeyHint: 'Stops instantly:',
-    sysBanner: 'Desktop control is on — the agent can press buttons in your windows',
     sysConfirmTitle: 'Turn on desktop control?',
     sysConfirmBody:
       'The agent will read your open windows and press buttons in them — anything you could do yourself. Ctrl+Alt+Esc stops it instantly.',
@@ -1037,14 +1036,13 @@ const STRINGS = {
     approvalAlwaysDone: 'อนุมัติทุกครั้งไปแล้ว — เปิดให้ถามอีกครั้งได้ที่สวิตช์การอนุมัติในแถบข้าง',
     approvalNoMemory: 'ถามทุกครั้ง · "อนุมัติเสมอ" จะจำไว้จนกว่าจะเปลี่ยนสวิตช์ในแถบข้าง',
     sysTitle: 'ควบคุมเครื่อง',
-    sysTitleOn: 'เปิดควบคุมเครื่องอยู่ — กดเพื่อหยุด',
+    sysTitleOn: 'เปิดควบคุมเครื่องอยู่ — คลิกเพื่อหยุด · หยุดทันที: Ctrl+Alt+Esc',
     sysOff: 'ปิดอยู่',
     sysOn: 'เปิดอยู่',
     sysEnable: 'เปิดใช้งาน',
     sysDisable: 'หยุดทันที',
     sysWarn: 'AI จะเห็นหน้าต่างที่เปิดอยู่ และกดปุ่มในนั้นได้เท่ากับที่คุณทำได้ — ใช้เสร็จแล้วปิดด้วย',
     sysHotkeyHint: 'หยุดทันทีด้วย:',
-    sysBanner: 'กำลังเปิดให้ AI ควบคุมเครื่อง — กดปุ่มในหน้าต่างของคุณได้',
     sysConfirmTitle: 'เปิดให้ AI ควบคุมเครื่อง?',
     sysConfirmBody:
       'AI จะอ่านหน้าต่างที่เปิดอยู่และกดปุ่มในนั้นได้ เท่ากับที่คุณทำได้เอง ลดความเสี่ยงได้ด้วย Ctrl+Alt+Esc เพื่อหยุดทันที',
@@ -10482,8 +10480,10 @@ window.addEventListener('resize', () => placeSysPanel());
 el('sidebar')?.addEventListener('scroll', () => placeSysPanel(), { passive: true });
 
 /**
- * One function paints everything that answers "is this thing on", so the chip,
- * the panel and the strip at the foot of the window can never disagree.
+ * One function paints everything that answers "is this thing on". The state
+ * lives on the chip and in the panel: the extra strip that used to float over
+ * the app covered the send and attach buttons, and everything it said is on the
+ * chip's tooltip already.
  */
 function applySystemState(state = {}) {
   sysControl = { ...sysControl, ...state };
@@ -10495,7 +10495,6 @@ function applySystemState(state = {}) {
   el('sysState').textContent = sysControl.enabled ? t('sysOn') : t('sysOff');
   el('sysToggleText').textContent = sysControl.enabled ? t('sysDisable') : t('sysEnable');
   el('sysToggle').setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
-  el('sysBanner').hidden = !sysControl.enabled;
   if (sysControl.enabled && sysControl.hotkeyActive === false) {
     // No global grab: say so, because the remedy is the button in this panel.
     el('sysNote').textContent = t('sysHotkeyDown');
@@ -10548,8 +10547,6 @@ el('sysToggle').addEventListener('click', async () => {
     action: t('sysEnable'),
   });
 });
-
-el('sysBannerStop').addEventListener('click', () => setSystemControl(false));
 
 // The hotkey's in-window twin: it works even when the desktop refuses a global
 // grab, which is the common answer under Wayland.

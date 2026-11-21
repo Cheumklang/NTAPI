@@ -966,7 +966,13 @@ async function captureAppWindow({ app } = {}) {
   } catch {
     // No accessibility tree: the picture is still worth having.
   }
-  if (Number.isInteger(app) && ownApp !== null && app !== ownApp) {
+  if (Number.isInteger(app) && app !== ownApp) {
+    // Another application's window. Windows draws it with PrintWindow and X11
+    // asks ImageMagick; a desktop that refuses (Wayland) answers with the
+    // refusal instead of a blank picture.
+    if (typeof systemAdapter.screenshot === 'function') {
+      return await systemAdapter.screenshot({ app });
+    }
     const err = new Error(
       'Only the NTAPI window can be photographed on this desktop: the compositor refuses screen capture to other programs.'
     );
