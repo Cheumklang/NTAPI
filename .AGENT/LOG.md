@@ -3382,3 +3382,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 ## 2026-11-21 — Windows adapter สำหรับ desktop control
 - `uia.ps1` (UIAutomationClient) + `windows.js` + `index.js` wire + `helper-path.js` (asar unpack) + prompt platform-aware
 - `selftest-system-control.js` +18 เช็ค · `npm test` 95/95 · sara ok · ยังไม่ทดสอบบน Windows จริง
+
+## 2026-11-21 — ปล่อย v0.6.8 (desktop control Windows)
+- Release run 44851010019 · asset 181,457,003 B sha256 5e9fc9cb68c26cc4902ada658168952f3ecbe70e3ef7357078cd2760f0873b23 · provenance seq 194
+- อุบัติเหตุ: `git push --tags` ปลุกแท็กเก่า v0.6.5/v0.6.6 → Release รันซ้ำ 2 รอบ (prune ลบรุ่นเก่าให้) · แก้: ลบแท็กเก่าในเครื่อง + กฎใหม่ใน AGENTS.md

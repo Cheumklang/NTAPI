@@ -1,0 +1,22 @@
+{
+  "version": "0.6.8",
+  "tag": "v0.6.8",
+  "recordedAt": "2026-11-21T01:41:08.206Z",
+  "git": {
+    "head": "23c6da62478b1254355644d324dbaf4311ed251f",
+    "branch": "master",
+    "tree": "b260a00d1538a9cc71299cdf357475d6a5b4c244",
+    "subject": "chore(release): 0.6.8 — desktop control on Windows",
+    "authorDate": "2026-11-21T08:34:51+07:00",
+    "commitCount": 420
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44851010019",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.8.exe",
+      "size": 181457003,
+      "sha256": "5e9fc9cb68c26cc4902ada658168952f3ecbe70e3ef7357078cd2760f0873b23"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.8"
+}

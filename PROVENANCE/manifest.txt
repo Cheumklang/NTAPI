@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-21T01:21:48.137Z
-entries 189
-head_hash 869d14cc0cb9209b91fa795abe9e2d2fc49fb68ccdf7ee5ae91a634d274a60e2
-git 7335668ce7d86e1f88354f1ebb432347381a2c48
+updated 2026-11-21T01:41:08.493Z
+entries 194
+head_hash 868b491b1482a6c792a641fabf5857470ece19fc7860dd83137d4b51b30b1015
+git 23c6da62478b1254355644d324dbaf4311ed251f
 
 latest entries:
-  #182 2026-11-21T00:23:40.164Z release — Released version 0.6.5
-  #183 2026-11-21T00:38:41.355Z commit — skills: find every agent's folder, not just ours
-  #184 2026-11-21T00:38:44.247Z commit — chore(release): 0.6.6 — skills found in every AI tool's folder
-  #185 2026-11-21T00:59:24.843Z release — Released version 0.6.6
-  #186 2026-11-21T00:59:30.627Z commit — docs(agent): v0.6.6 and the wider skill search
   #187 2026-11-21T01:17:04.266Z commit — skills: see what a package install left behind
   #188 2026-11-21T01:17:04.798Z commit — chore(release): 0.6.7 — skills installed as a package show up
   #189 2026-11-21T01:21:47.833Z release — Released version 0.6.7
+  #190 2026-11-21T01:22:44.784Z commit — docs(agent): v0.6.7 and the package skill roots
+  #191 2026-11-21T01:27:03.100Z commit — release: keep only the newest build
+  #192 2026-11-21T01:33:35.844Z commit — system: desktop control on Windows
+  #193 2026-11-21T01:34:51.746Z commit — chore(release): 0.6.8 — desktop control on Windows
+  #194 2026-11-21T01:41:08.215Z release — Released version 0.6.8

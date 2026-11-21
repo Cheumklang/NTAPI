@@ -2,6 +2,14 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ ล่าสุด (2026-11-21) — **v0.6.8 ปล่อยแล้ว** · desktop control บน Windows
+> - commit `e1f2b42` (adapter) + `23c6da6` (bump 0.6.8) · tag `v0.6.8` · Release run 44851010019 success
+>   · asset 181,457,003 B sha256 `5e9fc9cb…73b23` · provenance seq 194 · เหลือ **v0.6.8 รุ่นเดียว** (แท็กเหลือ 1 ทั้งสองรีโป)
+> - **บทเรียน (บันทึกใน AGENTS.md แล้ว):** `git push --tags` ดันแท็กเก่า `v0.6.5`/`v0.6.6` ที่ค้างในเครื่องขึ้นไปใหม่
+>   → Release รันซ้ำ 2 รอบและปล่อยรุ่นเก่า (prune ลบทิ้งให้เอง) · ต่อไปใช้ `git push origin HEAD vX.Y.Z` + `git tag -d` ของเก่า
+> - **รอผู้ใช้ทดสอบบน Windows:** เปิดสวิตช์ desktop → `system_windows` → `system_snapshot` → กดปุ่ม/พิมพ์ (`settext`)
+>   ถ้าพังให้ดู error code จาก helper (`NO_POWERSHELL` / `NO_ACTION` / `STALE_REF` / `TIMEOUT`) + `C:\NTAPI\system-audit.log`
+>
 > ### 🖥️ Desktop control — Windows adapter เขียนเสร็จ (2026-11-21, ยังไม่ commit/ไม่ปล่อย)
 > - เพิ่ม `src/system/uia.ps1` (UI Automation ผ่าน Windows PowerShell 5.1 — ไม่ต้องติดตั้งอะไร ไม่ต้อง rebuild native module)
 >   · คำสั่งเดียวกับฝั่ง Linux: `probe` / `windows` / `snapshot --app N --max K` / `act --ref a/b/c --action click|settext --text T`
