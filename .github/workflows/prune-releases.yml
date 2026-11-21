@@ -7,19 +7,20 @@ name: Prune old releases
 # not a broken app, only a stale one; the point of this job is to stop handing
 # those builds out.
 #
-# HOW MANY SURVIVE: twenty. The installer itself is not needed for an update —
-# but its `.blockmap` is. electron-updater diffs the new installer against a
-# previous version's blockmap, which it fetches from that release when there is
-# no local copy (`AppUpdater.js`: "No cached blockmap for the old installer,
-# downloading it from ..."). Keeping a window of releases is therefore what
-# makes small updates possible at all.
+# HOW MANY SURVIVE: two — the newest release, and the one before it. That is the
+# whole reason the window exists: electron-updater diffs a new installer against
+# the previous version's `.blockmap`, which it fetches from that release when
+# there is no local copy (`AppUpdater.js`: "No cached blockmap for the old
+# installer, downloading it from ..."). One release kept means every update is a
+# full ~180 MB download again; two makes small updates possible.
+#
+# The user's rule (2026-11-21): the public download page must not turn into an
+# archive. Every release retires the one that fell out of the window, so the repo
+# holds ~360 MB instead of gigabytes.
 #
 # The window is also the promise the app makes to its users: an install that is
 # more than `UPDATE_RETENTION` releases behind (`app/src/main.js`) is told to
-# update *now*, because the blockmap its delta would need is gone. Twenty keeps
-# ~20 download records alive — a few hundred KB of `.blockmap` each — and the
-# 21st release pushes the oldest out automatically, so the public repo cannot
-# grow without bound.
+# update *now*, because the blockmap its delta would need is gone.
 #
 # `keep=<version>` still forces the old "this version and newer" behaviour.
 #
@@ -31,10 +32,10 @@ on:
   workflow_dispatch:
     inputs:
       keep_count:
-        description: 'Keep how many of the newest releases (must be >= 2; 20 = the app update window)'
+        description: 'Keep how many of the newest releases (must be >= 2; 2 = the app update window)'
         required: true
         type: number
-        default: 20
+        default: 2
       keep:
         description: 'Optional override: keep this version and everything newer (e.g. v0.5.0). Empty = use keep_count'
         required: false
@@ -60,7 +61,7 @@ on:
   push:
     branches: [master]
   # A published release is the moment the window slides: run without being asked
-  # so the 21st release always retires the oldest, and nobody has to remember.
+  # so the third release always retires the oldest, and nobody has to remember.
   workflow_run:
     workflows: [Release]
     types: [completed]
@@ -115,7 +116,7 @@ jobs:
             # Automatic: a release just finished. Keep the window and nothing
             # else — never force a version and never delete tags.
             KEEP=""
-            KEEP_COUNT="${NTAPI_UPDATE_RETENTION:-20}"
+            KEEP_COUNT="${NTAPI_UPDATE_RETENTION:-2}"
             DRY_RUN=false
             TAGS=false
           else

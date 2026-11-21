@@ -142,8 +142,8 @@ const indexSrc = fs.readFileSync(path.join(appDir, 'src', 'renderer', 'index.htm
 
 check(
   'pruning keeps twenty releases by default',
-  /keep_count:[\s\S]*?default:\s*20\b/.test(pruneSrc),
-  'keep_count default is not 20'
+  /keep_count:[\s\S]*?default:\s*2\b/.test(pruneSrc),
+  'keep_count default is not 2'
 );
 
 check(
@@ -154,7 +154,7 @@ check(
 
 check(
   'the automatic prune keeps the same number the app assumes',
-  /NTAPI_UPDATE_RETENTION:-20/.test(pruneSrc) && /const UPDATE_RETENTION = 20/.test(mainSrc)
+  /NTAPI_UPDATE_RETENTION:-2\b/.test(pruneSrc) && /const UPDATE_RETENTION = 2\b/.test(mainSrc)
 );
 
 check(

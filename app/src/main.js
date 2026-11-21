@@ -5187,10 +5187,14 @@ function sendUpdateState() {
  *
  * Inside the window an update is a delta of kilobytes and may download on its
  * own. Past it the blockmap of the running build has been pruned, so the only
- * possible download is the whole ~113 MB installer — there is no point in
- * letting that slide quietly, and GitHub keeps one record per version.
+ * possible download is the whole ~180 MB installer — there is no point in
+ * letting that slide quietly, and the user does not want the public download
+ * page to become an archive.
+ *
+ * Two is the smallest window that still allows a delta (latest + the one it
+ * diffs against), and is what the prune workflow keeps.
  */
-const UPDATE_RETENTION = 20;
+const UPDATE_RETENTION = 2;
 
 /** Compare `0.5.27` style versions: negative, zero, or positive. */
 function compareVersions(a, b) {
