@@ -3446,3 +3446,6 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 
 ## 2026-11-21 — กฎใหม่
 - ห้ามปล่อยรุ่นเอง ต้องถามก่อน (เพิ่มใน AGENTS.md) · ปล่อยล่าสุด 0.6.21
+
+## 2026-11-21 — ทดลอง Nemotron
+- args-not-defined ใน captureAppWindow (เทสต์เดิมยืนยันบั๊ก) · handle→app สำหรับ screenshot · linux screenshot list[app]→row.app · launch reused · atspi timed() 22s→2s

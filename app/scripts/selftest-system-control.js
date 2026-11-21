@@ -368,7 +368,40 @@ check(
   check('main photographs the window it owns', /webContents\.capturePage\(\)/.test(main));
   check(
     'another application\'s window goes to the adapter, not to a refusal',
-    /systemAdapter\.screenshot\(\{ app, window: args\.window \}\)/.test(main)
+    /systemAdapter\.screenshot\(\{ app: wanted, window: handle \}\)/.test(main)
+  );
+  // This test used to assert the buggy call verbatim, which is how a
+  // ReferenceError inside captureAppWindow shipped: `args` is not in scope
+  // there, so every system_screenshot naming another app failed with
+  // "args is not defined" and the model was left guessing.
+  const atspiSrc = read('src/system/atspi.py');
+  const linuxDeep = read('src/system/linux.js');
+  check(
+    'a dead registry entry cannot stall the window list',
+    /timed\(lambda a=app: name_of\(a\), 0\.4/.test(atspiSrc) &&
+      /timed\(lambda a=app: children_of\(a\), APP_SECONDS\)/.test(atspiSrc) &&
+      /if not app_name:/.test(atspiSrc)
+  );
+  check(
+    'the Linux screenshot finds its window by app number, not by list position',
+    /list\.find\(\(entry\) => Number\(entry\.app\) === wanted\)/.test(linuxDeep)
+  );
+  check(
+    'a program that was already open comes back as its own window',
+    /reused: true/.test(linuxDeep)
+  );
+  check(
+    'photographing a named window never answers with this application instead',
+    /String\(entry\.handle\) === String\(handle\)/.test(main) &&
+      /TARGET_NOT_FOUND/.test(main)
+  );
+  check(
+    'captureAppWindow does not read an args it was never given',
+    (() => {
+      const start = main.indexOf('async function captureAppWindow');
+      const body = main.slice(start, main.indexOf('const systemBridge', start));
+      return start > 0 && !/\bargs\b/.test(body);
+    })()
   );
   check(
     'typing with no window named uses the window in front, never NTAPI itself',

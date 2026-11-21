@@ -945,7 +945,7 @@ function systemGuard() {
  * report a flicker, which is what this is for. Naming another app answers
  * NOT_CAPTURABLE rather than returning a blank picture.
  */
-async function captureAppWindow({ app, window } = {}) {
+async function captureAppWindow({ app, window: handle = '' } = {}) {
   const target =
     (win && !win.isDestroyed() && win) ||
     BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
@@ -966,12 +966,35 @@ async function captureAppWindow({ app, window } = {}) {
   } catch {
     // No accessibility tree: the picture is still worth having.
   }
-  if (Number.isInteger(app) && app !== ownApp) {
+  /*
+   * A window handle is as good as an app number, and the caller may have only
+   * the handle. Resolving it here is what keeps "photograph window 4711" from
+   * quietly becoming "photograph this application" — which is what the caller
+   * was handed before, and what made an agent conclude the desktop could not
+   * photograph anything else.
+   */
+  let wanted = Number.isInteger(app) ? app : null;
+  if (wanted === null && handle) {
+    try {
+      const rows = await systemAdapter.windows();
+      const row = rows.find((entry) => entry && String(entry.handle) === String(handle));
+      if (row) wanted = row.app;
+    } catch {
+      // No tree to resolve against: fall through to the refusal below.
+    }
+  }
+  if (wanted === null && handle) {
+    const err = new Error(`Window ${handle} is not in the window list any more.`);
+    err.code = 'TARGET_NOT_FOUND';
+    throw err;
+  }
+
+  if (wanted !== null && wanted !== ownApp) {
     // Another application's window. Windows draws it with PrintWindow and X11
     // asks ImageMagick; a desktop that refuses (Wayland) answers with the
     // refusal instead of a blank picture.
     if (typeof systemAdapter.screenshot === 'function') {
-      return await systemAdapter.screenshot({ app, window: args.window });
+      return await systemAdapter.screenshot({ app: wanted, window: handle });
     }
     const err = new Error(
       'Only the NTAPI window can be photographed on this desktop: the compositor refuses screen capture to other programs.'

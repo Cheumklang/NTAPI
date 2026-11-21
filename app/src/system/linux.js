@@ -479,6 +479,26 @@ async function launch({ target = '' } = {}) {
       return { ok: true, app: Number(fresh.app), appName: fresh.title || fresh.appName || '', did: `started ${wanted}` };
     }
   }
+  /*
+   * Nothing new appeared, which usually means the program was already running and
+   * the window was raised instead of created. Reporting -1 there sent callers off
+   * to launch it again and again, so the existing window is looked up by the
+   * program's own name and handed back with `reused`.
+   */
+  const stem = path.basename(wanted).replace(/\.(desktop|sh)$/i, '').toLowerCase();
+  const reused = (await windows().catch(() => [])).find((entry) => {
+    const name = `${entry.appName || ''} ${entry.title || ''}`.toLowerCase();
+    return stem && name.includes(stem);
+  });
+  if (reused) {
+    return {
+      ok: true,
+      app: Number(reused.app),
+      appName: reused.title || reused.appName || '',
+      reused: true,
+      did: `started ${wanted}; it was already open, so this is the window it owns`,
+    };
+  }
   return { ok: true, app: -1, appName: '', did: `started ${wanted} but no window appeared` };
 }
 
@@ -513,7 +533,11 @@ async function clickAt({ app = 0, x, y, button = 'left' } = {}) {
  */
 async function screenshot({ app = 0 } = {}) {
   const list = await windows();
-  const row = list[Number(app) || 0];
+  // By app number, never by position in the list: the number the window list
+  // prints is the accessibility index, which is not where the row sits in the
+  // array, so list[app] told a caller that a live Calculator "is gone".
+  const wanted = Number(app);
+  const row = list.find((entry) => Number(entry.app) === wanted);
   if (!row) throw failure('STALE_REF', `window ${app} is gone - ask for the window list again`);
   const caps = await capabilities();
   if (caps.session !== 'x11') {

@@ -24,8 +24,34 @@ Run by hand to debug:  python3 atspi.py probe
 import argparse
 import json
 import sys
+import threading
+import time
 
 MAX_DEPTH = 14
+
+# A window list is only useful if it arrives. D-Bus calls into other applications
+# are synchronous and one sleepy app blocks the walk for twenty seconds (a killed
+# Calculator that still has a registry entry is enough), and a signal cannot
+# interrupt a call waiting inside libdbus. So each query runs in a daemon thread
+# and is abandoned when its budget runs out: the process exits at the end and
+# takes the stragglers with it.
+APP_SECONDS = 1.5
+WALK_SECONDS = 8
+
+
+def timed(call, seconds, default=None):
+    box = {}
+
+    def run():
+        try:
+            box['value'] = call()
+        except Exception:
+            box['value'] = default
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(seconds)
+    return box.get('value', default)
 
 
 def emit(payload):
@@ -117,9 +143,29 @@ def cmd_probe(Atspi, _args):
 def cmd_windows(Atspi, _args):
     desk = desktop(Atspi)
     windows = []
-    for i, app in enumerate(children_of(desk)):
-        app_name = name_of(app)
-        for j, frame in enumerate(children_of(app)):
+    slow = []
+    started = time.monotonic()
+    apps = timed(lambda: children_of(desk), WALK_SECONDS, default=[]) or []
+    for i, app in enumerate(apps):
+        # Bounded like every other call: a registry entry whose application is
+        # gone answers nothing at all, and `get_name()` on one of those was the
+        # sixteen seconds in a twenty second call.
+        app_name = timed(lambda a=app: name_of(a), 0.4, default='') or ''
+        if not app_name:
+            # An application the bus cannot name is a leftover registry entry, not
+            # a window: asking it for children is what cost twenty seconds a call.
+            slow.append('#%d' % i)
+            continue
+        if time.monotonic() - started > WALK_SECONDS:
+            slow.append(app_name)
+            continue
+        frames = timed(lambda a=app: children_of(a), APP_SECONDS)
+        if frames is None:
+            # Named but unresponsive: the index still belongs to this app, so it
+            # is reported with no frames instead of shifting every later number.
+            slow.append(app_name or '#%d' % i)
+            continue
+        for j, frame in enumerate(frames):
             windows.append({
                 'app': i,
                 'frame': j,
@@ -127,7 +173,7 @@ def cmd_windows(Atspi, _args):
                 'title': name_of(frame),
                 'role': role_of(frame),
             })
-    emit({'ok': True, 'windows': windows})
+    emit({'ok': True, 'windows': windows, 'slow': slow})
 
 
 def cmd_snapshot(Atspi, args):

@@ -2,6 +2,17 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### 🔬 2026-11-21: ทดลองกับ Nemotron (NVIDIA) บนเครื่องจริง — เจอบั๊กของเราเอง 3 ตัว
+> ผู้ใช้ให้ผมพิมพ์คำสั่งเข้าแชท "NVIDIA TEST" ผ่าน desktop control (Wayland, พิมพ์ไทยผ่าน clipboard) แล้วอ่านคำตอบจริงจากไฟล์ session
+> **สิ่งที่ Nemotron ทำ**: `system_launch gnome-calculator` → `system_windows` → เห็น Calculator = app 13 → `system_screenshot {app:13}` **3 ครั้ง** → `system_screenshot {window:"13"}` → ได้ภาพ NTAPI → `system_focus` → `NOT_SUPPORTED` → `system_keys alt+tab` → `system_screenshot` → สรุปว่า "Wayland ถ่ายได้แต่ NTAPI" แล้วเลิก
+> **สาเหตุจริง (ไม่ใช่โมเดลโง่)**:
+> 1. **`ReferenceError: args is not defined`** — `captureAppWindow({app, window})` อ้าง `args.window` ที่ไม่มีใน scope ⇒ `system_screenshot` ที่ระบุแอปอื่น **พังทุกครั้ง** (โมเดลลอง 3 รอบไม่ได้อะไร) · **และเทสต์เดิมยืนยันโค้ดผิดนี้ไว้** (`/systemAdapter.screenshot({ app, window: args.window })/`) = เทสต์ผ่านทั้งที่บั๊ก → แก้เป็น `{ app: wanted, window: handle }` + เพิ่มเทสต์ที่ห้าม `args` ในฟังก์ชันนี้
+> 2. **handle ใช้กับ screenshot ไม่ได้** — ส่ง `window:"13"` แล้วไม่ได้ resolve → ตกไปถ่ายหน้าต่าง NTAPI เงียบ ๆ ⇒ โมเดลสรุปผิด · เพิ่มการหา app จาก `handle` + `TARGET_NOT_FOUND` แทนการคืนภาพผิด
+> 3. **`linux.js screenshot` หาหน้าต่างด้วย `list[app]`** (ตำแหน่งใน array) ไม่ใช่ `row.app` ⇒ `STALE_REF "window 13 is gone"` ทั้งที่ Calculator เปิดอยู่
+> 4. **`launch` ตอบ `app:-1 "no window appeared"`** เมื่อโปรแกรมเปิดอยู่แล้ว → โมเดลเปิดซ้ำ 2-3 รอบ (ตรงกับข้อ 3 ของผู้ใช้) · เพิ่ม fallback หาหน้าต่างเดิมด้วยชื่อโปรแกรม + `reused:true`
+> 5. **AT-SPI ค้าง 15-22 วิ** เพราะ registry entry ที่แอปตายแล้ว (`get_name()` ค้าง 16 วิ) → `windows()` TIMEOUT ทุกครั้ง · แก้ `atspi.py`: ทุก call มีเพดานเวลา (thread daemon + `timed()`), ข้ามแอปที่ไม่มีชื่อ, งบเวลารวม 8 วิ, รายงาน `slow` · ผลจริง **22 วิ → 2.0 วิ, 7 หน้าต่าง**
+> **ยังไม่ปล่อย** — รอผู้ใช้สั่ง (กฎใหม่)
+>
 > ### ⛔ กฎใหม่ (ผู้ใช้สั่ง 2026-11-21): **ห้ามปล่อยรุ่นใหม่เอง ต้องถามก่อนทุกครั้ง**
 > วันนี้ผมปล่อยเอง 3 รอบติด (0.6.19, 0.6.20, 0.6.21) เพราะเข้าใจว่าผู้ใช้อยากทดสอบ — ผู้ใช้บอกให้หยุด
 > · แก้เสร็จ → **commit แล้วถาม "ปล่อยเป็น X.Y.Z ไหมครับ"** แล้วรอ · ห้าม bump/tag/push เอง
