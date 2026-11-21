@@ -2412,7 +2412,7 @@ const SYSTEM_TOOLS = {
     cmd: 'screenshot',
     write: false,
     description:
-      'A picture of one window from system_windows, so layout and "did that really appear" can be seen instead of guessed. On Windows any window can be photographed, even one that is covered; on Linux only the NTAPI window unless the session is X11; a Wayland session refuses and says so.',
+      'A picture of one window from system_windows, so layout and "did that really appear" can be seen instead of guessed. On Windows any window can be photographed, even one that is covered. Leave app and window out to photograph the window in front. On Linux only the NTAPI window unless the session is X11; Wayland refuses and says so.',
     parameters: {
       type: 'object',
       properties: {
@@ -2460,7 +2460,7 @@ const SYSTEM_TOOLS = {
     cmd: 'keys',
     write: true,
     description:
-      'Press a shortcut in one window, after bringing it to the front: ctrl+s, alt+f4, ctrl+shift+t, enter, tab, f5. This is how to drive an app that publishes no buttons. Ask only for shortcuts you mean — this is the user\'s own keyboard.',
+      'Press a shortcut in one window, after bringing it to the front: ctrl+s, alt+f4, ctrl+shift+t, enter, tab, f5. This is how to drive an app that publishes no buttons. Leave app and window out to use the window in front — the reply names the window it pressed in, and never this application. Ask only for shortcuts you mean; this is the user\'s own keyboard.',
     parameters: {
       type: 'object',
       properties: {
@@ -2480,7 +2480,7 @@ const SYSTEM_TOOLS = {
     cmd: 'type',
     write: true,
     description:
-      'Type text into whatever has focus in one window, character by character. Use it when system_act with settext answers NO_VALUE_PATTERN, or when a field only reacts to real keystrokes. Click or focus the field first.',
+      'Type text into whatever has focus in one window, character by character. Use it when system_act with settext answers NO_VALUE_PATTERN, or when a field only reacts to real keystrokes. Leave app and window out to type into the window in front (never this application): the result names the window and says whether the text really arrived.',
     parameters: {
       type: 'object',
       properties: {

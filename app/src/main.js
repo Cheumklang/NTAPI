@@ -997,6 +997,11 @@ const systemBridge = {
   enabled: systemEnabled,
   async call(cmd, args = {}) {
     systemGuard();
+    // Which window is ours, so the adapter never types into this application
+    // when the caller did not name a window.
+    try {
+      if (typeof systemAdapter.setSelfHandle === 'function') systemAdapter.setSelfHandle(ownWindowHandle());
+    } catch { }
     if (cmd === 'windows') {
       const windows = await systemAdapter.windows();
       return { windows };
@@ -4434,6 +4439,19 @@ ipcMain.handle('changes:revert', async (_e, { tabId, path: targetPath, all } = {
   sendTab(tabIdForTab(tab), 'agent:changes', { changes: tab.changes });
   return { ok: true, reverted };
 });
+
+/** This application's native window handle, as the desktop helper spells it. */
+function ownWindowHandle() {
+  try {
+    if (!win || win.isDestroyed()) return '';
+    const buffer = win.getNativeWindowHandle();
+    if (!buffer || !buffer.length) return '';
+    if (buffer.length >= 8) return buffer.readBigUInt64LE(0).toString();
+    return String(buffer.readUInt32LE(0));
+  } catch {
+    return '';
+  }
+}
 
 /** The message list changed underneath the renderer (undo/redo/compact). */
 function afterHistoryChange(tabId) {

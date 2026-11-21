@@ -8423,6 +8423,18 @@ async function submit() {
     return;
   }
 
+  // Every other slash command too: "/compact" typed and sent used to reach the
+  // model as those eight characters, which is why the command appeared to do
+  // nothing. Commands with arguments are left alone by findSlashCommand.
+  const named = pendingImages.length === 0 ? findSlashCommand(text) : null;
+  if (named) {
+    input.value = '';
+    autoGrow();
+    named.run();
+    updateSendState();
+    return;
+  }
+
   // `@caveman …` becomes `/skill:caveman …` before anything is stored, so the
   // queue, the transcript and the session all see the command pi expands.
   const outgoing = await resolveForSend(text);
@@ -10518,6 +10530,40 @@ async function setSystemControl(enabled) {
   if (res && res.error) showNotice(res.error);
   return res;
 }
+
+/*
+ * The hover tip follows the button instead of living inside the sidebar: a card
+ * painted there is clipped by the sidebar's own stacking context and ends up
+ * behind the main column. Fixed positioning plus the chip's own rectangle puts
+ * it on top, the way the approval popover appears.
+ */
+function placeSysTip() {
+  const chip = el('sysChip');
+  const tip = el('sysTip');
+  if (!chip || !tip) return;
+  const rect = chip.getBoundingClientRect();
+  const width = Math.min(236, window.innerWidth - 24);
+  let left = rect.left;
+  if (left + width > window.innerWidth - 12) left = window.innerWidth - width - 12;
+  tip.style.width = `${width}px`;
+  tip.style.left = `${Math.max(12, left)}px`;
+  tip.style.top = `${rect.bottom + 8}px`;
+}
+
+function showSysTip(show) {
+  const tip = el('sysTip');
+  if (!tip) return;
+  if (show) placeSysTip();
+  tip.classList.toggle('is-open', Boolean(show));
+}
+
+for (const event of ['mouseenter', 'focusin']) {
+  el('sysWrap')?.addEventListener(event, () => showSysTip(true));
+}
+for (const event of ['mouseleave', 'focusout']) {
+  el('sysWrap')?.addEventListener(event, () => showSysTip(false));
+}
+el('sidebar')?.addEventListener('scroll', () => showSysTip(false), { passive: true });
 
 el('sysChip').addEventListener('click', () => {
   if (!sysControl.supported) {

@@ -5163,29 +5163,31 @@ html[lang="th"] .about-name-th {
   color: var(--muted);
 }
 .sys-wrap { position: relative; }
+/*
+ * The tip is a floating card in the same material as the approval popover, and
+ * it is positioned by JS from the chip's rectangle: absolute inside the sidebar
+ * it was being painted underneath the main column, which is what "the tooltip
+ * is hidden behind the program" looked like.
+ */
 .sys-tip {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 8px);
-  width: max-content;
-  max-width: 250px;
-  padding: 8px 10px;
-  border-radius: 10px;
+  position: fixed;
+  z-index: 400;
+  width: 236px;
+  max-width: calc(100vw - 24px);
+  padding: 9px 11px;
   font-size: 11.5px;
-  line-height: 1.45;
-  color: #f4e9d6;
-  background: rgba(22, 18, 12, .98);
-  border: 1px solid rgba(245, 181, 68, .42);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, .45);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .38);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(4px);
+  transform: translateY(-4px);
   transition: opacity .12s ease, transform .12s ease;
-  z-index: 70;
 }
-.sys-wrap:hover .sys-tip,
-.sys-wrap:focus-within .sys-tip { opacity: 1; transform: translateY(0); }
-.sys-wrap:has(#sysChip[aria-expanded="true"]) .sys-tip { opacity: 0; }
+.sys-tip.is-open { opacity: 1; transform: translateY(0); }
 .sys-kbd { display: inline-flex; gap: 3px; }
 .sys-kbd kbd {
   font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;

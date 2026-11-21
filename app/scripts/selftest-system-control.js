@@ -213,7 +213,21 @@ check('the panel carries the hotkey', /Ctrl<\/kbd><kbd>Alt<\/kbd><kbd>Esc/.test(
 check('the strip over the app is gone', !/sysBanner/.test(html) && !/sysBanner/.test(appSrc));
 check('the chip starts off', /data-state="off"/.test(html));
 check('styles cover the chip and the panel', ['.chip-btn.sys-chip', '.sys-popover'].every((sel) => read('src/renderer/styles.css').includes(sel)));
-check('a painted hover tip carries the way out', /class="sys-tip" id="sysTip"/.test(html) && /\.sys-wrap:hover \.sys-tip/.test(read('src/renderer/styles.css')));
+check(
+  'the hover tip is painted over the app, not clipped inside the sidebar',
+  /\.sys-tip \{[\s\S]{0,300}?position: fixed;/.test(read('src/renderer/styles.css')) &&
+    /\.sys-tip\.is-open/.test(read('src/renderer/styles.css')) &&
+    /function placeSysTip/.test(appSrc) &&
+    /getBoundingClientRect\(\)/.test(appSrc)
+);
+check(
+  'a slash command sent without the menu runs instead of reaching the model',
+  /const named = pendingImages\.length === 0 \? findSlashCommand\(text\) : null;/.test(appSrc)
+);
+check(
+  'a painted hover tip carries the way out',
+  /class="sys-tip" id="sysTip"/.test(html) && /sysTipOn: '[^']*Ctrl\+Alt\+Esc/.test(appSrc) && /showSysTip\(true\)/.test(appSrc)
+);
 check(
   'the tooltip is where the way out is written',
   /sysTitleOn: 'เปิดควบคุมเครื่องอยู่[^']*Ctrl\+Alt\+Esc/.test(appSrc) && /sysTitleOn: 'Desktop control is on[^']*Ctrl\+Alt\+Esc/.test(appSrc)
@@ -351,6 +365,10 @@ check(
   check(
     'another application\'s window goes to the adapter, not to a refusal',
     /systemAdapter\.screenshot\(\{ app, window: args\.window \}\)/.test(main)
+  );
+  check(
+    'typing with no window named uses the window in front, never NTAPI itself',
+    /Get-Foreground-Element/.test(ps1) && /SELF_WINDOW/.test(ps1) && /'-Self'/.test(read('src/system/windows.js'))
   );
   check(
     'Windows draws the window itself and falls back to the screen',

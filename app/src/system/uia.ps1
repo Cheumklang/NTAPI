@@ -33,6 +33,7 @@ param(
   [Parameter(Position = 0)][string]$Command = '',
   [int]$App = -1,
   [string]$Window = '',
+  [string]$Self = '',
   [int]$Max = 250,
   [string]$Ref = '',
   [string]$Action = 'click',
@@ -344,6 +345,22 @@ function Get-Window-Element([int]$index) {
 
 # An index is a position in a list that shifts whenever a window opens or
 # closes; a handle is the window itself. Callers that act later pass the handle.
+# The window in front is what a person would act on when nothing is named, so it
+# is the default - but never when the window in front is this application itself,
+# because typing into the chat is not what "type in the window" means.
+function Get-Foreground-Element() {
+  $handle = [NTAPIInput]::GetForegroundWindow()
+  if ($handle -eq [IntPtr]::Zero) { Stop-With-Error 'NO_FOREGROUND' 'no window is in the foreground' }
+  if ($Self -ne '' -and $handle -eq [IntPtr][int64]$Self) {
+    Stop-With-Error 'SELF_WINDOW' 'the window in front is NTAPI itself. Say which window to use (app or window from system_windows) and try again.'
+  }
+  foreach ($candidate in (Get-Children $script:Desktop)) {
+    if (-not (Test-Is-Window $candidate)) { continue }
+    if ((Get-Window-Handle $candidate) -eq $handle) { return $candidate }
+  }
+  Stop-With-Error 'NO_FOREGROUND' 'the window in front is not one the accessibility tree lists'
+}
+
 function Get-Target-Element() {
   if ($Window -ne '') {
     $wanted = [IntPtr]::Zero
@@ -357,6 +374,7 @@ function Get-Target-Element() {
     }
     Stop-With-Error 'BAD_ARGS' "window '$Window' is not a window handle"
   }
+  if ($App -lt 0) { return Get-Foreground-Element }
   return Get-Window-Element $App
 }
 
@@ -610,7 +628,7 @@ switch ($Command.ToLowerInvariant()) {
     if ([NTAPIInput]::Failed -gt 0) {
       Stop-With-Error 'INPUT_REJECTED' ("Windows rejected the key events (error " + [NTAPIInput]::LastError + "). A window running as administrator ignores input from a normal program; nothing was pressed.")
     }
-    Write-Json @{ ok = $true; app = $App; did = ('pressed ' + $Keys); method = 'sendinput' }
+    Write-Json @{ ok = $true; app = $App; appName = (Get-Window-Name $element); handle = (Get-Window-Handle $element); did = ('pressed ' + $Keys); method = 'sendinput' }
     exit 0
   }
 
@@ -676,7 +694,7 @@ switch ($Command.ToLowerInvariant()) {
       }
       Stop-With-Error 'TYPE_NOT_DELIVERED' ("the text was sent three ways and the control '" + $controlName + "' did not change. Click into the text area and try again.")
     }
-    Write-Json @{ ok = $true; app = $App; did = ('typed ' + $Text.Length + ' characters'); method = $method; verified = $true; control = $controlName; beforeLen = $beforeLen; afterLen = $afterLen }
+    Write-Json @{ ok = $true; app = $App; appName = (Get-Window-Name $element); handle = (Get-Window-Handle $element); did = ('typed ' + $Text.Length + ' characters'); method = $method; verified = $true; control = $controlName; beforeLen = $beforeLen; afterLen = $afterLen }
     exit 0
   }
 

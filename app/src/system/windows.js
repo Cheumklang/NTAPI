@@ -39,14 +39,24 @@ function failure(code, message) {
  * JSON too ({"ok": false}), so a non-zero exit still carries a reason worth
  * passing on — the only things lost here are crashes and timeouts.
  */
+/** NTAPI's own window, so the helper can refuse to type into the app itself. */
+let selfHandle = '';
+
+function setSelfHandle(handle) {
+  selfHandle = handle ? String(handle) : '';
+}
+
 function run(args, { timeoutMs = 20000 } = {}) {
   return new Promise((resolve, reject) => {
     // -NonInteractive matters: a UAC prompt or a stray Read-Host would otherwise
     // hang the helper until the timeout, with no way for the user to see why.
     const flags = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', HELPER];
+    // -Self travels with every call so "the window in front" can never mean the
+    // chat window the agent is talking in.
+    const argv = selfHandle ? [...args, '-Self', selfHandle] : args;
     execFile(
       POWERSHELL,
-      [...flags, ...args],
+      [...flags, ...argv],
       { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, windowsHide: true },
       (err, stdout) => {
         const text = String(stdout || '').trim();
@@ -202,6 +212,7 @@ async function scroll({ app = 0, notches = 3, window = '' } = {}) {
 
 module.exports = {
   platform: 'win32',
+  setSelfHandle,
   available,
   windows,
   snapshot,

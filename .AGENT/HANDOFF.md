@@ -2,6 +2,16 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ 0.6.20: hover tip ลอยเหนือทุกอย่าง + `/compact` ที่พิมพ์แล้วไม่ทำงาน + ใช้ "หน้าต่างที่โฟกัส" เป็นค่าเริ่มต้น
+> ผลเทสต์ 0.6.19: (1) tooltip ขึ้นแต่ **ถูกหน้าจอโปรแกรมบัง** และอยากให้หน้าตาเหมือน popover การอนุมัติเครื่องมือ (2) 2 Notepad ผ่าน ✅ (3)+(4) โมเดล NVIDIA หาหน้าต่างไม่เจอ → เปิด Notepad/Calculator ซ้ำ 2-3 รอบ แล้วสรุปผิดว่า "ถ่ายได้เฉพาะหน้าต่าง NTAPI" (พิมพ์ข้อความเดิม 2 รอบ) (5) /compact พิมพ์แล้วเงียบ
+> - **tooltip**: เปลี่ยนจาก absolute ใน sidebar (โดน stacking context ของ sidebar บัง) → `position: fixed; z-index: 400` + JS `placeSysTip()` คำนวณจาก `getBoundingClientRect()` ของปุ่ม (เปิดด้วย `mouseenter`/`focusin`, ปิดตอน scroll) · หน้าตาใช้ `--surface-2`/`--line-2`/`--radius` = ชุดเดียวกับ `.approval-popover`
+> - **`/compact` (บั๊กจริง)**: `submit()` ใน renderer แยกเฉพาะ `/clear` — คำสั่งอื่นถูกส่งเป็นข้อความให้โมเดล ⇒ เพิ่ม `findSlashCommand(text)` ใน `submit()` (เฉพาะเมื่อไม่มีรูปแนบ) → `named.run()`
+> - **หน้าต่างที่โฟกัส = ค่าเริ่มต้น**: `uia.ps1` เพิ่ม `Get-Foreground-Element` + `-Self <handle>` → ถ้าไม่ระบุ app/window จะใช้หน้าต่างเบื้องหน้า **แต่ถ้าเป็นหน้าต่าง NTAPI เอง → `SELF_WINDOW`** (กันพิมพ์เข้าห้องแชท)
+>   · `windows.js` แนบ `-Self` ทุก call (`setSelfHandle`) · `main.js` `ownWindowHandle()` อ่าน `win.getNativeWindowHandle()` (8-byte LE)
+>   · ผลลัพธ์ `type`/`keys` เพิ่ม `appName` + `handle` → โมเดลบอกได้ว่าพิมพ์ลงหน้าต่างไหน
+>   · tool description: "Leave app and window out to use the window in front"
+> - เทสต์ +5 → 96/96
+>
 > ### ✅ 0.6.19: ผูกหน้าต่างด้วย handle + บอกโมเดลว่า "พิมพ์แล้วไม่ต้องพิมพ์ซ้ำ" + hover tip
 > ผลเทสต์ 0.6.18: (1) screenshot ผ่าน **เมื่อใช้โมเดลเก่ง** (NVIDIA บอกขาด System.Drawing — ซึ่งก็แก้ไว้ด้วย) (2) พิมพ์ขึ้นจริงแต่โมเดลคิดว่ายังไม่ได้พิมพ์ → พิมพ์ซ้ำ (3) จึงไปพิมพ์บานแรกซ้ำ ไม่สนบานที่สอง (4) Linux ไทยผ่าน ✅ (5) hover tooltip ไม่ขึ้น ต้องคลิก
 > - **handle**: `uia.ps1` เพิ่ม `-Window` + `Get-Target-Element` (หา element จาก handle จริง ไม่ใช่ลำดับ) · `windows` ส่ง `handle` ต่อหน้าต่าง · `snapshot` คืน `handle`

@@ -3437,3 +3437,6 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - handle-based window targeting (ps1 -Window + Get-Target-Element, windows/snapshot คืน handle, windows.js windowArgs, tool specs + window)
 - type verified → "do not type it a second time" + prompt 2 ข้อ
 - hover tip แบบ CSS (sysTip) · System.Drawing ReferencedAssemblies
+
+## 2026-11-21 — 0.6.20
+- tooltip fixed + z-index 400 (placeSysTip) · /compact ใน submit() · foreground-window default + SELF_WINDOW guard + -Self
