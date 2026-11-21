@@ -3413,3 +3413,6 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 ## 2026-11-21 — Linux real input (best-effort)
 - linux.js: capabilities() + buildSteps() (pure) → xdotool/wtype/ydotool · launch ผ่าน spawn ตรง + นับหน้าต่างใหม่
 - NOT_SUPPORTED พร้อมวิธีติดตั้งตาม session · เทสต์ +10 → 96/96
+
+## 2026-11-21 — ydotool daemon บนเครื่องจริง
+- สร้าง /etc/systemd/system/ydotool.service (Ubuntu ไม่มีให้) · docs/ydotool.service · linux.js ตรวจ ydotoolReady

@@ -14,6 +14,7 @@
  * typing into the void.
  */
 
+const fs = require('node:fs');
 const path = require('node:path');
 const { execFile, spawn } = require('node:child_process');
 const { helperPath } = require('./helper-path');
@@ -110,6 +111,19 @@ function sessionType() {
   return String(process.env.XDG_SESSION_TYPE || '').toLowerCase();
 }
 
+/** Where the ydotool client looks for the daemon unless told otherwise. */
+function ydotoolSocket() {
+  return String(process.env.YDOTOOL_SOCKET || '/tmp/.ydotool_socket');
+}
+
+function daemonRunning() {
+  try {
+    return fs.statSync(ydotoolSocket()).isSocket();
+  } catch {
+    return false;
+  }
+}
+
 function commandExists(binary) {
   return new Promise((resolve) => {
     execFile('sh', ['-c', `command -v ${binary} >/dev/null 2>&1`], (err) => resolve(!err));
@@ -132,7 +146,9 @@ async function capabilities() {
   if (xdotool) backend = 'xdotool';
   else if (ydotool) backend = 'ydotool';
   else if (wtype) backend = 'wtype';
-  capsCache = { session, xdotool, wtype, ydotool, backend };
+  // An installed binary is not the same as a running daemon: without it every
+  // keystroke fails with "failed to connect socket", which reads like a bug.
+  capsCache = { session, xdotool, wtype, ydotool, backend, ydotoolReady: ydotool ? daemonRunning() : false };
   return capsCache;
 }
 
@@ -175,6 +191,13 @@ const WTYPE_KEYS = {
 function buildSteps(action, input = {}, caps = { backend: '' }) {
   const backend = caps.backend || '';
   if (!backend) return { missing: installHint(caps) };
+
+  if (backend === 'ydotool' && caps.ydotoolReady === false) {
+    return {
+      missing:
+        'ydotool is installed but its daemon is not running. Start it with `sudo ydotoold --socket-path=/tmp/.ydotool_socket --socket-perm=0666` (or add a systemd unit) and try again.',
+    };
+  }
 
   if (action === 'type') {
     const text = String(input.text || '');

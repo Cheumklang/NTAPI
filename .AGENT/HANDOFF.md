@@ -2,6 +2,16 @@
 
 > **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.5 แล้ว · tree สะอาด · `master` = `origin/master`**
 >
+> ### ✅ ติดตั้ง ydotool daemon บนเครื่องจริง (Linux Wayland) — 0.6.14
+> - Ubuntu มี `ydotool` 1.0.4 แต่ **ไม่มี unit file** → `systemctl enable ydotool` ล้มเหลว ("Unit does not exist")
+> - แก้ด้วยการสร้าง `/etc/systemd/system/ydotool.service` เอง (สำเนาเก็บใน `docs/ydotool.service`):
+>   `ExecStart=/usr/bin/ydotoold --socket-path=/tmp/.ydotool_socket --socket-perm=0666` · `Restart=always`
+>   · socket 0666 เพราะ daemon ต้อง root แต่ agent รันเป็น user
+> - ตรวจแล้ว: `systemctl is-active ydotool` = active · socket `/tmp/.ydotool_socket` = srw-rw-rw- · `ydotool key 42:1 42:0` (shift) exit 0
+> - `linux.js`: เพิ่ม `ydotoolReady` (stat socket) → ถ้าติดตั้งแล้วแต่ daemon ไม่รัน จะบอกวิธีสตาร์ทแทนการปล่อย error "failed to connect socket"
+> - `capabilities()` บนเครื่องนี้: `{session: wayland, ydotool: true, backend: ydotool, ydotoolReady: true}` → `system_type` ใช้ได้แล้ว (keys ยังไม่รองรับบน ydotool)
+> - พิษที่เจอ: อย่าใช้ heredoc กับ `sudo -S` (heredoc กิน stdin ทำให้ sudo อ่าน unit file เป็นรหัสผ่าน)
+>
 > ### ✅ Linux: real input แบบ best-effort (0.6.13)
 > ผู้ใช้: "Windows หลัก แต่ต้องรองรับ Linux ด้วยเพราะผมต้องใช้เหมือนกัน"
 > - `linux.js` ไม่ตอบ NOT_SUPPORTED ทั้งก้อนแล้ว: ตรวจ session + หา tool ที่มีจริง (`xdotool` → `ydotool` → `wtype`) แล้วสร้างคำสั่งตาม backend

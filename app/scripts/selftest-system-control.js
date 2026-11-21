@@ -402,6 +402,12 @@ check(
   check('wtype holds the modifier around the key', wKeys.steps && wKeys.steps[0].args.join(' ') === '-M ctrl -k s -m ctrl', JSON.stringify(wKeys));
   const wYdotool = linuxAdapter.buildSteps('keys', { keys: 'ctrl+s' }, { backend: 'ydotool' });
   check('ydotool refuses shortcuts rather than guessing keycodes', typeof wYdotool.missing === 'string' && /keycodes|unavailable/.test(wYdotool.missing));
+  const stale = linuxAdapter.buildSteps('type', { text: 'x' }, { backend: 'ydotool', ydotoolReady: false });
+  check(
+    'an installed ydotool with no daemon says how to start it',
+    /ydotoold/.test(stale.missing || ''),
+    String(stale.missing),
+  );
   const nothing = linuxAdapter.buildSteps('type', { text: 'x' }, { session: 'wayland', backend: '' });
   check(
     'a session with no input tool names what to install',

@@ -1,0 +1,16 @@
+[Unit]
+Description=ydotool daemon (virtual keyboard and mouse for NTAPI)
+Documentation=https://github.com/ReimuNotMoe/ydotool
+After=systemd-udevd.service
+Wants=systemd-udevd.service
+
+[Service]
+Type=simple
+# A fixed path plus 0666: the user runs the agent, the daemon needs root for
+# /dev/uinput, and a socket the user cannot open would be useless.
+ExecStart=/usr/bin/ydotoold --socket-path=/tmp/.ydotool_socket --socket-perm=0666
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
