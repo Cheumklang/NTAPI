@@ -1,0 +1,22 @@
+{
+  "version": "0.6.23",
+  "tag": "v0.6.23",
+  "recordedAt": "2026-11-22T02:55:39.880Z",
+  "git": {
+    "head": "5994c739986cf14a1b5fce7e91c61f2b2f125731",
+    "branch": "master",
+    "tree": "d7537c7ede5bfd9442b8076993f2ab6ca04cd2c7",
+    "subject": "ปล่อย 0.6.23: สลับปุ่มธีม/เบราว์เซอร์, tooltip ตาม OS, pin/สีแชทข้ามสองฝั่ง, คิวนับถอยหลัง",
+    "authorDate": "2026-11-22T09:50:30+07:00",
+    "commitCount": 469
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs/44977929044",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.6.23.exe",
+      "size": 181561579,
+      "sha256": "b014ca467bf7897e36955d65140e3298cfce90b25d91683cb00d012daa0ae8eb"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.6.23"
+}

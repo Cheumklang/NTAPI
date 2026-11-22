@@ -1,0 +1,6 @@
+date 2026-11-22T02:55:40.018Z
+entries 241
+head_seq 241
+head_hash 7b035cbb44c1858cb8fd5125a9e943fbdb6a37dac3cb8cf7c1aac6df8e12c2f4
+git_head 5994c739986cf14a1b5fce7e91c61f2b2f125731
+verify must print this head_hash
