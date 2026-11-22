@@ -3605,3 +3605,4 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **(3) probe tool-use**: nvidia 3 โมเดล (super-vl/lightning/ultra) + Coarena ฟรี 3 (deepseek-v4-1-flash-1017, gemini-3-8-flash, gpt-6-luna) = USES TOOLS ทุกตัว · โมเดล Coarena ที่เหลือตอบ 402 "not part of the free tier" (ไม่เสียเงิน) · ยืนยัน reality policy: โจทย์สร้างไฟล์ → เรียก write,bash,read จริง
 - **(1) push** master ขึ้น origin · **(2) ปล่อย 0.7.2** (bump + tag + CI + record-release)
 - เทสต์: `npm test` 101/101 · `check:sara` ok · `provenance verify` OK
+- **ผลปล่อย 0.7.2**: tag `v0.7.2` → CI publish สำเร็จ (16:49 UTC+7) · `NTAPI-Setup-0.7.2.exe` 181,584,349 B · sha256 `eef85bd8…a0071740` (ตรวจด้วย `sha256sum` บนไฟล์ที่โหลดจริง = ตรง digest GitHub) · `latest.yml` ชี้ 0.7.2 · release เหลือรุ่นเดียว (prune ทำงาน) · provenance seq 256–257 · commit `a9cbfc8` + `760da6f` push แล้ว

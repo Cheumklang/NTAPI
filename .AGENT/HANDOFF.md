@@ -1,8 +1,18 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-22, รอบส่งของ): 3 เรื่องใหม่ + 4 งานเก็บค้าง ปิดครบ · `npm test` **101/101** · `check:sara` ok · `check:liveturn` ผ่าน · probe tool-use จริงแล้ว (NVIDIA 3 + Coarena ฟรี 3 เรียก tool ได้) · สคริปต์เทสต์ Electron ใช้ `--no-sandbox` เองแล้ว (Ubuntu รันได้โดยไม่ต้อง root) · version **0.7.2** ปล่อยแล้ว
+> **📌 สถานะล่าสุด (2026-11-22): ปล่อย **0.7.2** แล้ว — tag `v0.7.2` push · CI publish ที่ `Cheumklang/NTAPI-releases` (เหลือรุ่นเดียวตามกฎ prune) · `provenance verify` **OK 257 entries** · **ไม่มีงานค้าง** · ฝั่ง Ubuntu: `npm test` **101/101** + `check:sara` ok · 4 งานเก็บค้างปิดครบ (ลบไฟล์ทดลอง · Electron `--no-sandbox` ในสคริปต์เทสต์ · probe tool-use จริง · push) · 3 เรื่องที่เพิ่มรอบนี้: reality policy · liveTurnStart · check-provider-tooluse
 >
 > ฝั่ง Windows VM ยังไม่ได้รันเทสต์รอบนี้ (แดงเดิม: skill-scan/notices/system-control/data-root)
+
+## 🚀 ปล่อย 0.7.2 — 2026-11-22 (รอบล่าสุด)
+
+```
+a9cbfc8  ปล่อย 0.7.2: โมเดลไม่ต้องอ้างว่าไม่มีเครื่อง, เทิร์นใหม่ไม่ยึดบับเบิลเก่า, เทสต์ Electron รันได้บน Ubuntu
+760da6f  chore(provenance): บันทึกการปล่อย v0.7.2 พร้อม sha256 ของ installer
+```
+- `NTAPI-Setup-0.7.2.exe` **181,584,349 B** · sha256 `eef85bd85b061e47a9353538812111721cd28231b9a3b2b0227b501fa0071740` (ยืนยันด้วยการโหลดไฟล์จริงมา `sha256sum` — ตรงกับ digest ของ GitHub)
+- `latest.yml` ของ `/releases/latest` = `version: 0.7.2` · v0.7.1 ถูก prune อัตโนมัติ (เหลือ release เดียว)
+- รอบนี้รวม 3 เรื่องใหม่ + 4 งานเก็บค้าง (ดูหัวข้อถัดไป)
 
 ## 🧹 เก็บงานค้างหลัง 0.7.1 — 2026-11-22
 
