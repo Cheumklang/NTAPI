@@ -1,7 +1,7 @@
 # Skill pins + personal description — design
 
 **Date:** 2026-11-22
-**Status:** approved (not implemented)
+**Status:** v1 implemented 2026-11-22 (star + own description; sidecar is v2, not built)
 
 ## Intent
 
@@ -317,6 +317,32 @@ never translated by the app.
   and after the UI flow above, and assert no change. This is the test that
   protects the AI boundary.
 - Existing checks still pass; `npm run check:sara`.
+
+## What shipped, and what changed while building
+
+- **`/skill` opens only while the caret is in the first word.** `/skill:c` and
+  `/skill c` open the list; `/skill:c ทดสอบ` does not — a sentence after the
+  command is prose, so the menu gets out of the way instead of replacing what
+  the user typed. This is stricter than "the query may contain spaces", and it
+  is what makes `/skill` safe to type as ordinary text.
+- **Multi-word queries are therefore gone.** `/skill cav` and `/skill:cav`
+  filter; `/skill caveman now` does not filter at all. The note and the skill's
+  own description are still searched, so one word is enough in practice.
+- **Choosing a row replaces the command and its query**, and keeps anything
+  typed after them. In practice that sentence case cannot be reached (the menu
+  closes on the second word), so the code is a guard rather than a feature.
+- **`Ctrl+D` did not ship.** The mouse path is complete and the hint line names
+  only what exists: `↑↓ move · Enter use · ☆ pin · ✎ edit your description`.
+- **The `@` menu and the command palette find a skill by the user's own words**
+  (the filter is shared), and pinned skills win the `@` menu's six slots. Their
+  rows do not carry the star or the pencil: they are narrower lists, and the
+  `/skill` menu is where a star belongs.
+- **The sidecar (`NTAPI.label.json`) is not built.** Everything above stores in
+  `prefs.json` only.
+- **Checks:** `npm run check:skills` (roster logic + the prefs validator) and
+  `npx electron --no-sandbox scripts/check-skill-menu.js` (a real window: star,
+  note, search by a Thai word, the inline editor, Reset, and a hash of every
+  fixture `SKILL.md` before and after).
 
 ## What is left to the builder
 

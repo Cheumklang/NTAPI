@@ -56,7 +56,8 @@
     "check:lost": "electron --no-sandbox scripts/repro-message-loss.js",
     "check:tooluse": "electron --no-sandbox scripts/check-provider-tooluse.js",
     "check:liveturn": "electron --no-sandbox scripts/check-live-turn-bubble.js",
-    "check:sara": "node scripts/check-sara-am.js"
+    "check:sara": "node scripts/check-sara-am.js",
+    "check:skills": "node scripts/selftest-skill-menu.js && node scripts/selftest-skill-notes.js"
   },
   "author": "Chanathip Cheumklang",
   "license": "UNLICENSED",

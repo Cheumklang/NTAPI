@@ -23,6 +23,7 @@ const TESTS = [
   'selftest-reality-policy.js',
   'selftest-live-turn-start.js',
   'selftest-skill-menu.js',
+  'selftest-skill-notes.js',
   'selftest-skill-scan.js',
   'selftest-approval-policy.js',
   'selftest-approval-always.js',

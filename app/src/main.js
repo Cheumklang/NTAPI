@@ -113,6 +113,13 @@ const {
   migrateMarks,
 } = require('./session-marks');
 /*
+ * The user's own words for a skill, and the star that pins it. Validated here
+ * because `prefs:set` is a whitelist: the renderer may hand over this map and
+ * nothing else. See `src/skill-notes.js` for why the skill's own files are
+ * never touched.
+ */
+const { sanitizeSkillNotes } = require('./skill-notes');
+/*
  * Pins and colours are keyed by the chat's own file name, not by a path: the
  * same session folder is spelled differently on each machine sharing it, and a
  * path-keyed mark written on one side cannot be read on the other (it survived
@@ -3397,6 +3404,14 @@ ipcMain.handle('prefs:set', async (_e, patch = {}) => {
       .map((id) => id.trim().slice(0, 40))
       .slice(0, 30);
   }
+  /*
+   * A skill's star and the user's own one-line description of it. Keyed by the
+   * skill's canonical name, so a reinstalled or updated skill keeps both. The
+   * sanitiser is the only thing that decides what lands in the file: strings
+   * only, one line, capped, and never into a skill folder.
+   */
+  const skillNotes = sanitizeSkillNotes(patch.skillNotes);
+  if (skillNotes) allowed.skillNotes = skillNotes;
   if (Object.keys(allowed).length) writePrefs(allowed);
   return readPrefs();
 });

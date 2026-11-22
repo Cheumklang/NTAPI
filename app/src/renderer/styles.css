@@ -2080,6 +2080,86 @@ button { font-family: inherit; }
   white-space: nowrap;
 }
 .slash-empty { padding: 8px 10px; font-size: 12.5px; color: var(--muted); }
+/* A group header is a note too, but it names what follows rather than
+ * explaining an empty list, so it is smaller, quieter and never a choice. */
+.slash-head {
+  padding: 8px 10px 3px;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: .8;
+}
+.slash-hint {
+  padding: 8px 10px 6px;
+  margin-top: 3px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+/* The skill rows carry two controls, so the words get a real width and the
+ * controls sit at the end where the eye does not read them. */
+.skill-row .slash-desc { flex: 1 1 auto; }
+.slash-own { opacity: .55; }
+.slash-star,
+.slash-edit-btn {
+  flex: 0 0 auto;
+  padding: 0 2px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: .55;
+}
+.slash-star:hover,
+.slash-edit-btn:hover { opacity: 1; color: var(--accent-2); }
+.slash-star.on { opacity: 1; color: var(--accent-2); }
+.slash-edit {
+  margin: 2px 2px 5px;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.slash-edit-name {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--accent-2);
+  margin-bottom: 6px;
+}
+.slash-edit-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 6px 8px;
+  outline: none;
+}
+.slash-edit-input:focus { border-color: var(--accent-2); }
+.slash-edit-own {
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slash-edit-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 7px; }
+.slash-edit-btn2 {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.slash-edit-btn2:hover { background: rgba(124, 92, 255, .14); }
+.slash-edit-btn2.primary { background: var(--accent-fill); color: var(--on-accent); border-color: transparent; font-weight: 600; }
 #input {
   flex: 1;
   /* The queue in .composer-side can take up to 46% on the right; the textarea

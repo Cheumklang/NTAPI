@@ -473,6 +473,17 @@ const STRINGS = {
     skillsNone: 'no skills found on this machine',
     skillsNoneWhere: 'a folder holding SKILL.md is searched in: {paths}',
     skillsNoneMatch: 'no skill matches this search',
+    skillsPinned: '★ Pinned',
+    skillsAll: 'Skills',
+    skillsPin: 'Pin this skill',
+    skillsUnpin: 'Unpin this skill',
+    skillsEditNote: 'Edit your description',
+    skillsNotePlaceholder: 'Your own words for this skill (searchable)',
+    skillsNoteSave: 'Save',
+    skillsNoteCancel: 'Cancel',
+    skillsNoteReset: 'Reset',
+    skillsOwnWords: 'Skill description',
+    skillsHint: '↑↓ move · Enter use · ☆ pin · ✎ edit your description',
   actThinking: 'Thinking',
   actTools: 'Using tools',
   actNotes: 'Writing',
@@ -1027,6 +1038,17 @@ const STRINGS = {
     skillsNone: 'ไม่พบสกิลในเครื่องนี้',
     skillsNoneWhere: 'โฟลเดอร์ที่มี SKILL.md ถูกค้นหาใน: {paths}',
     skillsNoneMatch: 'ไม่มีสกิลที่ตรงกับคำค้นนี้',
+    skillsPinned: '★ ปักหมุด',
+    skillsAll: 'สกิล',
+    skillsPin: 'ปักหมุดสกิลนี้',
+    skillsUnpin: 'เอาดาวออก',
+    skillsEditNote: 'แก้คำอธิบายของคุณ',
+    skillsNotePlaceholder: 'คำของคุณสำหรับสกิลนี้ (ใช้ค้นหาได้)',
+    skillsNoteSave: 'บันทึก',
+    skillsNoteCancel: 'ยกเลิก',
+    skillsNoteReset: 'คืนค่าเดิม',
+    skillsOwnWords: 'คำอธิบายของสกิล',
+    skillsHint: '↑↓ เลือก · Enter ใช้ · ☆ ปักหมุด · ✎ แก้คำอธิบาย',
   actThinking: 'กำลังคิด',
   actTools: 'กำลังใช้เครื่องมือ',
   actNotes: 'กำลังเขียน',
@@ -7472,7 +7494,7 @@ const SLASH_COMMANDS = [
   },
 ];
 
-const slashState = { open: false, index: 0, items: [] };
+const slashState = { open: false, index: 0, items: [], edit: null };
 
 function slashDescription(cmd) {
   return (lang === 'th' ? cmd.th : cmd.en) || cmd.en || '';
@@ -7483,46 +7505,139 @@ function slashDescription(cmd) {
  * the name of all forty-odd of them.
  *
  * Bare `/` stays the command palette: burying twelve commands under forty skills
- * would make both harder to find. The chosen entry is inserted as `@name` — the
- * shorthand people already type — which the send path rewrites to `/skill:name`.
+ * would make both harder to find. `/skill` is the one door to the roster, and it
+ * accepts the four spellings people actually type:
+ *
+ *   /skill    /skill:    /skill cav    /skill:cav
+ *
+ * The query is whatever was typed after it — any text, any script, no fixed set
+ * of letters. Names that start with it come first, then names containing it,
+ * then the user's own words and the skill's own description. That last group is
+ * what makes "I cannot remember the name" survivable: the word the user does
+ * remember finds the skill.
+ *
+ * Choosing a row puts `/skill:name ` in the composer and stops there — it never
+ * sends. Only the first word is replaced, so a sentence already typed after the
+ * command survives.
  *
  * Descriptions are shown exactly as the skill's own SKILL.md writes them. They
  * are English because the skills are, and translating them here would need
- * updating every time a skill is installed.
+ * updating every time a skill is installed. The user's own line sits beside
+ * them, in whatever language they typed.
  */
-const SKILL_SLASH_RE = /^\/skill(?:\s+(.*))?$/is;
+// The separator matters: `/skills` and `/skillfoo` are not this command, and a
+// sentence after the query is prose (see insertSkillCommand).
+const SKILL_SLASH_RE = /^\/skill(?::|\s|$)\s*(\S*)$/is;
 
-function skillSlashItems(query) {
-  const q = String(query || '').trim().toLowerCase();
-  const all = Array.isArray(skillsCache) ? skillsCache : [];
-  //
-  // An empty list used to close the menu without a word, which reads exactly
-  // like a broken feature — the same "I typed /skill and nothing came up"
-  // report that a real user filed. Say which folders were searched, so the
-  // answer to "where do I put the skill?" is on screen.
-  //
-  if (!all.length) {
-    return [{ info: true, name: '', en: `${t('skillsNone')} · ${t('skillsNoneWhere', { paths: skillSearchHint() })}` }];
+/* --------------------------- pins and own words ---------------------- */
+
+/**
+ * `{ "<skill name>": { pinned, note } }`, read once from boot prefs.
+ *
+ * Keyed by the skill's canonical name and stored in the app's own prefs file:
+ * a star is an ordering choice for this machine, and a note is a memory aid —
+ * neither may reach `SKILL.md`, because that file is what the model reads and
+ * what tells every other agent on this machine that the skill is installed.
+ */
+let skillNotes = null;
+
+function skillNotesMap() {
+  if (!skillNotes) {
+    const saved = appPrefs && appPrefs.skillNotes;
+    skillNotes = saved && typeof saved === 'object' ? { ...saved } : {};
   }
-  const matched = all.filter(
-    (skill) =>
-      !q ||
-      String(skill.name || '').toLowerCase().includes(q) ||
-      String(skill.description || '').toLowerCase().includes(q),
-  );
-  if (!matched.length) return [{ info: true, name: '', en: t('skillsNoneMatch') }];
-  return matched.map((skill) => ({
-    name: `@${skill.name}`,
-    en: skill.description || '',
-    th: skill.description || '',
-    run: () => {
-      input.value = `@${skill.name} `;
-      autoGrow();
-    },
-  }));
+  return skillNotes;
 }
 
-/** Where a skill may be dropped, in the short form a tooltip can hold. */
+/** The user's own line for a skill, or '' when they have not written one. */
+function skillNote(name) {
+  const entry = skillNotesMap()[name];
+  return entry && typeof entry.note === 'string' ? entry.note : '';
+}
+
+function isPinnedSkill(name) {
+  return Boolean(skillNotesMap()[name] && skillNotesMap()[name].pinned);
+}
+
+/** Write the whole map back; the main process is the validator, not us. */
+function saveSkillNotes() {
+  const map = skillNotesMap();
+  if (appPrefs) appPrefs.skillNotes = map;
+  if (api && typeof api.setPrefs === 'function') api.setPrefs({ skillNotes: map }).catch(() => {});
+}
+
+function setSkillPin(name, pinned) {
+  const map = skillNotesMap();
+  const entry = { ...(map[name] || {}) };
+  if (pinned) entry.pinned = true;
+  else delete entry.pinned;
+  if (entry.pinned || entry.note) map[name] = entry;
+  else delete map[name];
+  saveSkillNotes();
+}
+
+/** An empty note is a deletion: the row falls back to the skill's own words. */
+function setSkillNote(name, note) {
+  const map = skillNotesMap();
+  const entry = { ...(map[name] || {}) };
+  const clean = String(note || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 60);
+  if (clean) entry.note = clean;
+  else delete entry.note;
+  if (entry.pinned || entry.note) map[name] = entry;
+  else delete map[name];
+  saveSkillNotes();
+}
+
+/**
+ * How well a row answers this query. Lower is better; -1 is no match at all.
+ * Name prefix beats name-contains beats a word inside the note or the skill's
+ * own description — so the name you half-remember still outranks a stray hit.
+ */
+function skillRank(skill, query) {
+  if (!query) return 0;
+  const name = String(skill.name || '').toLowerCase();
+  if (name.startsWith(query)) return 0;
+  if (name.includes(query)) return 1;
+  const extra = `${skillNote(skill.name)} ${skill.description || ''}`.toLowerCase();
+  return extra.includes(query) ? 2 : -1;
+}
+
+/** One selectable row for a skill, carrying what the row needs to draw. */
+function skillRow(skill) {
+  return {
+    name: String(skill.name || ''),
+    description: skill.description || '',
+    note: skillNote(skill.name),
+    pinned: isPinnedSkill(skill.name),
+    skill,
+  };
+}
+
+/**
+ * Choosing a row: keep the sentence, replace the command and its query.
+ *
+ * `/skill:caveman` and `@caveman` both end up as `/skill:caveman` on the wire;
+ * this only decides what the user sees in the box before sending.
+ *
+ * The query goes, whether it was glued to the command (`/skill:c`) or typed as
+ * its own word (`/skill c`) — that is what the user was narrowing the list with,
+ * not part of what they meant to send. Anything after it is kept.
+ */
+function insertSkillCommand(name) {
+  const text = input.value;
+  const glued = /^\/skill:\S*/.exec(text);
+  const spaced = glued ? null : /^\/skill\s+\S*/.exec(text);
+  const rest = text.slice((glued || spaced || /^\S*/.exec(text))[0].length).trim();
+  input.value = rest ? `/skill:${name} ${rest}` : `/skill:${name} `;
+  hideSlashMenu();
+  autoGrow();
+  input.focus();
+  updateSendState();
+}
+
+/**
+ * Where a skill may be dropped, in the short form a tooltip can hold.
+ */
 function skillSearchHint() {
   const cwd = activeView()?.cwd;
   const local = cwd ? ['skills/', '.claude/skills', '.agents/skills', '.cursor/skills', '.github/skills'] : [];
@@ -7542,6 +7657,44 @@ function skillSearchHint() {
   ].join(', ');
 }
 
+function skillSlashItems(query) {
+  const q = String(query || '').trim().toLowerCase();
+  const all = Array.isArray(skillsCache) ? skillsCache : [];
+  //
+  // An empty list used to close the menu without a word, which reads exactly
+  // like a broken feature — the same "I typed /skill and nothing came up"
+  // report that a real user filed. Say which folders were searched, so the
+  // answer to "where do I put the skill?" is on screen.
+  //
+  if (!all.length) {
+    return [{ info: true, name: '', en: `${t('skillsNone')} · ${t('skillsNoneWhere', { paths: skillSearchHint() })}` }];
+  }
+  const matched = all
+    .map(skillRow)
+    .filter((row) => skillRank(row.skill, q) >= 0)
+    .sort(
+      (a, b) =>
+        Number(b.pinned) - Number(a.pinned) ||
+        skillRank(a.skill, q) - skillRank(b.skill, q) ||
+        a.name.localeCompare(b.name),
+    );
+  if (!matched.length) return [{ info: true, name: '', en: t('skillsNoneMatch') }];
+  // Two groups, and a header is a note rather than a choice: the arrow keys skip
+  // it because it carries `info`.
+  const pinned = matched.filter((row) => row.pinned);
+  const rest = matched.filter((row) => !row.pinned);
+  const items = [];
+  if (pinned.length) {
+    items.push({ info: true, name: '', header: t('skillsPinned') });
+    items.push(...pinned);
+  }
+  if (rest.length) {
+    items.push({ info: true, name: '', header: t('skillsAll') });
+    items.push(...rest);
+  }
+  return items;
+}
+
 function applySlashItems(items) {
   if (!items.length) {
     hideSlashMenu();
@@ -7553,9 +7706,15 @@ function applySlashItems(items) {
     slashState.items.length === items.length &&
     slashState.items.every((cmd, i) => cmd.name === items[i].name);
   slashState.items = items;
-  if (!same) slashState.index = 0;
-  slashState.index = Math.min(slashState.index, items.length - 1);
+  if (!same) slashState.index = firstSelectable(items);
+  if (slashState.items[slashState.index]?.info) slashState.index = firstSelectable(items);
   renderSlashMenu();
+}
+
+/** The first row the arrow keys may land on, skipping group headers. */
+function firstSelectable(items) {
+  const at = items.findIndex((cmd) => !cmd.info);
+  return at < 0 ? 0 : at;
 }
 
 function updateSlashMenu() {
@@ -7587,13 +7746,19 @@ function updateSlashMenu() {
 
 function renderSlashMenu() {
   slashMenu.innerHTML = '';
+  if (slashState.edit) slashMenu.appendChild(buildSkillEditor(slashState.edit));
   slashState.items.forEach((cmd, i) => {
     if (cmd.info) {
-      // A note, not a choice: nothing to run, nothing to highlight.
+      // A note, not a choice: nothing to run, nothing to highlight. A header
+      // names a group; a plain note explains an empty list.
       const note = document.createElement('div');
-      note.className = 'slash-empty';
-      note.textContent = slashDescription(cmd);
+      note.className = cmd.header ? 'slash-head' : 'slash-empty';
+      note.textContent = cmd.header || slashDescription(cmd);
       slashMenu.appendChild(note);
+      return;
+    }
+    if (cmd.skill) {
+      slashMenu.appendChild(buildSkillRow(cmd, i));
       return;
     }
     const item = document.createElement('button');
@@ -7612,9 +7777,155 @@ function renderSlashMenu() {
     item.addEventListener('click', () => runSlashCommand(cmd));
     slashMenu.appendChild(item);
   });
+  // The shortcuts are not discoverable by guessing, and a mouse-first row still
+  // needs telling that a star exists. One line at the bottom, translated.
+  if (slashState.items.some((cmd) => cmd.skill)) {
+    const hint = document.createElement('div');
+    hint.className = 'slash-hint';
+    hint.textContent = t('skillsHint');
+    slashMenu.appendChild(hint);
+  }
   slashMenu.hidden = false;
   slashState.open = true;
   slashMenu.children[slashState.index]?.scrollIntoView({ block: 'nearest' });
+}
+
+/** One skill row: canonical name, the user's words, the skill's own words, ☆ ✎. */
+function buildSkillRow(cmd, i) {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'slash-item skill-row' + (i === slashState.index ? ' active' : '');
+  item.setAttribute('role', 'option');
+  item.setAttribute('aria-selected', String(i === slashState.index));
+  const name = document.createElement('span');
+  name.className = 'slash-name';
+  // The name is not ours to edit: it is what the AI and every other agent on
+  // this machine call the skill, so it stays on screen exactly as written.
+  name.textContent = `/${cmd.name}`;
+  const desc = document.createElement('span');
+  desc.className = 'slash-desc';
+  if (cmd.note) {
+    desc.textContent = cmd.note;
+    if (cmd.description) {
+      const own = document.createElement('span');
+      own.className = 'slash-own';
+      own.textContent = ` · ${cmd.description}`;
+      desc.appendChild(own);
+    }
+  } else {
+    desc.textContent = cmd.description;
+  }
+  const star = document.createElement('span');
+  star.className = 'slash-star' + (cmd.pinned ? ' on' : '');
+  star.textContent = cmd.pinned ? '★' : '☆';
+  star.title = t(cmd.pinned ? 'skillsUnpin' : 'skillsPin');
+  star.setAttribute('role', 'button');
+  star.addEventListener('mousedown', (e) => e.preventDefault());
+  star.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSkillPin(cmd.name, !cmd.pinned);
+    updateSlashMenu();
+  });
+  const edit = document.createElement('span');
+  edit.className = 'slash-edit-btn';
+  edit.textContent = '✎';
+  edit.title = t('skillsEditNote');
+  edit.setAttribute('role', 'button');
+  edit.addEventListener('mousedown', (e) => e.preventDefault());
+  edit.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openSkillEditor(cmd.name);
+  });
+  item.append(name, desc, star, edit);
+  item.addEventListener('mousedown', (e) => e.preventDefault());
+  item.addEventListener('click', () => insertSkillCommand(cmd.name));
+  return item;
+}
+
+/**
+ * The inline editor for one skill's own line.
+ *
+ * It sits inside the menu instead of opening a dialog: the row the user wanted
+ * is already under the cursor, and a modal would make a one-line change feel
+ * like a settings screen. It is not part of `slashState.items`, so the arrow
+ * keys never land on it, and it takes focus itself — the composer's own keydown
+ * handler is not involved while it is open.
+ */
+function buildSkillEditor(name) {
+  const skill = (skillsCache || []).find((entry) => entry.name === name);
+  const box = document.createElement('div');
+  box.className = 'slash-edit';
+
+  const head = document.createElement('div');
+  head.className = 'slash-edit-name';
+  head.textContent = `/${name}`;
+
+  const field = document.createElement('input');
+  field.type = 'text';
+  field.className = 'slash-edit-input';
+  field.maxLength = 60;
+  field.value = skillNote(name);
+  field.placeholder = t('skillsNotePlaceholder');
+  field.setAttribute('aria-label', t('skillsEditNote'));
+
+  const own = document.createElement('div');
+  own.className = 'slash-edit-own';
+  own.textContent = skill?.description ? `${t('skillsOwnWords')}: ${skill.description}` : '';
+
+  const actions = document.createElement('div');
+  actions.className = 'slash-edit-actions';
+
+  const mk = (label, run, primary) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'slash-edit-btn2' + (primary ? ' primary' : '');
+    btn.textContent = label;
+    btn.addEventListener('mousedown', (e) => e.preventDefault());
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      run();
+    });
+    return btn;
+  };
+  const close = () => {
+    slashState.edit = null;
+    updateSlashMenu();
+    input.focus();
+  };
+  const save = () => {
+    setSkillNote(name, field.value);
+    close();
+  };
+  if (skillNote(name)) actions.appendChild(mk(t('skillsNoteReset'), () => setSkillNote(name, ''), false));
+  actions.appendChild(mk(t('skillsNoteCancel'), close, false));
+  actions.appendChild(mk(t('skillsNoteSave'), save, true));
+
+  field.addEventListener('keydown', (e) => {
+    // Handled here and nowhere else: the composer must not also see Enter.
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      save();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }
+  });
+
+  box.append(head, field, own, actions);
+  setTimeout(() => {
+    field.focus();
+    field.select();
+  }, 0);
+  return box;
+}
+
+function openSkillEditor(name) {
+  slashState.edit = name;
+  renderSlashMenu();
 }
 
 function hideSlashMenu() {
@@ -7622,6 +7933,28 @@ function hideSlashMenu() {
   slashState.open = false;
   slashState.items = [];
   slashState.index = 0;
+  slashState.edit = null;
+}
+
+/**
+ * What Tab/Enter/click does to the highlighted row.
+ *
+ * A skill row inserts its command and leaves the sentence alone; a command row
+ * runs as it always has. A note row (a group header, or "nothing matches") runs
+ * nothing: the menu closes and the text is exactly as the user typed it, which
+ * is what makes `/skill` safe to type as prose.
+ */
+function chooseSlashItem(cmd) {
+  if (!cmd) return;
+  if (cmd.info) {
+    hideSlashMenu();
+    return;
+  }
+  if (cmd.skill) {
+    insertSkillCommand(cmd.skill.name);
+    return;
+  }
+  runSlashCommand(cmd);
 }
 
 function moveSlashSelection(delta) {
@@ -7704,8 +8037,7 @@ input.addEventListener('keydown', (e) => {
     if (e.key === 'Tab' || e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
-      const cmd = slashState.items[slashState.index];
-      if (cmd) runSlashCommand(cmd);
+      chooseSlashItem(slashState.items[slashState.index]);
       return;
     }
     if (e.key === 'Escape') {
@@ -11450,8 +11782,15 @@ function updateFileMenu() {
       try {
         skills = (await loadSkills())
           .filter((skill) => matchSkill(skill, match.token))
+          // Six rows is all the `@` menu can show; a pinned skill is one the user
+          // already decided they use, so it wins a slot over an alphabetical one.
+          .sort((a, b) => Number(isPinnedSkill(b.name)) - Number(isPinnedSkill(a.name)))
           .slice(0, 6)
-          .map((skill) => ({ kind: 'skill', name: skill.name, description: skill.description || '' }));
+          .map((skill) => ({
+            kind: 'skill',
+            name: skill.name,
+            description: skillNote(skill.name) || skill.description || '',
+          }));
       } catch {
         skills = [];
       }
@@ -12434,9 +12773,13 @@ async function loadSkills() {
   return skillsPromise;
 }
 
-/** Two chars of the skill's own name or description is enough to match. */
+/**
+ * A skill matches on its name, its own description, and the line the user wrote
+ * for it — the last one is what makes a word they remember (in any language)
+ * find a skill whose name they do not.
+ */
 function matchSkill(skill, query) {
-  const hay = `${skill.name} ${skill.description || ''}`.toLowerCase();
+  const hay = `${skill.name} ${skill.description || ''} ${skillNote(skill.name)}`.toLowerCase();
   return query.split(/\s+/).filter(Boolean).every((part) => hay.includes(part));
 }
 
