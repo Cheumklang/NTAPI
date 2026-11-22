@@ -322,8 +322,12 @@ const MAX_REQUEST_IMAGES = 4;
  * how many there are.
  */
 const MAX_REQUEST_IMAGE_BYTES = 1_200_000;
-/** How many images one user turn may look at before it must finish the render. */
-const MAX_IMAGE_REVIEWS_PER_TURN = 4;
+/**
+ * How many images one user turn may look at. A judge of a finished video looks
+ * twice; an agent driving a desktop looks after every press ("did that land?"),
+ * so the budget is a guard against a loop, not against looking.
+ */
+const MAX_IMAGE_REVIEWS_PER_TURN = 8;
 
 /**
  * Shrink a picture before it enters the conversation.
@@ -1178,7 +1182,7 @@ async function createFreePiSession(options) {
               return browserErrorResult(code, (err && err.message) || String(err));
             }
 
-            const canSeeImages = Boolean(ctx && ctx.getModel && ctx.getModel() && ctx.getModel().input && ctx.getModel().input.includes('image'));
+            const canSeeImages = modelSeesImages(sessionModel(ctx, visionSession));
 
             if (spec.cmd === 'snapshot') {
               const formatted = formatSnapshot(result, { maxNodes: params && params.maxNodes });
@@ -1244,7 +1248,7 @@ async function createFreePiSession(options) {
             `- Snapshot before acting, and act only on refs you just received. After every action, snapshot again — the window has moved.\n` +            `- Typing into a field is system_act with action \`settext\`; when that answers NO_VALUE_PATTERN, use system_type to type for real. Read the snapshot again to confirm the text landed.\n` +
             `- A control that publishes no action can still be clicked by position with system_click_at, taking the coordinates from a node's bounds in the snapshot. Never aim at a point you have not seen, and never outside the window — it is refused.\n` +
             `- system_keys presses a shortcut (ctrl+s, alt+f4), and system_launch starts a program, document or url. Every one of these brings the window to the front first and refuses if it did not get there, so nothing is typed into the wrong window.\n` +
-            `- A type result carries \`verified\`. When it is false, or the call answers TYPE_NOT_DELIVERED / INPUT_REJECTED, nothing was typed: say exactly that. "I sent the keystrokes" is not the same sentence as "the text is on screen".\n` +
+            `- A type result says which of three things happened: verified (it was read back and is on screen), SENT, NOT CHECKED (this window never lets a program read its text, so it may or may not have arrived - look before typing again), or NOT VERIFIED / TYPE_NOT_DELIVERED / INPUT_REJECTED (nothing was typed). "I sent the keystrokes" is not the same sentence as "the text is on screen".\n` +
             `- Window numbers come from the accessibility tree and they shift when a window opens or closes. system_windows also prints a window handle: pass it as \`window\` and the call finds that window itself. When two windows of the same application are open, the handle is the only safe way to say which one.\n` +
             `- If a type result says the text is on screen, it is there. Do not type it again, and do not open a second window to check.\n` +
             `- If a call answers SYSTEM_CONTROL_OFF, stop and ask the user to turn the desktop switch on in the sidebar. Never retry it as if it were a glitch.\n` +
@@ -1261,25 +1265,36 @@ async function createFreePiSession(options) {
           parameters: spec.parameters,
           async execute(_id, params, _signal, _onUpdate, ctx) {
             try {
-              const result = await systemBridge.call(spec.cmd, params || {});
+              // Who is pressing: a desktop audit without a session and a
+              // model cannot tell two agents apart.
+              const sessionRef = visionSession &&
+                (visionSession.id || visionSession.sessionId || visionSession.sessionKey);
+              const agent = {
+                session: (ctx && (ctx.sessionId || ctx.session)) || sessionRef || null,
+                model: sessionModel(ctx, visionSession),
+              };
+              const result = await systemBridge.call(spec.cmd, { ...(params || {}), agent });
               if (spec.cmd === 'screenshot') {
-                const canSeeImages = Boolean(
-                  ctx && ctx.getModel && ctx.getModel() && ctx.getModel().input && ctx.getModel().input.includes('image')
-                );
+                const canSeeImages = modelSeesImages(sessionModel(ctx, visionSession));
                 return await systemScreenshotContent(result, { imagesDir, cwd, canSeeImages });
               }
               const typed = spec.cmd === 'type' || spec.cmd === 'keys';
-              const unverified = spec.cmd === 'type' && result && result.verified === false;
+              // A window that will not let a program read its text back cannot
+              // confirm anything: that is "not checked", not "did not work".
+              const unchecked = spec.cmd === 'type' && result && result.verified === false && result.checked === false;
+              const unverified = spec.cmd === 'type' && result && result.verified === false && !unchecked;
               const text =
                 spec.cmd === 'snapshot'
                   ? formatSystemSnapshot(result)
                   : spec.cmd === 'windows'
                     ? formatSystemWindows(result)
-                    : typed && unverified
-                      ? `NOT VERIFIED: ${result.did || 'the text'} was sent, but the control did not change, so nothing is on screen. Tell the user it did not work; do not say it was typed.`
-                      : typed && result && result.verified === true
-                        ? `Typed and checked: the window now holds ${result.afterLen} characters (was ${result.beforeLen}). The text is on screen — do not type it a second time.`
-                        : `Done: ${result.did || spec.cmd}. Snapshot again before the next action.`;
+                    : typed && unchecked
+                      ? `SENT, NOT CHECKED: ${result.did || 'the text'} into ${result.appName || 'the window'}, and whether it arrived cannot be read back from this window. Look at the window before typing anything else, and never send the same text twice.`
+                      : typed && unverified
+                        ? `NOT VERIFIED: ${result.did || 'the text'} was sent, but the control did not change, so nothing is on screen. Tell the user it did not work; do not say it was typed.`
+                        : typed && result && result.verified === true
+                          ? `Typed and checked: the window now holds ${result.afterLen} characters (was ${result.beforeLen}). The text is on screen — do not type it a second time.`
+                          : `Done: ${result.did || spec.cmd}. Snapshot again before the next action.`;
               return { content: [{ type: 'text', text }], details: { ok: true } };
             } catch (err) {
               return {
@@ -1502,12 +1517,13 @@ async function createFreePiSession(options) {
       // Render work is finished by the user watching the video, not by the model
       // opening every frame. State the rule once per system prompt.
       pi.on('before_agent_start', (event) => {
+        if (!event || typeof event.systemPrompt !== 'string') return;
         if (event.systemPrompt.includes('## Image review')) return;
         const rule =
           `\n\n## Image review\n` +
-          `Do not inspect rendered frames one by one. Finish the render and let the user watch the video. ` +
-          `Use look_at_image only for a key frame or an attached image, at most ${MAX_IMAGE_REVIEWS_PER_TURN} times per turn; ` +
-          `use ffprobe, file size or the command output for technical checks.`;
+          `Look at a picture when the answer is in the picture: a key frame, an attached image, or the screen after you pressed something. ` +
+          `For a render or a video, do not walk the frames - finish the render and let the user watch it, and read ffprobe, file size or the command output for the technical checks. ` +
+          `At most ${MAX_IMAGE_REVIEWS_PER_TURN} looks per turn.`;
         return { systemPrompt: event.systemPrompt + rule };
       });
 
@@ -1516,7 +1532,7 @@ async function createFreePiSession(options) {
         label: 'Look At Image',
         description:
           `Look at a PNG, JPEG or WebP image inside the project folder. When the current model can see images the image is attached directly; otherwise it is sent to a separate vision model. ` +
-          `Use it sparingly: at most ${MAX_IMAGE_REVIEWS_PER_TURN} images per turn, and never to review every rendered frame — the user watches the finished video.`,
+          `At most ${MAX_IMAGE_REVIEWS_PER_TURN} per turn. Look at what you need (a key frame, the screen after a press), not every frame of a render: the user watches the finished video.`,
         promptSnippet: 'Look at a key frame or attached image',
         parameters: {
           type: 'object',
@@ -1566,8 +1582,8 @@ async function createFreePiSession(options) {
 
           // A model that accepts images gets the picture itself: no second
           // provider, no free-pi allowance, and no 429 when FreePi is capped.
-          const model = ctx?.getModel?.() || visionSession?.model;
-          if (model?.input?.includes('image')) {
+          const model = sessionModel(ctx, visionSession);
+          if (modelSeesImages(model)) {
             const shrunk = shrinkImageForModel(buf, mediaType);
             return {
               content: [
@@ -2572,33 +2588,65 @@ function systemGuardedTools() {
  */
 async function systemScreenshotContent(result, { imagesDir, cwd, canSeeImages }) {
   const meta = `Screenshot of ${result.title || 'the window'} (${result.width}×${result.height}).`;
+  // The picture goes to disk either way: a model that can see it wants the
+  // image, and one that cannot needs a path to hand to look_at_image.
+  let rel = '';
+  try {
+    const dirAbs = path.isAbsolute(imagesDir) ? imagesDir : path.join(cwd, imagesDir);
+    await fs.promises.mkdir(dirAbs, { recursive: true });
+    rel = path.join(imagesDir, `desktop-${Math.random().toString(16).slice(2, 8)}.png`);
+    // What the app was started in is not always the folder the agent reads,
+    // and a relative path is then a path to nothing: say where the file is.
+    if (rel && !path.isAbsolute(rel)) rel = path.join(cwd, rel);
+    await fs.promises.writeFile(path.isAbsolute(rel) ? rel : path.join(cwd, rel), Buffer.from(result.data || '', 'base64'));
+  } catch (err) {
+    if (!canSeeImages || !result.data) {
+      return {
+        content: [{ type: 'text', text: `Could not save the screenshot: ${err.message}` }],
+        details: { ok: false },
+      };
+    }
+  }
   if (canSeeImages && result.data) {
     return {
       content: [
         { type: 'image', data: result.data, mimeType: result.mimeType || 'image/png' },
-        { type: 'text', text: meta },
+        { type: 'text', text: rel ? `${meta} Saved to ${rel}.` : meta },
       ],
-      details: { ok: true, width: result.width, height: result.height },
-    };
-  }
-  try {
-    const dirAbs = path.isAbsolute(imagesDir) ? imagesDir : path.join(cwd, imagesDir);
-    await fs.promises.mkdir(dirAbs, { recursive: true });
-    const rel = path.join(imagesDir, `desktop-${Math.random().toString(16).slice(2, 8)}.png`);
-    await fs.promises.writeFile(path.isAbsolute(rel) ? rel : path.join(cwd, rel), Buffer.from(result.data || '', 'base64'));
-    return {
-      content: [{ type: 'text', text: `${meta} Saved to ${rel} — this model cannot see images, so reference the path.` }],
       details: { ok: true, path: rel, width: result.width, height: result.height },
     };
-  } catch (err) {
-    return {
-      content: [{ type: 'text', text: `Could not save the screenshot: ${err.message}` }],
-      details: { ok: false },
-    };
   }
+  return {
+    content: [{ type: 'text', text: `${meta} Saved to ${rel} — this model cannot see images, so reference the path.` }],
+    details: { ok: true, path: rel, width: result.width, height: result.height },
+  };
 }
 
 /** One line per element, ref first so it is what the eye lands on. */
+/**
+ * The model this turn is talking to.
+ *
+ * The tool context does not always carry it: the accessibility tools receive a
+ * ctx whose `getModel()` answers nothing, and comparing that silence against
+ * "can see images" told a vision model "this model cannot see images" for every
+ * screenshot it asked for. The session's own model is the same model, so it
+ * answers when the context does not.
+ */
+function sessionModel(ctx, session) {
+  try {
+    const live = ctx && typeof ctx.getModel === 'function' ? ctx.getModel() : null;
+    if (live) return live;
+  } catch {
+    /* a ctx that cannot answer is the reason the fallback exists */
+  }
+  return (session && session.model) || null;
+}
+
+/** Whether that model takes image parts. */
+function modelSeesImages(model) {
+  return Boolean(model && Array.isArray(model.input) && model.input.includes('image'));
+}
+
 function formatSystemSnapshot(result) {
   const nodes = (result && result.nodes) || [];
   const lines = nodes.map((node) => {
@@ -2609,7 +2657,8 @@ function formatSystemSnapshot(result) {
     if (node.editable) marks.push('editable');
     return parts.join(' ') + (marks.length ? `  {${marks.join(', ')}}` : '');
   });
-  return [`${(result && result.appName) || 'app'} — ${nodes.length} element(s)`, ...lines].join('\n');
+  const bHandle = result && result.handle && String(result.handle) !== '0' ? ` (window ${result.handle})` : '';
+  return [`${(result && result.appName) || 'app'}${bHandle} — ${nodes.length} element(s)`, ...lines].join('\n');
 }
 
 function formatSystemWindows(result) {
@@ -2618,7 +2667,14 @@ function formatSystemWindows(result) {
   return windows
     .map((win) => {
       const handle = win.handle !== undefined && win.handle !== null && String(win.handle) !== '0' ? ` (window ${win.handle})` : '';
-      return `${win.app} · ${win.appName || 'app'} — ${win.title || '(untitled)'}${handle}`;
+      // Where the window is: system_click_at takes screen coordinates, so the
+      // numbers to aim at travel with the row instead of being guessed.
+      const b = win.bounds;
+      const at = b && Number.isFinite(Number(b.w)) && Number(b.w) > 0
+        ? ` [${Math.round(b.x)},${Math.round(b.y)} ${Math.round(b.w)}×${Math.round(b.h)}]`
+        : '';
+      const mini = win.minimised ? ' [minimised - focus it first]' : '';
+      return `${win.app} · ${win.appName || 'app'} — ${win.title || '(untitled)'}${handle}${at}${mini}`;
     })
     .join('\n');
 }

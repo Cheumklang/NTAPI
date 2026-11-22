@@ -26,6 +26,7 @@ function check(name, ok, detail) {
 const root = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 const main = read('src/main.js');
+const bridgeSrc = read('src/freepi-bridge.js');
 const appSrc = read('src/renderer/app.js');
 const html = read('src/renderer/index.html');
 const preload = read('src/preload.js');
@@ -82,7 +83,20 @@ function body(src, name) {
 /* ------------------------------------------------------------- the helper */
 
 check('the accessibility helper is shipped', fs.existsSync(helperPath));
-if (fs.existsSync(helperPath)) {
+/*
+ * Only where python3 exists: Windows runs the PowerShell helper instead, and a
+ * missing interpreter is not a broken script. Skipped, not failed, so the same
+ * test tells the truth on both sides of the shared repository.
+ */
+const canCompilePython = (() => {
+  try {
+    execFileSync('python3', ['-c', 'pass'], { stdio: 'ignore', timeout: 20000 });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+if (fs.existsSync(helperPath) && canCompilePython) {
   let compiles = true;
   try {
     execFileSync('python3', ['-m', 'py_compile', helperPath], { stdio: 'ignore', timeout: 20000 });
@@ -158,6 +172,113 @@ check(
   'each adapter asks where the helper really is',
   /helperPath\('atspi\.py'\)/.test(linux) && /helperPath\('uia\.ps1'\)/.test(win)
 );
+// The window the snapshot read has a name. Until 0.6.24 the script assigned the
+// element to $target, which is a [string] parameter of the script itself, so
+// PowerShell stored the element's ToString() and every snapshot came back as one
+// nameless node with no bounds — the bug was blamed on Electron for weeks.
+check(
+  'the snapshot keeps the element, not a string with its name',
+  uia.includes('$windowElement = Get-Target-Element') && !uia.includes('$target = Get-Target-Element'),
+  'a script-scope $target assignment hits the [string] parameter'
+);
+check('a number that is not a window is refused by name', uia.includes("Stop-With-Error 'NOT_A_WINDOW'"));
+check('the snapshot header names the window it read', freepi.includes("result.appName) || 'app'}${bHandle}"));
+// The agent can read its own window too, or "press the button" stops at the
+// app it lives in.
+check('the app publishes its own accessibility tree', main.includes('setAccessibilitySupportEnabled(true)'));
+// Chromium keeps the renderer accessibility tree off unless it is asked for
+// before the first window opens; the runtime call alone leaves the pane bare.
+check('the renderer is asked for its accessibility tree at boot', main.includes("appendSwitch('force-renderer-accessibility')"));
+// A minimised window sits at -32000,-32000 as a 160x28 stub. Reporting those
+// numbers would aim a click at nothing; saying so lets the caller focus first.
+check('a minimised window is named, not given fake bounds', uia.includes('$minimised') && freepi.includes('[minimised - focus it first]'));
+// Chrome answers UI Automation with an empty rectangle while its window is on
+// screen, so the rectangle comes from Windows instead.
+check('a window with no automation rectangle asks Win32', uia.includes('GetWindowRect') && uia.includes('function Get-Hwnd-Bounds'));
+// A screenshot is for the eyes and for the disk at once: a model that can see
+// images wants the picture, a model that cannot needs a path to look at.
+check('a screenshot returns the picture and the file', freepi.includes("path: rel, width: result.width") && freepi.includes("type: 'image', data: result.data"));
+// Two agents can drive one desktop in a day; an audit that does not name the
+// caller cannot tell them apart.
+check('every desktop entry names the agent that acted', main.includes('const who = {') && main.includes('...who, ...entry') && freepi.includes('model: sessionModel(ctx, visionSession),'));
+// The look budget guards against a loop, not against looking.
+check('the look budget leaves room for a press and a look', /MAX_IMAGE_REVIEWS_PER_TURN = 8/.test(freepi) && freepi.includes('the screen after you pressed something'));
+// Chrome and every app built on it answer UI Automation with the window and one
+// render pane; the controls are only in the MSAA tree of the same window.
+check('a Chromium window falls through to its MSAA tree', uia.includes('class NtMsaa') && uia.includes('Get-Msaa-Tree') && uia.includes("provider = 'msaa'"));
+check('a press from that tree is pressed through it', uia.includes('[NtMsaa]::Press') && uia.includes('function Resolve-Ref-Or-Null'));
+// A ref has to say which tree it came from: UI Automation and MSAA count their
+// children differently, and reading one as the other pressed the wrong control.
+check('an MSAA ref is marked as one', uia.includes('$node.ref = "m$windowIndex$suffix"') && uia.includes("$fromMsaa = $Ref.StartsWith('m')"));
+// A value that cannot be read back cannot be claimed: Notepad said "ok" and had
+// not changed a character until the read-back was added.
+check('a written value is read back before it is believed', uia.includes('return SafeValue(acc, child) != before;'));
+// Classic Notepad publishes its field as a generic pane with no value pattern:
+// the class name is the second witness, otherwise a model sees no field at all.
+check('a native edit field names itself', uia.includes('Scintilla') && uia.includes('RichEdit') && uia.includes("$node.editable = $true"));
+check('a tree with nothing usable falls back too', uia.includes('if ($script:Nodes.Count -le 2 -or $useful -eq 0) {'));
+check('the MSAA walk keeps its own stack', uia.includes('New-Object System.Collections.Stack') && !uia.includes('Add-Tree $children[$i]'));
+// Electron photographs its own window through capturePage, which overflows a
+// stack once the renderer has its accessibility tree open.
+check('a failed self capture falls back to the helper', main.includes('capturePage()') && main.includes('if (typeof systemAdapter.screenshot !== ' + String.fromCharCode(39) + 'function' + String.fromCharCode(39) + ') throw err;'));
+check('the window list carries the bounds a click aims with', freepi.includes('const at = b && Number.isFinite(Number(b.w))'));
+// A local helper named after the thing it calls answered itself, and every
+// audited command died in the recursion before it reached the desktop.
+check('the audit helper calls the audit, not itself', main.includes('const audit = (entry) => systemAudit(') && !main.includes('const audit = (entry) => audit('));
+// Half a kilobyte of model configuration on every line buried the record it was
+// written for, and a relative picture path pointed outside the folder the agent
+// reads — both are one-line fixes with a test to keep them.
+check('an audit line names the model in a few words', main.includes('function modelTag(') && main.includes('model: modelTag('));
+check('a screenshot path is absolute', bridgeSrc.includes('if (rel && !path.isAbsolute(rel)) rel = path.join(cwd, rel);'));
+check('typing has three answers, not two', freepi.includes('SENT, NOT CHECKED') && freepi.includes('const unchecked = spec.cmd ==='));
+// A handle is the one name for a window that survives a window opening or
+// closing, and the tool specs tell the model to pass it. Six of the seven
+// commands still demanded a number, so `system_screenshot {window: 131664}`
+// answered "BAD_ARGS: screenshot needs --app N" and the model had nowhere to go.
+check(
+  'every command that acts on a window takes a handle alone',
+  uia.split("needs --app N'").length - 1 === 0 && uia.split("needs --app N or --window HANDLE'").length - 1 === 7,
+  `still demands a number in ${uia.split("needs --app N'").length - 1} command(s)`
+);
+
+// Two windows of one application are told apart by their program and named by
+// their title, so one line of the window list carries both.
+check(
+  'the window list names the program and the title',
+  uia.includes('process = $procNames[$procKey]') && uia.includes('name = $node.name')
+);
+const { windowRow } = require('../src/system/windows.js');
+const ps1Row = windowRow({
+  index: 1,
+  name: 'NTAPI',
+  role: 'Window',
+  class: 'Chrome_WidgetWin_1',
+  processId: 4616,
+  process: 'electron',
+  handle: 131664,
+  offscreen: false,
+  bounds: { x: -8, y: -8, w: 1296, h: 776 },
+});
+check(
+  'a Windows row reads like a Linux one: number, program, title, handle',
+  ps1Row.app === 1 && ps1Row.appName === 'electron' && ps1Row.title === 'NTAPI' && String(ps1Row.handle) === '131664',
+  JSON.stringify(ps1Row)
+);
+check(
+  'a row that already has the right fields is left alone',
+  (() => {
+    const same = windowRow({ app: 0, appName: 'gnome-calculator', title: 'Calculator', handle: '' });
+    return same.app === 0 && same.appName === 'gnome-calculator' && same.title === 'Calculator';
+  })()
+);
+
+// The screenshots: a model that can see gets the picture. The accessibility
+// tools are handed a ctx whose getModel() answers nothing, and that silence was
+// read as "cannot see images" — the picture became a file path and the vision
+// model was told it had no eyes.
+check('the live model is asked first, the session is the fallback', freepi.includes('function sessionModel(ctx, session)') && freepi.includes('session.model'));
+check('a picture goes to a model that has eyes', freepi.split('modelSeesImages(sessionModel(ctx, visionSession))').length - 1 === 2);
+check('look_at_image asks the same question', freepi.includes('if (modelSeesImages(model)) {'));
 
 /* --------------------------------------------------------------- the gate */
 
@@ -352,7 +473,8 @@ check(
       if (first) {
         const snap = await adapter.snapshot({ app: first.app, maxNodes: 40 });
         check('a snapshot is smaller than the cap', snap.nodes.length <= 40);
-        check('every element carries a ref', snap.nodes.every((n) => /^\d+(\/\d+)*$/.test(n.ref)));
+        // 'm' marks a ref that came from the MSAA tree of that window.
+        check('every element carries a ref', snap.nodes.every((n) => /^m?\d+(\/\d+)*$/.test(n.ref)));
       } else {
         console.log('SKIP snapshot: no window to read');
       }

@@ -107,9 +107,33 @@ async function available() {
   }
 }
 
+/**
+ * One row in the shape the Linux adapter reports, so the window list reads the
+ * same on either desktop: `app` is the number a caller passes back, `title` is
+ * what the title bar says, `appName` is the program. The helper names the first
+ * two `index` and `name`, and a row read as `win.app`/`win.title` printed
+ * "undefined · app — (untitled)" with no way to name a window again.
+ */
+function windowRow(row) {
+  const index = Number(row && row.index);
+  const app = Number.isFinite(index) ? index : Number(row && row.app);
+  return {
+    app: Number.isFinite(app) ? app : 0,
+    appName: (row && (row.appName || row.process)) || '',
+    title: (row && (row.title || row.name)) || '',
+    handle: row && row.handle,
+    role: (row && row.role) || '',
+    class: (row && row.class) || '',
+    processId: row && row.processId,
+    offscreen: Boolean(row && row.offscreen),
+    minimised: Boolean(row && row.minimised),
+    bounds: (row && row.bounds) || null,
+  };
+}
+
 async function windows() {
   const result = await run(['windows']);
-  return asList(result.windows);
+  return asList(result.windows).map(windowRow);
 }
 
 async function snapshot({ app = 0, maxNodes = MAX_NODES, window = '' } = {}) {
@@ -224,5 +248,6 @@ module.exports = {
   clickAt,
   scroll,
   screenshot,
+  windowRow,
   MAX_NODES,
 };

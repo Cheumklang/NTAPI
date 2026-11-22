@@ -1,6 +1,17 @@
 'use strict';
 
 const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage, Notification, globalShortcut } = require('electron');
+
+/*
+ * A window the agent cannot read is a window it cannot press buttons in, and
+ * that includes this app: Chromium keeps the accessibility tree inside the
+ * renderer switched off unless it is asked for before the first window opens.
+ * `app.setAccessibilitySupportEnabled` alone leaves the pane as one nameless
+ * child, which is exactly what a snapshot of NTAPI used to come back with.
+ */
+try {
+  app.commandLine.appendSwitch('force-renderer-accessibility');
+} catch {}
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -850,7 +861,7 @@ function saveSessionMark(sessionPath, patch) {
 function pruneSessionMarkStore() {
   const current = sessionMarks();
   if (!Object.keys(current).length) return;
-  const next = pruneSessionMarks(current, (key) => {
+  const next = pruneMarks(current, (key) => {
     const file = markPath(key, SESSIONS_ROOT);
     // A relative key is a chat in this store: judge it by the file.
     if (file && !path.isAbsolute(key)) return fs.existsSync(file);
@@ -1002,6 +1013,15 @@ function systemGuard() {
  * report a flicker, which is what this is for. Naming another app answers
  * NOT_CAPTURABLE rather than returning a blank picture.
  */
+/** The model an audit line names, short enough to read. */
+function modelTag(model) {
+  if (!model) return null;
+  if (typeof model === 'string') return model;
+  const id = model.id || model.name || null;
+  if (!id) return null;
+  return model.name && model.name !== id ? `${model.name} (${id})` : id;
+}
+
 async function captureAppWindow({ app, window: handle = '' } = {}) {
   const target =
     (win && !win.isDestroyed() && win) ||
@@ -1060,16 +1080,28 @@ async function captureAppWindow({ app, window: handle = '' } = {}) {
     throw err;
   }
 
-  const image = await target.webContents.capturePage();
-  const size = image.getSize();
-  return {
-    app: ownApp,
-    title: target.getTitle(),
-    width: size.width,
-    height: size.height,
-    mimeType: 'image/png',
-    data: image.toPNG().toString('base64'),
-  };
+  /*
+   * Electron can photograph its own window, and its own window only: that is
+   * the path that needs no screen-capture permission. It is also the path that
+   * fails when the renderer has its accessibility tree open, so the helper that
+   * photographs every other window photographs this one too rather than telling
+   * the agent that NTAPI cannot be looked at.
+   */
+  try {
+    const image = await target.webContents.capturePage();
+    const size = image.getSize();
+    return {
+      app: ownApp,
+      title: target.getTitle(),
+      width: size.width,
+      height: size.height,
+      mimeType: 'image/png',
+      data: image.toPNG().toString('base64'),
+    };
+  } catch (err) {
+    if (typeof systemAdapter.screenshot !== 'function') throw err;
+    return await systemAdapter.screenshot({ app: ownApp, window: handle });
+  }
 }
 
 const systemBridge = {
@@ -1077,6 +1109,19 @@ const systemBridge = {
   enabled: systemEnabled,
   async call(cmd, args = {}) {
     systemGuard();
+    /*
+     * Two agents can be driving the same desktop in one day — one in this app,
+     * one in another window — and an audit that does not say which is not an
+     * audit. The caller names itself; an older caller that does not is recorded
+     * as unknown rather than guessed at.
+     */
+    const who = {
+      session: (args.agent && args.agent.session) || null,
+      // An id and a name say who acted; the whole model object — context
+      // window, pricing, endpoints — turned one line of the log into a screenful.
+      model: modelTag(args.agent && args.agent.model),
+    };
+    const audit = (entry) => systemAudit({ ...who, ...entry });
     // Which window is ours, so the adapter never types into this application
     // when the caller did not name a window.
     try {
@@ -1088,50 +1133,50 @@ const systemBridge = {
     }
     if (cmd === 'snapshot') {
       const snap = await systemAdapter.snapshot({ app: args.app, maxNodes: args.maxNodes, window: args.window });
-      systemAudit({ event: 'snapshot', app: snap.app, name: snap.appName, nodes: snap.nodes.length });
+      audit({ event: 'snapshot', app: snap.app, name: snap.appName, nodes: snap.nodes.length });
       return snap;
     }
     if (cmd === 'screenshot') {
       const shot = await captureAppWindow(args);
-      systemAudit({ event: 'screenshot', app: shot.app, name: shot.title, size: `${shot.width}x${shot.height}` });
+      audit({ event: 'screenshot', app: shot.app, name: shot.title, size: `${shot.width}x${shot.height}` });
       return shot;
     }
     if (cmd === 'act') {
       const result = await systemAdapter.act({ ref: args.ref, action: args.action, text: args.text });
-      systemAudit({ event: 'act', action: args.action || 'click', ref: args.ref });
+      audit({ event: 'act', action: args.action || 'click', ref: args.ref });
       return result;
     }
     if (cmd === 'focus') {
       const result = await systemAdapter.focus({ app: args.app, window: args.window });
-      systemAudit({ event: 'focus', app: args.app, name: result.appName });
+      audit({ event: 'focus', app: args.app, name: result.appName });
       return result;
     }
     if (cmd === 'launch') {
       const result = await systemAdapter.launch({ target: args.target });
-      systemAudit({ event: 'launch', target: args.target, app: result.app, name: result.appName });
+      audit({ event: 'launch', target: args.target, app: result.app, name: result.appName });
       return result;
     }
     if (cmd === 'keys') {
       const result = await systemAdapter.keys({ app: args.app, keys: args.keys, window: args.window });
       // The shortcut itself is the record: ctrl+s saves, alt+F4 closes.
-      systemAudit({ event: 'keys', app: args.app, keys: args.keys });
+      audit({ event: 'keys', app: args.app, keys: args.keys });
       return result;
     }
     if (cmd === 'type') {
       const result = await systemAdapter.type({ app: args.app, text: args.text, window: args.window });
       // Length, not the text: a password typed into a field must not be written
       // into a log that outlives the session.
-      systemAudit({ event: 'type', app: args.app, chars: String(args.text || '').length });
+      audit({ event: 'type', app: args.app, chars: String(args.text || '').length });
       return result;
     }
     if (cmd === 'clickat') {
       const result = await systemAdapter.clickAt({ app: args.app, x: args.x, y: args.y, button: args.button, window: args.window });
-      systemAudit({ event: 'clickat', app: args.app, x: args.x, y: args.y, button: args.button || 'left' });
+      audit({ event: 'clickat', app: args.app, x: args.x, y: args.y, button: args.button || 'left' });
       return result;
     }
     if (cmd === 'scroll') {
       const result = await systemAdapter.scroll({ app: args.app, notches: args.notches, window: args.window });
-      systemAudit({ event: 'scroll', app: args.app, notches: args.notches });
+      audit({ event: 'scroll', app: args.app, notches: args.notches });
       return result;
     }
     const err = new Error(`Unknown desktop command ${cmd}`);
@@ -6291,6 +6336,18 @@ app.whenReady().then(async () => {
   // handing out access for a new session without a way to take it back is the
   // one combination that must not exist.
   if (systemEnabled()) registerSystemHotkey();
+
+  /*
+   * Chromium keeps its accessibility tree switched off until something asks for
+   * it, and with it off the agent can read every window on the desktop except
+   * this one: a snapshot of NTAPI itself answered with the window and a render
+   * pane, no controls, no chat box, no send button. Turning it on is what lets
+   * the desktop tools work in the app that hosts them - the agent pressing its
+   * own buttons instead of only other applications'.
+   */
+  try {
+    app.setAccessibilitySupportEnabled(true);
+  } catch {}
 
   // One-time cleanup: rename the old "--C--Users-...--" history folders.
   try {

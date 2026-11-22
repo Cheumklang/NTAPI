@@ -124,26 +124,53 @@ function Get-Node($element, [string]$ref, [int]$depth) {
   } catch { }
 
   # What can be *pressed* is part of the description: the caller is told which
-  # actions exist instead of guessing a coordinate.
+  # What can be *pressed* is part of the description: the caller is told which
+  # actions exist instead of guessing a coordinate. It speaks the same
+  # vocabulary as the MSAA tree, so one formatter tells the truth about both.
   $patterns = New-Object System.Collections.ArrayList
-  if (Test-Pattern $element ([System.Windows.Automation.InvokePattern]::Pattern)) { [void]$patterns.Add('invoke') }
-  if (Test-Pattern $element ([System.Windows.Automation.ValuePattern]::Pattern)) { [void]$patterns.Add('value') }
-  if (Test-Pattern $element ([System.Windows.Automation.SelectionItemPattern]::Pattern)) { [void]$patterns.Add('select') }
-  if (Test-Pattern $element ([System.Windows.Automation.TogglePattern]::Pattern)) { [void]$patterns.Add('toggle') }
-  if (Test-Pattern $element ([System.Windows.Automation.ExpandCollapsePattern]::Pattern)) { [void]$patterns.Add('expand') }
+  foreach ($pair in @(
+    @([System.Windows.Automation.InvokePattern]::Pattern, 'invoke'),
+    @([System.Windows.Automation.ValuePattern]::Pattern, 'value'),
+    @([System.Windows.Automation.SelectionItemPattern]::Pattern, 'select'),
+    @([System.Windows.Automation.TogglePattern]::Pattern, 'toggle'),
+    @([System.Windows.Automation.ExpandCollapsePattern]::Pattern, 'expand')
+  )) {
+    if (Test-Pattern $element $pair[0]) { [void]$patterns.Add($pair[1]) }
+  }
+  $actions = @()
+  foreach ($name in $patterns) { if ($name -ne 'value') { $actions += $name } }
+  if ($actions.Count -gt 0) { $node.actions = $actions }
+  # A field can be written when it publishes a value; classic Notepad publishes
+  # none and still says what it is, so the window class is a second witness.
+  if ($patterns -contains 'value') { $node.editable = $true }
+  if (-not $node.Contains('editable')) {
+    try { if ([string]$node.class -match '^(Edit|RichEdit|RICHEDIT|Scintilla|TextBox)') { $node.editable = $true } } catch { }
+  }
   if ($patterns.Count -gt 0) { $node.patterns = @($patterns) }
   return [pscustomobject]$node
 }
 
-function Add-Tree($element, [string]$ref, [int]$depth) {
-  if ($script:Nodes.Count -ge $script:Limit) { return }
-  [void]$script:Nodes.Add((Get-Node $element $ref $depth))
-  if ($depth -ge $script:MaxDepth) { return }
-  $children = Get-Children $element
-  for ($i = 0; $i -lt $children.Count; $i += 1) {
+# A browser's accessibility tree is thousands of nodes deep, and PowerShell
+# gives a function a small slice of stack: a recursive walk of a Chromium window
+# dies with "Maximum call stack size exceeded" before it reaches the controls.
+# The walk keeps its own stack instead, and the limit is unchanged.
+function Add-Tree($root, [string]$rootRef, [int]$rootDepth) {
+  $stack = New-Object System.Collections.Stack
+  $stack.Push(@($root, $rootRef, $rootDepth))
+  while ($stack.Count -gt 0) {
     if ($script:Nodes.Count -ge $script:Limit) { return }
-    $childRef = if ($ref -eq '') { "$i" } else { "$ref/$i" }
-    Add-Tree $children[$i] $childRef ($depth + 1)
+    $item = $stack.Pop()
+    $element = $item[0]
+    $ref = [string]$item[1]
+    $depth = [int]$item[2]
+    [void]$script:Nodes.Add((Get-Node $element $ref $depth))
+    if ($depth -ge $script:MaxDepth) { continue }
+    $children = Get-Children $element
+    # Pushed in reverse so the list comes out in reading order.
+    for ($i = $children.Count - 1; $i -ge 0; $i -= 1) {
+      $childRef = if ($ref -eq '') { "$i" } else { "$ref/$i" }
+      $stack.Push(@($children[$i], $childRef, ($depth + 1)))
+    }
   }
 }
 
@@ -162,6 +189,43 @@ function Resolve-Ref([string]$path) {
     $element = $children[$index]
   }
   return $element
+}
+
+# The tolerant twin of Resolve-Ref: a ref that came from the MSAA tree has more
+# segments than UI Automation can follow, and that is not an error until the
+# other tree has been asked too.
+function Resolve-Ref-Or-Null([string]$path) {
+  $element = $script:Desktop
+  foreach ($part in $path.Split('/')) {
+    if ($part -eq '') { continue }
+    $index = 0
+    if (-not [int]::TryParse($part, [ref]$index)) { return $null }
+    $children = Get-Children $element
+    if ($index -lt 0 -or $index -ge $children.Count) { return $null }
+    $element = $children[$index]
+  }
+  return $element
+}
+
+# Every pattern that means "press this", tried in turn: a button invokes, a
+# tab selects, a switch toggles, a folded list expands. Returns $true when one
+# of them accepted the request.
+function Invoke-Uia-Click($element) {
+  if (-not $element) { return $false }
+  $attempts = @(
+    @([System.Windows.Automation.InvokePattern]::Pattern, 'Invoke'),
+    @([System.Windows.Automation.SelectionItemPattern]::Pattern, 'Select'),
+    @([System.Windows.Automation.TogglePattern]::Pattern, 'Toggle'),
+    @([System.Windows.Automation.ExpandCollapsePattern]::Pattern, 'Expand')
+  )
+  foreach ($attempt in $attempts) {
+    try {
+      $pattern = $element.GetCurrentPattern($attempt[0])
+      $pattern.GetType().GetMethod($attempt[1]).Invoke($pattern, @()) | Out-Null
+      return $true
+    } catch { }
+  }
+  return $false
 }
 
 # ---------------------------------------------------------------------------
@@ -340,6 +404,9 @@ function Get-Window-Element([int]$index) {
   if ($index -lt 0 -or $index -ge $children.Count) {
     Stop-With-Error 'STALE_REF' "window $index is gone - ask for the window list again"
   }
+  if (-not (Test-Is-Window $children[$index])) {
+    Stop-With-Error 'NOT_A_WINDOW' "$index is not a window - use a number from the window list, or the handle"
+  }
   return $children[$index]
 }
 
@@ -472,12 +539,307 @@ function Get-Control-Text($control) {
   return $null
 }
 
+if (-not ('NTWin32.WindowRect' -as [type])) {
+  Add-Type -Namespace NTWin32 -Name WindowRect -MemberDefinition @'
+[StructLayout(LayoutKind.Sequential)]
+public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+[DllImport("user32.dll")]
+public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+[DllImport("user32.dll")]
+public static extern bool IsIconic(IntPtr hWnd);
+'@
+}
+
+# Chrome publishes an empty UI Automation rectangle while it is minimised or
+# freshly restored, and a caller that cannot aim cannot click. The window does
+# have a rectangle on screen, so ask Windows instead of the accessibility tree.
+function Get-Hwnd-Bounds($handle) {
+  $hwnd = [IntPtr][int64]$handle
+  if ($hwnd -eq [IntPtr]::Zero) { return $null }
+  try {
+    $rect = New-Object NTWin32.WindowRect+RECT
+    if ([NTWin32.WindowRect]::GetWindowRect($hwnd, [ref]$rect)) {
+      $w = $rect.Right - $rect.Left
+      $h = $rect.Bottom - $rect.Top
+      if ($w -gt 0 -and $h -gt 0) {
+        $minimised = $false
+        try { $minimised = [NTWin32.WindowRect]::IsIconic($hwnd) } catch { }
+        return [ordered]@{ x = $rect.Left; y = $rect.Top; w = $w; h = $h; minimised = $minimised }
+      }
+    }
+  } catch { }
+  return $null
+}
+
 function Get-Window-Bounds($element) {
   try {
     $rect = $element.Current.BoundingRectangle
-    if (-not $rect.IsEmpty) { return $rect }
+    if (-not $rect.IsEmpty -and $rect.Width -gt 0 -and $rect.Height -gt 0) { return $rect }
   } catch { }
   Stop-With-Error 'NO_BOUNDS' 'this window reports no bounds, so there is nothing to aim at'
+}
+
+
+# ---------------------------------------------------------------------------
+# The accessibility tree of a Chromium window
+# ---------------------------------------------------------------------------
+# Chrome, Electron and everything built on them answer UI Automation with one
+# pane and nothing inside it. The same window does publish a full tree through
+# MSAA (the older Windows accessibility interface Chrome implements), so when a
+# window turns out to be one opaque pane the walk is repeated over there.
+# Compiling the helper costs about a second, so it happens only when needed.
+
+$script:MsaaReady = $false
+
+function Initialize-Msaa {
+  if ($script:MsaaReady) { return $true }
+  try {
+    Add-Type -AssemblyName Accessibility -ErrorAction Stop
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using Accessibility;
+using System.Windows.Forms;
+
+public class NtMsaaNode {
+  public string Path;
+  public string Role;
+  public string Name;
+  public int X; public int Y; public int W; public int H;
+  public string Action;
+  public string Value;
+}
+
+public static class NtMsaa {
+  [DllImport("oleacc.dll")]
+  private static extern int AccessibleObjectFromWindow(IntPtr hwnd, uint id, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out IAccessible ppv);
+  [DllImport("oleacc.dll")]
+  private static extern int AccessibleChildren(IAccessible acc, int start, int count, [Out] object[] children, out int obtained);
+
+  public static IAccessible Root(IntPtr hwnd) {
+    Guid iid = new Guid("618736E0-3C3D-11CF-810C-00AA00389B71");
+    IAccessible acc;
+    int hr = AccessibleObjectFromWindow(hwnd, 0xFFFFFFFC, ref iid, out acc);
+    if (hr != 0) return null;
+    return acc;
+  }
+
+  private static string Clean(string s) {
+    if (s == null) return "";
+    return s.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
+  }
+
+  private static string SafeName(IAccessible acc, object child) {
+    try { return Clean(acc.get_accName(child)); } catch { return ""; }
+  }
+
+  private static string SafeRole(IAccessible acc, object child) {
+    try {
+      object r = acc.get_accRole(child);
+      if (r is int) return ((AccessibleRole)(int)r).ToString();
+      return r == null ? "" : r.ToString();
+    } catch { return ""; }
+  }
+
+  private static string SafeAction(IAccessible acc, object child) {
+    try { return Clean(acc.get_accDefaultAction(child)); } catch { return ""; }
+  }
+
+  private static string SafeValue(IAccessible acc, object child) {
+    try { return Clean(acc.get_accValue(child)); } catch { return ""; }
+  }
+
+  private static object[] Kids(IAccessible acc, int count) {
+    object[] kids = new object[count];
+    int got = 0;
+    try { if (AccessibleChildren(acc, 0, count, kids, out got) != 0) return null; } catch { return null; }
+    if (got < count) {
+      object[] shorter = new object[got];
+      Array.Copy(kids, shorter, got);
+      return shorter;
+    }
+    return kids;
+  }
+
+  public static List<NtMsaaNode> Walk(IntPtr hwnd, int limit, int maxDepth) {
+    var list = new List<NtMsaaNode>();
+    IAccessible root = Root(hwnd);
+    if (root == null) return list;
+    var stack = new Stack<object[]>();
+    stack.Push(new object[] { root, (object)0, "", 0 });
+    while (stack.Count > 0 && list.Count < limit) {
+      object[] item = stack.Pop();
+      IAccessible acc = (IAccessible)item[0];
+      object child = item[1];
+      string path = (string)item[2];
+      int depth = (int)item[3];
+      var node = new NtMsaaNode();
+      node.Path = path == "" ? "0" : path;
+      node.Role = SafeRole(acc, child);
+      node.Name = SafeName(acc, child);
+      node.Action = SafeAction(acc, child);
+      node.Value = SafeValue(acc, child);
+      try { acc.accLocation(out node.X, out node.Y, out node.W, out node.H, child); } catch { }
+      if (node.W < 0) node.W = 0;
+      if (node.H < 0) node.H = 0;
+      list.Add(node);
+      if (depth >= maxDepth) continue;
+      int count = 0;
+      try { count = acc.accChildCount; } catch { count = 0; }
+      if (count <= 0) continue;
+      object[] kids = Kids(acc, count);
+      if (kids == null) continue;
+      for (int i = kids.Length - 1; i >= 0; i -= 1) {
+        object kid = kids[i];
+        string kpath = (path == "" ? "0" : path) + "/" + i;
+        IAccessible asAcc = kid as IAccessible;
+        if (asAcc != null) stack.Push(new object[] { asAcc, (object)0, kpath, depth + 1 });
+        else stack.Push(new object[] { acc, kid, kpath, depth + 1 });
+      }
+    }
+    return list;
+  }
+
+  private static object[] Navigate(IAccessible root, string path) {
+    IAccessible acc = root;
+    object child = (object)0;
+    string[] parts = path.Split('/');
+    for (int i = 1; i < parts.Length; i += 1) {
+      int index;
+      if (!int.TryParse(parts[i], out index)) return null;
+      int count = 0;
+      try { count = acc.accChildCount; } catch { return null; }
+      if (index < 0 || index >= count) return null;
+      object[] kids = Kids(acc, count);
+      if (kids == null || index >= kids.Length) return null;
+      object kid = kids[index];
+      IAccessible asAcc = kid as IAccessible;
+      if (asAcc != null) { acc = asAcc; child = (object)0; } else { child = kid; }
+    }
+    return new object[] { acc, child };
+  }
+
+  public static bool Press(IntPtr hwnd, string path) {
+    IAccessible root = Root(hwnd);
+    if (root == null) return false;
+    object[] target = Navigate(root, path);
+    if (target == null) return false;
+    try {
+      ((IAccessible)target[0]).accDoDefaultAction(target[1]);
+      return true;
+    } catch { return false; }
+  }
+
+  public static bool SetValue(IntPtr hwnd, string path, string text) {
+    IAccessible root = Root(hwnd);
+    if (root == null) return false;
+    object[] target = Navigate(root, path);
+    if (target == null) return false;
+    IAccessible acc = (IAccessible)target[0];
+    object child = target[1];
+    string before = SafeValue(acc, child);
+    try {
+      acc.set_accValue(child, text);
+    } catch { return false; }
+    // A field that will not read its own value back cannot confirm anything,
+    // and "it probably worked" has already cost a model a whole turn.
+    return SafeValue(acc, child) != before;
+  }
+}
+'@ -ReferencedAssemblies Accessibility, System.Windows.Forms -ErrorAction Stop
+    $script:MsaaReady = $true
+  } catch {
+    $script:MsaaReady = $false
+  }
+  return $script:MsaaReady
+}
+
+$script:MsaaRoles = @{
+  'PushButton' = 'Button'; 'StaticText' = 'Text'; 'Grouping' = 'Group'; 'Document' = 'Document';
+  'Text' = 'Edit'; 'Client' = 'Pane'; 'Link' = 'Hyperlink'; 'CheckButton' = 'CheckBox';
+  'RadioButton' = 'RadioButton'; 'ComboBox' = 'ComboBox'; 'List' = 'List'; 'ListItem' = 'ListItem';
+  'PageTab' = 'TabItem'; 'PageTabList' = 'Tab'; 'MenuBar' = 'MenuBar'; 'MenuItem' = 'MenuItem';
+  'ButtonMenu' = 'MenuButton'; 'Pane' = 'Pane'; 'Window' = 'Window'; 'Image' = 'Image';
+  'Border' = 'Pane'; 'ToolBar' = 'ToolBar'; 'Slider' = 'Slider'; 'ScrollBar' = 'ScrollBar';
+  'Indicator' = 'ProgressBar'; 'Outline' = 'Tree'; 'OutlineItem' = 'TreeItem'; 'Table' = 'DataGrid'
+}
+
+function Convert-Msaa-Role([string]$role) {
+  if ($role -eq '') { return 'unknown' }
+  if ($script:MsaaRoles.ContainsKey($role)) { return $script:MsaaRoles[$role] }
+  return $role
+}
+
+# MSAA describes an action as a phrase ("press", "check", "open"); the tools
+# describe one as a pattern name, the same words UI Automation uses.
+function Convert-Msaa-Actions([string]$action) {
+  $list = New-Object System.Collections.ArrayList
+  $a = $action.ToLowerInvariant()
+  if ($a -eq '') { return , $list }
+  if ($a -eq 'click ancestor') { return , $list }
+  if ($a.Contains('press') -or $a.Contains('click') -or $a.Contains('double click')) { [void]$list.Add('invoke') }
+  if ($a.Contains('check') -or $a.Contains('select')) { [void]$list.Add('toggle') }
+  if ($a.Contains('open')) { [void]$list.Add('expand') }
+  return , $list
+}
+
+function Get-Msaa-Tree($windowElement, [int]$windowIndex, [int]$limit, [int]$maxDepth) {
+  $handle = Get-Window-Handle $windowElement
+  if ($handle -eq [IntPtr]::Zero) { return $null }
+  if (-not (Initialize-Msaa)) { return $null }
+  $raw = $null
+  try { $raw = [NtMsaa]::Walk($handle, $limit, $maxDepth) } catch { return $null }
+  if (-not $raw -or $raw.Count -eq 0) { return $null }
+  $nodes = New-Object System.Collections.ArrayList
+  foreach ($item in $raw) {
+    $role = Convert-Msaa-Role $item.Role
+    $node = [ordered]@{
+      ref = "$windowIndex"
+      depth = 0
+      role = $role
+      name = $item.Name
+      id = ''
+      class = $item.Role
+      enabled = $true
+      offscreen = ($item.W -le 0 -or $item.H -le 0)
+    }
+    # "0/1/2" from the MSAA root becomes "<window>/1/2" in the tool's refs.
+    $suffix = if ($item.Path -eq '0') { '' } else { $item.Path.Substring(1) }
+    # The leading "m" is what makes this ref usable later: the two trees count
+    # their children differently, so a ref has to say which tree it came from.
+    $node.ref = "m$windowIndex$suffix"
+    $node.depth = ($suffix.Split('/').Count - 1)
+    if ($item.W -gt 0 -and $item.H -gt 0) {
+      $node.bounds = [ordered]@{ x = [int]$item.X; y = [int]$item.Y; w = [int]$item.W; h = [int]$item.H }
+    }
+    $actions = Convert-Msaa-Actions $item.Action
+    if ($actions.Count -gt 0) { $node.actions = @($actions) }
+    if ($role -eq 'Edit') { $node.editable = $true }
+    [void]$nodes.Add($node)
+  }
+  return $nodes
+}
+
+# The window a ref belongs to: every ref starts with the window's own number.
+function Get-Window-Handle-From-Ref([string]$path) {
+  if ($path.StartsWith('m')) { $path = $path.Substring(1) }
+  $children = Get-Children $script:Desktop
+  $first = $path.Split('/')[0]
+  $index = 0
+  if (-not [int]::TryParse($first, [ref]$index)) { return [IntPtr]::Zero }
+  if ($index -lt 0 -or $index -ge $children.Count) { return [IntPtr]::Zero }
+  return (Get-Window-Handle $children[$index])
+}
+
+# A ref from an MSAA snapshot is a path inside that window, one segment shorter
+# than the ref the tools print.
+function ConvertTo-Msaa-Path([string]$path) {
+  if ($path.StartsWith('m')) { $path = $path.Substring(1) }
+  $segments = $path.Split('/')
+  if ($segments.Count -le 1) { return '0' }
+  return '0' + ($segments[1..($segments.Count - 1)] -join '/').Insert(0, '/')
 }
 
 switch ($Command.ToLowerInvariant()) {
@@ -492,19 +854,47 @@ switch ($Command.ToLowerInvariant()) {
 
   'windows' {
     $list = New-Object System.Collections.ArrayList
+    # The window's name is what its title bar says; the program is what tells
+    # two windows of the same application apart, so the list carries both.
+    $procNames = @{}
     $children = Get-Children $script:Desktop
     for ($i = 0; $i -lt $children.Count; $i += 1) {
       if (-not (Test-Is-Window $children[$i])) { continue }
       $node = Get-Node $children[$i] "$i" 0
+      $procId = $node.processId
+      $procKey = [string]$procId
+      if (-not $procNames.ContainsKey($procKey)) {
+        $found = ''
+        try { $found = [string](Get-Process -Id $procId -ErrorAction Stop).ProcessName } catch { $found = '' }
+        $procNames[$procKey] = $found
+      }
+      $handle = Get-Window-Handle $children[$i]
+      $winBounds = $node.bounds
+      $minimised = $false
+      if (-not $winBounds) {
+        $fallback = Get-Hwnd-Bounds $handle
+        if ($fallback) {
+          # A minimised window sits at -32000,-32000 as a 160x28 stub: real
+          # numbers, useless ones. Say it is minimised and leave the bounds out,
+          # so nothing aims at a point no click can reach.
+          if ($fallback.minimised) {
+            $minimised = $true
+          } else {
+            $winBounds = [ordered]@{ x = $fallback.x; y = $fallback.y; w = $fallback.w; h = $fallback.h }
+          }
+        }
+      }
       [void]$list.Add([ordered]@{
           index = $i
           name = $node.name
           role = $node.role
           class = $node.class
-          processId = $node.processId
-          handle = (Get-Window-Handle $children[$i])
+          processId = $procId
+          process = $procNames[$procKey]
+          handle = $handle
           offscreen = $node.offscreen
-          bounds = $node.bounds
+          minimised = $minimised
+          bounds = $winBounds
         })
     }
     Write-Json @{ ok = $true; windows = @($list) }
@@ -516,71 +906,98 @@ switch ($Command.ToLowerInvariant()) {
     if ($Max -lt 1) { $Max = 1 }
     if ($Max -gt 250) { $Max = 250 }
     $script:Limit = $Max
-    $target = Get-Target-Element
+    # Not $target: that name is a [string] parameter of this script and
+    # PowerShell would quietly store the element's ToString() instead.
+    $windowElement = Get-Target-Element
     $index = $App
     $children = Get-Children $script:Desktop
+    # A handle names the window, but the refs inside a tree are numbers, so the
+    # window's own position has to be found before the walk starts.
+    $wantedHandle = Get-Window-Handle $windowElement
     for ($i = 0; $i -lt $children.Count; $i += 1) {
-      if ([object]::ReferenceEquals($children[$i], $target)) { $index = $i; break }
+      if ([object]::ReferenceEquals($children[$i], $windowElement)) { $index = $i; break }
+      if ($wantedHandle -ne [IntPtr]::Zero) {
+        if ((Get-Window-Handle $children[$i]) -eq $wantedHandle) { $index = $i; break }
+      }
     }
-    Add-Tree $target "$index" 0
+    Add-Tree $windowElement "$index" 0
     $appName = ''
-    try { $appName = [string]$target.Current.Name } catch { }
-    Write-Json @{ ok = $true; app = $index; appName = $appName; handle = (Get-Window-Handle $target); nodes = @($script:Nodes) }
+    try { $appName = [string]$windowElement.Current.Name } catch { }
+    # Chrome and everything built on it answer UI Automation with the window and
+    # one render pane, and the controls live in the MSAA tree of the same
+    # window. Two nodes is the shape of that answer, so it is also the cue.
+    $provider = 'uia'
+    $useful = 0
+    foreach ($node in $script:Nodes) {
+      if ($node.actions -or $node.editable) { $useful += 1 }
+    }
+    # Chrome answers UI Automation with the window and one render pane, and
+    # classic Notepad with three panes and no field at all: both say the real
+    # controls live somewhere else, so the MSAA tree of the same window is
+    # asked too. Two nodes is the first shape of that answer, nothing usable
+    # in the whole tree is the second.
+    if ($script:Nodes.Count -le 2 -or $useful -eq 0) {
+      $msaa = Get-Msaa-Tree $windowElement $index $script:Limit $script:MaxDepth
+      if ($msaa -and $msaa.Count -gt $script:Nodes.Count) {
+        $script:Nodes = $msaa
+        $provider = 'msaa'
+      }
+    }
+    Write-Json @{ ok = $true; app = $index; appName = $appName; handle = (Get-Window-Handle $windowElement); provider = $provider; nodes = @($script:Nodes) }
     exit 0
   }
 
   'act' {
     if ($Ref -eq '') { Stop-With-Error 'BAD_ARGS' 'act needs --ref from a snapshot' }
-    $element = Resolve-Ref $Ref
+    $fromMsaa = $Ref.StartsWith('m')
+    $element = if ($fromMsaa) { $null } else { Resolve-Ref-Or-Null $Ref }
     if ($Action -eq 'click') {
-      $pressed = $false
-      try {
-        $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-        $pattern.Invoke()
-        $pressed = $true
-      } catch { $pressed = $false }
+      $pressed = Invoke-Uia-Click $element
+      $via = 'uia'
       if (-not $pressed) {
-        try {
-          $pattern = $element.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
-          $pattern.Select()
-          $pressed = $true
-        } catch { $pressed = $false }
-      }
-      if (-not $pressed) {
-        try {
-          $pattern = $element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-          $pattern.Toggle()
-          $pressed = $true
-        } catch { $pressed = $false }
-      }
-      if (-not $pressed) {
-        try {
-          $pattern = $element.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
-          $pattern.Expand()
-          $pressed = $true
-        } catch { $pressed = $false }
+        # A control whose tree came from MSAA cannot be invoked through UI
+        # Automation patterns: press it the way that tree describes it.
+        if ($fromMsaa) { $windowHandle = Get-Window-Handle-From-Ref $Ref } else { $windowHandle = [IntPtr]::Zero }
+        if ($windowHandle -ne [IntPtr]::Zero -and (Initialize-Msaa)) {
+          $msaaPath = ConvertTo-Msaa-Path $Ref
+          try { $pressed = [NtMsaa]::Press($windowHandle, $msaaPath) } catch { $pressed = $false }
+          if ($pressed) { $via = 'msaa' }
+        }
       }
       if (-not $pressed) {
         Stop-With-Error 'NO_ACTION' 'this element publishes no action to press'
       }
-      Write-Json @{ ok = $true; ref = $Ref; action = 'click' }
+      Write-Json @{ ok = $true; ref = $Ref; action = 'click'; via = $via }
       exit 0
     }
     if ($Action -eq 'settext') {
-      try {
-        $pattern = $element.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-        $pattern.SetValue($Text)
-      } catch {
-        Stop-With-Error 'NO_VALUE_PATTERN' 'this field cannot be written to through UI Automation'
+      $written = $false
+      $via = 'uia'
+      if ($element) {
+        try {
+          $pattern = $element.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+          $pattern.SetValue($Text)
+          $written = $true
+        } catch { $written = $false }
       }
-      Write-Json @{ ok = $true; ref = $Ref; action = 'settext'; length = $Text.Length }
+      if (-not $written) {
+        if ($fromMsaa) { $windowHandle = Get-Window-Handle-From-Ref $Ref } else { $windowHandle = [IntPtr]::Zero }
+        if ($windowHandle -ne [IntPtr]::Zero -and (Initialize-Msaa)) {
+          try { $written = [NtMsaa]::SetValue($windowHandle, (ConvertTo-Msaa-Path $Ref), $Text) } catch { $written = $false }
+          if ($written) { $via = 'msaa' }
+        }
+      }
+      if (-not $written) {
+        Stop-With-Error 'NO_VALUE_PATTERN' 'this field cannot be written to through UI Automation - focus its window and use system_type to type it for real'
+      }
+      Write-Json @{ ok = $true; ref = $Ref; action = 'settext'; via = $via; length = $Text.Length }
       exit 0
     }
     Stop-With-Error 'BAD_ARGS' "unknown action '$Action'"
   }
 
   'focus' {
-    if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'focus needs --app N' }
+    if ($App -lt 0 -and $Window -eq '') { Stop-With-Error 'BAD_ARGS' 'focus needs --app N or --window HANDLE' }
     $element = Get-Target-Element
     [void](Focus-Window $element)
     Write-Json @{ ok = $true; app = $App; appName = (Get-Window-Name $element); did = ('focused ' + (Get-Window-Name $element)) }
@@ -618,7 +1035,7 @@ switch ($Command.ToLowerInvariant()) {
   }
 
   'keys' {
-    if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'keys needs --app N' }
+    if ($App -lt 0 -and $Window -eq '') { Stop-With-Error 'BAD_ARGS' 'keys needs --app N or --window HANDLE' }
     if ($Keys -eq '') { Stop-With-Error 'BAD_ARGS' 'keys needs --keys, for example ctrl+s' }
     $element = Get-Target-Element
     [void](Focus-Window $element)
@@ -633,7 +1050,7 @@ switch ($Command.ToLowerInvariant()) {
   }
 
   'type' {
-    if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'type needs --app N' }
+    if ($App -lt 0 -and $Window -eq '') { Stop-With-Error 'BAD_ARGS' 'type needs --app N or --window HANDLE' }
     if ($Text -eq '') { Stop-With-Error 'BAD_ARGS' 'type needs --text' }
     $element = Get-Target-Element
     [void](Focus-Window $element)
@@ -685,7 +1102,7 @@ switch ($Command.ToLowerInvariant()) {
     if ($null -eq $before) {
       # There is nothing to read back, so the result says exactly that instead of
       # claiming the text arrived.
-      Write-Json @{ ok = $true; app = $App; did = ('sent ' + $Text.Length + ' characters'); method = $method; verified = $false; control = $controlName; beforeLen = $beforeLen; afterLen = $afterLen; sendInput = [NTAPIInput]::LastSend; lastError = [NTAPIInput]::LastError }
+      Write-Json @{ ok = $true; app = $App; did = ('sent ' + $Text.Length + ' characters'); method = $method; verified = $false; checked = $false; control = $controlName; beforeLen = $beforeLen; afterLen = $afterLen; sendInput = [NTAPIInput]::LastSend; lastError = [NTAPIInput]::LastError }
       exit 0
     }
     if (-not $verified) {
@@ -694,12 +1111,12 @@ switch ($Command.ToLowerInvariant()) {
       }
       Stop-With-Error 'TYPE_NOT_DELIVERED' ("the text was sent three ways and the control '" + $controlName + "' did not change. Click into the text area and try again.")
     }
-    Write-Json @{ ok = $true; app = $App; appName = (Get-Window-Name $element); handle = (Get-Window-Handle $element); did = ('typed ' + $Text.Length + ' characters'); method = $method; verified = $true; control = $controlName; beforeLen = $beforeLen; afterLen = $afterLen }
+    Write-Json @{ ok = $true; app = $App; appName = (Get-Window-Name $element); handle = (Get-Window-Handle $element); did = ('typed ' + $Text.Length + ' characters'); method = $method; verified = $true; checked = $true; control = $controlName; beforeLen = $beforeLen; afterLen = $afterLen }
     exit 0
   }
 
   'screenshot' {
-    if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'screenshot needs --app N' }
+    if ($App -lt 0 -and $Window -eq '') { Stop-With-Error 'BAD_ARGS' 'screenshot needs --app N or --window HANDLE' }
     if ($script:ShotError) { Stop-With-Error 'NO_SHOT_API' ("the drawing library is unavailable: " + $script:ShotError) }
     $element = Get-Target-Element
     $handle = Get-Window-Handle $element
@@ -722,7 +1139,7 @@ switch ($Command.ToLowerInvariant()) {
   }
 
   'clickat' {
-    if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'clickat needs --app N' }
+    if ($App -lt 0 -and $Window -eq '') { Stop-With-Error 'BAD_ARGS' 'clickat needs --app N or --window HANDLE' }
     $element = Get-Target-Element
     $rect = Get-Window-Bounds $element
     # Screen coordinates, and they must land inside the window: a click aimed at
@@ -738,7 +1155,7 @@ switch ($Command.ToLowerInvariant()) {
   }
 
   'scroll' {
-    if ($App -lt 0) { Stop-With-Error 'BAD_ARGS' 'scroll needs --app N' }
+    if ($App -lt 0 -and $Window -eq '') { Stop-With-Error 'BAD_ARGS' 'scroll needs --app N or --window HANDLE' }
     $element = Get-Target-Element
     $rect = Get-Window-Bounds $element
     [void](Focus-Window $element)

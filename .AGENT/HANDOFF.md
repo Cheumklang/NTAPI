@@ -1,6 +1,205 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-22): ปล่อย v0.6.23 แล้ว · tree สะอาด · `master` = `origin/master` = `905a8ba` · เหลือรุ่นเดียวบนหน้า release (v0.6.22 ถูกลบแล้ว)**
+> **📌 สถานะล่าสุด (2026-11-22): `master` ยังเป็น 0.6.23 (ห้าม bump เอง) · **Nemotron ทำได้ทั้ง Notepad และ Calculator แล้ว** (พิมพ์+อ่านข้อความจากภาพเอง, กด 7+8=15) · audit บันทึก model ของ Nemotron + session ของมันครบ 13 entry · ภาพถูกส่งเป็น image block ให้โมเดลที่มองภาพได้ (text-only ได้ path absolute) · `selftest-system-control` 191 PASS · `npm test` 95/98 · **ยังไม่ commit (9 ไฟล์)**
+
+## 🎯 ทดสอบกับ Nemotron จริง (หน้าแอป NTAPI, แชท "NVIDIA") — 2026-11-22
+
+โจทย์ถูกพิมพ์เข้า composer ของแอปด้วย `system_type` (assistant พิมพ์เอง) แล้วอ่าน transcript จากไฟล์ session ไม่ได้เดาจากคำเล่า
+
+### รอบ 1 — Notepad (เคสที่เคยล้มเหลว)
+| ขั้น | สิ่งที่ Nemotron ทำ | ผล |
+|---|---|---|
+| 1 | `system_launch C:Windows
+otepad.exe` | ✅ |
+| 2 | `system_windows` | ✅ ได้ `1 · notepad — Untitled - Notepad (window 4194964)` |
+| 3 | `system_type` 15 ตัวอักษร | ✅ `SENT, NOT CHECKED` — **โมเดลไม่อ่านว่า "ล้มเหลว"** |
+| 4 | `system_screenshot` | ✅ ได้ **image block** (ไม่ใช่แค่ path) แล้วอ่านเอง |
+| 5 | รายงาน | ✅ "ข้อความ `สวัสดี Nemotron` อยู่ในช่องพิมพ์ (บรรทัด 1 คอลัมน์ 16)" |
+
+### รอบ 2 — Calculator (เคสที่เคยล้มเหลว)
+| ขั้น | สิ่งที่ Nemotron ทำ | ผล |
+|---|---|---|
+| 1-2 | launch `calc.exe` + `system_windows` | ✅ `handle 787144` |
+| 3 | `system_snapshot` หา ref เอง (ไม่เดา) | ✅ `1/1/1/1/7/7` (7), `1/1/1/1/6/3` (+), `1/1/1/1/7/8` (8), `1/1/1/1/6/4` (=) |
+| 4 | `system_act` 4 ครั้ง | ✅ ทั้งสี่ครั้ง `Done: act` |
+| 5 | `system_screenshot` + อ่านภาพ | ✅ "display 15, สมการ 7 + 8 =" + path absolute |
+
+### ✅ ปิดค้างที่เคยบันทึกไว้
+- **ภาพสำหรับโมเดลที่มองภาพได้** — ส่งเป็น `{type:"image"}` จริง (transcript มี `IMAGE` block) · โมเดล text-only ยังได้ path absolute เหมือนเดิม
+- **audit ระบุโมเดลอื่นได้** — `{"session":"01a20153-…","model":"Nemotron 3.5 Super VL (nvidia/nemotron-3.5-super-vl-120b-a12b)","event":"act",…}` รวม 13 entry
+- **`alt+F4` ใช้ได้** — ปิด Calculator สำเร็จ · ที่เคยล้มเหลวกับ Notepad เพราะมี dialog "บันทึก" ค้าง (ยืนยันสมมติฐานเดิม)
+
+### 🔧 วิธีทดสอบซ้ำ (สำหรับ session หน้า)
+1. ให้ผู้ใช้สลับแชทในแอปเป็น "NVIDIA" (โมเดล Nemotron 3.5 Super VL) — **ไม่ใช่แท็บ Chrome**
+2. composer อยู่ล่างสุดของหน้าต่าง NTAPI แต่ `system_snapshot` **มองไม่เห็น** เพราะ tree ยาวชนเพดาน 250 node ⇒ ใช้ `system_click_at` ที่กลางกล่องข้อความ (พิกัดจากภาพ) แล้ว `system_type` + `system_keys enter`
+3. อ่านผลจาก `Z:/.local/share/ntapi/sessions/NTAPI/<ไฟล์ของแชท>.jsonl` (บรรทัดท้าย ๆ มี `toolCall` + ผลลัพธ์ + `IMAGE`)
+4. ถ้า `system_click_at`/`system_focus` ตอบ `NOT_FOREGROUND` เพราะหน้าต่างที่เพิ่งเปิดกิน foreground ⇒ ปิดหน้าต่างนั้นก่อน (`taskkill //F //IM notepad.exe`) แล้ว focus ใหม่ได้
+
+## 🧪 ทดสอบ A+B (Notepad / Calculator) — 2026-11-22
+
+| เคส | ผล | หลักฐาน |
+|---|---|---|
+| เปิด Notepad + พิมพ์ข้อความ | **ผ่าน** | `system_type` → `SENT, NOT CHECKED` · ภาพถ่ายยืนยันว่าบนจอมี `ทดสอบ 123 ABC` (ไทย+ละตินถูกต้อง) |
+| snapshot Notepad | **ผ่าน (หลังแก้)** | เดิม 3 node ไม่มีช่องพิมพ์ · ตอนนี้ `1/0 Pane "ทดสอบ 123 ABC" {editable}` (class `Edit`) |
+| settext ลง Notepad | **ปฏิเสธอย่างซื่อสัตย์** | `NO_VALUE_PATTERN: … use system_type to type it for real` — classic Notepad ไม่มี ValuePattern |
+| เปิด Calculator (UWP) + ถ่ายรูป | **ผ่าน** | ภาพ 516×541 ไม่ดำ (PrintWindow flag 2 ทำงาน) — เห็น display `0` และปุ่มครบ |
+| snapshot Calculator | **ผ่าน** | 54 node: `Button "Seven"`, `Button "Plus"`, `Button "Equals"` ฯลฯ มี action ครบ |
+| กด 7 + 8 = | **ผ่าน** | display อ่านกลับได้ `Expression is 7 + 8=` / `Display is 15` |
+
+### 🐞 3 บั๊กที่เจอจากการทดสอบนี้
+1. **UIA ไม่เคยส่ง `actions`/`editable` ให้โมเดล** — `Get-Node` เก็บไว้ในฟิลด์ `patterns` แต่ formatter พิมพ์แค่ `actions`/`editable` ⇒ ปุ่ม/ช่องพิมพ์ของ tree ฝั่ง UIA ดูเหมือน Pane ธรรมดา. แก้: แปลง `patterns` → `actions` (ยกเว้น `value` ที่กลายเป็น `editable`) + ถ้า class ขึ้นต้นด้วย `Edit|RichEdit|RICHEDIT|Scintilla|TextBox` ถือว่า editable (เป็นพยานที่สอง เพราะ Notepad ไม่มี ValuePattern)
+2. **เงื่อนไข fallback ไป MSAA แคบเกิน** — เดิม `nodes <= 2` · Notepad ให้ 3 node (ไม่มีอะไรกดได้เลย) จึงไม่เคย fallback. แก้: `nodes <= 2 -or $useful -eq 0` (`$useful` = จำนวน node ที่มี action หรือ editable)
+3. **ref MSAA ถูกเอาไปใช้กับ tree ของ UIA (และกลับกัน)** — `ConvertTo-Msaa-Path` ตัดตัวเลขหน้าออกแล้วอ่าน index ที่เหลือเป็น index ของ MSAA ซึ่ง**นับคนละแบบ** ⇒ `settext` ตอบ `ok` แต่ข้อความไม่เปลี่ยน (พิสูจน์ได้: `via: msaa` + ชื่อ node ยังเป็นข้อความเดิม). แก้: ref จาก MSAA นำหน้าด้วย `m` (`m2/0/0/…`) · `act` แยกทางตามเครื่องหมายนี้ · `SetValue` ใน C# **อ่านค่ากลับมาเทียบ** ก่อนตอบสำเร็จ
+
+### ⚠️ ค้าง/ยังไม่ยืนยัน
+- `alt+F4` ยิงไปที่ Notepad สองครั้งแล้วหน้าต่างไม่ปิด (มีเอกสารยังไม่บันทึก ⇒ อาจมี dialog บันทึกซ้อนที่ตัวเลือกไม่โผล่ใน window list) — ปิดจบด้วย `taskkill /F`. **ต้องทดสอบซ้ำกับหน้าต่างที่ไม่มี dialog** ก่อนเชื่อว่าปุ่มลัดไปถึงหน้าต่างเป้าหมายจริง
+- ภาพที่ `system_screenshot` คืนให้ **โมเดลที่มองภาพได้** ยังไม่เคยทดสอบ (session นี้เป็น text-only จึงได้ path)
+
+> หลังทดสอบ: ปิด Calculator · ปิด Notepad · **คืนธีม NTAPI เป็นโหมดมืดตามเดิมแล้ว** (ยืนยันด้วย snapshot: ปุ่มเขียนว่า "เปลี่ยนเป็นธีมสว่าง")
+
+## ✅ ปิดชุดทดสอบควบคุมเครื่อง 2026-11-22 (หลังรีสตาร์ต)
+
+| ข้อ | ผล | หลักฐาน |
+|---|---|---|
+| `system_snapshot` หน้าต่าง NTAPI (handle 852360) | **ผ่าน** | 40 element: `Button "เปลี่ยนเป็นธีมสว่าง" {click:toggle}`, `Edit {editable}`, `Button "+ ใหม่"`, `Button "NVIDIA 22/11/2569 10:36 น."` — ไม่ใช่ 2 element แล้ว |
+| `system_act` กดด้วย ref | **ผ่าน** | กด `1/0/0/0/0/0/0/1/1/0/3` → ชื่อปุ่มพลิกเป็น "เปลี่ยนเป็นธีมมืด" แล้วกดซ้ำคืนเป็นธีมเดิม (ยืนยันด้วย snapshot + ภาพ) |
+| `system_screenshot` ภาพ + path | **ผ่าน** | `Screenshot of NTAPI (1240×760). Saved to …` · ไฟล์ 180 KB · `look_at_image` อ่านออก (sidebar, แชทที่บันทึกไว้, ธีมมืด) |
+| `system-audit.log` มี session/model | **ผ่าน** | `{"session":"01a2014d-…","model":{…},"event":"snapshot","nodes":40}` |
+
+### 🔎 สิ่งที่เรียนรู้เพิ่ม
+- **`system_windows` เป็นคำสั่งเดียวที่ไม่เขียน audit** ⇒ ตอนบั๊ก audit เรียกตัวเองมีเพียงตัวนี้ที่รอด: ใช้เป็นตัวแยกชั้น ("ชั้น JS พัง" vs "ชั้น helper พัง") ได้ทันที
+- **ภาพที่ถ่ายถูกเขียนลง `<cwd ของแอป>/images/`** — แอปนี้รันด้วย cwd = `Z:/home/nt/NTAPI` (ไม่ใช่ repo) ⇒ path สัมพัทธ์ `imagesdesktop-xxxx.png` อาจชี้ที่ที่ agent เปิดไม่ได้
+
+### 🧹 ขัดเงา 2 จุด (โค้ดแก้แล้ว — มีผลหลังรีสตาร์ตครั้งถัดไป)
+1. **audit สั้นลง**: `modelTag()` เก็บแค่ `"ชื่อ (id)"` เดิมยัด model object ทั้งก้อน (~600 ไบต์/บรรทัด)
+2. **path ภาพเป็น absolute**: `systemScreenshotContent` แปลง `rel` เป็น path เต็มก่อนรายงาน — กัน agent เปิดไฟล์ไม่เจอเมื่อ cwd ของแอป ≠ โฟลเดอร์ที่ agent อ่าน
+
+### 🔜 ที่เหลือ
+1. commit 9 ไฟล์ (ต้องถามก่อน) + ตัดสินใจ `0.6.24`
+2. ถ้าอยากพิสูจน์ว่า **โมเดลอื่น** (Nemotron) ขับเครื่องมือได้เอง → ต้องสลับไปแชท NVIDIA แล้วอ่าน audit ว่าบันทึก `model` ของมัน
+3. งานค้างเดิม: `pruneSessionMarks` → `pruneMarks` (แก้แล้วในกอง 9 ไฟล์)
+
+## 🔴 ต้นเหตุจริงของ `Maximum call stack size exceeded` (เจอแล้ว 2026-11-22)
+
+ไม่ใช่ PowerShell ไม่ใช่ Electron — อยู่ที่ `app/src/main.js` ใน `systemBridge.call()`:
+
+```js
+const audit = (entry) => audit({ ...who, ...entry });   // ❌ เรียกตัวเองไม่รู้จบ
+const audit = (entry) => systemAudit({ ...who, ...entry }); // ✅
+```
+
+ตอนแทน `systemAudit(` ด้วย `audit(` เพื่อพ่วง `who` เข้าไปในทุก entry บรรทัดนิยามนี้ถูกแทนไปด้วย ⇒ `audit` เรียกตัวเอง ⇒ V8 โยน RangeError ออกมาก่อนถึง desktop
+**อาการที่เห็น**: `system_windows` ผ่าน (คำสั่งเดียวที่ไม่ audit) แต่ `snapshot`/`screenshot`/`act`/`type`/`keys` พังทั้งหมด — และ `uia.ps1` กับ `windows.js` เรียกตรง ๆ ผ่านปกติ ⇒ เวลาหาบั๊ก ให้แยกให้ชัดว่า "ชั้นไหน" พังก่อน
+กันซ้ำ: `selftest-system-control.js` มีเช็ค `the audit helper calls the audit, not itself`
+
+> หมายเหตุ: `capturePage()` ของ Electron ก็มี try/catch ตกไปใช้ helper อยู่แล้ว — เก็บไว้เป็นเกราะชั้นสอง ไม่ใช่ต้นเหตุ
+
+> ## 🆕 2026-11-22 (ต่อ 3) — หน้าต่าง Chromium อ่านได้แล้ว (MSAA) · เหลือทดสอบผ่านเครื่องมือหลังรีสตาร์ต
+> **ข้อ 4 คืบหน้าคนละทางกับที่คิด**: `--force-renderer-accessibility` ไม่ทำให้ UI Automation เห็นคอนโทรลของ Chromium (ยังได้ 2 node เท่าเดิม) แต่ทดลอง `AccessibleObjectFromWindow` (MSAA, `oleacc.dll`) แล้ว **ได้ tree เต็ม** — ชื่อไทยถูกต้อง, มี role/name/bounds/defaultAction ครบ
+>
+> ### ✅ ทำแล้วในรอบนี้
+> - **`app/src/system/uia.ps1`**:
+>   - `Add-Tree` เปลี่ยนเป็น **iterative** (stack ของตัวเอง) — ของเดิมเวียน recursive แล้วตาย `Maximum call stack size exceeded` เมื่อเจอ tree ของ Chromium ที่ลึกเป็นพัน
+>   - เพิ่ม `Add-Type` C# class **`NtMsaa`** (Walk / Press / SetValue) + `Get-Msaa-Tree`, `Convert-Msaa-Role`, `Convert-Msaa-Actions`, `Get-Window-Handle-From-Ref`, `ConvertTo-Msaa-Path`
+>   - `snapshot`: ถ้า UIA คืน ≤ 2 node → เดิน MSAA แทน แล้วใส่ `provider: 'msaa'` ในผล
+>   - `act`: `Resolve-Ref-Or-Null` (ไม่ตายเมื่อ path ยาวกว่า UIA) + `Invoke-Uia-Click` แล้ว **fallback กดผ่าน `[NtMsaa]::Press`** · `settext` fallback ผ่าน `set_accValue`
+>   - `screenshot`: (ของเดิม) ไม่เปลี่ยน — แต่ **main.js แก้**: `capturePage()` ที่ overflow เมื่อ renderer เปิด a11y → `try/catch` แล้วตกไปใช้ helper `systemAdapter.screenshot()`
+> - **ทดสอบสด (CLI)**: snapshot ได้ 250 node (`provider: msaa`) · กดปุ่ม "เปลี่ยนเป็นธีมสว่าง" ด้วย ref MSAA แล้วธีมเปลี่ยนจริง (ปุ่มเปลี่ยนชื่อเป็น "เปลี่ยนเป็นธีมมืด") แล้วกดกลับคืนเป็นธีมมืด — **คืนค่าที่ผู้ใช้ตั้งไว้แล้ว**
+> - **`app/scripts/selftest-system-control.js`**: +4 เช็ค (MSAA fallback · กดผ่าน MSAA · walk แบบ iterative · self-capture fallback) → **184 PASS / 0 FAIL** · `npm test` 95/98 (แดงเดิม 3) · `check:sara` ok
+>
+> ### ⚠️ ค้างอยู่ (ต้องรีสตาร์ตแล้วทดสอบซ้ำ)
+> - เรียกผ่าน **เครื่องมือในแอป** (`system_snapshot` / `system_screenshot`) ยังตอบ `Maximum call stack size exceeded` **ทั้งที่ CLI และการเรียกโมดูล windows.js ตรง ๆ ผ่าน** (250 node, 7 วินาที) — แอปที่รันอยู่ยังเป็นโค้ดก่อนแก้ `capturePage` (screenshot) และยังไม่รู้สาเหตุของ snapshot ⇒ **รีสตาร์ตแล้วทดสอบซ้ำ ถ้ายังพังให้ไล่ stack ในแอป (เพิ่ม try/catch พิมพ์ stack ลง `ntapi-run.log`)**
+> - ยังไม่ได้ยืนยัน audit มี `session`/`model` ในไฟล์จริง (`Z:\.local\share\ntapi\system-audit.log`)
+>
+> ### 📦 ไฟล์ค้าง commit (9)
+> `app/src/system/uia.ps1` · `app/src/system/windows.js` · `app/src/freepi-bridge.js` · `app/src/main.js` · `app/scripts/selftest-system-control.js` + กองเดิม 4 (`selftest-session-marks.js`, `PROVENANCE/ledger.jsonl`, `HANDOFF.md`, `LOG.md`)
+>
+> ### 🔜 ถัดไป
+> 1. รีสตาร์ต → `system_snapshot {window:<handle>}` + `system_screenshot` ผ่านเครื่องมือ (ถ้ายัง overflow: ไล่ stack)
+> 2. `system_act` กดปุ่มใน NTAPI ด้วย ref MSAA ผ่านเครื่องมือ (ไม่ใช่ CLI)
+> 3. ตรวจ `system-audit.log` ว่ามี `session`/`model`
+> 4. commit + ถามปล่อย `0.6.24`
+
+> ## 🆕 2026-11-22 (ต่อ 2) — ปิดงานข้อ 4/6/7/8/10/12 · ทดสอบสดผ่าน Nemotron อีกรอบ
+> ผู้ใช้รีสตาร์ตแอป + สลับแท็บให้แล้ว · ผู้ช่วยยิงโจทย์เข้าแชท NVIDIA เอง (click_at → type → keys enter) และอ่านผลจาก **toolResult ในไฟล์ session** (ของจริง ไม่ใช่คำพูดโมเดล)
+>
+> ### ✅ ยืนยันสดแล้ว
+> - **ข้อ 6**: `system_type` ตอบ `SENT, NOT CHECKED: sent 7 characters into the window, …` (เดิม "nothing is on screen") · Nemotron รายงานผลตรงตามที่เครื่องมือตอบ
+> - **ข้อ 8 (ครึ่งแรก)**: `system_windows` → `1 · electron — NTAPI (window 393904) [-8,-8 1296×776]`
+> - **ข้อ 8 (ครึ่งหลัง)**: Chrome คืน `bounds: null` เพราะ**หน้าต่างถูกย่อ** → ps1 ขอ rect จาก Win32 (`GetWindowRect`) และถ้าย่ออยู่ → `minimised: true` + ไม่ให้ bounds ปลอม (-32000,-32000 160×28) · formatter พิมพ์ `[minimised - focus it first]`
+> - **ข้อ 12**: `system_screenshot` เซฟไฟล์ลงดิสก์เสมอ + ถ้าโมเดลดูภาพได้คืน **ทั้ง `image` และ path** ในผลเดียวกัน
+> - **ข้อ 10**: `system-audit.log` ทุกบรรทัดมี `session` + `model` ของผู้สั่งแล้ว (`main.js` รวม `who` เข้าทุก entry ใน `call()`)
+> - **ข้อ 7**: งบดูภาพ 4 → **8 ครั้ง/เทิร์น** + ถ้อยคำใหม่ ("ดูภาพเมื่อคำตอบอยู่ในภาพ … งานวิดีโออย่าไล่ทีละเฟรม") แทนข้อความเดิมที่พูดถึงแต่งานเรนเดอร์
+> - **ข้อ 4 ยังไม่หาย**: `system_snapshot` ของ NTAPI ยังได้ 2 element (Window + Pane) แม้ `setAccessibilitySupportEnabled(true)` แล้ว ⇒ เพิ่ม `app.commandLine.appendSwitch('force-renderer-accessibility')` ที่หัว `main.js` (Chromium สร้าง a11y tree ใน renderer ให้ก็ต่อเมื่อถูกขอตั้งแต่บูต) — **ยังไม่ได้ทดสอบเพราะต้องรีสตาร์ต**
+>
+> ### 📦 ไฟล์ค้าง commit (9)
+> `app/src/system/uia.ps1` · `app/src/system/windows.js` · `app/src/freepi-bridge.js` · `app/src/main.js` · `app/scripts/selftest-system-control.js` + กองเดิม 4 (`selftest-session-marks.js`, `PROVENANCE/ledger.jsonl`, `HANDOFF.md`, `LOG.md`)
+> - เทสต์ฝั่ง Windows: `selftest-system-control` **180 PASS / 0 FAIL** (+6 เช็คใหม่: renderer a11y switch · minimised ไม่ให้ bounds ปลอม · Win32 GetWindowRect · screenshot คืนภาพ+path · audit ระบุ agent · งบภาพ 8) · `npm test` **95/98** (แดงเดิม 3) · `check:sara` ok
+>
+> ### 🔜 ขั้นถัดไป
+> 1. **รีสตาร์ตอีกรอบ** แล้วทดสอบข้อ 4: `system_snapshot {window:<handle NTAPI>}` ควรเห็นคอนโทรล (ช่องพิมพ์/ปุ่ม) และ `system_act` กดปุ่มในแอปตัวเองได้ · พร้อมดูว่า audit มี session/model จริง
+> 2. ถ้า a11y ยังไม่ขึ้น: ลอง `--enable-features=...`/ตรวจ `chrome://accessibility` ใน NTAPI หรือยอมรับว่า snapshot ของตัวเองใช้ไม่ได้ แล้วเขียนบอกใน prompt
+> 3. commit 9 ไฟล์ + ตัดสินใจปล่อย `0.6.24` (ต้องถามก่อนเสมอ)
+>
+> ### ⚠️ บทเรียนการแก้ไฟล์ (สำคัญกับ session ถัดไป)
+> - `edit` tool ใช้กับ `uia.ps1` ไม่ได้ (CRLF) → ใช้ node patch script + คง CRLF
+> - **bash heredoc บนเครื่องนี้กิน backslash**: `'\n'` ในสคริปต์ที่เขียนผ่าน heredoc กลายเป็น `'\n'` จริง ⇒ สร้างอักขระด้วย `String.fromCharCode(92)` (และ backtick ด้วย 96) เสมอ
+> - แทรก/แทนที่ด้วย "หา index ของบรรทัดแล้ว splice" ปลอดภัยกว่าจับ string ยาว — รอบนี้จับ string พลาดทำให้ handler ของ `before_agent_start` หาย 4 บรรทัด (ซ่อมแล้ว)
+
+> ## 🆕 2026-11-22 (ต่อ) — ควบคุมเครื่อง Windows: เจอ 7 บั๊กจริง + ทดสอบสดด้วย Nemotron VL
+> ผู้ใช้ขอทำงาน "ควบคุมเครื่อง" ต่อจาก 0.6.23 · วิธีทดสอบที่ตกลงกัน: **ผู้ใช้เปิดสวิตช์ + เปิดแชท NVIDIA (Nemotron 3.5 Super VL) → agent พิมพ์โจทย์เข้าแชทเองผ่าน `system_type`/`system_keys` → อ่าน transcript จาก `sessions/NTAPI/<ไฟล์ที่โต>.jsonl` + `system-audit.log`**
+> **ผล: "โมเดลไม่ได้โง่" — โค้ดเราพัง 7 จุด** (ทุกจุดยืนยันด้วยการเรียกจริง ไม่ใช่การอ่านโค้ด)
+>
+> ### 🔎 บั๊กที่แก้แล้ว (5 ไฟล์)
+> | # | อาการที่โมเดลเจอ | ต้นเหตุ | แก้ที่ |
+> |---|---|---|---|
+> | 1 | `system_windows` พ่น `undefined · app — (untitled)` ไม่มีเลข app ให้ใช้ | `formatSystemWindows` อ่าน `app/appName/title` แต่ adapter Windows ส่ง `index/name` | `system/windows.js` เพิ่ม `windowRow()` แมปให้ตรง (+`process` จาก ps1) · **ทาง Linux ไม่กระทบ** |
+> | 2 | `system_screenshot {window:…}` → `BAD_ARGS: screenshot needs --app N` (6 คำสั่ง) | guard `if ($App -lt 0)` ใน `uia.ps1` ไม่รู้จัก `-Window` ที่เพิ่มใน 0.6.19 (มีแค่ snapshot) | `uia.ps1` → `if ($App -lt 0 -and $Window -eq '')` ครบ 7 คำสั่ง |
+> | 3 | screenshot บอก Nemotron VL ว่า *"this model cannot see images"* | `ctx.getModel()` ของเครื่องมือ accessibility คืนว่าง → อ่านว่า "ไม่มีตา" | `freepi-bridge.js` เพิ่ม `sessionModel(ctx, session)` + `modelSeesImages()` ใช้ 3 จุด |
+> | 4 | `system_snapshot` คืน `-1` / node ว่างเปล่าตลอด (บันทึกเดิมโทษ Electron) | **`$target` ชนกับ param `[string]$Target`** — PowerShell ไม่สนตัวพิมพ์ ⇒ เก็บ ToString() ของ element | `uia.ps1` เปลี่ยนชื่อเป็น `$windowElement` (**ต้นเหตุจริงของ snapshot พัง 2 รุ่น**) |
+> | 5 | `app:0` = หน้าต่างผี 1280×40 ที่ไม่อยู่ในรายการ แต่ยิงถึงได้ | index เป็นตำแหน่ง child ของ desktop | `Get-Window-Element` ปฏิเสธด้วย `NOT_A_WINDOW` + หา index จาก handle เมื่อเรียกด้วย `-Window` (ref เป็น `1`, `1/0`) |
+> | 6 | `type` ตอบ *"nothing is on screen"* ทั้งที่ข้อความขึ้นจริง (อ่าน text ของ Electron ไม่ได้) | 2 สถานะไม่พอ | ps1 ส่ง `checked:false` · bridge ตอบ `SENT, NOT CHECKED: … never send the same text twice` + prompt สอน 3 สถานะ |
+> | 7 | `click_at` ไม่มีพิกัดให้ใช้ · หัว snapshot ไม่บอกว่าอ่านหน้าต่างไหน | formatter ทิ้ง `bounds`/`handle` | `formatSystemWindows` พ่วง `[x,y WxH]` · `formatSystemSnapshot` หัวมี `(window N)` |
+>
+> ### ✅ แก้เพิ่ม: `app.setAccessibilitySupportEnabled(true)` (ข้อ 4 ในรายการเดิม)
+> `main.js` `whenReady()` — Chromium ปิด a11y tree ไว้ ทำให้ agent อ่านคอนโทรลของ NTAPI เองไม่ได้ (กดปุ่มในแอปด้วย ref ไม่ได้) ⇒ เปิดแล้วรอทดสอบ
+>
+> ### 🧪 ทดสอบสดกับ Nemotron VL (ยืนยันหลังรีสตาร์ตครั้งที่ 1)
+> - `system_windows` → `1 · electron — NTAPI (window 524488)` + `2 · chrome — …` (เดิม `undefined`)
+> - `system_screenshot {window:"524488"}` → **สำเร็จ** (เดิม BAD_ARGS) และผลเป็น `type:"image"` → Nemotron อ่านจอออกจริง (อธิบาย sidebar/ป้ายโมเดล/composer ถูก)
+> - `system_snapshot {window:"524488"}` → `NTAPI — 2 element(s)` + `1 Window "NTAPI"` (1296×776) + `1/0 Pane "Chrome Legacy Window"`
+> - `system_screenshot {app:0}` → `NOT_A_WINDOW`
+>
+> ### 📦 ไฟล์ค้าง commit (10)
+> `app/src/system/uia.ps1` · `app/src/system/windows.js` · `app/src/freepi-bridge.js` · `app/src/main.js` · `app/scripts/selftest-system-control.js` + กองเดิม 5 (`app/src/main.js` prune fix, `app/scripts/selftest-session-marks.js`, `PROVENANCE/ledger.jsonl`, `.AGENT/HANDOFF.md`, `.AGENT/LOG.md`)
+> - เทสต์ฝั่ง Windows: `selftest-system-control` **174 PASS / 0 FAIL** · `npm test` **95/98** (แดงเดิม 3: `skill-scan` EPERM symlink · `notices` ต้องรัน `npm run notices` · `data-root` ต่อ path ที่มีไดรฟ์) · `check:sara` ok
+> - **ยังไม่ commit / ไม่ bump** · ถ้าปล่อย → `0.6.24` (ต้องถามก่อนเสมอ)
+>
+> ### 🔜 ขั้นถัดไป (เรียงตามลำดับ)
+> 1. **รีสตาร์ตแอปแล้วทดสอบปิดชุด** (โค้ด JS ต้องโหลดใหม่): ข้อ 6 (`SENT, NOT CHECKED`) · ข้อ 7 (bounds ในรายการ + หัว snapshot มี handle) · ข้อ 4 (เปิด a11y → `system_snapshot` ควรเห็นคอนโทรลของ NTAPI และ `system_act` กดปุ่มในแอปตัวเองได้)
+> 2. **ข้อ 7 เดิม (งบภาพ)** — `look_at_image` จำกัด 4 ภาพ/เทิร์น และถ้อยคำเป็นของงานวิดีโอ (*"Finish the render; the user watches the finished video"*) → งาน "AI ดูจอ" ชนเพดานนี้ทันที
+> 3. **ข้อ 10 (audit)** — `system-audit.log` ไม่ระบุ session/model ⇒ ของ agent 2 ตัวปนกันแยกไม่ออก (วันนี้ 24 entries จาก 2 agent) + `app: null` กับ `-1` ใช้ไม่ตรงกัน
+> 4. **ข้อ 12** — `system_screenshot` คืนอย่างใดอย่างหนึ่ง: มีภาพ = ไม่มี path (ควรได้ทั้งคู่)
+> 5. commit + ตัดสินใจปล่อย `0.6.24` (รวมกอง prune `session:list` ด้วย)
+>
+> ### 🧭 วิธีขับแชทของแอปเอง (จำเป็นสำหรับรอบถัดไป)
+> - **หาไฟล์ session ที่แชทนั้นเขียน:** ไฟล์ที่ `stat -c%s` โตขึ้นหลังพิมพ์ (`.jsonl` **เขียนตอนจบเทิร์นเท่านั้น** — เฝ้าระหว่างเทิร์นจะไม่เห็นอะไร อย่านั่งรอ)
+> - **ยืนยันว่าแท็บไหนอยู่หน้า ก่อนพิมพ์ทุกครั้ง:** `system_screenshot {app:1}` → `look_at_image` ถามชื่อแชท + ชื่อโมเดล (ผู้ใช้สลับแท็บมาคุยกับเราได้ทุกเมื่อ — พิมพ์พลาด = ข้อความเข้าผิดแชท)
+> - **ลำดับที่ใช้ได้จริง:** `system_click_at {app:1, x:700, y:690}` (ช่อง composer) → `system_type {app:1, text}` → `system_keys {app:1, keys:'enter'}` · `type` จะตอบ `SENT, NOT CHECKED`/`NOT VERIFIED` — **อย่าเชื่อ ให้ยืนยันด้วยภาพหรือด้วยไฟล์ session**
+> - `look_at_image` มีเพดาน 4 ภาพ/เทิร์น · โมเดลที่ขับอยู่ (DeepSeek) มองภาพไม่ได้เอง ต้องผ่าน `look_at_image`
+> - ห้ามเปิด NTAPI ตัวที่สองบน data root เดียวกัน
+
+
+> ## 🆕 2026-11-22 (ต่อ) — แชทหายทั้งแถบ: `session:list` ล่มด้วย ReferenceError
+> ผู้ใช้กดเลือก Folder แล้วขึ้น `Error invoking remote method 'session:list': ReferenceError: pruneSessionMarks is not defined` → รายการแชทขึ้นไม่ได้เลย
+> - **สาเหตุ**: `main.js` `pruneSessionMarkStore()` เรียก `pruneSessionMarks(...)` แต่ชื่อที่ `session-marks.js` export คือ **`pruneMarks`** — พิมพ์ผิดตอนเปลี่ยนคีย์เป็นแบบ relative ในรอบ 0.6.23 · `node --check` จับไม่ได้เพราะเป็น runtime error (เกิดตอน `listSessions()` เรียก prune)
+> - **แก้**: เรียก `pruneMarks(current, ...)` (บรรทัด ~853 ของ `app/src/main.js`)
+> - **กันซ้ำ**: `selftest-session-marks.js` เพิ่มเช็ค `main.js calls only prune names that exist` — อ่าน `src/main.js` เป็นข้อความ (require จริงไม่ได้เพราะพึ่ง electron) เก็บชื่อที่ประกาศเอง/import จาก `./session-marks` แล้วเทียบกับชื่อที่ถูกเรียก · ทดสอบแล้วว่าใส่ชื่อผิดกลับเข้าไป = FAIL
+> - **เทสต์**: Ubuntu **98/98** · `check:sara` ok
+> - **ไฟล์ค้าง commit**: `app/src/main.js` · `app/scripts/selftest-session-marks.js` · `PROVENANCE/ledger.jsonl` (ของเดิม)
+> - **ถ้าปล่อย → `0.6.24`** — ยังไม่ได้รับอนุญาต (ต้องถามก่อน)
+> - **แชทของผู้ใช้ไม่หาย**: `~/.local/share/ntapi/sessions/NTAPI/` มี 5 ไฟล์ (ใหม่สุด 2026-11-22 10:23) · พังแค่ตอนอ่านรายการมาแสดง
+> - **ช่องที่ยังเหลือ (ยังไม่แก้)**: `prefs.sessionMarks` มีคีย์เต็มแปลก ๆ `/home/nt/NT-ALL/NTAPI/app/z:\nt-all\...\*.jsonl` — เกิดเมื่อ path ถูกส่งมาเป็นสเปลลิ่ง Windows บน Linux → pin/สีที่ตั้งตอนนั้นจะอ่านไม่เจอ (แต่ไม่ถูกลบ) · รอผู้ใช้สั่งก่อนแก้
 
 > ## 🆕 2026-11-22 (รอบปล่อย 0.6.23) — UI สองปุ่มสลับที่ · tooltip ควบคุมเครื่อง · pin/สีแชทหาย · คิวนับถอยหลัง
 > ผู้ใช้สั่ง 4 เรื่องติดกัน (ปิดท้ายด้วย "ส่งอัปเดตได้เลย" → รอบนี้ = `0.6.23`)

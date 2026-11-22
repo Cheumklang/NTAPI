@@ -11,6 +11,7 @@
 'use strict';
 
 const assert = require('node:assert');
+const fs = require('node:fs');
 const path = require('node:path');
 const marks = require('../src/session-marks');
 
@@ -267,6 +268,22 @@ check('a key this machine cannot resolve is not treated as a deleted chat', () =
     return true;
   });
   assert.deepStrictEqual(Object.keys(pruned).sort(), ['/other/machine/x.jsonl', 'ws/a.jsonl']);
+});
+
+/* ------------------------- wiring in the app -------------------------- */
+/*
+ * main.js cannot be required here (it pulls in electron), so the wiring is read
+ * as text. A call to a name nothing defines does not throw until that line runs
+ * — the prune name that was wrong only fired when a folder was listed, which
+ * took the whole chat list down with a ReferenceError.
+ */
+check('main.js calls only prune names that exist', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+  const defined = new Set([...main.matchAll(/^function (prune\w+)/gm)].map((m) => m[1]));
+  const mixed = main.match(/const \{([\s\S]*?)\} = require\('\.\/session-marks'\);/);
+  for (const name of (mixed ? mixed[1] : '').split(',')) defined.add(name.trim().split(':')[0].trim());
+  const called = [...new Set([...main.matchAll(/\b(prune\w+)\s*\(/g)].map((m) => m[1]))];
+  assert.deepStrictEqual(called.filter((name) => !defined.has(name)), []);
 });
 
 if (failed) {
