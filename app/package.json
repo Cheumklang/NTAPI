@@ -32,6 +32,7 @@
     "check:scroll": "electron --no-sandbox scripts/check-scroll-to-latest.js",
     "check:fold": "electron --no-sandbox scripts/check-model-fold.js",
     "check:stale-queue": "electron --no-sandbox scripts/check-stale-queue.js",
+    "check:queue-hold": "electron --no-sandbox scripts/check-queue-hold.js",
     "prove:verify": "node scripts/provenance.js verify",
     "notices": "node scripts/gen-notices.js",
     "notices:check": "node scripts/gen-notices.js --check",

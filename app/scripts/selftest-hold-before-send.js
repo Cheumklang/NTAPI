@@ -111,7 +111,11 @@ check('cancelAllHolds clears every other tab', /for \(const tabId of/.test(cance
 // text under a row still promising "จะส่งในอีก 4 วิ". The clock is the promise.
 
 const settledAt = app.indexOf('api.onSettled((p) => {');
-const settledSlice = settledAt === -1 ? '' : app.slice(settledAt, settledAt + 1600);
+// The window ends where the handler does. A fixed character count was a guess
+// that broke the moment the handler grew a paragraph of its own.
+const settledEnd = settledAt === -1 ? -1 : app.indexOf('\n});', settledAt);
+const settledSlice =
+  settledAt === -1 ? '' : app.slice(settledAt, settledEnd === -1 ? settledAt + 3000 : settledEnd);
 check('a finished turn still drains the queue', /drainQueue\(view\)/.test(settledSlice));
 check('a finished turn does not release a countdown that is still running', !/holdReleased/.test(app));
 

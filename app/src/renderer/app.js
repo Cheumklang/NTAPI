@@ -499,6 +499,10 @@ const STRINGS = {
     delete: 'Delete',
     queuedOne: 'Queued: 1',
     queuedMany: 'Queued: {n}',
+    queueHeldFailed: 'Not sent — the last turn ended on an error, so this queue is held.',
+    queueHeldStopped: 'Not sent — you stopped the last turn, so this queue is held.',
+    queueHeldSend: 'Send anyway',
+    queueHeldSendTitle: 'Send the queued messages now, on top of the unfinished turn',
     pctUsed: '{n}% used',
     spent: '{n} of {total} used',
     allowOnce: 'Allow',
@@ -1064,6 +1068,10 @@ const STRINGS = {
     delete: 'ลบ',
     queuedOne: 'ในคิว: 1',
     queuedMany: 'ในคิว: {n}',
+    queueHeldFailed: 'ยังไม่ส่ง — เทิร์นก่อนหน้าจบด้วยข้อผิดพลาด คิวจึงหยุดรออยู่',
+    queueHeldStopped: 'ยังไม่ส่ง — คุณสั่งหยุดเทิร์นก่อนหน้า คิวจึงหยุดรออยู่',
+    queueHeldSend: 'ส่งเลย',
+    queueHeldSendTitle: 'ส่งข้อความในคิวตอนนี้ ทั้งที่เทิร์นก่อนหน้ายังไม่จบ',
     pctUsed: 'ใช้ไป {n}%',
     spent: 'ใช้ไป {n} จาก {total}',
     allowOnce: 'อนุญาต',
@@ -1428,6 +1436,10 @@ function createView(tabId) {
     liveAssistant: null,
     liveTools: null,
     queue: [],
+    // Set when the turn that was running ended badly (a limit, a provider error,
+    // a Stop). The queue stays put until the bar's own button releases it, so a
+    // queued message cannot land on top of unfinished work.
+    queueHold: null,
     // The composer belongs to this chat: the words being typed and the pictures
     // staged for the next message stay here while another tab is on screen.
     composerText: '',
@@ -8259,6 +8271,19 @@ async function resolveForSend(text) {
 async function drainQueue(view) {
   if (!view || view.busy) return;
   if (!view.queue || !view.queue.length) return;
+  /*
+   * Held after a turn that did not finish.
+   *
+   * The hold is set by `agent:settled` (a limit, an error, a Stop) and cleared by
+   * the bar's own button, by the next turn that ends cleanly, or by the user
+   * removing the queue. Every other caller — an edited item saved, a row removed,
+   * a countdown reaching zero — lands here too, so none of them can slip the
+   * message out past the hold.
+   */
+  if (view.queueHold) {
+    renderQueue();
+    return;
+  }
   const head = view.queue[0];
   // An item being edited is not ready to go: sending it would ship the text the
   // user is in the middle of changing. It keeps its place and the drain simply
@@ -8363,6 +8388,36 @@ function renderQueue() {
   head.className = 'queue-head';
   head.textContent = items.length === 1 ? t('queuedOne') : t('queuedMany', { n: items.length });
   bar.appendChild(head);
+
+  /*
+   * Why nothing in this queue is going anywhere yet.
+   *
+   * A silent pause would read as a broken queue: the rows are there, the turn is
+   * over, and nothing sends. So the bar says which turn ended badly and carries
+   * the one press that lets the messages go anyway.
+   */
+  if (view?.queueHold) {
+    const held = document.createElement('div');
+    held.className = 'queue-hold';
+    const why = document.createElement('span');
+    why.className = 'queue-hold-why';
+    why.textContent = t(view.queueHold === 'stopped' ? 'queueHeldStopped' : 'queueHeldFailed');
+    const release = document.createElement('button');
+    release.type = 'button';
+    release.className = 'queue-hold-send';
+    release.textContent = t('queueHeldSend');
+    release.title = t('queueHeldSendTitle');
+    release.addEventListener('click', () => {
+      const current = activeView();
+      if (!current) return;
+      current.queueHold = null;
+      renderQueue();
+      updateSendState();
+      drainQueue(current);
+    });
+    held.append(why, release);
+    bar.appendChild(held);
+  }
 
   items.forEach((item, index) => {
     const row = document.createElement('div');
@@ -10569,9 +10624,24 @@ api.onSettled((p) => {
   view.busy = false;
   view.steerPending = false;
   refreshSessionBusy();
+  /*
+   * A turn that ended on a limit, a provider error, or a Stop did not finish the
+   * work it was doing.
+   *
+   * The queue exists to follow *finished* work: every message in it was written
+   * as "and then this". Firing it into a half-done task is how the report that
+   * started this went — a turn died on a spent allowance, the message the user
+   * had queued went out anyway, and the model they switched in afterwards read it
+   * as the next job and started on it while the previous one was still open.
+   *
+   * So the queue is held instead, and the bar says so with one press to release
+   * it. Nothing is lost and nothing is sent behind their back.
+   */
+  view.queueHold = p.failed ? 'failed' : p.aborted ? 'stopped' : null;
   // Same rule as onBusy: the composer follows the view on screen, not the tab
   // the event happened to name.
   paintBusyFromViews();
+  renderQueue();
   // A message held back while this turn ran still has its own countdown, and
   // that countdown is the promise the row makes: the drain below will decline to
   // send it early and the timer sends it at zero instead.

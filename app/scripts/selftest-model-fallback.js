@@ -180,13 +180,16 @@ check('the exhausted banner is gone from the wording', !messages.includes("'fall
 
 /* ---------------------------- still wired ---------------------------- */
 
+// The announcer takes the failure the settle path already worked out, so the
+// same record is not derived twice from a list pi may have rewritten in between.
 check(
   'a failed turn that was never reported is announced at settle',
-  /function announceIfUnreported\(tabId, tab\)/.test(main) && main.includes('announceIfUnreported(tabId, tab)')
+  /function announceIfUnreported\(tabId, tab(?:, knownFailure)?\)/.test(main) &&
+    /announceIfUnreported\(tabId, tab(?:, failure)?\)/.test(main)
 );
 check(
   'the settle-time announcer uses the remembered failure',
-  /function announceIfUnreported\(tabId, tab\)[\s\S]{0,400}?turnFailure\(/.test(main)
+  /function announceIfUnreported\(tabId, tab[\s\S]{0,600}?turnFailure\(/.test(main)
 );
 check(
   'a dropped failure stays visible after a repaint',

@@ -1977,11 +1977,14 @@ function announceEmptyAnswer(tabId) {
  * so by settle time the list already looks like a normal turn. `turnFailure`
  * falls back to the limit this process wrote down before cancelling.
  */
-function announceIfUnreported(tabId, tab) {
+function announceIfUnreported(tabId, tab, knownFailure) {
   const seq = tab.promptSeq || 0;
   if (tab.lastError?.seq === seq) return;
   const messages = tab.handle?.session?.agent?.state?.messages || [];
-  const failure = turnFailure({ messages, limitFailure: tab.limitFailure, seq });
+  const failure =
+    knownFailure !== undefined
+      ? knownFailure
+      : turnFailure({ messages, limitFailure: tab.limitFailure, seq });
   if (!failure || !failure.text) return;
   reportTabError(tabId, failure.text);
 }
@@ -2411,10 +2414,30 @@ function subscribeTab(tabId) {
         sendTab(tabId, 'agent:turnStart', {});
         break;
 
-      case 'agent_settled':
+      case 'agent_settled': {
         tab.busy = false;
         sendTab(tabId, 'agent:busy', { busy: false });
-        sendTab(tabId, 'agent:settled', { aborted: Boolean(event.aborted) });
+        /*
+         * A turn can end without finishing its work: the allowance ran out, the
+         * provider errored, or the user pressed Stop. The window has to know
+         * that, because the queue it holds was waiting for the turn to *finish*.
+         * Sending the next message into a half-done task is exactly how a model
+         * switched in afterwards started a second job while the first was still
+         * open.
+         *
+         * The failure is worked out here, once, and handed to
+         * `announceIfUnreported` too: it reads the same source, and pi may rewrite
+         * the message list between two reads of it.
+         */
+        const failure = turnFailure({
+          messages: tab.handle?.session?.agent?.state?.messages || [],
+          limitFailure: tab.limitFailure,
+          seq: tab.promptSeq || 0,
+        });
+        sendTab(tabId, 'agent:settled', {
+          aborted: Boolean(event.aborted),
+          failed: Boolean(failure && failure.text),
+        });
         // An abort is normally the user pressing Stop, and nothing should be
         // re-sent after that. The exception is the abort *this* process sends to
         // stop pi retrying a spent free route — that turn still has to say why it
@@ -2422,10 +2445,11 @@ function subscribeTab(tabId) {
         const ownAbort =
           Boolean(event.aborted) && tab.limitFailure && tab.limitFailure.seq === (tab.promptSeq || 0);
         if (!event.aborted || ownAbort) {
-          announceIfUnreported(tabId, tab);
+          announceIfUnreported(tabId, tab, failure);
         }
         scheduleTurnRecovery(tabId, tab, event);
         break;
+      }
 
       case 'message_update': {
         const e = event.assistantMessageEvent;

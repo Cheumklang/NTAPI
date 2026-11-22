@@ -2628,6 +2628,39 @@ button { font-family: inherit; }
   color: var(--muted);
 }
 /*
+ * The pause note: the queue is not broken, it is waiting.
+ *
+ * Deliberately one quiet line plus one bordered word — it sits directly above the
+ * messages the user is waiting for, so it has to explain itself without turning
+ * into a warning panel. The colour is the only loud part.
+ */
+.queue-hold {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--warn);
+}
+.queue-hold-why {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.queue-hold-send {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 11px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+.queue-hold-send:hover { background: rgb(255 176 32 / .12); }
+.queue-hold-send:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/*
  * Two parts, stacked: the line, and — only while a countdown is running — the
  * countdown under it. The line itself never wraps.
  */
