@@ -71,7 +71,7 @@ check('cancelling does not keep a stale editing flag behind', /editing = false/.
 const drain = body(app, 'drainQueue');
 check('the drain checks for an item being edited', /\.editing/.test(drain));
 check('an edited item blocks the drain instead of being sent',
-  /if \(blocked\) \{[\s\S]{0,120}return;/.test(drain));
+  /if \(head\?\.editing\) \{[\s\S]{0,120}return;/.test(drain));
 const drainGate = drain.indexOf('editing');
 const drainShift = drain.indexOf('view.queue.shift()');
 check('the check happens before the item is taken', drainGate !== -1 && drainShift !== -1 && drainGate < drainShift);

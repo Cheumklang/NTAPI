@@ -1,6 +1,129 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-21): ปล่อย v0.6.22 แล้ว · tree สะอาด · `master` = `origin/master`**
+> **📌 สถานะล่าสุด (2026-11-22): กำลังปล่อย v0.6.23 (UI 2 ปุ่มสลับที่ · tooltip · pin/สีแชท · คิวนับถอยหลัง) · tree มีของค้างถ้ายังไม่ commit**
+
+> ## 🆕 2026-11-22 (รอบปล่อย 0.6.23) — UI สองปุ่มสลับที่ · tooltip ควบคุมเครื่อง · pin/สีแชทหาย · คิวนับถอยหลัง
+> ผู้ใช้สั่ง 4 เรื่องติดกัน (ปิดท้ายด้วย "ส่งอัปเดตได้เลย" → รอบนี้ = `0.6.23`)
+> - **สลับปุ่ม**: ปุ่มธีม dark/light ขึ้นแถว `.brand` (ช่องเดิมของปุ่มลูกโลก) · ปุ่มควบคุมเบราว์เซอร์ลงแถว `.sidebar-tools` (ช่องเดิมของธีม) — ไฟล์ `app/src/renderer/index.html`, `styles.css` + เทสต์ 4 ไฟล์ (`selftest-markup-structure`, `selftest-theme`, `selftest-sidebar-min`, `selftest-system-control`)
+> - **tooltip "ควบคุมเครื่อง" ตัวเล็กกว่าปุ่มอื่น**: `.sys-tip` เป็นการ์ดที่แอปวาดเอง (11.5 → 12.5px ก็ยังไม่เท่า OS) → **ลบการ์ดทั้งชุด** (`placeSysTip`/`showSysTip`/listener/CSS/`<span id="sysTip">`) แล้วใช้ `paintSysTitle()` + `chip.title` = ประโยคสถานะ (ไทย/อังกฤษ) → ขนาดเท่าปุ่มอื่นเพราะ OS วาดเอง · ทางลัด Ctrl+Alt+Esc ยังอยู่ในแผง `.sys-hint`
+> - **pin/สีแชทหายหลังปิด-เปิดโปรแกรม**: หลักฐานจาก `prefs.json` จริง (`sessionMarks: {}` = ถูกลบ ไม่ใช่แค่อ่านไม่เจอ) · คีย์เดิมเป็น path เต็ม → Ubuntu กับ Windows สะกดคนละแบบ → ฝั่งที่เปิดทีหลัง `existsSync` ไม่เจอแล้ว prune ทิ้งถาวร
+>   → เปลี่ยนคีย์เป็น **path สัมพัทธ์ใน sessions root** (`session-marks.js`: `markKey(path, root)`, `markPath`, `migrateMarks`) · migration ครั้งเดียวตอนอ่านครั้งแรก · prune เก็บคีย์ที่แปลงกลับเป็นไฟล์ในเครื่องนี้ไม่ได้ · `main.js` ห่อ wrapper 4 ตัวให้ส่ง root เอง
+> - **AI เห็นข้อความก่อนตัวนับถอยหลังหมด**: `drainQueue()` ส่งทันทีเมื่อ turn จบ ทั้งที่ hold ยังนับ → อ่านหัวคิว ถ้า hold ยังไม่หมดให้ `return` (ตัวจับเวลาเรียก drain ตอนถึงศูนย์) · `queueMessage` = `send: () => drainQueue(view)` · ลบ `holdReleased`
+> - **เทสต์**: Ubuntu **98/98 ผ่าน** · `selftest-session-marks` +7 ข้อ · ปรับ `selftest-hold-before-send` / `selftest-queue-edit`
+> - **ช่องที่ยังเหลือ (ยังไม่แก้)**: hold ยังมีได้ tab ละอัน → กด Ctrl+Enter ซ้อน 2 ข้อความใน 5 วิ hold ของอันแรกถูกยกเลิก (แถวนับถอยหลังหาย) แต่ข้อความยังอยู่ในคิว = ส่งเร็วกว่าที่สัญญา · ต้องทำ hold เป็นรายคิว (~8 จุด)
+> - **ยังไม่ได้รันเทสต์ฝั่ง Windows** ในรอบนี้ (แดงเดิม 4–6 ตัว: skill-scan/notices/system-control/data-root + network-share package.json/path join/python)
+
+> ## 🆕 2026-11-22 — sidebar โชว์แชทของ workspace อื่น (ไม่ต้องสลับโฟลเดอร์เอง)
+> ผู้ใช้เจอว่าแชทที่เริ่มจาก workspace `Z:\NTAPI` หายไปเมื่อเปิด workspace `Z:\NT-ALL\NTAPI` (คนละโฟลเดอร์ประวัติ `NTAPI` กับ `NT-ALL-NTAPI`) → ต้องเปลี่ยน workspace เองทุกครั้ง
+> - `main.js`: `listOtherSessions(cwd, limit=30)` อ่านทุกโฟลเดอร์ใน `sessions/` (ยกเว้นของ workspace ปัจจุบัน) → IPC `session:listOther` · ใช้ `sessionListCache` เดิม (ต่อโฟลเดอร์) · เรียงตาม `modified` · ตัดที่ 30 แถว
+> - `localWorkspaceFor(dir, fallback)` + `workspaceMirrors(cwd)`: หา path ที่เครื่องนี้เปิดได้จริงจาก cwd ที่บันทึกในไฟล์ (ถ้าเป็น `/home/nt/...` จะลองไดรฟ์ C–Z เช่น `Z:\...` ให้) · `tab:open` แปลงก่อนสร้างแท็บ ไม่งั้นเครื่องมือชี้ไป path ของอีกฝั่ง
+> - `renderer/app.js`: กลุ่มใหม่ `t('otherWorkspaces')` = "แชทที่บันทึกไว้ในโฟลเดอร์อื่น" ต่อท้ายรายการ · แต่ละแถวพิมพ์ชื่อโฟลเดอร์ประวัติต่อท้ายวันที่ · คลิกแล้วเปิดแชทนั้นใน workspace ที่ถูกต้อง (`lastCwd` เปลี่ยนตาม)
+> - **ผู้ใช้ทั่วไปไม่เห็นความต่าง** — มี workspace เดียว = ไม่มีโฟลเดอร์อื่น = ไม่มีกลุ่มนี้
+> - `preload.js`: `listOtherSessions` · `styles.css`: `.session-group` / `.is-other` · `selftest-session-paths.js` +6 เช็ค
+> - เทสต์ฝั่ง Windows: 93/97 ผ่าน · 4 ที่แดงเป็นของเดิม/สภาพเครื่อง (skill-scan ต้อง symlink, notices ต้อง `npm run notices`, system-control ตรวจ python, data-root ต่อ path ที่มีไดรฟ์) · `check:sara` ok
+> - **งานค้างในกองนี้ 5 ไฟล์** (ยังไม่ commit/bump): `app/src/main.js` · `app/src/preload.js` · `app/src/renderer/app.js` · `app/src/renderer/styles.css` · `app/scripts/selftest-session-paths.js` (+กองเดิม) · ถ้าปล่อย → `0.6.23`
+
+> ## 🆕 2026-11-21 (ต่อ): "เปิด session ด้วย path เดียว" → ต้องบอกฝั่ง + งานค้างเอง
+> ผู้ใช้บอกว่าปกติเปิด session ใหม่ด้วยการวางแค่ `Z:\NT-ALL\NTAPI` หรือ `/home/nt/NT-ALL/NTAPI` แล้วอยากให้รู้ทันทีว่าอยู่ฝั่งไหน + มีงานค้างอะไร
+> - **เพิ่ม `app/scripts/which-side.js`** (ใช้ได้สองฝั่ง ไม่พึ่ง electron): บอกฝั่ง + หลักฐาน (`process.platform`, `os.release()`) · repo ที่เห็น/อีกฝั่ง · data root · ชื่อโฟลเดอร์ประวัติ · จำนวนแชท · `--- งานค้าง ---` (version, ไฟล์ที่ยังไม่ commit, บล็อก 📦 จาก HANDOFF)
+>   · รับ argument เป็น path ที่ผู้ใช้พิมพ์ → บอกว่าหน้านั้นคือฝั่งไหน ฝั่งผมเห็นเป็นอะไร และลงโฟลเดอร์ประวัติชื่ออะไร
+>   · ถอด path ที่ Git-Bash แปลง (`C:/Program Files/Git/home/...`) ให้เอง และพิมพ์ทั้งสองค่า
+>   · อ่าน git ด้วย `-c safe.directory=...` จึงไม่ต้องแก้ config ของผู้ใช้
+> - **`AGENTS.md`** เพิ่มหัวข้อ "วิธีเปิด session ของผู้ใช้": path เดียว = เริ่มงาน → cd → รันสคริปต์ → ตอบ 2 ส่วน (ยืนยันฝั่ง + งานค้าง) แล้วรอคำสั่ง ห้ามเริ่มแก้เอง
+> - **เทสต์ใหม่ `selftest-which-side.js`** (ลงทะเบียนใน `run-unit-tests.js` แล้ว) — เช็คสคริปต์, การจำแนก path สองฝั่ง, การถอด path ที่ shell แปลง, และกฎใน AGENTS.md
+>
+> ### ⚠️ พบของจริง: `npm test` ฝั่ง Windows **ยังไม่เขียว** (ไม่เกี่ยวกับงานแชทข้ามฝั่ง)
+> รัน 96 สคริปต์ → 4 สคริปต์ระเบิดกลางทาง + 2 FAIL:
+> | สคริปต์ | อาการ |
+> |---|---|
+> | `selftest-activity-state.js` · `selftest-update-channel.js` | `ERR_INVALID_PACKAGE_CONFIG: Cannot read package config \\?\Z:\NT-ALL\NTAPI\app\package.json` (Node อ่าน package.json บน network share ไม่ได้) |
+> | `selftest-data-root.js` | `ENOENT mkdir ...case-move\C:\NTAPI\sessions` — เอา path ที่มีไดรฟ์ไปต่อท้าย path อื่น |
+> | `selftest-skill-scan.js` | ระเบิดกลางทาง (ยังไม่เจาะ) |
+> | `selftest-notices.js` | FAIL "notices file matches what is installed" (ต้องรัน `npm run notices` ฝั่งนี้) |
+> | `selftest-system-control.js` | FAIL "it is valid python" (ตรวจ python ที่มีในเครื่อง Windows) |
+> ⇒ งานค้างใหม่ที่ตรงกับเป้าหมาย "ทดสอบได้ทั้งสองเครื่อง" · log เต็มอยู่ที่ `app/win-test.log` (gitignored)
+> ## ✅ ยืนยันแล้ว: แชทข้ามฝั่ง Ubuntu ↔ Windows VM ใช้ได้ (ผู้ใช้ทดสอบ 2026-11-21)
+> ผู้ใช้ยืนยันจากฝั่ง VM ว่า **เห็นแชทนี้และคุยต่อได้** ⇒ shared data root + ชื่อโฟลเดอร์ประวัติตรงกัน + `sameWorkspace()` ทำงานจริง
+> **ตอนนี้ session นี้อยู่ฝั่ง Windows VM** — shell เป็น MINGW64 (`uname` = `MINGW64_NT-10.0-19045`, `OS=Windows_NT`), repo = `Z:\NT-ALL\NTAPI`, data root = `Z:\.local\share\ntapi`
+>
+> ### ⚠️ กับดักใหม่ฝั่ง Windows: git ไม่ยอมอ่าน repo
+> `git status` ตอบ `fatal: detected dubious ownership` เพราะโฟลเดอร์ที่แชร์มีเจ้าของเป็น `/Everyone`
+> - ทางที่ไม่แก้ config: `git -c safe.directory='Z:/NT-ALL/NTAPI' status`
+> - ทางถาวร (ผู้ใช้ตัดสินใจเอง): `git config --global --add safe.directory Z:/NT-ALL/NTAPI`
+>
+> ### 📦 งานค้าง (ยังไม่ commit · ยังไม่ bump · 8 ไฟล์)
+> `NTAPI.bat` · `.gitattributes` · `AGENTS.md` · `.AGENT/HANDOFF.md` · `.AGENT/LOG.md` · `app/src/session-paths.js` · `app/src/main.js` · `app/scripts/selftest-session-paths.js`
+> - เทสต์: ฝั่ง Ubuntu **96/96** · ฝั่ง Windows `selftest-session-paths.js` ผ่าน + `check:sara` ok (ตรวจ 2026-11-21 หลังย้าย session)
+> - **ต้องถามก่อน commit/bump** · ถ้าปล่อย → `0.6.22` → `0.6.23`
+> - 4 เรื่องในกองนี้: (1) bat CRLF + หา electron ของ Windows เอง + โหมด `shared`/`sync`/`local`/`quiet`/`debug` + log ละเอียด (2) กติกา repo สองหน้า/เป้าหมาย "แก้ครั้งเดียวทดสอบสองเครื่อง" ใน `AGENTS.md` 0.5 (3) `sessionDirName` ตัด drive/home ให้ตรงกัน (4) `listAll` + `sameWorkspace` + `recentSessionFile` แทนการกรอง cwd แบบตรงตัวของ SDK
+>
+> ## 🆕 2026-11-21 (ล่าสุด) — repo สองหน้า: Ubuntu ↔ Windows VM (`Z:`)
+>
+> ผู้ใช้แจ้ง: โฟลเดอร์ Ubuntu ถูก map เข้า VM เป็นไดรฟ์ **`Z:`** → งานอยู่ที่ `Z:\NT-ALL\NTAPI` (ฝั่ง Ubuntu = `/home/nt/NT-ALL/NTAPI`) และ **`NTAPI.bat` รันบน Windows ไม่ขึ้น**
+> - **ต้นเหตุ 1:** `NTAPI.bat` เป็น **LF ล้วน** (ไม่มี CRLF) → cmd พังกับบล็อก `if (...) else (...)` แบบเงียบ ๆ
+>   · แก้เป็น CRLF แล้ว บังคับที่ระดับ git: `.gitattributes` เพิ่ม `*.bat`/`*.cmd` = `text eol=crlf`
+> - **ต้นเหตุ 2:** `app/node_modules/electron/dist` มี **ทั้ง** `electron` (Linux) และ `electron.exe` (Windows) ปนกัน
+>   (Windows ติดตั้ง 12 พ.ย. · Linux ทับ 20 พ.ย.) → `npm install` ฝั่งไหนก็เขียนทับอีกฝั่ง
+> - **เขียน `NTAPI.bat` ใหม่ทั้งไฟล์**: หา electron 3 ที่ (ใน repo → `%LOCALAPPDATA%\NTAPI-dev\node_modules` → `%LOCALAPPDATA%\NTAPI-dev\electron`) · ถ้าไม่มี → `npm install --prefix` ลง LOCALAPPDATA (ไม่แตะ `Z:`) · ถ้าไม่มี node → ดาวน์โหลด electron zip จาก GitHub ผ่าน PowerShell · ตัด `\` ท้าย path (กัน `"` กลืน quote) · ค่าเริ่มต้นรันแบบค้างคอนโซลเพื่อเห็น error · `quiet` = เดิม · `debug` = `--enable-logging` · log ที่ `ntapi-run.log`
+> - **`AGENTS.md` เพิ่มหัวข้อ 0.5**: repo เดียวมีสองหน้า · **ถ้าผู้ใช้ส่ง path ใดในสองแบบนี้ ต้องยืนยันก่อนทำงาน** (รับทราบ path + บอกว่าตัวเองอยู่ฝั่งไหนโดยตรวจจริง + เห็นอีกฝั่งไหม) + เตือน data root คนละที่ (`~/.local/share/ntapi` vs `C:\NTAPI`)
+> - **ยังไม่ commit / ยังไม่ bump** — รอผู้ใช้ลองรัน `Z:\NT-ALL\NTAPI\NTAPI.bat` แล้วบอกผล (ถ้ายังไม่ขึ้น ให้ส่ง `ntapi-run.log`)
+> - **ทดสอบรอบ 2 (Windows):** bat ทำงานแล้ว แต่แอปปิดทันที **exit code `-2147483645` = `0x80000003` STATUS_BREAKPOINT**
+>   · **ต้นเหตุจริง:** ใน shared `node_modules/electron/dist` มี `electron.exe` ของ **Electron 32** (strings: `32.0.101`, ลง 12 พ.ย.)
+>     แต่ `icudtl.dat` / `snapshot_blob.bin` / `v8_context_snapshot.bin` / `.pak` / `resources/default_app.asar` เป็นของ **38.8.6** (Linux ทับ 20 พ.ย.)
+>     ⇒ V8 snapshot + resource pak ไม่ตรงรุ่น ⇒ Chromium ตายก่อนวาดหน้าต่าง **ไม่ใช่บั๊กแอป**
+>   · **แก้:** เปลี่ยนชื่อไฟล์ Windows ที่ค้างใน shared dist เป็น `*.stale` (ไม่ลบ ยังกู้ได้) · `NTAPI.bat` **ห้ามใช้ electron ใน shared folder ก่อน** — ลำดับใหม่: `%LOCALAPPDATA%\NTAPI-dev\node_modules\...` → `%LOCALAPPDATA%\NTAPI-dev\electron\electron.exe` → repo (เตือน `repowarn`) → ติดตั้งใหม่
+>   · bat พิมพ์คำอธิบายเมื่อเจอ `-2147483645` (บอกว่าคือ STATUS_BREAKPOINT จาก electron ปนรุ่น)
+>   · **บทเรียน:** `.stale` ที่ 250 MB กับ debug.log ค้างใน dist เพราะเคยลง electron ฝั่ง Windows ลงโฟลเดอร์ที่ใช้ร่วมกัน — ห้ามทำอีก
+>
+> ## 🪞 หลักฐาน “จุดเดียวกัน” (ผู้ใช้ย้ำ — สำคัญกับทุก session)
+>
+> `/home/nt/NT-ALL/NTAPI/ntapi-run.log` กับ `Z:\NT-ALL\NTAPI\ntapi-run.log` **คือไฟล์เดียวกัน** (inode เดียว mtime เดียว)
+> · ตรวจสดแล้ว: ไฟล์ 146 B เนื้อหา `[NTAPI] run Sun 11/22/2026 5:11:24.01 mode= source=Z:\NT-ALL\NTAPI\app` + CRLF — Windows เพิ่งเขียน Ubuntu อ่านทันที
+> · ⇒ อยู่ฝั่ง Ubuntu แต่ต้องรู้ว่า Windows ทำอะไร → `cat /home/nt/NT-ALL/NTAPI/ntapi-run.log` **ไม่ต้องขอผู้ใช้ก็อปคอนโซล**
+> · ⇒ `NTAPI.bat` log ทุกอย่างที่ตัดสินใจ (source · mode · electron ที่เจอ · node มีไหม · electron-package-version · npm-exit · download-exit · exit code ของแอป)
+> · กติกาเขียนลง `AGENTS.md` หัวข้อ 0.5 แล้ว (ตาราง path คู่ · `*.log` อยู่ใน `.gitignore` ⇒ ไม่ขึ้น git แต่วิ่งผ่านโฟลเดอร์ที่แชร์)
+> · **รันล่าสุดที่เห็นใน log:** `electron=missing, installing into C:\Users\NT\AppData\Local\NTAPI-dev` — ยังไม่มีบรรทัดต่อมา ⇒ ขั้นติดตั้ง electron ยังไม่จบ
+>   · ต้องรอผู้ใช้รัน bat ใหม่ (มี log ละเอียดแล้ว) แล้วฝั่ง Ubuntu อ่าน log หาสาเหตุได้เอง
+>
+> ## 🎯 เป้าหมายที่ผู้ใช้ยืนยัน (2026-11-21): แก้โค้ดครั้งเดียว ทดสอบได้ทั้ง Windows + Linux
+> บันทึกเป็นกติกา 5 ข้อใน `AGENTS.md` หัวข้อ 0.5 แล้ว:
+> 1. ห้ามมีสำเนาโค้ด/สอง branch — แยกเฉพาะ adapter (windows.js+uia.ps1 / linux.js+atspi.py)
+> 2. `app/node_modules` เป็นของ Linux — Windows ใช้ electron ที่ `%LOCALAPPDATA%\NTAPI-dev` · เพิ่ม dep ให้ `npm install` ฝั่ง Ubuntu
+> 3. ไฟล์ runtime แยกกันได้ แต่ log/สื่อสารต้องอยู่ repo root (เช่น `ntapi-run.log`)
+> 4. ทุกฟีเจอร์ใหม่ถามว่า "ฝั่งที่ไม่ได้อยู่จะพังไหม" (path sep · CRLF · codepage · PS vs python)
+> 5. เทสต์ผ่านฝั่งที่แก้ (96) · อีกฝั่งทดสอบด้วยมือ (`NTAPI.bat` / `npm start`)
+
+> ## 🔄 สลับฝั่งได้เอง — ไม่ต้องบอกล่วงหน้า (ผู้ใช้ยืนยัน 2026-11-21)
+> ผู้ใช้ตั้งใจ: ทำงานฝั่งไหนก็ได้ ปิด Ubuntu → เปิด VM ต่อ **โดยไม่ต้องสั่งอะไร** บอกแค่ตอนย้ายว่า "ย้ายมาแล้ว"
+> - `NTAPI.bat` **ไม่มี arg = shared อัตโนมัติ** ถ้า `Z:\.local\share\ntapi\sessions` มีอยู่ (ถ้าไม่มี Z: → local) · `NTAPI.bat local` = ใช้ `C:\NTAPI` · `shared` · `sync` · `quiet` · `debug`
+> - ตรวจแล้วว่า **ชื่อโฟลเดอร์ประวัติตรงกัน**: Ubuntu `/home/nt/NTAPI` → `NTAPI` · Windows `Z:\NT-ALL\NTAPI` → `NTAPI` (ทดสอบด้วย `sessionDirName()` จริง) ⇒ แชทเดียวกันเห็นทั้งสองฝั่ง
+> - `prefs.json` (แท็บล่าสุด) ไม่ข้ามฝั่ง — `filter((t) => fs.existsSync(t.sessionFile))` (main.js:1492) ตัดทิ้งให้เอง ⇒ ไม่ crash แต่เปิดแท็บใหม่ ให้เปิดแชทจากรายการ
+> - กติกาเขียนใน `AGENTS.md` 0.5 แล้ว: เห็น "ย้ายมาแล้ว" → ตรวจจริง + ประกาศ 1 บรรทัด แล้วทำงานต่อ ห้ามถามซ้ำ
+>
+> ### 🐞 เจอบั๊กจริงจากการสลับฝั่ง: ชื่อโฟลเดอร์ประวัติไม่ตรงกัน (แก้แล้ว 2026-11-21)
+> อาการ: เปิด VM ด้วย workspace `Z:\NTAPI` → **รายการแชทว่าง** ทั้งที่ log ยืนยันว่าใช้ data root ร่วมแล้ว (`data-root=Z:\.local\share\ntapi keyword=shared`)
+> - **สาเหตุ:** `sessionDirNameFor()` ใช้ `path.resolve` ของแต่ละ OS + กติกา "ทิ้ง 2 ท่อนแรก"
+>   · Ubuntu `/home/nt/NTAPI` → `NTAPI` · Windows `Z:\NTAPI` → **`Z-NTAPI`** ⇒ แอปฝั่ง VM อ่านโฟลเดอร์ที่ยังว่างอยู่
+> - **แก้ (`src/session-paths.js` เขียนใหม่):** ตัด root ด้วยการแยกสตริง (ไม่พึ่ง `path.resolve`) — ทิ้ง drive letter และ `/home/<user>` / `C:\Users\<user>`
+>   · `Z:\NTAPI` = `/home/nt/NTAPI` = `NTAPI` · `Z:\NT-ALL\NTAPI` = `/home/nt/NT-ALL/NTAPI` = `NT-ALL-NTAPI`
+>   · `legacySessionDirName()` คงของเดิมไว้ (กติกาเก่า) เพื่อหาโฟลเดอร์เก่า · `migrateSessionDirs()` จะรวม `Z-NTAPI` เข้า `NTAPI` เองตอนเปิดแอป
+> - **บั๊กพ่วง (สำคัญกับ shared data root):** `prefs.json` ถูกใช้ร่วมสองฝั่ง → `lastCwd` อาจเป็น `Z:\NTAPI` ตอนอยู่ Ubuntu
+>   · เพิ่ม `savedWorkspace()` ใน `main.js` (stat + isDirectory) และเปลี่ยนทุกจุดที่ fallback ไป `readPrefs().lastCwd` (6 จุด)
+> - เทสต์: `selftest-session-paths.js` +6 เช็ค (คู่ path ข้าม OS · ชื่อ home · guard `savedWorkspace`) → **96/96 ผ่าน** · sara ok
+> - **ยังไม่ commit / ไม่ bump** — ต้องให้ผู้ใช้ปิด-เปิดแอปฝั่ง VM ใหม่เพื่อโหลดโค้ดนี้ แล้วแชทเดิมจะโผล่
+>
+> ### 🐞 ต้นเหตุชั้นที่ 2 (ตัวจริงที่ทำให้ยังไม่เห็นแชท): SDK กรองด้วย cwd แบบตรงตัว
+> ผู้ใช้เปิดใหม่แล้วยังไม่เห็น → อ่าน `dist/core/session-manager.js` ของ SDK:
+> ```js
+> static async list(cwd, sessionDir) { ... const filterCwd = sessionDir !== undefined && dir !== default...;
+>   const includeSession = (s) => !filterCwd || sessionCwdMatches(s.cwd, resolvedCwd); }  // เท่ากันแบบ byte ต่อ byte
+> ```
+> ⇒ ฝั่ง Windows เรียก `list('Z:\NTAPI', dir)` แต่ทุกไฟล์เขียน `cwd: "/home/nt/NTAPI"` → **ถูกกรองออกหมด** (โฟลเดอร์ถูกแล้วก็ยังว่าง)
+> - **แก้ `main.js`**: เปลี่ยนเป็น `SessionManager.listAll(dir)` แล้วกรองเองด้วย `sameWorkspace(i.cwd, cwd)` (เทียบชื่อโฟลเดอร์ประวัติ ไม่ใช่สตริง path)
+> - **`continueRecent` ก็กรองเหมือนกัน** → เพิ่ม `recentSessionFile(cwd)` (เรียง mtime, อ่านบรรทัดแรกเอา `cwd`, เทียบ `sameWorkspace`) ใช้ใน `openExisting()` และ `tab:resumeRecent` ⇒ เปิดแอปฝั่งใหม่แล้วต่อแชทล่าสุดให้เอง
+> - `session-paths.js` เพิ่ม `sameWorkspace(a, b)` (export)
+> - เทสต์ +5 เช็คใน `selftest-session-paths.js` (ห้าม `sdk.SessionManager.list(` / `continueRecent` · ต้องมี `listAll(dir)` · `sameWorkspace` 4 คู่) → **96/96** · sara ok
+> - **ยังไม่ commit / ไม่ bump** — ปิด-เปิดแอปฝั่ง VM ใหม่ แล้วรายการแชทควรมี `NTAPI` (โฟลเดอร์ `Z-NTAPI` เดิมจะถูก merge)
 >
 > ## 🧾 สรุป session นี้ (ย้าย session — อ่านตรงนี้ก่อน)
 >

@@ -3454,3 +3454,54 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ปล่อย 0.6.19 (handle), 0.6.20 (tooltip fixed + /compact + foreground default), 0.6.21 (tooltip ตามภาษา), 0.6.22 (บั๊ก 5 ตัวจาก transcript Nemotron)
 - กฎใหม่ AGENTS.md: ห้ามปล่อยรุ่นเอง ต้องถามก่อน
 - งานค้าง: รอผลเทสต์ Windows · Electron a11y · Wayland portal screenshot · focus บน Wayland
+
+## 2026-11-21 — repo สองหน้า Ubuntu ↔ Windows VM (Z:)
+- `NTAPI.bat` เป็น LF ล้วน → เขียนใหม่เป็น CRLF (บังคับที่ `.gitattributes`: `*.bat`/`*.cmd` eol=crlf)
+- electron ใน shared `node_modules` มีทั้ง Linux+Windows ปนกัน → bat เก็บ electron ของ Windows ที่ `%LOCALAPPDATA%\NTAPI-dev` (npm --prefix หรือดาวน์โหลด zip ผ่าน PowerShell ถ้าไม่มี node)
+- bat: ตัด `\` ท้าย path · ค่าเริ่มต้นค้างคอนโซล (เห็น error) · `quiet` / `debug` · log `ntapi-run.log`
+- `AGENTS.md` หัวข้อ 0.5: ส่ง path `/home/nt/NT-ALL/NTAPI` หรือ `Z:\NT-ALL\NTAPI` → ต้องยืนยันว่าอยู่ฝั่งไหนก่อนทำงาน
+- ยังไม่ commit · ยังไม่ bump
+- รอบ 2 (Windows): **exit -2147483645 = 0x80000003 STATUS_BREAKPOINT** — shared dist มี `electron.exe` (Electron 32) แต่ snapshot/pak เป็น 38.8.6 ⇒ ตายก่อนเปิดหน้าต่าง
+  · เปลี่ยนชื่อไฟล์ Windows ที่ค้างเป็น `*.stale` · bat หา electron จาก `%LOCALAPPDATA%\NTAPI-dev` ก่อน (repo เป็นตัวสุดท้าย + warning)
+- **ผู้ใช้ชี้จุดสำคัญ:** `ntapi-run.log` ของสองฝั่งเป็นไฟล์เดียวกัน (inode เดียว) → บันทึกใน `AGENTS.md` 0.5 + bat log ละเอียดขึ้น (node/npm-exit/download-exit)
+
+## 2026-11-21 — สลับฝั่งได้เอง (ไม่มี arg)
+- `NTAPI.bat` ไม่มี arg → shared อัตโนมัติเมื่อ `Z:\.local\share\ntapi\sessions` มีอยู่ (ไม่งั้น local) · เพิ่ม `local` mode
+- ตรวจ `sessionDirName()`: `/home/nt/NTAPI` และ `Z:\NT-ALL\NTAPI` = "NTAPI" → แชทเดียวกัน
+- `prefs.activeSession` ข้ามฝั่งไม่ได้แต่ปลอดภัย (existsSync filter main.js:1492)
+- `AGENTS.md` 0.5 เพิ่มกติกา "ย้ายมาแล้ว" → ตรวจจริง ประกาศ 1 บรรทัด
+
+## 2026-11-21 — สลับฝั่ง: ชื่อโฟลเดอร์ประวัติไม่ตรงกัน (แชทว่างใน VM)
+- `sessionDirNameFor()`: ตัด drive letter + home prefix แบบแยกสตริง → `Z:\NTAPI` = `/home/nt/NTAPI` = `NTAPI` (เดิม Windows ได้ `Z-NTAPI` = ว่าง)
+- `legacySessionDirName()` คงกติกาเก่า · `migrateSessionDirs()` รวมโฟลเดอร์เก่าให้เอง
+- `main.js`: เพิ่ม `savedWorkspace()` + ใช้ 6 จุด (prefs.json แชร์สองฝั่ง → lastCwd ของอีกฝั่งต้องถูกเมิน)
+- `selftest-session-paths.js` +6 เช็ค → 96/96 · ยังไม่ commit/bump
+
+## 2026-11-21 — แชทใน VM ยังว่าง ชั้นที่ 2: SDK กรอง cwd ตรงตัว
+- `SessionManager.list(cwd, dir)` / `continueRecent` ใช้ `sessionCwdMatches` = resolvePath เท่ากันเป๊ะ → `Z:\NTAPI` ไม่ตรงกับ cwd ที่บันทึก `/home/nt/NTAPI` = หายทั้งโฟลเดอร์
+- `main.js`: `listAll(dir)` + `sameWorkspace()` · `recentSessionFile()` สำหรับ resume · `session-paths.js` export `sameWorkspace`
+- เทสต์ +5 → 96/96 · ยังไม่ commit/bump
+
+## 2026-11-21 — ✅ ผู้ใช้ยืนยัน: แชทข้ามฝั่งใช้ได้ (Ubuntu ↔ VM) · ย้าย session มาฝั่ง Windows
+- ฝั่ง VM เห็นแชทและคุยต่อได้ ⇒ shared data root + ชื่อโฟลเดอร์ตรงกัน + sameWorkspace() ใช้งานได้จริง
+- session นี้อยู่ฝั่ง Windows แล้ว (MINGW64, repo Z:\NT-ALL\NTAPI, data root Z:\.local\share\ntapi)
+- กับดัก: git unsafe directory (เจ้าของ Everyone) → `git -c safe.directory='Z:/NT-ALL/NTAPI'`
+- งานค้าง commit 8 ไฟล์ (ไม่ bump) · selftest-session-paths ผ่านฝั่ง Windows · sara ok
+
+## 2026-11-21 — which-side.js: เปิด session ด้วย path เดียว → บอกฝั่ง + งานค้าง
+- ผู้ใช้เปิด session ด้วยการวางแค่ path ของ repo → ต้องรู้ทันทีว่าอยู่ฝั่งไหนและงานค้างอะไร
+- `app/scripts/which-side.js`: ฝั่ง + หลักฐาน + repo/อีกฝั่ง + data root + โฟลเดอร์ประวัติ + งานค้าง (version/ไฟล์ค้าง/HANDOFF) · ถอด path ที่ Git-Bash แปลงให้
+- AGENTS.md: หัวข้อ "วิธีเปิด session ของผู้ใช้" · เทสต์ `selftest-which-side.js` ลงทะเบียนใน run-unit-tests
+- เจอว่า npm test ฝั่ง Windows แดง 6 จุด (network-share package.json, path join, notices, python, skill-scan) → บันทึกเป็นงานค้าง
+## 2026-11-22 — sidebar โชว์แชทของ workspace อื่น (ข้ามโฟลเดอร์ประวัติ)
+- ผู้ใช้เจอว่าแชทของ workspace `Z:\NTAPI` ไม่เห็นเมื่อเปิด repo `Z:\NT-ALL\NTAPI` → ต้องสลับ workspace เองทุกครั้ง
+- `main.js`: `listOtherSessions()` + IPC `session:listOther` (ทุกโฟลเดอร์ใน sessions ยกเว้นของปัจจุบัน, cache เดิม, 30 แถว) · `localWorkspaceFor()` + `workspaceMirrors()` แปลง cwd ของอีกฝั่งเป็น path ที่เครื่องนี้เปิดได้ · `tab:open` ใช้แปลงก่อนสร้างแท็บ
+- `renderer/app.js`: กลุ่ม "แชทที่บันทึกไว้ในโฟลเดอร์อื่น" + i18n สองภาษา · `preload.js` · `styles.css` · เทสต์ +6
+- เทสต์ฝั่ง Windows 93/97 (4 แดงเป็นของเดิม: skill-scan/notices/system-control/data-root) · sara ok · ยังไม่ commit/bump
+
+## 2026-11-22 — UI: สลับปุ่มธีม/เบราว์เซอร์ · tooltip ควบคุมเครื่อง · pin/สีแชทหาย · คิวนับถอยหลัง
+- **สลับปุ่ม**: dark/light ขึ้นแถว `.brand` (แทนที่ปุ่มลูกโลก) · ปุ่มควบคุมเบราว์เซอร์ลงแถว `.sidebar-tools` (แทนที่ธีม) — แก้ `index.html`/`styles.css` + เทสต์ 4 ไฟล์ (markup-structure/theme/sidebar-min/system-control)
+- **tooltip "ควบคุมเครื่อง"**: เดิม `.sys-tip` (การ์ด 11.5px) ซ้อนกับ `title` ของ OS → ลบการ์ดทิ้งทั้งชุด (`placeSysTip`/`showSysTip`/CSS/`<span id=sysTip>`) แล้วใช้ `paintSysTitle()` เซ็ต `chip.title` = ประโยคสถานะ → ขนาดเท่าปุ่มอื่นเป๊ะ (OS วาดเอง)
+- **pin/สีแชทหายหลังรีสตาร์ท**: คีย์เดิมเป็น path เต็ม → ต่างกันสองฝั่ง (Ubuntu/Windows) → `pruneSessionMarkStore()` ลบทิ้ง · เปลี่ยนเป็นคีย์ **relative ใน sessions root** (`session-marks.js`: `markKey(path,root)`, `markPath`, `migrateMarks`) + migration ครั้งเดียว + prune ไม่แตะคีย์ที่แปลงกลับไม่ได้ · `main.js` ห่อ wrapper ให้ root
+- **คิวส่งก่อนเวลาหมด**: `drainQueue()` เคยส่งทันทีที่ turn จบ ทั้งที่ hold ยังนับอยู่ → อ่านหัวคิวก่อน, ถ้า hold ยังไม่หมดให้ return; `queueMessage` ส่ง `send: () => drainQueue(view)`; ลบ `holdReleased` ทั้งสองที่
+- เทสต์: `selftest-session-marks` +7 · `selftest-hold-before-send`/`selftest-queue-edit` ปรับตามดีไซน์ใหม่ · **npm test ฝั่ง Ubuntu 98/98**

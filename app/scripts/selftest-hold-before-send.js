@@ -105,15 +105,26 @@ const cancelAll = body(app, 'cancelAllHolds');
 check('cancelAllHolds skips the tab being opened', /exceptTabId/.test(cancelAll));
 check('cancelAllHolds clears every other tab', /for \(const tabId of/.test(cancelAll));
 
-// --- 6. a turn ending early releases the hold ----------------------------
+// --- 6. the countdown is not cut short -------------------------------
+// The turn that was running when a message was queued may end while it is still
+// counting down. It used to be shipped the moment it did, so the model read the
+// text under a row still promising "จะส่งในอีก 4 วิ". The clock is the promise.
 
 const settledAt = app.indexOf('api.onSettled((p) => {');
 const settledSlice = settledAt === -1 ? '' : app.slice(settledAt, settledAt + 1600);
-check('a finished turn releases the hold', /holdReleased/.test(settledSlice));
+check('a finished turn still drains the queue', /drainQueue\(view\)/.test(settledSlice));
+check('a finished turn does not release a countdown that is still running', !/holdReleased/.test(app));
 
 const drain = body(app, 'drainQueue');
-check('draining the queue clears the hold before sending', /holds\.delete\(view\.tabId\)/.test(drain));
-check('draining only clears the hold for the item being sent', /held\.item === next/.test(drain));
+check(
+  'the drain waits for the countdown on the message at the head',
+  /const head = view\.queue\[0\]/.test(drain) && /held\.item === head\) return;/.test(drain)
+);
+check('the drain does not shift a message it declined to send', /const next = view\.queue\.shift\(\);/.test(drain));
+check(
+  'the queued message hands the sending back to the drain when its clock ends',
+  /send: \(\) => drainQueue\(view\)/.test(body(app, 'queueMessage'))
+);
 
 // --- 7. re-render keeps the row -----------------------------------------
 

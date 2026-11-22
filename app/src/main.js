@@ -91,15 +91,29 @@ app.on('render-process-gone', (_event, _contents, details) =>
   logCrash('render-process-gone', JSON.stringify(details))
 );
 const { diffLines } = require('./diff');
-const { sessionDirName } = require('./session-paths');
+const { sessionDirName, sameWorkspace } = require('./session-paths');
 const {
   COLORS: SESSION_COLORS,
-  applyMark: applySessionMark,
-  readMark: readSessionMark,
-  sortByMark: sortSessionsByMark,
-  pruneMarks: pruneSessionMarks,
-  markKey: sessionMarkKey,
+  applyMark,
+  readMark,
+  sortByMark,
+  pruneMarks,
+  markKey,
+  markPath,
+  migrateMarks,
 } = require('./session-marks');
+/*
+ * Pins and colours are keyed by the chat's path *inside* the session store, not
+ * by its absolute path: the same folder is spelled differently on each machine
+ * sharing it, and an absolute key written on one side is unreadable (and gets
+ * pruned) on the other. These thin wrappers hand session-marks.js the root so
+ * every caller keeps passing a plain session path.
+ */
+const sessionMarkKey = (sessionPath) => markKey(sessionPath, SESSIONS_ROOT);
+const readSessionMark = (marks, sessionPath) => readMark(marks, sessionPath, SESSIONS_ROOT);
+const applySessionMark = (marks, sessionPath, patch) => applyMark(marks, sessionPath, patch, SESSIONS_ROOT);
+const sortSessionsByMark = (marks, sessions) => sortByMark(marks, sessions, SESSIONS_ROOT);
+
 const { friendlyProviderError } = require('./provider-errors');
 const { isUpgradeRequired: isUpgradeRequiredText, resolveClientVersionFloor } = require('./client-version');
 const { normalize: normalizeSponsor } = require('./sponsor');
@@ -744,6 +758,25 @@ function readPrefs() {
     return {};
   }
 }
+/**
+ * The remembered workspace — but only if this machine really has that folder.
+ *
+ * A data folder shared between the Ubuntu desktop and a Windows VM holds one
+ * prefs.json for both, and the two sides spell the same workspace differently
+ * (`/home/nt/NTAPI` and `Z:\NTAPI`). Resolving the other side's spelling here
+ * produces a path that never existed (on Linux, `/home/nt/NTAPI/Z:\NTAPI`) and
+ * the app opens with an empty chat list. Ignoring a workspace this machine
+ * cannot see makes the switch harmless: the user picks the folder once.
+ */
+function savedWorkspace() {
+  const saved = readPrefs().lastCwd;
+  if (!saved) return null;
+  try {
+    return fs.statSync(saved).isDirectory() ? saved : null;
+  } catch {
+    return null;
+  }
+}
 function writePrefs(patch) {
   try {
     const next = { ...readPrefs(), ...patch };
@@ -779,8 +812,24 @@ function readCompactionPrefs() {
 
 /** Every pin and colour, as stored. */
 function sessionMarks() {
+  migrateSessionMarkStore();
   const marks = readPrefs().sessionMarks;
   return marks && typeof marks === 'object' ? marks : {};
+}
+
+/*
+ * One-shot rewrite of a store written by an older build, whose keys were
+ * absolute paths. Runs on the first read on either machine, so a pin set before
+ * this change is not lost to a lookup under a key nothing writes any more.
+ */
+let sessionMarksMigrated = false;
+function migrateSessionMarkStore() {
+  if (sessionMarksMigrated) return;
+  sessionMarksMigrated = true;
+  const current = readPrefs().sessionMarks;
+  if (!current || typeof current !== 'object' || !Object.keys(current).length) return;
+  const next = migrateMarks(current, SESSIONS_ROOT);
+  if (JSON.stringify(next) !== JSON.stringify(current)) writePrefs({ sessionMarks: next });
 }
 
 /** Write one chat's pin/colour. Returns the saved mark for that chat. */
@@ -801,7 +850,15 @@ function saveSessionMark(sessionPath, patch) {
 function pruneSessionMarkStore() {
   const current = sessionMarks();
   if (!Object.keys(current).length) return;
-  const next = pruneSessionMarks(current, (file) => fs.existsSync(file));
+  const next = pruneSessionMarks(current, (key) => {
+    const file = markPath(key, SESSIONS_ROOT);
+    // A relative key is a chat in this store: judge it by the file.
+    if (file && !path.isAbsolute(key)) return fs.existsSync(file);
+    // An absolute key is another machine's spelling of the folder (or an entry
+    // from an older build). It is not ours to delete — a pin disappearing
+    // between the two machines is the bug this whole change exists to fix.
+    return true;
+  });
   if (Object.keys(next).length !== Object.keys(current).length) {
     writePrefs({ sessionMarks: next });
   }
@@ -1402,6 +1459,16 @@ function sessionDirFor(cwd) {
   return path.join(SESSIONS_ROOT, sessionDirName(resolved));
 }
 
+/** Workspace path recorded in one chat file, or null if it is not a session. */
+function sessionFileCwd(file) {
+  try {
+    const first = fs.readFileSync(file, 'utf8').split('\n')[0];
+    const meta = JSON.parse(first);
+    if (meta?.type === 'session' && typeof meta.cwd === 'string' && meta.cwd) return meta.cwd;
+  } catch {}
+  return null;
+}
+
 /** Workspace path stored in the first session file of a history folder. */
 function sessionFolderCwd(dir) {
   let files = [];
@@ -1411,14 +1478,63 @@ function sessionFolderCwd(dir) {
     return null;
   }
   for (const f of files) {
-    try {
-      const first = fs.readFileSync(path.join(dir, f), 'utf8').split('\n')[0];
-      const meta = JSON.parse(first);
-      if (meta?.type === 'session' && typeof meta.cwd === 'string' && meta.cwd) return meta.cwd;
-    } catch {}
+    const cwd = sessionFileCwd(path.join(dir, f));
+    if (cwd) return cwd;
   }
   return null;
 }
+
+function isDirectory(p) {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Other spellings the same workspace can have on this machine.
+ *
+ * A shared data folder holds chats written on both sides of a VM: the Ubuntu
+ * home is `/home/nt/NT-ALL/NTAPI` there and `Z:\NT-ALL\NTAPI` here. The chat
+ * file keeps the other side's spelling, which cannot be opened on this machine,
+ * so the mapped drive (or the home folder) is tried before giving up.
+ */
+function workspaceMirrors(cwd) {
+  const text = String(cwd || '');
+  const out = [];
+  if (process.platform === 'win32') {
+    const posix = /^\/(?:home|Users)\/([^/]+)\/(.+)$/i.exec(text);
+    if (!posix) return out;
+    const rest = posix[2].split('/').join(String.fromCharCode(92));
+    for (const letter of 'CDEFGHIJKLMNOPQRSTUVWXYZ') out.push(letter + ':' + String.fromCharCode(92) + rest);
+    return out;
+  }
+  if (/^[A-Za-z]:/.test(text)) {
+    const rest = text.slice(2).split('/').join('/').split(String.fromCharCode(92)).join('/').replace(/^[/]+/, '');
+    out.push(os.homedir().split(String.fromCharCode(92)).join('/') + '/' + rest);
+  }
+  return out;
+}
+
+/**
+ * A workspace path this machine can actually open, for a history folder whose
+ * chats may have been written on the other side of a shared data folder.
+ * Falls back to the caller's workspace when no spelling exists here.
+ */
+function localWorkspaceFor(dir, fallback = null) {
+  const seen = [];
+  try {
+    for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl')).slice(0, 40)) {
+      const cwd = sessionFileCwd(path.join(dir, name));
+      if (cwd && !seen.includes(cwd)) seen.push(cwd);
+    }
+  } catch {}
+  for (const cwd of seen) if (isDirectory(cwd)) return cwd;
+  for (const cwd of seen) for (const other of workspaceMirrors(cwd)) if (isDirectory(other)) return other;
+  return fallback;
+}
+
 
 /** Move every file from one history folder into another, never overwriting. */
 function mergeSessionDir(from, to) {
@@ -1538,7 +1654,19 @@ async function listSessions(cwd) {
   let infos = cached && cached.stamp === stamp ? cached.infos : null;
   if (!infos) {
     try {
-      infos = await sdk.SessionManager.list(path.resolve(cwd), dir);
+      /*
+       * `SessionManager.list(cwd, dir)` also drops every chat whose stored cwd
+       * is not byte-identical to this machine's spelling of the workspace. A
+       * data folder shared with another machine breaks that: the Ubuntu side
+       * wrote `/home/nt/NTAPI`, this Windows side calls the same folder
+       * `Z:\NTAPI`, and the whole history vanished from the sidebar.
+       *
+       * Reading the folder without that filter and keeping the sessions whose
+       * workspace lands on the same history folder keeps the intent — one
+       * folder per workspace — without depending on how the path is spelled.
+       */
+      const all = await sdk.SessionManager.listAll(dir);
+      infos = all.filter((i) => !i.cwd || sameWorkspace(i.cwd, cwd));
     } catch {
       return [];
     }
@@ -1577,6 +1705,73 @@ async function listSessions(cwd) {
     // creation-time order above.
     return sortSessionsByMark(marks, listed);
   }
+}
+
+/**
+ * Chats kept under another workspace's history folder.
+ *
+ * The list above is "this workspace's chats" — its own folder only. A shared
+ * data folder usually holds more than one, because the same repo is opened from
+ * two machines (or from two spellings of one path). Without this the sidebar
+ * hid every conversation written on the other side, and the only way back to
+ * one was to switch the workspace folder first.
+ *
+ * Newest first and capped: this is a shortcut list, not a history browser, so
+ * it must not cost the sidebar a full parse of every folder ever used.
+ */
+async function listOtherSessions(cwd, limit = 30) {
+  const current = sessionDirName(path.resolve(cwd));
+  let entries = [];
+  try {
+    entries = fs.readdirSync(SESSIONS_ROOT, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  pruneSessionMarkStore();
+  const marks = sessionMarks();
+  const rows = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name === current) continue;
+    const dir = path.join(SESSIONS_ROOT, entry.name);
+    const stamp = sessionDirStamp(dir);
+    const cached = sessionListCache.get(dir);
+    let infos = cached && cached.stamp === stamp ? cached.infos : null;
+    if (!infos) {
+      try {
+        const all = await sdk.SessionManager.listAll(dir);
+        infos = all.filter((i) => !i.cwd || sessionDirName(i.cwd) === entry.name);
+      } catch {
+        continue;
+      }
+      sessionListCache.set(dir, { stamp, infos });
+    }
+    const workspace = localWorkspaceFor(dir, null);
+    for (const i of infos) {
+      const mark = readSessionMark(marks, i.path);
+      rows.push({
+        id: i.id,
+        path: i.path,
+        created: i.created,
+        modified: i.modified,
+        name: i.name || null,
+        firstMessage: (i.firstMessage || '').slice(0, 120),
+        messageCount: i.messageCount ?? null,
+        pinned: mark.pinned,
+        color: mark.color,
+        // Which history folder (i.e. which workspace) the chat belongs to, so
+        // the sidebar can print it next to the date.
+        folder: entry.name,
+        // A path this machine can open, so the tab runs in the right project.
+        cwd: workspace || path.resolve(cwd),
+      });
+    }
+  }
+  rows.sort((a, b) => {
+    const ta = new Date(a.modified || a.created).getTime() || 0;
+    const tb = new Date(b.modified || b.created).getTime() || 0;
+    return tb - ta;
+  });
+  return rows.slice(0, limit);
 }
 
 /**
@@ -2751,11 +2946,48 @@ function resolveSessionFile(cwd, sessionId) {
   return null;
 }
 
+/**
+ * Newest chat in this history folder, matched by folder name rather than by the
+ * exact path string.
+ *
+ * `SessionManager.continueRecent` compares cwds byte for byte, so after moving
+ * a shared data folder between the Ubuntu desktop and a Windows VM the window
+ * opened a blank conversation: the chats on disk said `/home/nt/NTAPI` while
+ * this machine asked about `Z:\NTAPI`.
+ */
+function recentSessionFile(cwd) {
+  const dir = sessionDirFor(cwd);
+  let files = [];
+  try {
+    files = fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'));
+  } catch {
+    return null;
+  }
+  const rows = [];
+  for (const name of files) {
+    const full = path.join(dir, name);
+    try {
+      rows.push({ full, mtime: fs.statSync(full).mtimeMs });
+    } catch {}
+  }
+  rows.sort((a, b) => b.mtime - a.mtime);
+  for (const row of rows) {
+    try {
+      const head = JSON.parse(fs.readFileSync(row.full, 'utf8').split('\n')[0]);
+      if (!head?.cwd || sameWorkspace(head.cwd, cwd)) return row.full;
+    } catch {}
+  }
+  return null;
+}
+
+/** Resume by id, falling back to the newest chat this workspace folder holds. */
 function openExisting(cwd, sessionId) {
   const dir = sessionDirFor(cwd);
   const file = resolveSessionFile(cwd, sessionId);
   if (file) return sdk.SessionManager.open(file, path.dirname(file));
-  return sdk.SessionManager.continueRecent(path.resolve(cwd), dir);
+  const recent = recentSessionFile(cwd);
+  if (recent) return sdk.SessionManager.open(recent, dir);
+  return sdk.SessionManager.create(path.resolve(cwd), dir);
 }
 
 function tabFor(id) {
@@ -3654,7 +3886,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
   const prefs = readPrefs();
   // Settings describes a workspace. With no tab and no remembered folder there
   // is none — do not pretend the app's own installation folder is one.
-  const workspace = cwd || prefs.lastCwd || null;
+  const workspace = cwd || savedWorkspace() || null;
   const base = workspace || process.cwd();
   // Make the folders real before reporting them, so "exists" is always honest
   // and the agent never has to create them itself.
@@ -3756,7 +3988,17 @@ ipcMain.on('win:close', () => win?.close());
 ipcMain.handle('win:state', () => winState());
 
 ipcMain.handle('tab:open', async (_e, opts = {}) => {
-  const cwd = path.resolve(opts.cwd || readPrefs().lastCwd || process.cwd());
+  let cwd = path.resolve(opts.cwd || savedWorkspace() || process.cwd());
+  /*
+   * A chat opened from another workspace's history folder has to come up in a
+   * workspace this machine can open. Its file says /home/nt/... when it was
+   * written on the other side of a VM, which is not a folder here; opening the
+   * tab there would point every tool at a path that does not exist.
+   */
+  if (typeof opts.sessionId === 'string' && opts.sessionId.endsWith('.jsonl') && fs.existsSync(opts.sessionId)) {
+    const fileDir = path.dirname(path.resolve(opts.sessionId));
+    if (fileDir.toLowerCase() !== sessionDirFor(cwd).toLowerCase()) cwd = localWorkspaceFor(fileDir, cwd);
+  }
   // Restoring a saved tab must not move the default workspace: only a folder the
   // user picked (or a new tab they opened) updates `lastCwd`.
   if (!opts.restore) writePrefs({ lastCwd: cwd });
@@ -3806,13 +4048,13 @@ ipcMain.handle('tab:open', async (_e, opts = {}) => {
 });
 
 ipcMain.handle('tab:resumeRecent', async (_e, cwd) => {
-  const target = path.resolve(cwd || readPrefs().lastCwd || process.cwd());
+  const target = path.resolve(cwd || savedWorkspace() || process.cwd());
   const tabId = newTabId();
-  const state = await attachTab(
-    tabId,
-    sdk.SessionManager.continueRecent(target, sessionDirFor(target)),
-    target
-  );
+  const recent = recentSessionFile(target);
+  const manager = recent
+    ? sdk.SessionManager.open(recent, sessionDirFor(target))
+    : sdk.SessionManager.create(target, sessionDirFor(target));
+  const state = await attachTab(tabId, manager, target);
   activeTabId = tabId;
   persistTabs();
   return { tabId, state };
@@ -3862,7 +4104,11 @@ ipcMain.handle('tab:list', async () => [...tabs.keys()].map(tabSummary).filter(B
 
 ipcMain.handle('tab:state', async (_e, tabId) => tabState(tabId || activeTabId));
 
-ipcMain.handle('session:list', async (_e, cwd) => listSessions(cwd || readPrefs().lastCwd || process.cwd()));
+ipcMain.handle('session:list', async (_e, cwd) => listSessions(cwd || savedWorkspace() || process.cwd()));
+
+ipcMain.handle('session:listOther', async (_e, cwd) =>
+  listOtherSessions(cwd || savedWorkspace() || process.cwd())
+);
 
 /** The colours the user may choose, in display order. */
 ipcMain.handle('session:colors', async () => SESSION_COLORS);
@@ -3878,9 +4124,11 @@ ipcMain.handle('session:mark', async (_e, { sessionPath, pinned, color } = {}) =
   const key = sessionMarkKey(sessionPath);
   if (!key) return { ok: false, error: 'a session file is required' };
   // Refuse paths outside the store: prefs is not a general-purpose side table.
-  // Compare in lower case because `markKey` lower-cases the path on Windows.
+  // The key is relative to the store now, so the check is made on the path it
+  // came from, lower-cased for the case-insensitive filesystem.
   const root = path.resolve(SESSIONS_ROOT).toLowerCase();
-  if (!key.startsWith(root + path.sep)) {
+  const target = path.resolve(String(sessionPath).trim()).toLowerCase();
+  if (!target.startsWith(root + path.sep)) {
     return { ok: false, error: 'session file is outside the session store' };
   }
 
@@ -3950,7 +4198,7 @@ ipcMain.handle('session:rename', async (_e, { tabId, name } = {}) => {
  * without touching any tab.
  */
 ipcMain.handle('session:renameFile', async (_e, { cwd, sessionPath, name } = {}) => {
-  const base = path.resolve(String(cwd || readPrefs().lastCwd || process.cwd()));
+  const base = path.resolve(String(cwd || savedWorkspace() || process.cwd()));
   const file = resolveSessionFile(base, String(sessionPath || ''));
   if (!file) return { ok: false, error: 'session file not found' };
   const clean = typeof name === 'string' ? name.trim() : '';
@@ -4635,7 +4883,7 @@ ipcMain.handle('fs:openPath', async (_e, { cwd, path: target } = {}) => {
  * "src/renderer/markdown.js". Ranked: prefix hits first, then shorter paths.
  */
 ipcMain.handle('fs:listFiles', async (_e, { cwd, query } = {}) => {
-  const root = cwd && fs.existsSync(cwd) ? cwd : readPrefs().lastCwd;
+  const root = cwd && fs.existsSync(cwd) ? cwd : savedWorkspace();
   if (!root) return [];
   const files = walkWorkspace(root, 4000);
   const q = String(query || '').toLowerCase().trim();

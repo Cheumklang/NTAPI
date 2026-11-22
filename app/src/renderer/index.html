@@ -40,11 +40,19 @@
           <span class="brand-count online" id="brandOnline" hidden></span>
           <span class="badge" id="guestBadge" hidden data-i18n="guestBadge">guest</span>
           <button id="langBtn" class="chip-btn" data-i18n-title="languageBtn">EN</button>
-          <button id="browserBtn" class="chip-btn" data-i18n-title="browserBtn" data-i18n-aria="browserBtn" aria-pressed="false">
-            <span class="dot" aria-hidden="true"></span>
-            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
-              <path d="M3 12h18M12 3c2.6 2.6 4 5.6 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.6-4-9s1.4-6.4 4-9z" fill="none" stroke="currentColor" stroke-width="2"/>
+          <!--
+            Light/dark. It sits in the brand row next to the language chip: it is
+            a window-wide preference like the language, and the row already has
+            the room. The browser control moved down to the tools row, where the
+            workspace chip lives — see below.
+          -->
+          <button id="themeBtn" class="chip-btn" data-i18n-title="themeTitle" data-i18n-aria="themeTitle" aria-pressed="false">
+            <svg id="themeIconMoon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+            <svg id="themeIconSun" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" hidden>
+              <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </button>
           <button id="settingsBtn" class="chip-btn" data-i18n-title="settingsBtn" data-i18n-aria="settingsBtn">
@@ -56,10 +64,12 @@
         </div>
 
         <!--
-          One compact row: the workspace, the theme and tool approval. The
-          workspace used to be a section of its own (label + a full-width path
-          button) and cost two lines of the column for something touched once a
-          session; it is a chip now, with the full path in its tooltip.
+          One compact row: the workspace, the browser control and tool approval.
+          The workspace used to be a section of its own (label + a full-width
+          path button) and cost two lines of the column for something touched
+          once a session; it is a chip now, with the full path in its tooltip.
+          The browser chip sits here because it is about where the agent works
+          (this page, in Chrome), not about the window's appearance.
         -->
         <div class="sidebar-tools">
           <button id="pickFolder" class="chip-btn workspace-chip" data-i18n-title="workspaceTitle">
@@ -69,13 +79,11 @@
             <span id="cwdLabel">…</span>
           </button>
 
-          <button id="themeBtn" class="chip-btn" data-i18n-title="themeTitle" data-i18n-aria="themeTitle" aria-pressed="false">
-            <svg id="themeIconMoon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-              <path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-            <svg id="themeIconSun" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" hidden>
-              <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/>
-              <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <button id="browserBtn" class="chip-btn" data-i18n-title="browserBtn" data-i18n-aria="browserBtn" aria-pressed="false">
+            <span class="dot" aria-hidden="true"></span>
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M3 12h18M12 3c2.6 2.6 4 5.6 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.6-4-9s1.4-6.4 4-9z" fill="none" stroke="currentColor" stroke-width="2"/>
             </svg>
           </button>
 
@@ -94,7 +102,6 @@
               aria-haspopup="true"
               aria-expanded="false"
               aria-controls="sysPopover"
-              data-i18n-title="sysTitle"
               data-i18n-aria="sysTitle"
               data-state="off"
             >
@@ -106,11 +113,14 @@
               <span class="sys-dot" aria-hidden="true"></span>
             </button>
             <!--
-              The same sentence as the native tooltip, but painted: a hover tip
-              that never appears for one second of hesitation is not a tooltip,
-              and this one carries the way out (Ctrl+Alt+Esc).
+              This chip's hover text is the native `title`, like every other chip's.
+              It used to be a painted card (`.sys-tip`) so it could appear at once
+              and carry Ctrl+Alt+Esc, but the OS draws the tips next to it at its
+              own size, and the two never matched — the user compared this text
+              with the browser chip's "รอส่วนขยาย" tip and it looked smaller. There
+              is no CSS size that equals a tooltip the platform draws, so the
+              sentence lives in the title, painted by paintSysTitle().
             -->
-            <span class="sys-tip" id="sysTip" role="tooltip" aria-hidden="true"></span>
 
             <div class="sys-popover" id="sysPopover" role="dialog" aria-labelledby="sysLabel" hidden>
               <div class="sys-head">

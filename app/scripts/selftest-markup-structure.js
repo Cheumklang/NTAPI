@@ -115,14 +115,20 @@ check('the transcript is inside the main column', inside('#transcript', '#main')
 // button, taking every control below it out of the column.
 check('the workspace picker is still in the sidebar', inside('#pickFolder', '#sidebar'));
 check('the saved-chat list is still in the sidebar', inside('#sessionList', '#sidebar'));
-check('the status panel is still in the sidebar', inside('#themeBtn', '#sidebar'));
+check('the status panel is still in the sidebar', inside('#browserBtn', '#sidebar'));
 
-/* ---------- the theme button's home ---------- */
+/* ---------- the theme and browser chips' homes ---------- */
 
+// The user asked for these two to trade places: the light/dark toggle went up to
+// the brand row beside the language chip, and the browser control came down to
+// the tools row beside the workspace chip.
 check('the theme button exists once', (html.match(/id="themeBtn"/g) || []).length === 1);
-check('it lives in the tools row', inside('#themeBtn', '.sidebar-tools'));
+check('the browser button exists once', (html.match(/id="browserBtn"/g) || []).length === 1);
+check('the theme button lives in the brand row', inside('#themeBtn', '.brand'));
+check('the theme button is not in the tools row', !inside('#themeBtn', '.sidebar-tools'));
+check('the browser button lives in the tools row', inside('#browserBtn', '.sidebar-tools'));
+check('the browser button is not in the brand row', !inside('#browserBtn', '.brand'));
 check('the tools row sits right after the brand row', inside('.sidebar-tools', '#sidebar'));
-check('the theme button is not squeezed into the brand row', !inside('#themeBtn', '.brand'));
 check(
   'the tools row comes after the Settings button',
   html.indexOf('id="settingsBtn"') < html.indexOf('class="sidebar-tools"')

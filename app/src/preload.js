@@ -114,6 +114,7 @@ contextBridge.exposeInMainWorld('freepi', {
   getTabState: (tabId) => ipcRenderer.invoke('tab:state', tabId),
 
   listSessions: (cwd) => ipcRenderer.invoke('session:list', cwd),
+  listOtherSessions: (cwd) => ipcRenderer.invoke('session:listOther', cwd),
   deleteSession: (cwd, sessionPath) => ipcRenderer.invoke('session:delete', { cwd, sessionPath }),
   clearSession: (tabId) => ipcRenderer.invoke('session:clear', tabId),
   renameSession: (tabId, name) => ipcRenderer.invoke('session:rename', { tabId, name }),

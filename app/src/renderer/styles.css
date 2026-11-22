@@ -414,6 +414,16 @@ body { display: flex; flex-direction: column; }
   gap: 2px;
 }
 .session-item:hover { background: var(--bg-3); }
+/* Header for chats saved under another workspace's history folder. */
+.session-group {
+  font-size: 11px;
+  letter-spacing: .02em;
+  color: var(--muted);
+  padding: 12px 4px 2px;
+  border-top: 1px solid var(--bg-3);
+  margin-top: 6px;
+}
+.session-item.is-other .s-meta { opacity: .85; }
 .session-item.active {
   background: linear-gradient(90deg, rgba(124, 92, 255, .30), rgba(124, 92, 255, .08));
   border-color: rgba(124, 92, 255, .8);
@@ -2849,11 +2859,11 @@ button { font-family: inherit; }
 /* ---------------- brand chips (language + settings) ---------------- */
 
 /*
- * The row under the brand chips, holding the theme toggle.
+ * The row under the brand chips, holding the browser control.
  *
  * It sits on its own line rather than as a fifth chip so the brand row's measured
  * width — which decides how narrow the sidebar may be — does not change. The
- * negative top margin takes back most of the sidebar's 14px gap, so the button
+ * negative top margin takes back most of the sidebar's 14px gap, so the row
  * reads as belonging to the chips above instead of starting a new block.
  */
 .sidebar-tools {
@@ -5164,33 +5174,16 @@ html[lang="th"] .about-name-th {
 }
 .sys-wrap { position: relative; }
 /*
- * The tip is a floating card in the same material as the approval popover, and
- * it is positioned by JS from the chip's rectangle: absolute inside the sidebar
- * it was being painted underneath the main column, which is what "the tooltip
- * is hidden behind the program" looked like.
+ * No `.sys-tip` card here any more. The chip's hover text is its native `title`,
+ * the same mechanism every other chip uses, so its size is the platform's and
+ * matches the tip on the browser chip beside it. A styled card could never do
+ * that: the OS picks the tooltip font from the display's DPI, which is not
+ * knowable from CSS.
  */
-.sys-tip {
-  position: fixed;
-  z-index: 400;
-  width: 236px;
-  max-width: calc(100vw - 24px);
-  padding: 9px 11px;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .38);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-4px);
-  transition: opacity .12s ease, transform .12s ease;
-}
-.sys-tip.is-open { opacity: 1; transform: translateY(0); }
 .sys-kbd { display: inline-flex; gap: 3px; }
 .sys-kbd kbd {
-  font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* One notch under the panel's 12.5px text so the keys read as parts, not words. */
+  font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   padding: 3px 5px;
   border-radius: 5px;
   color: inherit;

@@ -44,11 +44,55 @@ const COLORS = [
 const COLOR_KEYS = COLORS.map((c) => c.key);
 
 /** Normalise a session file path so the same file always yields the same key. */
-function markKey(sessionPath) {
+function markKey(sessionPath, root) {
   if (typeof sessionPath !== 'string' || !sessionPath.trim()) return null;
   const resolved = path.resolve(sessionPath.trim());
+  /*
+   * Inside the session store the key is the path *relative to it*, not the
+   * absolute one: the same folder is a different string on each machine that
+   * shares it (`/home/nt/.local/share/ntapi/sessions/...` here, `Z:\.local\
+   * share\ntapi\sessions\...` through the VM's mapped drive). An absolute key
+   * written on one side could never be read on the other — and, worse, the
+   * prune pass below deleted it there, which is how a pin and a colour
+   * disappeared after a restart between the two.
+   */
+  if (root) {
+    const base = path.resolve(root);
+    const rel = path.relative(base, resolved);
+    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+      // Forward slashes on purpose: the spelling may not depend on the platform.
+      return rel.split(path.sep).join('/');
+    }
+  }
+  // Outside the store: nothing better than the absolute path.
   // Windows is case-insensitive; `path.resolve` already made the slashes native.
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+/** The file a stored key points at on *this* machine. `null` when it cannot tell. */
+function markPath(key, root) {
+  if (typeof key !== 'string' || !key) return null;
+  if (path.isAbsolute(key)) return key;
+  if (!root) return null;
+  return path.resolve(root, ...key.split('/'));
+}
+
+/**
+ * Rewrite a store written with absolute keys into portable ones.
+ *
+ * Called once at startup: an install from before portable keys holds entries
+ * like `C:\NTAPI\data\sessions\ws\a.jsonl`, which would otherwise be looked up
+ * under a key nobody writes any more and pruned away.
+ */
+function migrateMarks(store, root) {
+  const source = store && typeof store === 'object' ? store : {};
+  const next = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (!value || typeof value !== 'object') continue;
+    const portable = markKey(key, root) || key;
+    next[portable] = { ...value };
+  }
+  return next;
 }
 
 /** A mark with no pin and no colour is nothing to store. */
@@ -62,8 +106,8 @@ function cleanColor(color) {
 }
 
 /** A stored record, in the shape the renderer reads. */
-function readMark(marks, sessionPath) {
-  const key = markKey(sessionPath);
+function readMark(marks, sessionPath, root) {
+  const key = markKey(sessionPath, root);
   if (!key) return { pinned: false, color: null };
   const raw = marks && typeof marks === 'object' ? marks[key] : null;
   if (!raw || typeof raw !== 'object') return { pinned: false, color: null };
@@ -76,12 +120,12 @@ function readMark(marks, sessionPath) {
  * Unknown fields are ignored rather than copied, so a corrupt prefs entry cannot
  * travel forward with every write.
  */
-function applyMark(marks, sessionPath, patch = {}) {
-  const key = markKey(sessionPath);
+function applyMark(marks, sessionPath, patch = {}, root) {
+  const key = markKey(sessionPath, root);
   const next = { ...(marks && typeof marks === 'object' ? marks : {}) };
   if (!key) return next;
 
-  const current = readMark(next, sessionPath);
+  const current = readMark(next, sessionPath, root);
   const merged = { pinned: current.pinned, color: current.color };
 
   if ('pinned' in patch) merged.pinned = patch.pinned === true;
@@ -102,18 +146,25 @@ function applyMark(marks, sessionPath, patch = {}) {
  * started earlier, which is the reshuffle-by-`modified` bug the creation-time
  * sort exists to prevent. Pinning is the only reason to move a row.
  */
-function sortByMark(marks, sessions) {
+function sortByMark(marks, sessions, root) {
   const list = Array.isArray(sessions) ? sessions : [];
   const pinned = [];
   const rest = [];
   for (const session of list) {
-    if (readMark(marks, session?.path).pinned) pinned.push(session);
+    if (readMark(marks, session?.path, root).pinned) pinned.push(session);
     else rest.push(session);
   }
   return [...pinned, ...rest];
 }
 
-/** Drop marks whose session file is gone. Keeps prefs from growing forever. */
+/**
+ * Drop marks whose session file is gone. Keeps prefs from growing forever.
+ *
+ * `exists` is handed the *key*; the caller turns it back into a path with
+ * `markPath()`, because only the caller knows the session root. A key this
+ * machine cannot resolve is left alone rather than deleted: a mark written by
+ * an older build of the other side is not the same thing as a deleted chat.
+ */
 function pruneMarks(marks, exists) {
   const source = marks && typeof marks === 'object' ? marks : {};
   const next = {};
@@ -134,6 +185,8 @@ module.exports = {
   COLORS,
   COLOR_KEYS,
   markKey,
+  markPath,
+  migrateMarks,
   readMark,
   applyMark,
   sortByMark,

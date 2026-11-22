@@ -222,9 +222,9 @@ check('it has a moon glyph', /id="themeIconMoon"/.test(html));
 check('it has a sun glyph', /id="themeIconSun"/.test(html));
 check('it announces its state', /id="themeBtn"[\s\S]{0,220}aria-pressed="false"/.test(html));
 check(
-  'it sits below the Settings button, on its own row',
-  html.indexOf('id="settingsBtn"') < html.indexOf('id="themeBtn"') &&
-    /<div class="sidebar-tools">/.test(html)
+  'it sits in the brand row, before the Settings button',
+  html.indexOf('id="themeBtn"') < html.indexOf('id="settingsBtn"') &&
+    /<div class="brand">/.test(html)
 );
 check('that row is styled', /\.sidebar-tools \{/.test(css));
 check('the row does not widen the column', /\.sidebar-tools \{[\s\S]{0,200}margin-top: -8px/.test(css));

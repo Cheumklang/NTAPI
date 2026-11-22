@@ -162,6 +162,8 @@ const STRINGS = {
     untitled: 'Untitled session',
     rename: 'Rename',
     noSessions: 'No saved sessions yet.',
+    otherWorkspaces: 'Saved in another folder',
+    otherWorkspaceHint: 'Open this chat in “{folder}”',
     currentBadge: 'current',
     sessionMenuHint: 'Right-click to rename or delete',
     settings: 'Settings',
@@ -489,7 +491,6 @@ const STRINGS = {
     approvalAlwaysDone: 'Approved from now on. The approval switch in the sidebar asks again.',
     approvalNoMemory: 'Asks every time. "Always allow" remembers until you change the switch in the sidebar.',
     sysTitle: 'Desktop control',
-    sysTitleOn: 'Desktop control is on — click to stop. Ctrl+Alt+Esc stops it at once.',
     sysTipOff: 'Desktop control is off. Click to open it.',
     sysTipOn: 'Desktop control is on — click to stop · Ctrl+Alt+Esc stops it at once',
     sysOff: 'Off',
@@ -716,6 +717,8 @@ const STRINGS = {
     untitled: 'แชทไม่มีชื่อ',
     rename: 'เปลี่ยนชื่อ',
     noSessions: 'ยังไม่มีแชทที่บันทึกไว้',
+    otherWorkspaces: 'แชทที่บันทึกไว้ในโฟลเดอร์อื่น',
+    otherWorkspaceHint: 'เปิดแชทนี้ใน “{folder}”',
     currentBadge: 'ปัจจุบัน',
     sessionMenuHint: 'คลิกขวาเพื่อเปลี่ยนชื่อหรือลบ',
     settings: 'ตั้งค่า',
@@ -1038,7 +1041,6 @@ const STRINGS = {
     approvalAlwaysDone: 'อนุมัติทุกครั้งไปแล้ว — เปิดให้ถามอีกครั้งได้ที่สวิตช์การอนุมัติในแถบข้าง',
     approvalNoMemory: 'ถามทุกครั้ง · "อนุมัติเสมอ" จะจำไว้จนกว่าจะเปลี่ยนสวิตช์ในแถบข้าง',
     sysTitle: 'ควบคุมเครื่อง',
-    sysTitleOn: 'เปิดควบคุมเครื่องอยู่ — คลิกเพื่อหยุด · หยุดทันที: Ctrl+Alt+Esc',
     sysTipOff: 'ควบคุมเครื่องปิดอยู่ — คลิกเพื่อเปิด',
     sysTipOn: 'เปิดควบคุมเครื่องอยู่ — คลิกเพื่อหยุด · หยุดทันที: Ctrl+Alt+Esc',
     sysOff: 'ปิดอยู่',
@@ -1278,10 +1280,10 @@ function applyLanguage() {
     if (typeof paintTokenUsage === 'function') paintTokenUsage();
     if (typeof paintProviderMeter === 'function') paintProviderMeter(activeView());
   }
-  /* The desktop-control tooltip is painted from the control state, not from a
+  /* The desktop-control tooltip is written from the control state, not from a
    * data-i18n attribute, so it kept whichever language it was drawn in: switching
    * to Thai left an English sentence under the pointer. */
-  if (typeof paintSysTip === 'function') paintSysTip();
+  if (typeof paintSysTitle === 'function') paintSysTitle();
   /* Two tooltips are written in JS rather than marked up (the approval chip and
    * its three positions), so they are repainted here as well. */
   if (typeof applyApprovalMode === 'function' && typeof currentApprovalPolicy === 'function') {
@@ -4525,8 +4527,27 @@ async function renderSessions(cwd) {
     ...sessions.filter((s) => !s.pinned),
   ];
   
+  /*
+   * Chats kept under another workspace's history folder.
+   *
+   * The list above answers "what did I do in this folder". A shared data folder
+   * can hold history for more than one workspace — the same repo opened on two
+   * machines, or a project edited from two folders — and those chats were
+   * unreachable without switching the workspace first. Fetched before the empty
+   * state below, so a fresh workspace still offers them. With a single
+   * workspace the main process returns nothing and the sidebar is untouched.
+   */
+  let otherSessions = [];
+  try {
+    otherSessions = (await api.listOtherSessions(cwd)) || [];
+  } catch {
+    otherSessions = [];
+  }
+  const openSessionIds = new Set([...views.values()].map((v) => v.sessionId));
+  otherSessions = otherSessions.filter((s) => !openSessionIds.has(s.id));
+
   list.innerHTML = '';
-  if (!sessions.length) {
+  if (!sessions.length && !otherSessions.length) {
     const p = document.createElement('div');
     p.style.cssText = 'font-size:11.5px;padding:6px 4px';
     // A literal grey here ignored the theme: in light mode this empty-state line
@@ -4581,6 +4602,35 @@ async function renderSessions(cwd) {
     });
 
     list.appendChild(btn);
+  }
+
+  if (otherSessions.length) {
+    const group = document.createElement('div');
+    group.className = 'session-group';
+    group.textContent = t('otherWorkspaces');
+    list.appendChild(group);
+    for (const s of otherSessions) {
+      const row = document.createElement('button');
+      row.className = 'session-item is-other';
+      if (s.color) row.dataset.color = s.color;
+      if (s.pinned) row.classList.add('pinned');
+      const title = s.name || s.firstMessage || t('untitled');
+      const folder = s.folder || '';
+      row.innerHTML = `
+        <span class="s-row">
+          <span class="s-pin-slot" aria-hidden="true">${s.pinned ? '📌' : ''}</span>
+          <span class="s-title">${escapeHtml(title)}</span>
+        </span>
+        <span class="s-meta">${escapeHtml(formatSessionDate(new Date(s.created || s.modified)))} · ${escapeHtml(folder)}</span>
+      `;
+      row.title = folder ? t('otherWorkspaceHint', { folder }) : title;
+      row.addEventListener('click', async () => {
+        const already = [...views.entries()].find(([, v]) => v.sessionId === s.id);
+        if (already) await activate(already[0]);
+        else await openNewTab(s.cwd || cwd, s.path);
+      });
+      list.appendChild(row);
+    }
   }
 }
 
@@ -7765,7 +7815,10 @@ async function queueMessage(text, attachments) {
   const hold = holdMessage(view, null, {
     text: resolved,
     images: attachments,
-    send: () => {},
+    // Nothing to send directly: the queue is drained, and the drain refuses a
+    // chat whose countdown is still running. This is the call that arrives when
+    // the clock reaches zero.
+    send: () => drainQueue(view),
     what: t('holdWhatQueue'),
     rowInto: () => {
       const row = el('queueBar')?.querySelector(`[data-queue-id="${item.queueId}"]`);
@@ -7819,26 +7872,27 @@ async function resolveForSend(text) {
 async function drainQueue(view) {
   if (!view || view.busy) return;
   if (!view.queue || !view.queue.length) return;
+  const head = view.queue[0];
   // An item being edited is not ready to go: sending it would ship the text the
   // user is in the middle of changing. It keeps its place and the drain simply
   // waits for it, which is why saving returns it to where it was.
-  const blocked = view.queue[0]?.editing;
-  if (blocked) {
+  if (head?.editing) {
     renderQueue();
     return;
   }
+  /*
+   * A message still inside its countdown is not ready either.
+   *
+   * The turn that was running when it was queued can end during those five
+   * seconds, and the drain used to ship the message the moment it did: the row
+   * still said "จะส่งในอีก 4 วิ" while the model was already reading it, so the
+   * countdown promised a moment that had already passed. Waiting for the clock
+   * is the whole point of the hold — the timer calls back here at zero.
+   */
+  const held = holds.get(view.tabId);
+  if (held && !held.finished && held.item === head) return;
   const next = view.queue.shift();
   renderQueue();
-  // The turn that was running when this was queued has ended, so any countdown
-  // still ticking on it is moot: release it before the message goes out, or the
-  // timer would later fire a second send for the same text.
-  const held = holds.get(view.tabId);
-  if (held && !held.finished && held.item === next) {
-    held.finished = true;
-    clearInterval(held.timer);
-    holds.delete(view.tabId);
-    held.row.remove();
-  }
   if (next.kind === 'action') {
     // An action does not produce a turn, so nothing will call `onSettled` to
     // restart the queue. Run it and keep draining by hand.
@@ -10092,13 +10146,9 @@ api.onSettled((p) => {
   // Same rule as onBusy: the composer follows the view on screen, not the tab
   // the event happened to name.
   paintBusyFromViews();
-  // A message held back while this turn ran no longer has anything to wait for:
-  // send it now rather than making the user watch a countdown for a turn that
-  // already finished.
-  const held = holds.get(view.tabId);
-  if (held && !held.finished && held.item) {
-    held.item.holdReleased = true;
-  }
+  // A message held back while this turn ran still has its own countdown, and
+  // that countdown is the promise the row makes: the drain below will decline to
+  // send it early and the timer sends it at zero instead.
   drainQueue(view);
   // A heal from the main process says "this turn was already over": the queue
   // still has to move, but a finish ping for a turn the reader watched end long
@@ -10250,8 +10300,8 @@ function settleStaleTurn(view) {
   if (!view || !view.busy) return false;
   view.busy = false;
   view.steerPending = false;
-  const held = holds.get(view.tabId);
-  if (held && !held.finished && held.item) held.item.holdReleased = true;
+  // Same as `agent:settled`: a queued message that is still counting down is not
+  // released early by a turn ending — its own timer sends it.
   // The queue is what the reader is waiting for, so it is released before
   // anything that only touches the picture: a missing node, a repaint in flight or
   // a session list that cannot be rebuilt must not keep the message waiting.
@@ -10511,8 +10561,7 @@ function applySystemState(state = {}) {
   const chip = el('sysChip');
   chip.dataset.state = sysControl.enabled ? 'on' : 'off';
   chip.setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
-  chip.title = sysControl.enabled ? t('sysTitleOn') : t('sysTitle');
-  paintSysTip();
+  paintSysTitle();
   el('sysState').textContent = sysControl.enabled ? t('sysOn') : t('sysOff');
   el('sysToggleText').textContent = sysControl.enabled ? t('sysDisable') : t('sysEnable');
   el('sysToggle').setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
@@ -10534,50 +10583,20 @@ async function setSystemControl(enabled) {
 }
 
 /**
- * The painted hover tip says the same thing as the native one, so an impatient
- * hover still learns the way out. It is written here rather than marked with
- * data-i18n because its sentence follows the control state, which means the
- * language switch has to repaint it too.
+ * The chip's hover text, on the chip's own `title` so the platform draws it.
+ *
+ * It was a painted card for a while (`.sys-tip`): that appeared instantly and
+ * could be styled, but the tips on every other chip are drawn by the OS, and no
+ * CSS font-size equals the size the platform picks — the card read a little
+ * smaller than the browser chip's tip beside it no matter what it was set to.
+ * The sentence follows the control state, so it is written here rather than
+ * marked up with data-i18n, and the language switch calls this again.
  */
-function paintSysTip() {
-  const tip = el('sysTip');
-  if (!tip) return;
-  tip.textContent = sysControl.enabled ? t('sysTipOn') : t('sysTipOff');
-}
-
-/*
- * The hover tip follows the button instead of living inside the sidebar: a card
- * painted there is clipped by the sidebar's own stacking context and ends up
- * behind the main column. Fixed positioning plus the chip's own rectangle puts
- * it on top, the way the approval popover appears.
- */
-function placeSysTip() {
+function paintSysTitle() {
   const chip = el('sysChip');
-  const tip = el('sysTip');
-  if (!chip || !tip) return;
-  const rect = chip.getBoundingClientRect();
-  const width = Math.min(236, window.innerWidth - 24);
-  let left = rect.left;
-  if (left + width > window.innerWidth - 12) left = window.innerWidth - width - 12;
-  tip.style.width = `${width}px`;
-  tip.style.left = `${Math.max(12, left)}px`;
-  tip.style.top = `${rect.bottom + 8}px`;
+  if (!chip) return;
+  chip.title = sysControl.enabled ? t('sysTipOn') : t('sysTipOff');
 }
-
-function showSysTip(show) {
-  const tip = el('sysTip');
-  if (!tip) return;
-  if (show) placeSysTip();
-  tip.classList.toggle('is-open', Boolean(show));
-}
-
-for (const event of ['mouseenter', 'focusin']) {
-  el('sysWrap')?.addEventListener(event, () => showSysTip(true));
-}
-for (const event of ['mouseleave', 'focusout']) {
-  el('sysWrap')?.addEventListener(event, () => showSysTip(false));
-}
-el('sidebar')?.addEventListener('scroll', () => showSysTip(false), { passive: true });
 
 el('sysChip').addEventListener('click', () => {
   if (!sysControl.supported) {

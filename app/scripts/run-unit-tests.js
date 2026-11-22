@@ -105,6 +105,8 @@ const TESTS = [
   'selftest-provider-timeout.js',
   'selftest-resolve-sdk.js',
   'selftest-session-paths.js',
+  'selftest-which-side.js',
+  'selftest-launcher.js',
   'selftest-recovered-turn.js',
   'selftest-live-numbers.js',
   'selftest-system-control.js',

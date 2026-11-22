@@ -209,6 +209,66 @@ check('palette keys are unique and lowercase', () => {
   for (const key of marks.COLOR_KEYS) assert.strictEqual(key, key.toLowerCase());
 });
 
+/* --------------------------- two machines, one store ----------------
+ * The data folder is shared with a Windows VM, which reaches the same tree as
+ * `Z:\.local\share\ntapi`. Absolute keys differed between the two spellings, so
+ * a pin set on one side was unreadable — and pruned — on the other. Inside the
+ * store the key is now the file's path relative to it, which both agree on.
+ */
+
+const ROOT = path.resolve('C:/NTAPI/data/sessions');
+
+check('a key inside the store is relative to it', () => {
+  assert.strictEqual(marks.markKey(FILE_A, ROOT), 'ws/a.jsonl');
+});
+
+check('the relative key does not depend on how the path was spelled', () => {
+  const other = path.join(ROOT, 'ws', '.', 'a.jsonl');
+  assert.strictEqual(marks.markKey(other, ROOT), marks.markKey(FILE_A, ROOT));
+  // The Windows spelling of the same folder, as a path on this machine.
+  const slashed = `${ROOT}${path.sep}ws${path.sep}a.jsonl`;
+  assert.strictEqual(marks.markKey(slashed, ROOT), marks.markKey(FILE_A, ROOT));
+});
+
+check('a mark written with the root reads back with the root', () => {
+  const store = marks.applyMark({}, FILE_A, { pinned: true, color: 'green' }, ROOT);
+  assert.deepStrictEqual(marks.readMark(store, FILE_A, ROOT), { pinned: true, color: 'green' });
+  assert.deepStrictEqual(Object.keys(store), ['ws/a.jsonl']);
+});
+
+check('a path outside the store keeps its absolute key', () => {
+  const outside = path.resolve('C:/elsewhere/x.jsonl');
+  assert.strictEqual(marks.markKey(outside, ROOT), marks.markKey(outside));
+});
+
+check('markPath turns a stored key back into the file on this machine', () => {
+  assert.strictEqual(marks.markPath('ws/a.jsonl', ROOT), FILE_A);
+  assert.strictEqual(marks.markPath(FILE_A, ROOT), path.resolve(FILE_A));
+  assert.strictEqual(marks.markPath('', ROOT), null);
+});
+
+check('migration rewrites the old absolute keys once', () => {
+  const old = {};
+  old[marks.markKey(FILE_A)] = { pinned: true, color: 'red' };
+  old[marks.markKey(FILE_B)] = { pinned: false, color: 'blue' };
+  const next = marks.migrateMarks(old, ROOT);
+  assert.deepStrictEqual(Object.keys(next).sort(), ['ws/a.jsonl', 'ws/b.jsonl']);
+  assert.deepStrictEqual(next['ws/a.jsonl'], { pinned: true, color: 'red' });
+});
+
+check('a key this machine cannot resolve is not treated as a deleted chat', () => {
+  // What main.js does: an unresolvable key passes the existence check untouched.
+  const store = { 'ws/a.jsonl': { pinned: true }, '/other/machine/x.jsonl': { color: 'red' } };
+  const pruned = marks.pruneMarks(store, (key) => {
+    const file = marks.markPath(key, ROOT);
+    // Same policy as main.js: a relative key is judged by its file, an absolute
+    // one belongs to another machine and is never deleted.
+    if (file && !path.isAbsolute(key)) return file === FILE_A;
+    return true;
+  });
+  assert.deepStrictEqual(Object.keys(pruned).sort(), ['/other/machine/x.jsonl', 'ws/a.jsonl']);
+});
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

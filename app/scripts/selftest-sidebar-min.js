@@ -58,7 +58,7 @@ check('the chips keep their width while the name shrinks', () => {
 });
 
 check('the header still holds the chips we protect', () => {
-  for (const id of ['langBtn', 'browserBtn', 'settingsBtn']) {
+  for (const id of ['langBtn', 'themeBtn', 'settingsBtn']) {
     assert.ok(html.includes(`id="${id}"`), `${id} is missing from index.html`);
   }
   assert.match(html, /<div class="brand">/);

@@ -202,9 +202,9 @@ check('the bridge is handed to the session', /systemBridge,\n/.test(main));
 
 check('preload exposes the four calls', ['systemGetState', 'systemSetEnabled', 'onSystemState', 'onSystemStopped'].every((k) => new RegExp(`${k}:`).test(preload)));
 check(
-  'the chip lives on the workspace row, after the theme button',
+  'the chip lives on the workspace row, after the browser button',
   html.indexOf('id="pickFolder"') < html.indexOf('id="sysChip"') &&
-    html.indexOf('id="themeBtn"') < html.indexOf('id="sysChip"') &&
+    html.indexOf('id="browserBtn"') < html.indexOf('id="sysChip"') &&
     html.indexOf('id="sysChip"') < html.indexOf('id="approvalBtn"')
 );
 check('the chip opens a panel', /id="sysPopover"/.test(html));
@@ -214,28 +214,44 @@ check('the strip over the app is gone', !/sysBanner/.test(html) && !/sysBanner/.
 check('the chip starts off', /data-state="off"/.test(html));
 check('styles cover the chip and the panel', ['.chip-btn.sys-chip', '.sys-popover'].every((sel) => read('src/renderer/styles.css').includes(sel)));
 check(
-  'the hover tip is painted over the app, not clipped inside the sidebar',
-  /\.sys-tip \{[\s\S]{0,300}?position: fixed;/.test(read('src/renderer/styles.css')) &&
-    /\.sys-tip\.is-open/.test(read('src/renderer/styles.css')) &&
-    /function placeSysTip/.test(appSrc) &&
-    /getBoundingClientRect\(\)/.test(appSrc)
+  'the hover text is the same kind of tooltip every other chip shows',
+  // The OS draws the tips on the neighbouring chips and picks their size from the
+  // display's DPI, which no CSS value can equal — so this chip hands its sentence
+  // to `title` too, and no painted card is left to disagree with it.
+  /function paintSysTitle/.test(appSrc) &&
+    /chip\.title = sysControl\.enabled \? t\('sysTipOn'\) : t\('sysTipOff'\)/.test(appSrc) &&
+    !/\.sys-tip\s*\{/.test(read('src/renderer/styles.css')) &&
+    !/id="sysTip"/.test(html)
 );
 check(
   'a slash command sent without the menu runs instead of reaching the model',
   /const named = pendingImages\.length === 0 \? findSlashCommand\(text\) : null;/.test(appSrc)
 );
 check(
-  'the hover tip follows a language switch',
-  /function paintSysTip/.test(appSrc) && /if \(typeof paintSysTip === 'function'\) paintSysTip\(\);/.test(appSrc)
+  'the hover text follows a language switch',
+  /function paintSysTitle/.test(appSrc) && /if \(typeof paintSysTitle === 'function'\) paintSysTitle\(\);/.test(appSrc)
 );
 check(
-  'a painted hover tip carries the way out',
-  /class="sys-tip" id="sysTip"/.test(html) && /sysTipOn: '[^']*Ctrl\+Alt\+Esc/.test(appSrc) && /showSysTip\(true\)/.test(appSrc)
+  'the tip carries the way out',
+  /sysTipOn: '[^']*Ctrl\+Alt\+Esc/.test(appSrc) && /sysTipOff: '[^']+/.test(appSrc)
 );
 check(
-  'the tooltip is where the way out is written',
-  /sysTitleOn: 'เปิดควบคุมเครื่องอยู่[^']*Ctrl\+Alt\+Esc/.test(appSrc) && /sysTitleOn: 'Desktop control is on[^']*Ctrl\+Alt\+Esc/.test(appSrc)
+  'the one tooltip is where the way out is written, in both languages',
+  /sysTipOn: 'เปิดควบคุมเครื่องอยู่[^']*Ctrl\+Alt\+Esc/.test(appSrc) &&
+    /sysTipOn: 'Desktop control is on[^']*Ctrl\+Alt\+Esc/.test(appSrc)
 );
+check(
+  'the chip carries the state sentence as its only title, so nothing doubles up',
+  // Scoped to the function that paints the chip: other chips (workspace, files)
+  // legitimately use `title` for their full path.
+  (() => {
+    const fn = appSrc.match(/function applySystemState\([\s\S]*?\n\}/);
+    return Boolean(fn) && !/\.title\s*=/.test(fn[0]);
+  })() &&
+    !/id="sysChip"[\s\S]{0,400}?data-i18n-title/.test(html) &&
+    /id="sysChip"[\s\S]{0,400}?data-i18n-aria="sysTitle"/.test(html)
+);
+check('the tooltip key it used to repeat is gone', (appSrc.match(/\bsysTitleOn:/g) || []).length === 0);
 
 check('one function paints every indicator', /function applySystemState\(state = \{\}\)/.test(appSrc));
 check('the panel can explain why it is unavailable', /systemProbe: \(\) => ipcRenderer\.invoke\('system:probe'\)/.test(preload));
