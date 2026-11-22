@@ -1,6 +1,36 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-22): `master` ยังเป็น 0.6.23 (ห้าม bump เอง) · **Nemotron ทำได้ทั้ง Notepad และ Calculator แล้ว** (พิมพ์+อ่านข้อความจากภาพเอง, กด 7+8=15) · audit บันทึก model ของ Nemotron + session ของมันครบ 13 entry · ภาพถูกส่งเป็น image block ให้โมเดลที่มองภาพได้ (text-only ได้ path absolute) · `selftest-system-control` 191 PASS · `npm test` 95/98 · **ยังไม่ commit (9 ไฟล์)**
+> **📌 สถานะล่าสุด (2026-11-22): ปล่อย **0.7.0** แล้ว (commit `0334de5` + provenance `6fa980b`) — ยังไม่ tag/push · ควบคุมเครื่อง Windows ใช้งานได้จริง: อ่าน/กดหน้าต่าง Chromium (MSAA), ภาพ, audit ระบุ session+model · Nemotron ทำ Notepad + Calculator ได้เอง · `selftest-system-control` 191 PASS · `npm test` 95/98 (แดงเดิม 3) · **งานถัดไป: `git tag v0.7.0 && git push` → CI build → `provenance record-release`**
+
+## 🚀 ปล่อย 0.7.0 — 2026-11-22
+
+```
+0334de5  ปล่อย 0.7.0: ควบคุมเครื่องบน Windows ใช้งานได้จริง (อ่าน/กดหน้าต่าง Chromium, ภาพ, audit)
+6fa980b  chore(provenance): บันทึกคอมมิต 0.7.0
+```
+- `app/package.json` → `0.7.0` · diff **+1104 / −141** · 10 ไฟล์
+- `provenance verify` → **OK 245 entries** · ภาพประชาสัมพันธ์: `images/release-070-card-698dae.jpg`
+- **ยังไม่ tag / ยังไม่ push** (push tag จะ trigger CI สร้าง installer + publish — ต้องให้เจ้าของตัดสิน)
+
+### ขั้นต่อไปของการปล่อย (ทำต่อได้ทันที)
+1. `git tag v0.7.0 && git push origin master v0.7.0` → CI build `NTAPI-Setup-0.7.0.exe`
+2. `node app/scripts/provenance.js record-release 0.7.0 --asset NTAPI-Setup-0.7.0.exe:<size>:<sha256> --ci <run url>`
+3. commit `PROVENANCE/releases/v0.7.0.json` + anchors/manifest
+
+### ⚠️ ข้อควรรู้ที่ตกค้าง (ไม่บล็อกการปล่อย)
+- `alt+F4` ใช้ได้กับหน้าต่างที่ไม่มี dialog · Notepad ที่ยังไม่บันทึกจะไม่ปิด (มี dialog ซ้อนที่ไม่อยู่ใน window list) ⇒ ถ้าจะทดสอบซ้ำ ให้ใช้โปรแกรมที่ไม่มี prompt
+- กล่องข้อความของแชท **มองไม่เห็นผ่าน `system_snapshot`** เมื่อ transcript ยาว (tree ชนเพดาน 250 node) ⇒ ใช้ `system_click_at` กลางกล่อง + `system_type` + `system_keys enter` (พิกัดจาก `system_screenshot`)
+- `system_windows` เป็นคำสั่งเดียวที่**ไม่**เขียน audit — ใช้เป็นตัวแยกชั้นเวลา debug ("ชั้น JS พัง" vs "ชั้น helper พัง")
+- ภาพของหน้าต่างถูกเขียนลง `<cwd ของแอป>/images/` (แอปนี้ cwd = `Z:/home/nt/NTAPI`) และรายงานเป็น path เต็มแล้ว
+
+### 🧠 แผนที่ไฟล์สำหรับ session หน้า
+| เรื่อง | ไฟล์ | จุดสำคัญ |
+|---|---|---|
+| อ่าน/กดหน้าต่าง Windows | `app/src/system/uia.ps1` | `Add-Tree` (iterative) · `NtMsaa` (Walk/Press/SetValue) · `Get-Node` (patterns→actions/editable) · `snapshot` (fallback MSAA เมื่อไม่มีอะไรใช้ได้) · `act` (`$fromMsaa` จาก "m" นำหน้า ref) |
+| adapter | `app/src/system/windows.js` | `windowRow` (bounds/minimised) · `snapshot` · `run` (spawn + JSON) |
+| bridge/เครื่องมือ | `app/src/main.js` | `systemBridge.call` (audit พ่วง session+model — **ห้ามตั้งชื่อ helper ซ้ำ `audit`**) · `captureAppWindow` (capturePage → helper) · `modelTag` |
+| ผลลัพธ์ถึงโมเดล | `app/src/freepi-bridge.js` | `formatSystemSnapshot` (actions/editable) · `systemScreenshotContent` (ภาพ+path absolute) · prompt 3 สถานะของ `type` |
+| เทสต์ | `app/scripts/selftest-system-control.js` | 191 เช็ค — เพิ่มเช็คใหม่ต่อท้าย anchor `the look budget leaves room` / `the audit helper calls the audit` |
 
 ## 🎯 ทดสอบกับ Nemotron จริง (หน้าแอป NTAPI, แชท "NVIDIA") — 2026-11-22
 

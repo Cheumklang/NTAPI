@@ -3574,3 +3574,10 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - audit: 13 entry ของ Nemotron พร้อม model + session ของมัน
 - ปิดค้าง: ภาพสำหรับโมเดลที่มองภาพได้ (image block) ✓ · alt+F4 ใช้ได้ (Notepad ที่เคยไม่ปิดเพราะ dialog บันทึก) ✓
 - บันทึกวิธีทดสอบซ้ำไว้ใน HANDOFF (composer มองไม่เห็นจาก snapshot เพราะ tree ชนเพดาน 250 node → click_at + type)
+
+## 2026-11-22 (ต่อ 8) — ปล่อย 0.7.0
+- bump `app/package.json` 0.6.23 → 0.7.0 ตามคำสั่งเจ้าของ
+- commit `0334de5` (10 ไฟล์, +1104/−141) + `6fa980b` (provenance) · verify OK 245 entries
+- ยังไม่ tag/push (ต้องขออนุญาต — push tag จะ trigger CI publish installer)
+- ภาพการ์ด 0.7.0: `images/release-070-card-698dae.jpg` (1:1, gamer, ข้อความไทยอ่านออก)
+- HANDOFF อัปเดตแผนที่ไฟล์ + ขั้นตอนปล่อยที่เหลือ
