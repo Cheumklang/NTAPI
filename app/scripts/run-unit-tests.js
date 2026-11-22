@@ -29,6 +29,7 @@ const TESTS = [
   'selftest-approval-ui.js',
   'selftest-compact-queue.js',
   'selftest-compaction.js',
+  'selftest-compacting-bar.js',
   'selftest-queue-chrome.js',
   'selftest-reload-reattach.js',
   'selftest-history-merge.js',

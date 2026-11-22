@@ -2613,7 +2613,17 @@ function subscribeTab(tabId) {
       }
 
       case 'compaction_start':
+        // The bar that says "compacting" has to outlive the work it describes.
+        // It used to be shown by the renderer with its five-second default, so it
+        // faded out while the summary was still being written and the person
+        // believed the chat had already been compacted.
+        sendTab(tabId, 'agent:compaction', { running: true });
         sendTab(tabId, 'agent:notice', { text: 'Compacting conversation…', key: 'notice.compacting' });
+        break;
+
+      // Only the end of the work is allowed to take the bar away.
+      case 'compaction_end':
+        sendTab(tabId, 'agent:compaction', { running: false, aborted: Boolean(event.aborted) });
         break;
 
       case 'session_info_changed':

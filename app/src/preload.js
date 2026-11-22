@@ -178,6 +178,8 @@ contextBridge.exposeInMainWorld('freepi', {
   onToolUpdate: on('agent:toolUpdate'),
   onToolEnd: on('agent:toolEnd'),
   onNotice: on('agent:notice'),
+  // A compaction that is still running: the bar stays until `running: false`.
+  onCompaction: on('agent:compaction'),
   onError: on('agent:error'),
   onAd: on('ads:show'),
   openAd: (url) => ipcRenderer.invoke('ads:open', url),

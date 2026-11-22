@@ -75,7 +75,10 @@ check('the retry notice is remembered as a passing state', () => {
 });
 
 check('the retry notice has a ceiling on its age', () => {
-  assert.match(renderer, /noticeIsRetry \? \d+ : undefined/);
+  // A retry still gets a number of its own; a compaction in the same expression
+  // is the one case that must NOT have one (see selftest-compacting-bar.js).
+  assert.match(renderer, /noticeIsRetry \? \d+/);
+  assert.match(renderer, /: undefined/);
 });
 
 check('the end of a turn clears the retry notice', () => {

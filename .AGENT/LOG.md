@@ -3624,3 +3624,11 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - การจับคู่พลาดได้จริงเมื่อ main เขียน prompt ใหม่: รูปภาพล้วน (ได้ note `[Attached image saved to: …]`) หรือคำสั่งที่ถูกขยายจน "front" ของข้อความเปลี่ยน → `theirs.startsWith(mine)` ไม่จริง
 - **แก้**: (1) `submit` + path steer เซ็ต `pendingAt: view.messages.length` เหมือน path คิว (2) `mergeIncomingMessages()` ทิ้งสำเนาเมื่อ **slot ที่มันจำไว้มี user entry อยู่แล้ว** (หลักฐานว่า main เขียนแล้ว ไม่ต้องพึ่งข้อความ)
 - เทสต์: `selftest-history-merge.js` +4 (rewritten prompt · image-only · slot ที่ยังว่าง · send path ต้องจำ slot) — **พิสูจน์แล้วว่าถอยโค้ดกลับจะ FAIL 2 ข้อ** · `npm test` 101/101 · `check:history` (renderer จริง) ผ่านทุกข้อ
+
+## 2026-11-22 — `/compact`: ป้ายเหลืองต้องอยู่จนย่อเสร็จ + ปิดช่องแชทระหว่างทำ
+- ผู้ใช้ขอ 2 อย่าง: (1) ข้อความ "กำลังย่อบทสนทนา…" ห้ามหายก่อนงานเสร็จ (ผู้ใช้เข้าใจผิดว่าย่อแล้ว) (2) ระหว่างย่อต้องส่งข้อความไม่ได้
+- ต้นเหตุ (1): `compaction_start` จาก main → `agent:notice` ไม่มี ms → `showNotice(text, undefined)` = **ดีฟอลต์ 5 วินาที** ทับป้ายที่ `runCompact()` ตั้งไว้แบบไม่หมดอายุ (0) ⇒ หายก่อนเสร็จ
+- แก้: main ส่ง event ใหม่ `agent:compaction` `{running:true|false}` (`compaction_start`/`compaction_end`) · renderer: `onCompaction` → `setCompacting(view, p.running)` · `notice.compacting` แสดงด้วย **ms 0** (อยู่จน event จบมากวาด) · `/compact` ที่สั่งเองยังโชว์ผล done/failed ของตัวเอง (`view.compactManual`)
+- แก้ (2): `view.compacting` ปิด send (`updateSendState`) + `submit()` ปฏิเสธพร้อมบอกเหตุผล (`compactingWait`) + placeholder `placeholderCompacting` ทั้ง EN/TH · `runCompact` ล็อกใน `try` ปลดใน `finally` (ย่อล้มเหลวก็ไม่ค้างล็อก)
+- เทสต์ใหม่ `scripts/selftest-compacting-bar.js` 13 เช็ค (ลงทะเบียนใน run-unit-tests) · แก้ `selftest-retry-notice.js` ให้รับ expression ใหม่ · แก้ `check-notice-bubble.js` เรื่องช่องว่างใน markup (bubble มี span ลูก ⇒ trim ก่อนเทียบ)
+- ยืนยัน: `npm test` **102/102** · `check:notice` / `check:busy` / `check:queue` ผ่าน · `check:sara` ok

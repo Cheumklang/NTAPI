@@ -138,6 +138,8 @@ const STRINGS = {
     restoring: 'Restoring last session…',
     placeholderIdle: 'Ask NTAPI to build, fix, or explain… (Enter to send, Shift+Enter for newline)',
     placeholderBusy: 'Agent is working — Enter sends into the turn, Ctrl+Enter queues',
+    placeholderCompacting: 'Compacting this conversation — hold on, it cannot be sent to yet',
+    compactingWait: 'Compacting the conversation — a message can be sent when it finishes',
     steerSent: 'Sent into the running turn.',
     holdCountdown: 'Sending in {n}s · {what}',
     holdWhatSteer: 'into the running turn',
@@ -695,6 +697,8 @@ const STRINGS = {
     restoring: 'กำลังกลับไปยังแชทล่าสุด…',
     placeholderIdle: 'พิมพ์ให้ NTAPI สร้าง แก้ หรืออธิบาย… (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่)',
     placeholderBusy: 'AI กำลังทำงาน — Enter ส่งเข้าเทิร์น, Ctrl+Enter เข้าคิว',
+    placeholderCompacting: 'กำลังย่อบทสนทนา — รอสักครู่ ยังส่งข้อความไม่ได้',
+    compactingWait: 'กำลังย่อบทสนทนาอยู่ — ส่งข้อความได้เมื่อย่อเสร็จแล้ว',
     steerSent: 'ส่งเข้าเทิร์นที่กำลังทำงานแล้ว',
     holdCountdown: 'จะส่งในอีก {n} วิ · {what}',
     holdWhatSteer: 'ส่งเข้าเทิร์นที่กำลังทำ',
@@ -6659,7 +6663,8 @@ function renderAttachments() {
 }
 
 function updateSendState() {
-  sendBtn.disabled = Boolean(activeView()?.busy) || (!input.value.trim() && pendingImages.length === 0);
+  const view = activeView();
+  sendBtn.disabled = Boolean(view?.busy) || Boolean(view?.compacting) || (!input.value.trim() && pendingImages.length === 0);
 }
 
 /**
@@ -8521,6 +8526,18 @@ window.addEventListener('pointermove', (e) => {
 async function submit() {
   const view = activeView();
   if (!view) return;
+  /*
+   * A conversation that is being summarised cannot take a message.
+   *
+   * The transcript is about to be replaced by the summary, so a prompt written
+   * now would be answered against a chat that no longer exists — and the bar
+   * saying "compacting" would be replaced by the turn's own activity, so the
+   * person would have no way to tell why their message went somewhere strange.
+   */
+  if (view.compacting) {
+    showNotice(t('compactingWait'), 2600);
+    return;
+  }
   const text = input.value.trim();
   if (!text && pendingImages.length === 0) return;
 
@@ -10283,7 +10300,24 @@ api.onNotice((p) => {
   if (!payloadTabIsActive(view)) return;
   noticeIsRetry = p.key === 'notice.retrying';
   if (noticeIsRetry) setTurnPhase(view, 'retry');
-  showNotice(p.key ? t(p.key, p.params || null) : p.text, noticeIsRetry ? 10000 : undefined);
+  // "Compacting conversation…" is not a five-second message: it describes work
+  // that is still running. Zero means it stays until the end event replaces it.
+  const ms = noticeIsRetry ? 10000 : p.key === 'notice.compacting' ? 0 : undefined;
+  showNotice(p.key ? t(p.key, p.params || null) : p.text, ms);
+});
+
+/** The compaction started or finished; the bar and the composer follow it. */
+api.onCompaction?.((p) => {
+  const view = viewFor(p);
+  if (!view) return;
+  setCompacting(view, p.running);
+  if (p.running) return;
+  // The command that asked for this compaction prints its own result line, so the
+  // running bar must not be taken away before that line is written.
+  if (view.compactManual) return;
+  if (view.notice && view.notice.text !== t('notice.compacting')) return;
+  if (payloadTabIsActive(view)) showNotice(null, undefined, view.tabId);
+  else view.notice = null;
 });
 
 /** How long a red line in the transcript stays before it goes away by itself. */
@@ -11773,13 +11807,40 @@ async function compactConversation() {
 
 async function runCompact(view) {
   if (!view) return;
+  if (view.compacting) return;
+  setCompacting(view, true);
+  // The end event of this very compaction must not wipe the bar: the result line
+  // (done / failed) that belongs to the command is printed below.
+  view.compactManual = true;
   showNotice(`${t('compact')}…`, 0, view.tabId);
-  const res = await api.compact(view.tabId);
-  showNotice(res?.ok ? t('compactDone') : t('compactFailed'), 3200, view.tabId);
+  try {
+    const res = await api.compact(view.tabId);
+    showNotice(res?.ok ? t('compactDone') : t('compactFailed'), 3200, view.tabId);
+  } finally {
+    // Cleared however the work ended: a compaction that throws must not leave the
+    // composer locked with nothing running behind it.
+    view.compactManual = false;
+    setCompacting(view, false);
+  }
   refreshContextMeter();
   // Running the command does not produce a turn, so nothing else would notice
   // that the queue can move again.
   drainQueue(view);
+}
+
+/**
+ * The window's view of "this chat is being compacted".
+ *
+ * Kept on the view, not on the bar: switching tabs and coming back must restore
+ * the same state, and the composer of a chat that is busy compacting has to stay
+ * closed even while another chat is on screen.
+ */
+function setCompacting(view, on) {
+  if (!view) return;
+  view.compacting = Boolean(on);
+  if (!payloadTabIsActive(view)) return;
+  updateSendState();
+  input.placeholder = on ? t('placeholderCompacting') : view.busy ? t('placeholderBusy') : t('placeholderIdle');
 }
 
 async function exportConversation() {

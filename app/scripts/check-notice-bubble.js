@@ -110,7 +110,10 @@ app.whenReady().then(async () => {
   check('another message gets the same frame', compact.sameFrame === true, compact);
   check('the compact note is the same bubble', parseFloat(compact.style) >= 10, compact.style);
   check('it fades before disappearing', fading.hidden === false && fading.out === true, fading);
-  check('it is gone and emptied afterwards', gone.hidden === true && gone.text === '', gone);
+  // The bubble itself keeps its two child spans, and the markup around them is
+  // indentation — so "emptied" means no words are left to read, not that the
+  // string is zero-length.
+  check('it is gone and emptied afterwards', gone.hidden === true && gone.text.trim() === '', gone);
 
   win.destroy();
   console.log(failures.length ? `\n${failures.length} check(s) failed` : '\nPASS: the note sits in the chat frame and fades out');
