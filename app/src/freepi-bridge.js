@@ -610,6 +610,53 @@ function sanitizeCompaction(input) {
   return Object.keys(out).length ? out : null;
 }
 
+/** The heading the rule is recognised by, so it is never added twice. */
+const REALITY_SECTION = '## What this session actually is';
+
+/**
+ * The standing rule about where the agent is actually running.
+ *
+ * Kept as a function so a test can read it without opening a session, and kept
+ * short on purpose: a long preamble dilutes the tool list above it.
+ */
+function realityPolicyRule() {
+  return (
+    `\n\n${REALITY_SECTION}\n\n` +
+    `You are not a chat window with no machine behind it. You run inside NTAPI, on the user's own ` +
+    `computer, with the tools listed above: bash executes commands here and its output comes back ` +
+    `to you, read/write/edit touch real files, and the working directory above is a real folder. ` +
+    `So "install this", "try it", "run it", "make me a file" are instructions to do the work ` +
+    `yourself with those tools — not to hand the user a script, and not a reason to answer that ` +
+    `you are only a text model.\n\n` +
+    `If you cannot finish, say what actually blocked you and what you tried: the command, its ` +
+    `error output, a missing key, no network, too little GPU memory, a step only the user can ` +
+    `approve. Never claim a limit you did not test — not "I have no environment", not "I cannot ` +
+    `run commands", not "I cannot create files", and never a guess about the user's hardware: ` +
+    `check first, since a machine may have a working GPU whether or not it looks like it.\n\n` +
+    `Heavy work is still yours to do: hundreds of megabytes of downloads, a build of several ` +
+    `minutes, an install that needs its own Python. State the size and the expected time in one ` +
+    `line, then go ahead. Ask first only when the cost, the licence or the damage is the user's ` +
+    `call — deleting, paying, or overwriting something they made.`
+  );
+}
+
+/**
+ * The extension that adds `realityPolicyRule()` once per session.
+ *
+ * Module scope, not session scope: it holds no session state, and a test can
+ * exercise it without opening one.
+ */
+const realityPolicyExtension = {
+  name: 'freepi-reality-policy',
+  factory(pi) {
+    pi.on('before_agent_start', (event) => {
+      if (!event || typeof event.systemPrompt !== 'string') return;
+      if (event.systemPrompt.includes(REALITY_SECTION)) return;
+      return { systemPrompt: event.systemPrompt + realityPolicyRule() };
+    });
+  },
+};
+
 async function createFreePiSession(options) {
   const {
     cwd = process.cwd(),
@@ -1802,6 +1849,7 @@ async function createFreePiSession(options) {
         providerExtension,
         ...(plan.freePiTools ? [visionExtension, extraToolsExtension] : []),
         downloadsPolicyExtension,
+        realityPolicyExtension,
         ...(browserBridge ? [browserExtension] : []),
         ...(systemBridge ? [systemExtension] : []),
         todoExtension,
@@ -2989,6 +3037,9 @@ function loadAppMcpConfig(dir) {
 
 module.exports = {
   createFreePiSession,
+  realityPolicyExtension,
+  realityPolicyRule,
+  REALITY_SECTION,
   adsClientFactory: createAdsClient,
   resolveAuth,
   getAgentDir,

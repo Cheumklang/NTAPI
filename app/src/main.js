@@ -2298,6 +2298,27 @@ function tabSummary(tabId) {
   };
 }
 
+/**
+ * Where the running turn starts in the drawn messages, or null when idle.
+ *
+ * A turn begins right after the user's message that started it, and that is the
+ * one boundary a stored session really records — so it is also the boundary the
+ * transcript must use. `isStreaming` is the honest signal for "a turn is still
+ * running": `busy` is set the moment a prompt is accepted, before the agent has
+ * produced anything to draw.
+ */
+function liveTurnStartIndex(messages, tab) {
+  let streaming = false;
+  try {
+    streaming = Boolean(tab.handle.session.isStreaming);
+  } catch {}
+  if (!streaming && !tab.busy) return null;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i] && messages[i].kind === 'user') return i + 1;
+  }
+  return 0;
+}
+
 function tabState(tabId) {
   const tab = tabs.get(tabId);
   if (!tab) return null;
@@ -2328,6 +2349,13 @@ function tabState(tabId) {
     ...tabSummary(tabId),
     models: tab.handle.modelList,
     messages,
+    // Where the running turn begins in `messages`, or null when nothing is
+    // running. The renderer draws one bubble per turn, so this is the only way it
+    // can tell which bubble the next tool card belongs to. Without it a repaint
+    // in the middle of a turn adopted the finished reply above, appended this
+    // turn's cards into it, and the transcript showed an old answer with one
+    // doubled tool count over it until something rebuilt the view.
+    liveTurnStart: liveTurnStartIndex(messages, tab),
     stats: safeCall(() => tab.handle.stats(), null),
     todos: safeCall(() => tab.handle.todoItems(), []),
     thinking: safeCall(() => tab.handle.thinking(), null),

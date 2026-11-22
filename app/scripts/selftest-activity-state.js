@@ -53,17 +53,27 @@ check('a finished turn wipes every chip in the transcript, not just one bubble',
 });
 
 check('a repaint re-attaches the live bubble instead of opening a new one', () => {
-  const adopt = body('function adoptLiveBubble(view)', 'const payloadTabIsActive');
+  const adopt = body('function adoptLiveBubble(view, bubble, explicit)', 'const payloadTabIsActive');
   assert.ok(/const wraps = transcript\.querySelectorAll\('\.msg\.assistant'\)/.test(adopt),
     'the reply the turn is writing into is not found again');
   assert.ok(/view\.liveAssistant = last;/.test(adopt), 'the pointer is not moved back');
+  assert.ok(/view\.liveAssistant = bubble;/.test(adopt), 'a bubble main pointed at is never adopted');
   assert.ok(/syncActivity\(view\)/.test(adopt), 'the chips are not repainted on the adopted bubble');
   assert.ok(/!view\.busy/.test(adopt), 'an idle tab would adopt a bubble for nothing');
 });
 
+check('a turn that has not answered yet adopts nothing', () => {
+  const adopt = body('function adoptLiveBubble(view, bubble, explicit)', 'const payloadTabIsActive');
+  assert.ok(/if \(explicit\) \{/.test(adopt), 'the turn boundary from main is ignored');
+  assert.ok(/view\.liveAssistant = null;/.test(adopt),
+    'an empty running turn would grow the finished reply above it');
+  assert.ok(/view\.liveTools = null;/.test(adopt), 'the old tool container would keep the cards');
+});
+
 check('the repaint path calls it', () => {
   const src = body('function renderActiveTab()', 'function deriveLabel');
-  assert.ok(/adoptLiveBubble\(view\);/.test(src), 'a tab switch still leaves the turn without its status');
+  assert.ok(/adoptLiveBubble\(view, liveBubble, liveFrom !== null\);/.test(src),
+    'a tab switch still leaves the turn without its status, or adopts the wrong turn');
 });
 
 check('a tool that ends while another chat is open still ends its chip', () => {

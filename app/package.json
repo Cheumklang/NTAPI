@@ -54,6 +54,8 @@
     "bench:transcript": "electron scripts/bench-transcript.js",
     "check:shell": "electron scripts/check-shell-usable.js",
     "check:lost": "electron scripts/repro-message-loss.js",
+    "check:tooluse": "electron scripts/check-provider-tooluse.js",
+    "check:liveturn": "electron scripts/check-live-turn-bubble.js",
     "check:sara": "node scripts/check-sara-am.js"
   },
   "author": "Chanathip Cheumklang",

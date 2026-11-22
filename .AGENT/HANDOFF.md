@@ -1,8 +1,41 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-22): ปล่อย **0.7.1** แล้ว — tag `v0.7.1` push · CI publish ที่ `Cheumklang/NTAPI-releases` · `provenance verify` **OK 252 entries** · **ไม่มีงานค้าง** · ฝั่ง Ubuntu: `npm test` **99/99** + `check:sara` ok (ยังไม่ได้รันเทสต์ฝั่ง Windows VM รอบนี้ — แดงเดิมเดิม: skill-scan/notices/system-control/data-root) · สองเรื่องที่แก้: หมุด/สีแชทอยู่รอดข้ามเครื่อง (`session-marks` คีย์ = ชื่อไฟล์) · แถบเตือนคีย์ที่ `safeStorage` ปลดล็อกไม่ได้ (`key-health`) · คีย์ผู้ให้บริการผูกกับ OS ⇒ ต้องกรอกแยกฝั่ง (เจ้าของจัดการเองแล้ว)
+> **📌 สถานะล่าสุด (2026-11-22, รอบเก็บงานค้าง): 3 เรื่องใหม่ commit แล้วบน `master` · `npm test` **101/101** · `check:sara` ok · `check:liveturn` ผ่านทุกข้อ · version ยัง **0.7.1** (ยังไม่ bump/tag — รอเจ้าของสั่ง) · ปล่อยล่าสุด = **0.7.1** (tag `v0.7.1` push · CI publish ที่ `Cheumklang/NTAPI-releases` · `provenance verify` OK 252 entries) · ฝั่ง Windows VM ยังไม่ได้รันเทสต์รอบนี้ (แดงเดิม: skill-scan/notices/system-control/data-root)
 
-## 🚀 ปล่อย 0.7.1 — 2026-11-22 (รอบล่าสุด)
+## 🧹 เก็บงานค้างหลัง 0.7.1 — 2026-11-22
+
+งานที่ค้างเป็นโค้ดอยู่ก่อน session นี้ (ไม่มีบันทึกใน `.AGENT` เลย) — รอบนี้ปิดครบทั้ง 3 เรื่อง + เขียนบันทึก + commit
+
+### 1) reality policy — กันโมเดลตอบ "ฉันเป็น text model ไม่มีเครื่อง"
+- `app/src/freepi-bridge.js`: `realityPolicyRule()` + `realityPolicyExtension` (module scope, ไม่ถือ session state) ยิงที่ `before_agent_start`
+  · ต่อท้าย system prompt **ครั้งเดียว** โดยเช็คหัวข้อ `## What this session actually is` (`REALITY_SECTION`) — ห้ามต่อซ้ำ
+  · เนื้อหา 4 ข้อ: มีเครื่องจริง/เครื่องมือจริง · ห้ามอ้างข้อจำกัดที่ไม่ได้ทดสอบ (no environment / cannot run commands / guess GPU) · งานหนักเป็นของโมเดล (บอกขนาด+เวลาเป็นบรรทัดเดียวแล้วทำ) · ถามเฉพาะเรื่องที่เจ้าของต้องตัดสิน (ลบ/จ่าย/เขียนทับ)
+  · ยาว < 2400 ตัวอักษรโดยตั้งใจ — preamble ยาวกลบรายการเครื่องมือ
+- เทสต์ `app/scripts/selftest-reality-policy.js` (18 เช็ค): หัวข้อ · ถ้อยคำห้าม · ต่อครั้งเดียว · prompt เดิมอยู่ข้างหน้า · event แปลกไม่ระเบิด · export ครบ
+
+### 2) liveTurnStart — เทิร์นที่ยังไม่ตอบไม่ให้ยึดบับเบิลคำตอบเก่า
+- อาการเดิม: repaint กลางเทิร์น → `adoptLiveBubble` ยึด `.msg.assistant` ตัวท้ายเสมอ ⇒ การ์ด tool ของเทิร์นใหม่ไปงอกในบับเบิลคำตอบเก่า และบรรทัดสรุปนับ tool รวม 2 เทิร์น (รีโหลดแล้วหาย จึงจับไม่ได้)
+- `app/src/main.js`: `liveTurnStartIndex(messages, tab)` = index หลัง `kind === 'user'` ตัวท้าย **เฉพาะตอนรันจริง** (`session.isStreaming` หรือ `busy`) · ส่งมากับ `tabState()` เป็น `liveTurnStart` (null = ไม่ได้รัน)
+- `app/src/renderer/app.js`: `renderActiveTab()` จำ `liveBubble` ที่วาดในช่วง `i >= liveFrom` · `adoptLiveBubble(view, bubble, explicit)` — ถ้า explicit และไม่มีบับเบิล ⇒ `liveAssistant = null` (ไม่ยึดของเก่า) · ไม่มีเส้นแบ่ง (state จากรุ่นเก่า) ยังใช้พฤติกรรมเดิม
+- เทสต์: `selftest-live-turn-start.js` (9 เช็ค — กติกา index + สายส่ง main→renderer) · `selftest-activity-state.js` +3 เช็ค · `check-live-turn-bubble.js` (electron, 11 เช็ค บน renderer จริง: 2 เทิร์นแยกบับเบิล · 3 tool อยู่ใบเก่า · repaint ไม่รวม · ไม่มี boundary = พฤติกรรมเดิม)
+
+### 3) check-provider-tooluse — เครื่องมือวัดว่าโมเดลไหนเรียก tool จริง
+- `app/scripts/check-provider-tooluse.js`: สร้าง session จริงต่อโมเดล (prompt/tools ชุดเดียวกับแอป) ยิงโจทย์ตายตัว 1 เทิร์น แล้วดูว่ามี tool call กลับมาหรือไม่
+- **เปลืองโควตาจริง** — ไม่มี arg = ลิสต์โมเดลเฉย ๆ (ฟรี) · `--prompt` + `--abort-after` ใช้ทดสอบ refusal แบบ task-shaped
+- `package.json`: `check:tooluse` · `check:liveturn` (ไม่ลง `npm test` เพราะต้องใช้ electron + เปลืองโควตา)
+
+### ผลตรวจรอบนี้ (Ubuntu)
+- `npm test` → **101/101 PASS** (99 → 101 เพราะลงทะเบียน selftest ใหม่ 2 ตัวใน `run-unit-tests.js`)
+- `check:sara` → ok · `check:liveturn` → `all checks passed` · `check:tooluse` → โหมดลิสต์ (zro/auto · nvidia 3 · tokenharbor 90 · deepseek 2) **ยังไม่ probe โมเดลไหน**
+- ⚠️ Electron บน Ubuntu ต้อง `ELECTRON_DISABLE_SANDBOX=1` — `chrome-sandbox` ไม่ได้ SUID root (ปัญหาเครื่อง ไม่ใช่โค้ด · ฝั่ง Windows VM ไม่เจอ)
+
+### ที่ยังค้าง (ไม่บล็อก)
+- **ยังไม่ bump/แท็ก/ปล่อย** — ถ้าเจ้าของสั่ง = `0.7.2` (กฎ +0.0.1)
+- ยังไม่ได้รัน `npm test` ฝั่ง Windows VM รอบนี้ (แดงเดิม 4: skill-scan/notices/system-control/data-root)
+- ยังไม่มีผล probe tool-use ของโมเดลใด (ต้องยิงเองและยอมเสียโควตา)
+- ของเก็บกวาดเดิม: `/home/nt/NTAPI/tools/keystest*.js`, `keyroundtrip.js`, `decrypt-basictext.js`, `images/desktop-*.png`
+
+## 🚀 ปล่อย 0.7.1 — 2026-11-22
 
 ```
 b23d952  ปล่อย 0.7.1: หมุด/สีแชทอยู่รอดหลังรีสตาร์ท และเตือนเมื่อคีย์ปลดล็อกไม่ได้

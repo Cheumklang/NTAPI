@@ -3589,3 +3589,12 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ทดสอบจำลองบน prefs จริง: คีย์แดง (2026-11-22T07-28-25) ถูกกู้คืนเป็น `2026-11-22t07-28-25-...jsonl` ✓ · คีย์น้ำเงินชี้ไฟล์ที่ถูกลบไปแล้ว (2026-11-22T03-10-59) จึงถูก prune ตามกฎ
 - เทสต์: `selftest-session-marks` เขียนใหม่ 8 ข้อ (คีย์ชื่อไฟล์ · ข้ามเครื่อง · migrate กู้คืน · prune) · `npm test` **99/99** · `check:sara` ok
 - ปล่อยแล้ว: bump `0.7.1` · commit `b23d952` (+provenance `9b9d592`) · tag `v0.7.1` push → CI build `NTAPI-Setup-0.7.1.exe` (181,579,071 B, sha256 `2dbfad88…`) · `record-release` commit `2476744`
+
+## 2026-11-22 — เก็บงานค้างหลัง 0.7.1: reality policy · liveTurnStart · probe tool-use
+- พบตอนเปิด session: มีโค้ดค้าง 11 ไฟล์ที่ **ไม่มีบันทึกใน `.AGENT` เลย** (version ยัง 0.7.1) → ไล่ปิดให้จบ
+- **reality policy** (`freepi-bridge.js`): `realityPolicyRule()` + `realityPolicyExtension` ต่อ system prompt ที่ `before_agent_start` ครั้งเดียว (กันซ้ำด้วยหัวข้อ `## What this session actually is`, < 2400 ตัวอักษร) — ห้ามโมเดลอ้าง "ไม่มีเครื่อง/ไม่มี environment/เดาสเปกเครื่อง" · เทสต์ใหม่ `selftest-reality-policy.js` 18 เช็ค
+- **liveTurnStart** (`main.js` + `renderer/app.js`): main ส่ง index เริ่มเทิร์นที่รันอยู่ · `adoptLiveBubble(view, bubble, explicit)` ไม่ยึดบับเบิลคำตอบเก่าเมื่อเทิร์นใหม่ยังไม่ตอบ (เดิมการ์ด tool งอกในใบเก่า + นับ tool รวม 2 เทิร์นจนกว่าจะรีโหลด) · เทสต์ใหม่ `selftest-live-turn-start.js` 9 เช็ค + `check-live-turn-bubble.js` (electron, 11 เช็คบน renderer จริง) + `selftest-activity-state.js` +3
+- **probe tool-use** (`check-provider-tooluse.js`): วัดว่าโมเดลไหนเรียก tool จริง (1 เทิร์น/โมเดล — เปลืองโควตา, ไม่ลง `npm test`) · `package.json` เพิ่ม `check:tooluse`, `check:liveturn`
+- ผลตรวจ Ubuntu: `npm test` **101/101** · `check:sara` ok · `check:liveturn` all passed · `check:tooluse` โหมดลิสต์เท่านั้น
+- ⚠️ Electron ฝั่ง Ubuntu ต้อง `ELECTRON_DISABLE_SANDBOX=1` (chrome-sandbox ไม่ได้ SUID root — ปัญหาเครื่อง ไม่ใช่โค้ด)
+- commit 12 ไฟล์ (รวม `PROVENANCE/ledger.jsonl` seq 253 ของ hook) · **ไม่ bump/ไม่ tag** — ถ้าปล่อย = `0.7.2` รอเจ้าของสั่ง

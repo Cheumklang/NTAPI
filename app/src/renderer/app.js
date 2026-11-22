@@ -3493,6 +3493,10 @@ function renderActiveTab() {
   const generation = ++renderGeneration;
 
   let currentAssistant = null;
+  // The bubble the running turn owns. Recorded while the tail is drawn, because
+  // that is the only range that can hold the running turn.
+  const liveFrom = Number.isInteger(view.liveTurnStart) ? view.liveTurnStart : null;
+  let liveBubble = null;
   // Drawing is per entry and it must stay that way: one entry the renderer cannot
   // handle used to end the repaint where it threw, so the chat showed a prefix of
   // itself — and the next repaint failed at the same entry and cut it again. The
@@ -3589,6 +3593,9 @@ function renderActiveTab() {
       try {
         draw(m);
         drawn += 1;
+        if (liveFrom !== null && i >= liveFrom && m && m.kind === 'assistant' && currentAssistant) {
+          liveBubble = currentAssistant;
+        }
       } catch (err) {
         gaps.push({ index: i, kind: m && m.kind, detail: err instanceof Error ? err.message : String(err) });
         currentAssistant = null;
@@ -3611,7 +3618,7 @@ function renderActiveTab() {
   syncProviderChrome(view);
   // The repaint dropped the bubble the running turn was writing into; point it
   // back at the last reply before any chip is painted.
-  adoptLiveBubble(view);
+  adoptLiveBubble(view, liveBubble, liveFrom !== null);
 
   // Ranges still to draw, nearest to the tail first: reading upward, the history
   // arrives in the order it is being looked at.
@@ -4333,6 +4340,7 @@ function applyTabState(state, options = {}) {  if (!state) return;
       guest: state.guest,
       busy: Boolean(state.busy),
       messages: mergeIncomingMessages(view, state.messages),
+      liveTurnStart: Number.isInteger(state.liveTurnStart) ? state.liveTurnStart : null,
       modelFallback: state.modelFallback || null,
       usage: state.usage || null,
     });
@@ -4363,6 +4371,9 @@ function applyTabState(state, options = {}) {  if (!state) return;
     busy: Boolean(state.busy),
     messages: mergeIncomingMessages(view, state.messages),
     modelFallback: state.modelFallback || null,
+    // Which entry the running turn starts at, as main computed it. Null means
+    // "not running", and null is also what an older state carries.
+    liveTurnStart: Number.isInteger(state.liveTurnStart) ? state.liveTurnStart : null,
     liveAssistant: null,
     liveTools: null,
     // Token accounting, computed in the main process from the same messages.
@@ -9708,8 +9719,25 @@ const payloadTabIsActive = (view) => view && view.tabId === activeTabId;
  * to a tab mid-turn looked like two separate jobs. Nothing is appended unless
  * there is no reply to attach to at all.
  */
-function adoptLiveBubble(view) {
+function adoptLiveBubble(view, bubble, explicit) {
   if (!view || !view.busy || !payloadTabIsActive(view)) return;
+  if (explicit) {
+    // Main said where the running turn starts, and no bubble was drawn for it:
+    // the turn has not answered yet, so there is nothing to adopt. Leaving the
+    // pointer empty makes the next tool call open its own bubble instead of
+    // growing the finished reply above.
+    if (!bubble || !document.body.contains(bubble)) {
+      view.liveAssistant = null;
+      view.liveTools = null;
+      return;
+    }
+    view.liveAssistant = bubble;
+    view.liveTools = bubble.querySelector('.tools');
+    syncActivity(view);
+    return;
+  }
+  // A state from a build that did not send a turn boundary: the last reply is the
+  // only clue there is, and adopting it beats opening a second bubble below it.
   const wraps = transcript.querySelectorAll('.msg.assistant');
   const last = wraps[wraps.length - 1];
   if (!last) return;
