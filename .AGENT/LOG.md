@@ -3617,3 +3617,10 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **selftest-notices**: `localeCompare` เปลี่ยนการเรียงตาม locale ของเครื่อง ⇒ ไฟล์ notices ที่ Windows สร้างไม่ตรงกับที่ commit (จาก Linux) ⇒ `gen-notices.js` เปลี่ยนเป็น `compareText()` เทียบ code unit (เหมือนกันทุกเครื่อง) · ไฟล์ที่ commit ไม่ต้องแก้ (ลำดับเดิมตรงกับ code-unit อยู่แล้ว)
 - ยืนยันฝั่ง Ubuntu: `npm test` 101/101 · `notices:check` ตรง · `check:sara` ok
 - รอผู้ใช้รัน `npm test` ซ้ำใน VM เพื่อยืนยัน 0 แดง
+
+## 2026-11-22 — บั๊กที่ผู้ใช้เจอบ่อย: ข้อความที่ส่งล่าสุดโผล่อีกกรอบ **ใต้คำตอบ**
+- อาการ: ส่งข้อความ → ผู้ช่วยตอบ → ข้อความของผู้ใช้ปรากฏซ้ำอีกครั้งต่อท้ายคำตอบ (เกิด intermittently มาหลายรอบ)
+- ต้นเหตุ (ในเรนเดอร์เรอร์ล้วน ไม่ใช่ไฟล์ session): `mergeIncomingMessages()` เก็บสำเนา `pending` ไว้เมื่อจับคู่กับ entry ใน session ไม่ได้ แล้ว **splice ไว้ท้ายลิสต์** เพราะ path ส่งข้อความปกติ (`submit`) **ไม่เคยเซ็ต `pendingAt`** (มีแต่ path คิวที่เซ็ต) ⇒ สำเนาที่จับคู่ไม่ได้ = โผล่ท้าย = ใต้คำตอบ
+- การจับคู่พลาดได้จริงเมื่อ main เขียน prompt ใหม่: รูปภาพล้วน (ได้ note `[Attached image saved to: …]`) หรือคำสั่งที่ถูกขยายจน "front" ของข้อความเปลี่ยน → `theirs.startsWith(mine)` ไม่จริง
+- **แก้**: (1) `submit` + path steer เซ็ต `pendingAt: view.messages.length` เหมือน path คิว (2) `mergeIncomingMessages()` ทิ้งสำเนาเมื่อ **slot ที่มันจำไว้มี user entry อยู่แล้ว** (หลักฐานว่า main เขียนแล้ว ไม่ต้องพึ่งข้อความ)
+- เทสต์: `selftest-history-merge.js` +4 (rewritten prompt · image-only · slot ที่ยังว่าง · send path ต้องจำ slot) — **พิสูจน์แล้วว่าถอยโค้ดกลับจะ FAIL 2 ข้อ** · `npm test` 101/101 · `check:history` (renderer จริง) ผ่านทุกข้อ

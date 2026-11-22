@@ -4207,8 +4207,18 @@ function mergeIncomingMessages(view, incoming) {
   for (const m of local) {
     const at = next.findIndex((candidate, i) => !claimed.has(i) && same(m, candidate));
     if (at !== -1) {
-      // The session has it now: drop the pending copy, it is already shown.
       claimed.add(at);
+      continue;
+    }
+    // The slot this copy was written into already holds a user entry: main wrote
+    // this very prompt there, however it rewrote the words. Text matching cannot
+    // see a rewrite that changes the front of the text (or an image-only prompt
+    // that gains a saved-path note), and when it missed, the leftover copy fell
+    // through to the tail — a second copy of the question, printed under the
+    // answer it had already caused.
+    const slot = Number.isInteger(m.pendingAt) ? m.pendingAt : -1;
+    if (slot >= 0 && !claimed.has(slot) && next[slot] && next[slot].kind === 'user') {
+      claimed.add(slot);
       continue;
     }
     kept.push(m);
@@ -8573,6 +8583,7 @@ async function submit() {
       text: outgoing,
       images: steerImages.slice(),
       pending: true,
+      pendingAt: view.messages.length,
       holdId: hold.id,
     });
     pendingImages = [];
@@ -8591,7 +8602,16 @@ async function submit() {
   }
 
   const bubble = renderUserMessage(outgoing, pendingImages);
-  const entry = { kind: 'user', text: outgoing, images: pendingImages.slice(), pending: true };
+  // Where this copy belongs, recorded before the push: the same slot the queue
+  // path keeps. Without it a copy the session could not be matched to was spliced
+  // in at the end, i.e. under the answer it had started.
+  const entry = {
+    kind: 'user',
+    text: outgoing,
+    images: pendingImages.slice(),
+    pending: true,
+    pendingAt: view.messages.length,
+  };
   view.messages.push(entry);
 
   const images = pendingImages.slice();

@@ -181,6 +181,61 @@ if (typeof merge === 'function') {
   const view7 = { messages: [{ kind: 'user', text: '', images: [{ dataUri: 'data:x' }], pending: true }] };
   const out7 = merge(view7, []);
   check('an image-only message survives', out7.length === 1);
+
+  // 8. The reported bug: the copy could not be matched to the session entry
+  //    (main rewrote the words), so it was spliced in at the end — a second copy
+  //    of the question, printed under the answer it had already caused. The slot
+  //    it was written into is the evidence, whatever the text became.
+  const view8 = {
+    messages: [
+      { kind: 'user', text: 'older question' },
+      { kind: 'assistant', text: 'older answer' },
+      { kind: 'user', text: '@/skill caveman ตรวจงานค้าง', pending: true, pendingAt: 2 },
+    ],
+  };
+  const session8 = [
+    { kind: 'user', text: 'older question' },
+    { kind: 'assistant', text: 'older answer' },
+    { kind: 'user', text: '/skill:caveman ตรวจงานค้าง' },
+    { kind: 'assistant', text: 'ตอบแล้ว' },
+  ];
+  const out8 = merge(view8, session8);
+  check('a rewritten prompt is not printed twice',
+    out8.filter((m) => m.kind === 'user' && /ตรวจงานค้าง/.test(m.text)).length === 1);
+  check('the answer is not pushed up by a duplicate', out8[out8.length - 1].text === 'ตอบแล้ว');
+
+  // 8b. An image-only prompt gains a saved-path note in the session, so its text
+  //     cannot match either — the slot still proves it was written.
+  const view9 = {
+    messages: [
+      { kind: 'user', text: 'รูปแรก' },
+      { kind: 'assistant', text: 'ได้ครับ' },
+      { kind: 'user', text: '', images: [{ dataUri: 'd' }], pending: true, pendingAt: 2 },
+    ],
+  };
+  const session9 = [
+    { kind: 'user', text: 'รูปแรก' },
+    { kind: 'assistant', text: 'ได้ครับ' },
+    { kind: 'user', text: '\n\n[Attached image saved to: /tmp/a.png]' },
+    { kind: 'assistant', text: 'เห็นรูปแล้ว' },
+  ];
+  const out9 = merge(view9, session9);
+  check('an image-only prompt is not printed twice', out9.filter((m) => m.kind === 'user').length === 2);
+
+  // 8c. A copy the session genuinely does not have still goes back to its slot,
+  //     never to the end.
+  const view10 = {
+    messages: [
+      { kind: 'user', text: 'คำถาม' },
+      { kind: 'assistant', text: 'คำตอบ' },
+      { kind: 'user', text: 'ยังไม่ถูกเขียน', pending: true, pendingAt: 2 },
+    ],
+  };
+  const out10 = merge(view10, [
+    { kind: 'user', text: 'คำถาม' },
+    { kind: 'assistant', text: 'คำตอบ' },
+  ]);
+  check('an unwritten copy keeps its slot, not the tail', out10[2].text === 'ยังไม่ถูกเขียน');
 }
 
 // --- wiring: submit must mark what it sends, applyTabState must merge ------
@@ -195,6 +250,10 @@ check('submit marks the message it sends', /pending:\s*true/.test(submitBody));
 
 // The steer path pushes a message too, and it has the same gap.
 check('the steer path marks its message', (submitBody.match(/pending:\s*true/g) || []).length >= 2);
+
+// A copy that cannot be matched by text is dropped through the slot it recorded,
+// so every path that pushes a pending message has to record one.
+check('the send path remembers its slot', /pendingAt:\s*view\.messages\.length/.test(submitBody));
 
 // A queued message is sent from its own function, which pushes too.
 const queuedBody = body('sendQueued');
