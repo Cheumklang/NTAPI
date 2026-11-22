@@ -38,6 +38,20 @@ if (!chunk.includes('function resolveDataRoot(') || !chunk.includes('function pl
 }
 
 const tmp = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'ntapi-data-root-'));
+
+/**
+ * The folder the old build left behind, or null where that name cannot exist.
+ *
+ * On Linux and macOS `C:\NTAPI` is a *relative* name and a folder can be made
+ * with it. On Windows it is an absolute path, so no such folder can be created
+ * at all — the cases that need one are skipped there instead of crashing.
+ */
+function legacyDir(parent) {
+  if (process.platform === 'win32') return null;
+  const dir = path.join(parent, 'C:\\NTAPI');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
 const fakeHome = path.join(tmp, 'home');
 const fakeUserData = path.join(tmp, 'userData');
 fs.mkdirSync(fakeHome, { recursive: true });
@@ -88,25 +102,29 @@ check(
 // The old build wrote its settings into a folder named `C:\NTAPI` in whatever
 // directory it started from, so that is where the sessions are now.
 const first = inDir('case-move');
-const legacy = path.join(first, 'C:\\NTAPI');
-fs.mkdirSync(path.join(legacy, 'sessions'), { recursive: true });
-fs.writeFileSync(path.join(legacy, 'sessions', 'tab-1.json'), '{"turns":[]}');
-fs.writeFileSync(
-  path.join(legacy, 'prefs.json'),
-  JSON.stringify({ lastSession: path.join('C:\\NTAPI', 'sessions', 'tab-1.json'), lang: 'th' }, null, 2),
-);
-proc.env = { XDG_DATA_HOME: path.join(first, 'xdg') };
-const moved = resolve();
-const target = path.join(first, 'xdg', 'ntapi');
-check('the xdg folder becomes the data root', moved === target, moved);
-check('the saved session moved with it', fs.existsSync(path.join(target, 'sessions', 'tab-1.json')));
-check('the old folder is gone, not duplicated', !fs.existsSync(legacy));
-const prefsAfter = fs.readFileSync(path.join(target, 'prefs.json'), 'utf8');
-check('prefs no longer points into the old folder', !prefsAfter.includes('C:\\\\NTAPI'), prefsAfter);
-check('prefs points at the folder the app now uses', prefsAfter.includes('sessions'), prefsAfter);
+const legacy = legacyDir(first);
+if (!legacy) {
+  console.log('SKIP the legacy move: Windows cannot hold a folder named C:\\NTAPI');
+} else {
+  fs.mkdirSync(path.join(legacy, 'sessions'), { recursive: true });
+  fs.writeFileSync(path.join(legacy, 'sessions', 'tab-1.json'), '{"turns":[]}');
+  fs.writeFileSync(
+    path.join(legacy, 'prefs.json'),
+    JSON.stringify({ lastSession: path.join('C:\\NTAPI', 'sessions', 'tab-1.json'), lang: 'th' }, null, 2),
+  );
+  proc.env = { XDG_DATA_HOME: path.join(first, 'xdg') };
+  const moved = resolve();
+  const target = path.join(first, 'xdg', 'ntapi');
+  check('the xdg folder becomes the data root', moved === target, moved);
+  check('the saved session moved with it', fs.existsSync(path.join(target, 'sessions', 'tab-1.json')));
+  check('the old folder is gone, not duplicated', !fs.existsSync(legacy));
+  const prefsAfter = fs.readFileSync(path.join(target, 'prefs.json'), 'utf8');
+  check('prefs no longer points into the old folder', !prefsAfter.includes('C:\\\\NTAPI'), prefsAfter);
+  check('prefs points at the folder the app now uses', prefsAfter.includes('sessions'), prefsAfter);
 
-// Second start: nothing to move, the same folder answers.
-check('the same folder is chosen on the next start', resolve() === target);
+  // Second start: nothing to move, the same folder answers.
+  check('the same folder is chosen on the next start', resolve() === target);
+}
 
 /* --------------------------- what must not move -------------------------- */
 
@@ -114,23 +132,26 @@ const second = inDir('case-existing');
 const target2 = path.join(second, 'xdg', 'ntapi');
 fs.mkdirSync(target2, { recursive: true });
 fs.writeFileSync(path.join(target2, 'marker.txt'), 'keep me');
-const legacy2 = path.join(second, 'C:\\NTAPI');
-fs.mkdirSync(legacy2, { recursive: true });
-fs.writeFileSync(path.join(legacy2, 'stale.json'), '{}');
+const legacy2 = legacyDir(second);
+if (legacy2) fs.writeFileSync(path.join(legacy2, 'stale.json'), '{}');
 proc.env = { XDG_DATA_HOME: path.join(second, 'xdg') };
 resolve();
 check('an existing data folder is never overwritten', fs.readFileSync(path.join(target2, 'marker.txt'), 'utf8') === 'keep me');
 
 const third = inDir('case-explicit');
 const explicit = path.join(third, 'chosen-by-user');
-fs.mkdirSync(path.join(third, 'C:\\NTAPI'), { recursive: true });
-fs.writeFileSync(path.join(third, 'C:\\NTAPI', 'auth.json'), '{}');
+const legacy3 = legacyDir(third);
+if (legacy3) fs.writeFileSync(path.join(legacy3, 'auth.json'), '{}');
 proc.env = { NTAPI_DATA_DIR: explicit };
 check('NTAPI_DATA_DIR wins over everything', resolve() === explicit);
-check(
-  'an explicit folder means no move happens behind the user',
-  fs.existsSync(path.join(third, 'C:\\NTAPI', 'auth.json')),
-);
+if (legacy3) {
+  check(
+    'an explicit folder means no move happens behind the user',
+    fs.existsSync(path.join(third, 'C:\\NTAPI', 'auth.json')),
+  );
+} else {
+  console.log('SKIP the explicit-folder case: same reason, no C:\\NTAPI folder here');
+}
 
 process.chdir(savedCwd);
 

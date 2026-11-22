@@ -150,6 +150,19 @@ function runtimePackages() {
   });
 }
 
+/**
+ * Compare two names the same way on every machine.
+ *
+ * `localeCompare` follows the collation of the machine that ran it, so the same
+ * package list sorted on Windows and on Linux came out in two different orders
+ * and `notices:check` then failed on whichever machine did not generate the
+ * committed file. Code-unit order is identical everywhere.
+ */
+function compareText(a, b) {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
 function build() {
   const packages = runtimePackages();
 
@@ -163,7 +176,7 @@ function build() {
       file: text && text.file,
       text: text && text.text,
     };
-  }).sort((a, b) => a.name.localeCompare(b.name) || String(a.version).localeCompare(String(b.version)));
+  }).sort((a, b) => compareText(a.name, b.name) || compareText(String(a.version), String(b.version)));
 
   const lines = [];
   lines.push('# บริการและซอฟต์แวร์ของบุคคลที่สาม / Third-party notices');

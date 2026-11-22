@@ -3610,3 +3610,10 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 ## 2026-11-22 — เคลียร์ของค้าง 2 อย่าง (ledger + installer ตรวจ)
 - commit บรรทัด ledger ที่ค้าง (seq 259 = บันทึกคอมมิต docs) แล้วทิ้งบรรทัดที่ hook เขียนของคอมมิตเก็บกวาดเอง เพื่อให้ `git status` สะอาด — ชุดหลักฐานยังตรวจผ่านครบ
 - ลบ `/home/nt/NTAPI/NTAPI-Setup-0.7.2.exe` (181 MB) หลังตรวจ sha256 ครบแล้ว — เก็บค่าไว้ใน `PROVENANCE/releases/v0.7.2.json`
+
+## 2026-11-22 — แดงฝั่ง Windows 2 ตัว: เป็นบั๊กของเทสต์ ไม่ใช่ของแอป
+- ผู้ใช้รัน `npm test` ใน VM (Node v26) → 99/101 · เดิม HANDOFF บอกแดง 4 ตัว แต่ skill-scan/system-control หายไปแล้ว
+- **selftest-data-root** (ENOENT `…\case-move\C:\NTAPI\sessions`): เทสต์สร้างโฟลเดอร์ชื่อ `C:\NTAPI` จริง ๆ ซึ่ง Linux สร้างได้ (เป็นชื่อ relative) แต่ Windows สร้างไม่ได้ (เป็น absolute path) ⇒ เพิ่ม `legacyDir()` คืน null บน win32 + `SKIP` 3 เคสอย่างซื่อสัตย์ (เคสที่เหลือยังรัน)
+- **selftest-notices**: `localeCompare` เปลี่ยนการเรียงตาม locale ของเครื่อง ⇒ ไฟล์ notices ที่ Windows สร้างไม่ตรงกับที่ commit (จาก Linux) ⇒ `gen-notices.js` เปลี่ยนเป็น `compareText()` เทียบ code unit (เหมือนกันทุกเครื่อง) · ไฟล์ที่ commit ไม่ต้องแก้ (ลำดับเดิมตรงกับ code-unit อยู่แล้ว)
+- ยืนยันฝั่ง Ubuntu: `npm test` 101/101 · `notices:check` ตรง · `check:sara` ok
+- รอผู้ใช้รัน `npm test` ซ้ำใน VM เพื่อยืนยัน 0 แดง
