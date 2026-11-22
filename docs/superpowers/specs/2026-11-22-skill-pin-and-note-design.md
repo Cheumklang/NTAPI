@@ -166,8 +166,15 @@ Four spellings open the same list, with the same filtering and the same result:
 |-------|------------|
 | `/skill` | every installed skill, pinned group first |
 | `/skill:` | the same — today this one does not open the menu at all |
-| `/skill c` | names starting with `c` first, then matches inside a note or the skill's own description |
-| `/skill:c` | the same |
+| `/skill <q>` | names starting with `<q>` first, then matches inside a note or the skill's own description |
+| `/skill:<q>` | the same |
+
+`<q>` is whatever the user typed — any text, any length, any script. The
+letters `c`, `a`, `g` in this document are examples only: there is no fixed set
+of accepted letters, no per-letter list, and nothing keyed on a particular
+character. `/skill a` → names starting with `a`; `/skill g` → names starting
+with `g`; `/skill gh` → names starting with `gh`. Matching is case-insensitive
+and the query is trimmed.
 
 - **Enter inserts, it never sends.** Choosing a row puts `/skill:name ` in the
   composer, the caret after it, and closes the menu, so the user can type the
@@ -240,10 +247,12 @@ never translated by the app.
   Thai word in a note, and the canonical name; a note that repeats the name does
   not duplicate a row; unknown key in the store is ignored; `pinned` without a
   note renders the own description; `note` alone shows note + dimmed own text.
-- Same file, the typing rules: `/skill`, `/skill:`, `/skill c`, `/skill:c` all
-  open the list; a chosen row yields `/skill:<name> ` and nothing else; a
-  name-prefix match outranks a note match; a header row is never the initial
-  highlight; a query matching nothing leaves the text untouched.
+- Same file, the typing rules: `/skill`, `/skill:`, `/skill <q>`, `/skill:<q>`
+  all open the list for any query (test at least `a`, `g`, `gh`, an uppercase
+  letter, and a Thai word — not just one letter); a chosen row yields
+  `/skill:<name> ` and nothing else; a name-prefix match outranks a note match;
+  a header row is never the initial highlight; a query matching nothing leaves
+  the text untouched.
 - `scripts/selftest-prefs-skill-notes.js` (new, plain Node against the
   validator): rejects non-objects, oversized maps, control characters, a note
   over 60 chars, a non-boolean `pinned`; accepts an empty note as deletion.
