@@ -10,3 +10,9 @@ head_seq 247
 head_hash 4be997749b8f30b8e2b3a9b8701d39fa9a570562fc3e6b79832e4ee1090a408b
 git_head cb58f4ed12c5b8b704ff9a10b57cd7f5b5683e9d
 verify must print this head_hash
+date 2026-11-22T10:38:31.635Z
+entries 264
+head_seq 264
+head_hash abac3e7502fc0971de10c7b9e3285a77a52ef1d8572a48b096fc604485e7616b
+git_head bc5569a7de42844cde562b5ce19089941546e3c7
+verify must print this head_hash

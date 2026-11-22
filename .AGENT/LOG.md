@@ -3632,3 +3632,10 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - แก้ (2): `view.compacting` ปิด send (`updateSendState`) + `submit()` ปฏิเสธพร้อมบอกเหตุผล (`compactingWait`) + placeholder `placeholderCompacting` ทั้ง EN/TH · `runCompact` ล็อกใน `try` ปลดใน `finally` (ย่อล้มเหลวก็ไม่ค้างล็อก)
 - เทสต์ใหม่ `scripts/selftest-compacting-bar.js` 13 เช็ค (ลงทะเบียนใน run-unit-tests) · แก้ `selftest-retry-notice.js` ให้รับ expression ใหม่ · แก้ `check-notice-bubble.js` เรื่องช่องว่างใน markup (bubble มี span ลูก ⇒ trim ก่อนเทียบ)
 - ยืนยัน: `npm test` **102/102** · `check:notice` / `check:busy` / `check:queue` ผ่าน · `check:sara` ok
+
+## 2026-11-22 — ปล่อย **0.7.3** แล้ว
+- bump `app/package.json` → 0.7.3 · commit `bc5569a` "ปล่อยรุ่น 0.7.3" · tag `v0.7.3` push
+- CI (windows-latest) publish → **`NTAPI-Setup-0.7.3.exe`** 181,589,126 B · sha256 `3634433d2fb51cadb9361f062f4a4830e1601c06239c607f4c02d504664d32bd` (โหลดจริงจาก `releases/latest/download` มาคิด) · sha512 ตรงกับ `latest.yml` (`FMYLh+CWyNqIuHmyhUlogfoHThqiPCyM+rWlrocWI9fbdb7kcvstsLySucuF7tf49Ps7bcVsuw/BrTll1mpnCg==`)
+- `latest.yml` version 0.7.3 · prune-releases ทำงานเอง → เหลือ release เดียว (v0.7.2 retired)
+- provenance: `record-release` seq 264 → `PROVENANCE/releases/v0.7.3.json` + anchor `2026-11-22.txt` · `verify` OK 264 entries / 102 ไฟล์
+- ลบไฟล์ .exe ที่โหลดมาตรวจแล้ว (sha256 เก็บไว้ใน provenance) · ใน 0.7.3 มี: เทสต์ Windows 2 ตัว (data-root/notices) · บั๊กข้อความเด้งซ้ำใต้คำตอบ · ป้าย compact อยู่จนเสร็จ + ปิดช่องแชทระหว่างย่อ

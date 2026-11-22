@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-22T06:41:28.043Z
-entries 247
-head_hash 4be997749b8f30b8e2b3a9b8701d39fa9a570562fc3e6b79832e4ee1090a408b
-git cb58f4ed12c5b8b704ff9a10b57cd7f5b5683e9d
+updated 2026-11-22T10:38:31.635Z
+entries 264
+head_hash abac3e7502fc0971de10c7b9e3285a77a52ef1d8572a48b096fc604485e7616b
+git bc5569a7de42844cde562b5ce19089941546e3c7
 
 latest entries:
-  #240 2026-11-22T02:50:30.323Z commit — ปล่อย 0.6.23: สลับปุ่มธีม/เบราว์เซอร์, tooltip ตาม OS, pin/สีแชทข้ามสองฝั่ง, คิวนับถอยหลัง
-  #241 2026-11-22T02:55:39.885Z release — Released version 0.6.23
-  #242 2026-11-22T02:55:44.666Z commit — chore(provenance): record v0.6.23
-  #243 2026-11-22T02:55:52.299Z commit — docs: บันทึกการปล่อย 0.6.23
-  #244 2026-11-22T06:32:00.519Z commit — ปล่อย 0.7.0: ควบคุมเครื่องบน Windows ใช้งานได้จริง (อ่าน/กดหน้าต่าง Chromium, ภาพ, audit)
-  #245 2026-11-22T06:32:11.328Z commit — chore(provenance): บันทึกคอมมิต 0.7.0
-  #246 2026-11-22T06:36:04.681Z commit — docs: ส่งต่อ session — ปล่อย 0.7.0 และแผนที่ไฟล์ควบคุมเครื่อง
-  #247 2026-11-22T06:41:20.700Z release — Released version 0.7.0
+  #257 2026-11-22T09:50:26.152Z release — Released version 0.7.2
+  #258 2026-11-22T09:50:29.816Z commit — chore(provenance): บันทึกการปล่อย v0.7.2 พร้อม sha256 ของ installer
+  #259 2026-11-22T09:50:48.493Z commit — docs: ส่งต่อ session — ปล่อย 0.7.2 ปิดงานค้างครบ 7 ข้อ
+  #260 2026-11-22T10:09:28.730Z commit — แก้เทสต์ที่แดงเฉพาะฝั่ง Windows: โฟลเดอร์ C:\NTAPI และการเรียง notices ตาม locale
+  #261 2026-11-22T10:17:37.088Z commit — แก้ข้อความที่ส่งล่าสุดโผล่ซ้ำใต้คำตอบ: จำ slot ของ pending และทิ้งสำเนาเมื่อ session เขียนแล้ว
+  #262 2026-11-22T10:31:44.014Z commit — ป้ายกำลังย่อบทสนทนาอยู่จนเสร็จ และปิดช่องแชทระหว่างย่อ
+  #263 2026-11-22T10:31:53.665Z commit — ปล่อยรุ่น 0.7.3
+  #264 2026-11-22T10:38:31.500Z release — Released version 0.7.3
