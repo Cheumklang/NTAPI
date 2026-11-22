@@ -1,6 +1,6 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-22): ปล่อย **0.7.0** แล้ว (commit `0334de5` + provenance `6fa980b`) — ยังไม่ tag/push · ควบคุมเครื่อง Windows ใช้งานได้จริง: อ่าน/กดหน้าต่าง Chromium (MSAA), ภาพ, audit ระบุ session+model · Nemotron ทำ Notepad + Calculator ได้เอง · `selftest-system-control` 191 PASS · `npm test` 95/98 (แดงเดิม 3) · **งานถัดไป: `git tag v0.7.0 && git push` → CI build → `provenance record-release`**
+> **📌 สถานะล่าสุด (2026-11-22): ปล่อย **0.7.1** แล้ว — tag `v0.7.1` pushed · CI build+publish ที่ `Cheumklang/NTAPI-releases` (installer 181,579,071 B · sha256 `2dbfad88…9212`) · `provenance verify` OK 251 entries · **ไม่มีงานค้าง**: หมุด/สีแชทอยู่รอดข้ามเครื่อง + แถบเตือนคีย์ที่ปลดล็อกไม่ได้ (0.7.0: commit `0334de5` + provenance `6fa980b`) · ควบคุมเครื่อง Windows ใช้งานได้จริง: อ่าน/กดหน้าต่าง Chromium (MSAA), ภาพ, audit ระบุ session+model · Nemotron ทำ Notepad + Calculator ได้เอง · `selftest-system-control` 191 PASS · `npm test` 95/98 (แดงเดิม 3) · **งานถัดไป: `git tag v0.7.0 && git push` → CI build → `provenance record-release`**
 
 ## 🚀 ปล่อย 0.7.0 — 2026-11-22
 
