@@ -3598,3 +3598,10 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ผลตรวจ Ubuntu: `npm test` **101/101** · `check:sara` ok · `check:liveturn` all passed · `check:tooluse` โหมดลิสต์เท่านั้น
 - ⚠️ Electron ฝั่ง Ubuntu ต้อง `ELECTRON_DISABLE_SANDBOX=1` (chrome-sandbox ไม่ได้ SUID root — ปัญหาเครื่อง ไม่ใช่โค้ด)
 - commit 12 ไฟล์ (รวม `PROVENANCE/ledger.jsonl` seq 253 ของ hook) · **ไม่ bump/ไม่ tag** — ถ้าปล่อย = `0.7.2` รอเจ้าของสั่ง
+
+## 2026-11-22 — ปิดงานเก็บค้าง 4 ข้อ (ตามลำดับเจ้าของสั่ง 5→4→3→1→2)
+- **(5) ลบของทดลอง**: `/home/nt/NTAPI/tools/{keystest,keystest2,keyroundtrip,decrypt-basictext}.js` + `images/desktop-*.png` ทั้งชุด
+- **(4) Electron บน Ubuntu รันเทสต์ได้เอง**: ต้นเหตุ `chrome-sandbox` ไม่ได้ SUID root (sudo ต้องรหัส) + Ubuntu บล็อก userns ด้วย AppArmor (`mv chrome-sandbox` แล้วได้ `No usable sandbox`) ⇒ **ไม่แตะสิทธิ์ระบบ** · `package.json`: สคริปต์เทสต์ 44 ตัว → `electron --no-sandbox scripts/...` (start/dist/release ไม่แตะ) · `npm run check:liveturn` ผ่านโดยไม่ต้องตั้ง env
+- **(3) probe tool-use**: nvidia 3 โมเดล (super-vl/lightning/ultra) + Coarena ฟรี 3 (deepseek-v4-1-flash-1017, gemini-3-8-flash, gpt-6-luna) = USES TOOLS ทุกตัว · โมเดล Coarena ที่เหลือตอบ 402 "not part of the free tier" (ไม่เสียเงิน) · ยืนยัน reality policy: โจทย์สร้างไฟล์ → เรียก write,bash,read จริง
+- **(1) push** master ขึ้น origin · **(2) ปล่อย 0.7.2** (bump + tag + CI + record-release)
+- เทสต์: `npm test` 101/101 · `check:sara` ok · `provenance verify` OK

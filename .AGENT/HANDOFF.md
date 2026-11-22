@@ -1,6 +1,8 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-22, รอบเก็บงานค้าง): 3 เรื่องใหม่ commit แล้วบน `master` · `npm test` **101/101** · `check:sara` ok · `check:liveturn` ผ่านทุกข้อ · version ยัง **0.7.1** (ยังไม่ bump/tag — รอเจ้าของสั่ง) · ปล่อยล่าสุด = **0.7.1** (tag `v0.7.1` push · CI publish ที่ `Cheumklang/NTAPI-releases` · `provenance verify` OK 252 entries) · ฝั่ง Windows VM ยังไม่ได้รันเทสต์รอบนี้ (แดงเดิม: skill-scan/notices/system-control/data-root)
+> **📌 สถานะล่าสุด (2026-11-22, รอบส่งของ): 3 เรื่องใหม่ + 4 งานเก็บค้าง ปิดครบ · `npm test` **101/101** · `check:sara` ok · `check:liveturn` ผ่าน · probe tool-use จริงแล้ว (NVIDIA 3 + Coarena ฟรี 3 เรียก tool ได้) · สคริปต์เทสต์ Electron ใช้ `--no-sandbox` เองแล้ว (Ubuntu รันได้โดยไม่ต้อง root) · version **0.7.2** ปล่อยแล้ว
+>
+> ฝั่ง Windows VM ยังไม่ได้รันเทสต์รอบนี้ (แดงเดิม: skill-scan/notices/system-control/data-root)
 
 ## 🧹 เก็บงานค้างหลัง 0.7.1 — 2026-11-22
 
@@ -29,11 +31,15 @@
 - `check:sara` → ok · `check:liveturn` → `all checks passed` · `check:tooluse` → โหมดลิสต์ (zro/auto · nvidia 3 · tokenharbor 90 · deepseek 2) **ยังไม่ probe โมเดลไหน**
 - ⚠️ Electron บน Ubuntu ต้อง `ELECTRON_DISABLE_SANDBOX=1` — `chrome-sandbox` ไม่ได้ SUID root (ปัญหาเครื่อง ไม่ใช่โค้ด · ฝั่ง Windows VM ไม่เจอ)
 
-### ที่ยังค้าง (ไม่บล็อก)
-- **ยังไม่ bump/แท็ก/ปล่อย** — ถ้าเจ้าของสั่ง = `0.7.2` (กฎ +0.0.1)
+### ที่เหลือ (ไม่บล็อก)
 - ยังไม่ได้รัน `npm test` ฝั่ง Windows VM รอบนี้ (แดงเดิม 4: skill-scan/notices/system-control/data-root)
-- ยังไม่มีผล probe tool-use ของโมเดลใด (ต้องยิงเองและยอมเสียโควตา)
-- ของเก็บกวาดเดิม: `/home/nt/NTAPI/tools/keystest*.js`, `keyroundtrip.js`, `decrypt-basictext.js`, `images/desktop-*.png`
+- ยังไม่ได้ probe provider อื่น (deepseek 2 · tokenharbor 90) — ต้องยิงเองและยอมเสียโควตา
+
+### ปิดงานเก็บค้างรอบนี้ (ตามลำดับที่เจ้าของสั่ง 5→4→3→1→2)
+- **(5) เก็บกวาด** — ลบ `/home/nt/NTAPI/tools/{keystest,keystest2,keyroundtrip,decrypt-basictext}.js` + `images/desktop-*.png` ทั้งหมด
+- **(4) Electron sandbox บน Ubuntu** — `chrome-sandbox` ของ Linux ไม่ได้ SUID root และ Ubuntu บล็อก user-namespace ด้วย AppArmor (ทดลองย้ายไฟล์ออกแล้ว fatal `No usable sandbox`) ⇒ **ไม่แตะสิทธิ์ระบบ** แต่เปลี่ยนสคริปต์เทสต์ **44 ตัว** ใน `package.json` เป็น `electron --no-sandbox scripts/...` (ไม่แตะ `start`/`dist`/`release` — ตัวแอปจริงยัง sandbox ปกติ) · พิสูจน์: `npm run check:liveturn` ผ่านโดยไม่ต้องตั้ง env
+- **(3) probe tool-use จริง** (เปลืองโควตา): `nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b`, `…lightning-30b-a3b`, `…ultra-550b-a55b` → **USES TOOLS ครบ 3** · Coarena ฟรี `deepseek-v4-1-flash-1017`, `gemini-3-8-flash`, `gpt-6-luna` → USES TOOLS · ที่เหลือของ Coarena = 402 ไม่ใช่ free tier (ไม่เสียโควตา)
+- **ยืนยัน reality policy ใน session จริง**: โจทย์ "สร้างไฟล์ hello.txt" → โมเดลเรียก `write,bash,read` และตอบว่า "I've created the file…" (ไม่ใช่ "ฉันเป็น text model")
 
 ## 🚀 ปล่อย 0.7.1 — 2026-11-22
 
