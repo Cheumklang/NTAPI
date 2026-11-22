@@ -1,0 +1,22 @@
+{
+  "version": "0.7.2",
+  "tag": "v0.7.2",
+  "recordedAt": "2026-11-22T09:50:26.147Z",
+  "git": {
+    "head": "a9cbfc8247570f4a6c958b1c9dad2f4a544d71af",
+    "branch": "master",
+    "tree": "5f58f5864411f1f20e5f95ed994325d0b388b2c3",
+    "subject": "ปล่อย 0.7.2: โมเดลไม่ต้องอ้างว่าไม่มีเครื่อง, เทิร์นใหม่ไม่ยึดบับเบิลเก่า, เทสต์ Electron รันได้บน Ubuntu",
+    "authorDate": "2026-11-22T16:45:35+07:00",
+    "commitCount": 482
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.7.2",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.7.2.exe",
+      "size": 181584349,
+      "sha256": "eef85bd85b061e47a9353538812111721cd28231b9a3b2b0227b501fa0071740"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.7.2"
+}
