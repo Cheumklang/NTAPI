@@ -24,6 +24,7 @@ const TESTS = [
   'selftest-live-turn-start.js',
   'selftest-skill-menu.js',
   'selftest-skill-notes.js',
+  'selftest-extension-lifecycle.js',
   'selftest-skill-scan.js',
   'selftest-approval-policy.js',
   'selftest-approval-always.js',

@@ -1873,6 +1873,18 @@ async function createFreePiSession(options) {
   });
   visionSession = session;
 
+  // A session that never binds its extensions never emits `session_start`, so an
+  // extension that keys its state off that event stays switched off — a memory
+  // extension then records nothing and looks installed but idle. The TUI and the
+  // CLI call this right after building the session; a windowed host has to do it
+  // itself. `mode: 'print'` is the honest label: there is no terminal to draw in,
+  // and extensions that need one already check `hasUI`.
+  try {
+    await session.bindExtensions({ mode: 'print' });
+  } catch (err) {
+    log(`extensions: session_start failed — ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   // Show a banner ad as soon as the session opens, so the window is never left
   // without one while it waits for the first message.
   if (plan.ads) ads.prefetchLaunchAd().catch(() => {});
