@@ -25,6 +25,8 @@ The skill's name never changes, and the skill's files are never touched.
 
 - Click a star on a row → that skill is pinned, and pinned skills are listed
   first in `/skill`.
+- `/skill`, `/skill:`, `/skill q` and `/skill:q` all open the same list, and
+  Enter on a row inserts `/skill:name ` into the composer without sending it.
 - Edit a row's description → the user's own line replaces the skill's own text
   on that row, is matched by the `/skill` filter, and survives a restart.
 - The canonical `name` is always visible, and always first on the row.
@@ -156,6 +158,43 @@ A new branch, in the same style as the existing ones:
 - `Ctrl+D` on the highlighted row = same as clicking ✎.
 - Nothing else changes: Tab and Enter keep their current meaning.
 
+### Typing `/skill`, and what Enter does
+
+Four spellings open the same list, with the same filtering and the same result:
+
+| typed | menu shows |
+|-------|------------|
+| `/skill` | every installed skill, pinned group first |
+| `/skill:` | the same — today this one does not open the menu at all |
+| `/skill c` | names starting with `c` first, then matches inside a note or the skill's own description |
+| `/skill:c` | the same |
+
+- **Enter inserts, it never sends.** Choosing a row puts `/skill:name ` in the
+  composer, the caret after it, and closes the menu, so the user can type the
+  task on the same line. Today the same key inserts `@name `; the on-the-wire
+  form is unchanged (`/skill:name`), only what the user sees in the box changes.
+- A query matches on three fields, in this order: name **prefix**, name
+  **contains**, then the user's note or the skill's own description
+  **contains**. Without the last two, typing a word the user remembers instead
+  of the skill's name finds nothing — which is the whole point of the note.
+- Pinned rows stay first whenever they match the query; inside each group the
+  order is the match rank above, then A→Z by name.
+- Group headers are not selectable. `moveSlashSelection` already skips rows
+  marked `info`; `applySlashItems` currently starts the highlight at index 0,
+  which would be a header, so it has to start on the first selectable row.
+- No matches: the menu closes and the text stays exactly as typed. Nothing is
+  rewritten.
+- `/skill:name …` typed in full is left alone and goes to pi as it does today —
+  the menu is only in the way when the caret is still in the first word.
+
+### What does not change
+
+- Bare `/` still lists the commands only. Skills are not merged into it, and
+  `/caveman` typed by hand is plain text that invokes nothing: `/skill` is the
+  one door to the skill list.
+- `@name` keeps resolving to `/skill:name` at send time.
+- `/skill:name` expansion is still pi's job.
+
 ### Where it applies
 
 - `/skill` list: pins order the rows, notes show and are searchable.
@@ -201,6 +240,10 @@ never translated by the app.
   Thai word in a note, and the canonical name; a note that repeats the name does
   not duplicate a row; unknown key in the store is ignored; `pinned` without a
   note renders the own description; `note` alone shows note + dimmed own text.
+- Same file, the typing rules: `/skill`, `/skill:`, `/skill c`, `/skill:c` all
+  open the list; a chosen row yields `/skill:<name> ` and nothing else; a
+  name-prefix match outranks a note match; a header row is never the initial
+  highlight; a query matching nothing leaves the text untouched.
 - `scripts/selftest-prefs-skill-notes.js` (new, plain Node against the
   validator): rejects non-objects, oversized maps, control characters, a note
   over 60 chars, a non-boolean `pinned`; accepts an empty note as deletion.
