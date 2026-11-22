@@ -100,6 +100,7 @@ const TESTS = [
   'selftest-provider-errors.js',
   'selftest-reset-session.js',
   'selftest-provider-key.js',
+  'selftest-key-health.js',
   'selftest-provider-plan.js',
   'selftest-busy-guards.js',
   'selftest-provider-timeout.js',

@@ -110,20 +110,19 @@ const {
   sortByMark,
   pruneMarks,
   markKey,
-  markPath,
   migrateMarks,
 } = require('./session-marks');
 /*
- * Pins and colours are keyed by the chat's path *inside* the session store, not
- * by its absolute path: the same folder is spelled differently on each machine
- * sharing it, and an absolute key written on one side is unreadable (and gets
- * pruned) on the other. These thin wrappers hand session-marks.js the root so
- * every caller keeps passing a plain session path.
+ * Pins and colours are keyed by the chat's own file name, not by a path: the
+ * same session folder is spelled differently on each machine sharing it, and a
+ * path-keyed mark written on one side cannot be read on the other (it survived
+ * a restart as nothing). These thin wrappers keep every caller passing a plain
+ * session path.
  */
-const sessionMarkKey = (sessionPath) => markKey(sessionPath, SESSIONS_ROOT);
-const readSessionMark = (marks, sessionPath) => readMark(marks, sessionPath, SESSIONS_ROOT);
-const applySessionMark = (marks, sessionPath, patch) => applyMark(marks, sessionPath, patch, SESSIONS_ROOT);
-const sortSessionsByMark = (marks, sessions) => sortByMark(marks, sessions, SESSIONS_ROOT);
+const sessionMarkKey = (sessionPath) => markKey(sessionPath);
+const readSessionMark = (marks, sessionPath) => readMark(marks, sessionPath);
+const applySessionMark = (marks, sessionPath, patch) => applyMark(marks, sessionPath, patch);
+const sortSessionsByMark = (marks, sessions) => sortByMark(marks, sessions);
 
 const { friendlyProviderError } = require('./provider-errors');
 const { isUpgradeRequired: isUpgradeRequiredText, resolveClientVersionFloor } = require('./client-version');
@@ -150,6 +149,7 @@ try {
   ]);
 } catch {}
 const { createProviderKeyStore } = require('./provider-key');
+const { unreadableProviders } = require('./key-health');
 const { installSseErrorGuard } = require('./sse-error-guard');
 const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
 
@@ -829,9 +829,11 @@ function sessionMarks() {
 }
 
 /*
- * One-shot rewrite of a store written by an older build, whose keys were
- * absolute paths. Runs on the first read on either machine, so a pin set before
- * this change is not lost to a lookup under a key nothing writes any more.
+ * One-shot rewrite of a store written by an older build, whose keys were paths
+ * (absolute, then relative to the store, and in the shared folder also a mangled
+ * mix of both machines' spellings). Every one of them ends in the session's file
+ * name, which is the key now, so a pin set months ago is recovered instead of
+ * being looked up under a key nothing writes any more.
  */
 let sessionMarksMigrated = false;
 function migrateSessionMarkStore() {
@@ -839,7 +841,7 @@ function migrateSessionMarkStore() {
   sessionMarksMigrated = true;
   const current = readPrefs().sessionMarks;
   if (!current || typeof current !== 'object' || !Object.keys(current).length) return;
-  const next = migrateMarks(current, SESSIONS_ROOT);
+  const next = migrateMarks(current);
   if (JSON.stringify(next) !== JSON.stringify(current)) writePrefs({ sessionMarks: next });
 }
 
@@ -857,19 +859,43 @@ function saveSessionMark(sessionPath, patch) {
  * otherwise leave rows in prefs forever. Pruning is lazy — it runs whenever the
  * sidebar lists a folder — because there is no reliable "file deleted" hook for
  * every path (an external delete, a synced folder).
+ *
+ * A mark is keyed by the session file's name (`markKey`), so the existence test
+ * is one directory listing per workspace folder compared against those names.
+ * When the store cannot be read at all the marks are left alone: an unreadable
+ * drive is not the same thing as a deleted chat, and this pass used to be how a
+ * pin vanished after a restart.
  */
+function liveSessionMarkKeys() {
+  const alive = new Set();
+  try {
+    for (const entry of fs.readdirSync(SESSIONS_ROOT, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const dir = path.join(SESSIONS_ROOT, entry.name);
+      let files = [];
+      try {
+        files = fs.readdirSync(dir);
+      } catch {
+        continue;
+      }
+      for (const file of files) {
+        const key = sessionMarkKey(file);
+        if (key) alive.add(key);
+      }
+    }
+  } catch {
+    return null;
+  }
+  return alive;
+}
+
 function pruneSessionMarkStore() {
   const current = sessionMarks();
   if (!Object.keys(current).length) return;
-  const next = pruneMarks(current, (key) => {
-    const file = markPath(key, SESSIONS_ROOT);
-    // A relative key is a chat in this store: judge it by the file.
-    if (file && !path.isAbsolute(key)) return fs.existsSync(file);
-    // An absolute key is another machine's spelling of the folder (or an entry
-    // from an older build). It is not ours to delete — a pin disappearing
-    // between the two machines is the bug this whole change exists to fix.
-    return true;
-  });
+  const alive = liveSessionMarkKeys();
+  // Nothing readable: keep every mark rather than delete them all.
+  if (!alive) return;
+  const next = pruneMarks(current, (key) => alive.has(key));
   if (Object.keys(next).length !== Object.keys(current).length) {
     writePrefs({ sessionMarks: next });
   }
@@ -3467,6 +3493,29 @@ function applyGoogleKeyToTabs(key) {
     apply: (handle, next) => handle.applyGoogleKey(next),
   });
 }
+
+/**
+ * Keys that are on disk but cannot be decrypted here.
+ *
+ * The picker cannot show a provider whose key it cannot read, so without this
+ * channel the only symptom is providers quietly disappearing — the person sees
+ * their settings gone and has nothing to explain it. Asked once at boot, and
+ * again whenever Settings opens.
+ */
+function keyHealth() {
+  return unreadableProviders([
+    { provider: 'coarena', status: coarenaKeys.status() },
+    { provider: 'zro', status: zroKeys.status() },
+    { provider: 'nvidia', status: nvidiaKeys.status() },
+    { provider: 'tokenharbor', status: tokenharborKeys.status() },
+    { provider: 'llm7', status: llm7Keys.status() },
+    { provider: 'deepseek', status: deepseekKeys.status() },
+    { provider: 'anthropic', status: anthropicKeys.status() },
+    { provider: 'google', status: googleKeys.status() },
+  ]);
+}
+
+ipcMain.handle('providers:key-health', async () => keyHealth());
 
 ipcMain.handle('coarena:status', async () => coarenaStatus());
 

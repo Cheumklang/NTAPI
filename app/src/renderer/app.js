@@ -179,6 +179,8 @@ const STRINGS = {
       'Coarena models disappear from the model list. A running turn keeps its current model until it finishes.',
     coarenaConfigured: 'Configured',
     coarenaUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    keysUnreadable:
+      'These saved keys cannot be unlocked on this machine: {names}. The providers stay hidden until you enter the key again in Settings → Providers.',
     coarenaNotConfigured: 'No key yet — Coarena models stay hidden.',
     coarenaEncrypted: 'encrypted',
     coarenaPlaintext: 'stored without encryption',
@@ -734,6 +736,8 @@ const STRINGS = {
       'โมเดล Coarena จะหายจากรายการ โมเดลที่กำลังทำงานอยู่จะใช้ต่อจนจบเทิร์น',
     coarenaConfigured: 'ตั้งค่าแล้ว',
     coarenaUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    keysUnreadable:
+      'ปลดล็อกคีย์ที่บันทึกไว้ไม่ได้บนเครื่องนี้: {names} — ผู้ให้บริการจะยังไม่ขึ้นจนกว่าจะกรอกคีย์ใหม่ที่ ตั้งค่า → ผู้ให้บริการ',
     coarenaNotConfigured: 'ยังไม่มีคีย์ — โมเดล Coarena จะไม่แสดง',
     coarenaEncrypted: 'เข้ารหัสแล้ว',
     coarenaPlaintext: 'บันทึกโดยไม่เข้ารหัส',
@@ -4116,6 +4120,30 @@ async function refreshGoogleStatus() {
 }
 
 /**
+ * Tell the person when a saved key is on disk but unreadable.
+ *
+ * A provider whose key cannot be decrypted is treated as absent everywhere else
+ * (it cannot be sent to an API it cannot open), so without this the only visible
+ * result is a model list that got shorter: the provider folders are simply gone
+ * and nothing says why. The usual cause is the OS keystore behind safeStorage —
+ * a recreated login keyring, a data folder copied from another machine — and the
+ * cure is re-entering the key, which only the person can do.
+ */
+async function warnUnreadableKeys() {
+  let broken = [];
+  try {
+    broken = await api.providerKeyHealth();
+  } catch {
+    return;
+  }
+  if (!Array.isArray(broken) || !broken.length) return;
+  const names = broken.map((item) => item.label || item.provider).filter(Boolean).join(', ');
+  if (!names) return;
+  // Long enough to read twice: this is state, not a passing confirmation.
+  showNotice(t('keysUnreadable', { names }), 30000, activeTabId);
+}
+
+/**
  * Keep messages that were sent locally but are not in the session yet.
  *
  * submit() shows a message immediately and marks it `pending`. The agent only
@@ -7197,6 +7225,7 @@ async function boot() {
   refreshDeepSeekStatus().catch(() => {});
   refreshAnthropicStatus().catch(() => {});
   refreshGoogleStatus().catch(() => {});
+  warnUnreadableKeys().catch(() => {});
   applySidebarWidth();
   if (info.lastCwd) {
     lastWorkspace = info.lastCwd;

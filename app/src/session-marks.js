@@ -1,22 +1,19 @@
 'use strict';
 
-const path = require('node:path');
-
 /**
  * Pins and colours for saved chats.
  *
  * Both belong to the *file on disk*, not to an open tab: `/clear` throws the tab
  * away, and a chat that was never opened in this window still shows up in the
- * sidebar. The key is therefore the session file's absolute path.
+ * sidebar. The key is therefore the session file's own name (`markKey`).
  *
  * Two consequences that shape this module:
  *
- * 1. A path is a poor key on Windows — the same file can be reached with a
- *    different drive-letter case or with forward slashes. Every key is
- *    normalised before it is read or written, otherwise a pin set from the
- *    sidebar and a pin looked up after a restart would miss each other.
- * 2. Deleting a chat leaves its mark behind. `prune()` drops marks whose file no
- *    longer exists, so prefs cannot grow forever.
+ * 1. A path is a poor key — the same file is spelled differently by each machine
+ *    that shares the data folder (Linux path vs `Z:\...`), and on Windows even
+ *    the drive-letter case varies. The file name does not.
+ * 2. Deleting a chat leaves its mark behind. `pruneMarks()` drops marks whose
+ *    file is gone, so prefs cannot grow forever.
  *
  * The marks live inside `prefs.json`. That keeps the pi session format untouched
  * — the SDK owns those `.jsonl` files, and writing our own entry kind into them
@@ -43,54 +40,57 @@ const COLORS = [
 
 const COLOR_KEYS = COLORS.map((c) => c.key);
 
-/** Normalise a session file path so the same file always yields the same key. */
-function markKey(sessionPath, root) {
-  if (typeof sessionPath !== 'string' || !sessionPath.trim()) return null;
-  const resolved = path.resolve(sessionPath.trim());
-  /*
-   * Inside the session store the key is the path *relative to it*, not the
-   * absolute one: the same folder is a different string on each machine that
-   * shares it (`/home/nt/.local/share/ntapi/sessions/...` here, `Z:\.local\
-   * share\ntapi\sessions\...` through the VM's mapped drive). An absolute key
-   * written on one side could never be read on the other — and, worse, the
-   * prune pass below deleted it there, which is how a pin and a colour
-   * disappeared after a restart between the two.
-   */
-  if (root) {
-    const base = path.resolve(root);
-    const rel = path.relative(base, resolved);
-    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
-      // Forward slashes on purpose: the spelling may not depend on the platform.
-      return rel.split(path.sep).join('/');
-    }
-  }
-  // Outside the store: nothing better than the absolute path.
-  // Windows is case-insensitive; `path.resolve` already made the slashes native.
-  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
-}
-
-/** The file a stored key points at on *this* machine. `null` when it cannot tell. */
-function markPath(key, root) {
-  if (typeof key !== 'string' || !key) return null;
-  if (path.isAbsolute(key)) return key;
-  if (!root) return null;
-  return path.resolve(root, ...key.split('/'));
+/**
+ * The key for one chat.
+ *
+ * The identity of a session file is its own name: the store names files
+ * `<timestamp>_<uuid>.jsonl`, unique across the whole store, while the folder
+ * above it is only the workspace's name and adds nothing. Lower-cased, because
+ * Windows gives back the same file with a different drive letter, slash style
+ * or name case.
+ *
+ * Why not the path, which is what this module used to store: the data folder is
+ * shared with a Windows VM through a mapped drive, so `/home/nt/.../sessions`
+ * and `Z:\...\sessions` are the same tree spelled two ways. Each side fed the
+ * other's spelling to `path.resolve`, which does not recognise a foreign path as
+ * absolute, and the keys grew into things like
+ * `/home/nt/NT-ALL/NTAPI/app/z:\home\nt\...\ntapi\ntapi/2026-...jsonl` — a
+ * key nobody looks up, so the pin looked lost after a restart. A bare file name
+ * is the one spelling both machines produce for the same chat.
+ */
+function markKey(sessionPath) {
+  if (typeof sessionPath !== 'string') return null;
+  // Both separators, on every platform: the other side's path arrives as text.
+  const name = sessionPath.trim().split(/[\\/]/).filter(Boolean).pop();
+  if (!name || name === '.' || name === '..') return null;
+  return name.toLowerCase();
 }
 
 /**
- * Rewrite a store written with absolute keys into portable ones.
+ * Rewrite a store written under an older key scheme.
  *
- * Called once at startup: an install from before portable keys holds entries
- * like `C:\NTAPI\data\sessions\ws\a.jsonl`, which would otherwise be looked up
- * under a key nobody writes any more and pruned away.
+ * Called once at startup. Every older spelling — an absolute path, a path
+ * relative to the session store, or the mangled mix a shared data folder
+ * produced — ends with the session's file name, which is exactly the new key, so
+ * an existing pin is recovered rather than lost. Two old keys that collapse into
+ * the same chat keep whichever marks they carried.
  */
-function migrateMarks(store, root) {
+function migrateMarks(store) {
   const source = store && typeof store === 'object' ? store : {};
   const next = {};
   for (const [key, value] of Object.entries(source)) {
     if (!value || typeof value !== 'object') continue;
-    const portable = markKey(key, root) || key;
-    next[portable] = { ...value };
+    const portable = markKey(key);
+    if (!portable) continue;
+    const previous = next[portable];
+    if (!previous) {
+      next[portable] = { ...value };
+      continue;
+    }
+    next[portable] = {
+      pinned: previous.pinned === true || value.pinned === true,
+      color: previous.color || value.color || null,
+    };
   }
   return next;
 }
@@ -106,8 +106,8 @@ function cleanColor(color) {
 }
 
 /** A stored record, in the shape the renderer reads. */
-function readMark(marks, sessionPath, root) {
-  const key = markKey(sessionPath, root);
+function readMark(marks, sessionPath) {
+  const key = markKey(sessionPath);
   if (!key) return { pinned: false, color: null };
   const raw = marks && typeof marks === 'object' ? marks[key] : null;
   if (!raw || typeof raw !== 'object') return { pinned: false, color: null };
@@ -120,12 +120,12 @@ function readMark(marks, sessionPath, root) {
  * Unknown fields are ignored rather than copied, so a corrupt prefs entry cannot
  * travel forward with every write.
  */
-function applyMark(marks, sessionPath, patch = {}, root) {
-  const key = markKey(sessionPath, root);
+function applyMark(marks, sessionPath, patch = {}) {
+  const key = markKey(sessionPath);
   const next = { ...(marks && typeof marks === 'object' ? marks : {}) };
   if (!key) return next;
 
-  const current = readMark(next, sessionPath, root);
+  const current = readMark(next, sessionPath);
   const merged = { pinned: current.pinned, color: current.color };
 
   if ('pinned' in patch) merged.pinned = patch.pinned === true;
@@ -146,12 +146,12 @@ function applyMark(marks, sessionPath, patch = {}, root) {
  * started earlier, which is the reshuffle-by-`modified` bug the creation-time
  * sort exists to prevent. Pinning is the only reason to move a row.
  */
-function sortByMark(marks, sessions, root) {
+function sortByMark(marks, sessions) {
   const list = Array.isArray(sessions) ? sessions : [];
   const pinned = [];
   const rest = [];
   for (const session of list) {
-    if (readMark(marks, session?.path, root).pinned) pinned.push(session);
+    if (readMark(marks, session?.path).pinned) pinned.push(session);
     else rest.push(session);
   }
   return [...pinned, ...rest];
@@ -160,10 +160,8 @@ function sortByMark(marks, sessions, root) {
 /**
  * Drop marks whose session file is gone. Keeps prefs from growing forever.
  *
- * `exists` is handed the *key*; the caller turns it back into a path with
- * `markPath()`, because only the caller knows the session root. A key this
- * machine cannot resolve is left alone rather than deleted: a mark written by
- * an older build of the other side is not the same thing as a deleted chat.
+ * `exists` is handed the key — a session file's name — and answers whether such
+ * a file is still in the store. The caller owns the store and does the looking.
  */
 function pruneMarks(marks, exists) {
   const source = marks && typeof marks === 'object' ? marks : {};
@@ -185,7 +183,6 @@ module.exports = {
   COLORS,
   COLOR_KEYS,
   markKey,
-  markPath,
   migrateMarks,
   readMark,
   applyMark,

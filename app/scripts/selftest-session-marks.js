@@ -212,62 +212,78 @@ check('palette keys are unique and lowercase', () => {
 
 /* --------------------------- two machines, one store ----------------
  * The data folder is shared with a Windows VM, which reaches the same tree as
- * `Z:\.local\share\ntapi`. Absolute keys differed between the two spellings, so
- * a pin set on one side was unreadable — and pruned — on the other. Inside the
- * store the key is now the file's path relative to it, which both agree on.
+ * `Z:\.local\share\ntapi`. A path key therefore had two spellings, and each side
+ * fed the other's spelling to `path.resolve` — which does not treat a foreign
+ * path as absolute — until the key grew into
+ * `/home/nt/NT-ALL/NTAPI/app/z:\home\nt\...\ntapi\ntapi/2026-..jsonl`, a key
+ * nothing looks up. That is what "my pins are gone after a restart" was.
+ *
+ * The key is now the session's own file name, lower-cased: the one spelling both
+ * machines produce for the same chat.
  */
 
-const ROOT = path.resolve('C:/NTAPI/data/sessions');
+const SESSION_NAME = '2026-11-22T03-27-07-396Z_01a2014b-1482-7070-b11b-7d352d8a128e.jsonl';
+const LINUX_PATH = `/home/nt/.local/share/ntapi/sessions/NTAPI/${SESSION_NAME}`;
+const WINDOWS_PATH = `Z:\\.local\\share\\ntapi\\sessions\\NTAPI\\${SESSION_NAME}`;
+// The key an older build actually left in the shared prefs.json.
+const MANGLED =
+  '/home/nt/NT-ALL/NTAPI/app/z:\\home\\nt\\nt-all\\ntapi\\app\\z:\\home\\nt\\nt-all\\ntapi\\app\\z:\\nt-all\\ntapi\\ntapi\\' +
+  SESSION_NAME.toLowerCase();
 
-check('a key inside the store is relative to it', () => {
-  assert.strictEqual(marks.markKey(FILE_A, ROOT), 'ws/a.jsonl');
+check('the key is the session file name, not a path', () => {
+  assert.strictEqual(marks.markKey(LINUX_PATH), SESSION_NAME.toLowerCase());
+  assert.strictEqual(marks.markKey(LINUX_PATH).includes('/'), false);
 });
 
-check('the relative key does not depend on how the path was spelled', () => {
-  const other = path.join(ROOT, 'ws', '.', 'a.jsonl');
-  assert.strictEqual(marks.markKey(other, ROOT), marks.markKey(FILE_A, ROOT));
-  // The Windows spelling of the same folder, as a path on this machine.
-  const slashed = `${ROOT}${path.sep}ws${path.sep}a.jsonl`;
-  assert.strictEqual(marks.markKey(slashed, ROOT), marks.markKey(FILE_A, ROOT));
+check('the same chat reached from the other machine is the same key', () => {
+  const key = marks.markKey(LINUX_PATH);
+  assert.strictEqual(marks.markKey(WINDOWS_PATH), key);
+  assert.strictEqual(marks.markKey(MANGLED), key);
+  // Drive-letter case and slash style are the same file on Windows.
+  assert.strictEqual(marks.markKey(WINDOWS_PATH.toLowerCase().replace(/\\\\/g, '/')), key);
 });
 
-check('a mark written with the root reads back with the root', () => {
-  const store = marks.applyMark({}, FILE_A, { pinned: true, color: 'green' }, ROOT);
-  assert.deepStrictEqual(marks.readMark(store, FILE_A, ROOT), { pinned: true, color: 'green' });
-  assert.deepStrictEqual(Object.keys(store), ['ws/a.jsonl']);
+check('a pin set on one machine is read on the other', () => {
+  const store = marks.applyMark({}, LINUX_PATH, { pinned: true, color: 'blue' });
+  assert.deepStrictEqual(marks.readMark(store, WINDOWS_PATH), { pinned: true, color: 'blue' });
+  assert.deepStrictEqual(marks.readMark(store, MANGLED), { pinned: true, color: 'blue' });
 });
 
-check('a path outside the store keeps its absolute key', () => {
-  const outside = path.resolve('C:/elsewhere/x.jsonl');
-  assert.strictEqual(marks.markKey(outside, ROOT), marks.markKey(outside));
+check('a mark written by each machine lands on one entry', () => {
+  let store = marks.applyMark({}, LINUX_PATH, { pinned: true });
+  store = marks.applyMark(store, WINDOWS_PATH, { color: 'green' });
+  assert.deepStrictEqual(Object.keys(store), [SESSION_NAME.toLowerCase()]);
+  assert.deepStrictEqual(store[SESSION_NAME.toLowerCase()], { pinned: true, color: 'green' });
 });
 
-check('markPath turns a stored key back into the file on this machine', () => {
-  assert.strictEqual(marks.markPath('ws/a.jsonl', ROOT), FILE_A);
-  assert.strictEqual(marks.markPath(FILE_A, ROOT), path.resolve(FILE_A));
-  assert.strictEqual(marks.markPath('', ROOT), null);
+check('migration recovers a pin stored under an older spelling', () => {
+  const old = {
+    [LINUX_PATH]: { pinned: true, color: 'red' },
+    [MANGLED]: { pinned: false, color: 'blue' },
+    [`NTAPI/${SESSION_NAME}`]: { pinned: true },
+    '/other/machine/x.jsonl': { color: 'pink' },
+  };
+  const next = marks.migrateMarks(old);
+  assert.deepStrictEqual(Object.keys(next).sort(), [SESSION_NAME.toLowerCase(), 'x.jsonl'].sort());
+  // Two spellings of one chat are merged, not duplicated or dropped.
+  assert.deepStrictEqual(next[SESSION_NAME.toLowerCase()], { pinned: true, color: 'red' });
+  assert.deepStrictEqual(next['x.jsonl'], { color: 'pink' });
 });
 
-check('migration rewrites the old absolute keys once', () => {
-  const old = {};
-  old[marks.markKey(FILE_A)] = { pinned: true, color: 'red' };
-  old[marks.markKey(FILE_B)] = { pinned: false, color: 'blue' };
-  const next = marks.migrateMarks(old, ROOT);
-  assert.deepStrictEqual(Object.keys(next).sort(), ['ws/a.jsonl', 'ws/b.jsonl']);
-  assert.deepStrictEqual(next['ws/a.jsonl'], { pinned: true, color: 'red' });
+check('migration drops entries whose key names no file', () => {
+  assert.deepStrictEqual(marks.migrateMarks({ '': { pinned: true }, '/': { pinned: true } }), {});
 });
 
-check('a key this machine cannot resolve is not treated as a deleted chat', () => {
-  // What main.js does: an unresolvable key passes the existence check untouched.
-  const store = { 'ws/a.jsonl': { pinned: true }, '/other/machine/x.jsonl': { color: 'red' } };
-  const pruned = marks.pruneMarks(store, (key) => {
-    const file = marks.markPath(key, ROOT);
-    // Same policy as main.js: a relative key is judged by its file, an absolute
-    // one belongs to another machine and is never deleted.
-    if (file && !path.isAbsolute(key)) return file === FILE_A;
-    return true;
-  });
-  assert.deepStrictEqual(Object.keys(pruned).sort(), ['/other/machine/x.jsonl', 'ws/a.jsonl']);
+check('prune keeps a chat whose file is still in the store', () => {
+  const store = marks.applyMark({}, LINUX_PATH, { pinned: true });
+  const alive = new Set([SESSION_NAME.toLowerCase()]);
+  const pruned = marks.pruneMarks(store, (key) => alive.has(key));
+  assert.deepStrictEqual(Object.keys(pruned), [SESSION_NAME.toLowerCase()]);
+});
+
+check('prune drops a chat whose file is gone', () => {
+  const store = marks.applyMark({}, LINUX_PATH, { pinned: true });
+  assert.deepStrictEqual(marks.pruneMarks(store, () => false), {});
 });
 
 /* ------------------------- wiring in the app -------------------------- */

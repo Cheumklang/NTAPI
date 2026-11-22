@@ -3581,3 +3581,11 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ยังไม่ tag/push (ต้องขออนุญาต — push tag จะ trigger CI publish installer)
 - ภาพการ์ด 0.7.0: `images/release-070-card-698dae.jpg` (1:1, gamer, ข้อความไทยอ่านออก)
 - HANDOFF อัปเดตแผนที่ไฟล์ + ขั้นตอนปล่อยที่เหลือ
+
+## 2026-11-22 (ต่อ 9) — pin/สีแชทหายจริง: คีย์เป็น path ที่สองเครื่องสะกดไม่เหมือนกัน
+- ผู้ใช้รายงานซ้ำ (รอบก่อนแก้เป็น relative แล้วยังหาย) + ถามว่าเป็นเพราะใช้ source หรือเปล่า → ไม่ใช่ source, เป็นตัวคีย์
+- หลักฐานจาก `prefs.json` จริง: คีย์ `"/home/nt/NT-ALL/NTAPI/app/z:\home\nt\...\ntapi\ntapi\2026-...jsonl"` (path ถูก `path.resolve` ซ้ำ ๆ ทั้งสองฝั่ง) และ `"/home/nt/NT-ALL/NTAPI/app/NTAPI/2026-11-22T07-28-25...jsonl"` → ไม่มีทางตรงกับ path จริง ⇒ อ่านไม่เจอ (และ prune ทิ้ง)
+- **แก้**: `session-marks.js` เปลี่ยนคีย์เป็น **ชื่อไฟล์ session ตัวพิมพ์เล็ก** (`markKey` = basename, lower) — สองฝั่งผลิตคีย์เดียวกันเสมอ · `migrateMarks(store)` ยุบคีย์เก่าทุกแบบ (absolute / relative / มัลแกลง) เข้าเป็นชื่อไฟล์ + รวม pinned/color · `markPath` ลบออก · `main.js` prune เปลี่ยนไปไล่รายชื่อไฟล์ใน `SESSIONS_ROOT` (`liveSessionMarkKeys`) และ **ไม่ prune เลยถ้าอ่านโฟลเดอร์ไม่ได้**
+- od จำลองบน prefs จริง: คีย์แดง (2026-11-22T07-28-25) ถูกกู้คืนเป็น `2026-11-22t07-28-25-...jsonl` ✓ · คีย์น้ำเงินชี้ไฟล์ที่ถูกลบไปแล้ว (2026-11-22T03-10-59) จึงถูก prune ตามกฎ
+- เทสต์: `selftest-session-marks` เขียนใหม่ 8 ข้อ (คีย์ชื่อไฟล์ · ข้ามเครื่อง · migrate กู้คืน · prune) · `npm test` **99/99** · `check:sara` ok
+- ยังไม่ commit / ยังไม่ bump version (รอเจ้าของสั่ง)

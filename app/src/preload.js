@@ -78,6 +78,7 @@ contextBridge.exposeInMainWorld('freepi', {
   onBrowserResume: on('browser:resume'),
 
   // Coarena key: the renderer sees status only, never the key itself.
+  providerKeyHealth: () => ipcRenderer.invoke('providers:key-health'),
   coarenaStatus: () => ipcRenderer.invoke('coarena:status'),
   coarenaSetKey: (key) => ipcRenderer.invoke('coarena:setKey', { key }),
   coarenaClearKey: () => ipcRenderer.invoke('coarena:clearKey'),
