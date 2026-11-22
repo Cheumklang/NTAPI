@@ -3606,3 +3606,7 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **(1) push** master ขึ้น origin · **(2) ปล่อย 0.7.2** (bump + tag + CI + record-release)
 - เทสต์: `npm test` 101/101 · `check:sara` ok · `provenance verify` OK
 - **ผลปล่อย 0.7.2**: tag `v0.7.2` → CI publish สำเร็จ (16:49 UTC+7) · `NTAPI-Setup-0.7.2.exe` 181,584,349 B · sha256 `eef85bd8…a0071740` (ตรวจด้วย `sha256sum` บนไฟล์ที่โหลดจริง = ตรง digest GitHub) · `latest.yml` ชี้ 0.7.2 · release เหลือรุ่นเดียว (prune ทำงาน) · provenance seq 256–257 · commit `a9cbfc8` + `760da6f` push แล้ว
+
+## 2026-11-22 — เคลียร์ของค้าง 2 อย่าง (ledger + installer ตรวจ)
+- commit บรรทัด ledger ที่ค้าง (seq 259 = บันทึกคอมมิต docs) แล้วทิ้งบรรทัดที่ hook เขียนของคอมมิตเก็บกวาดเอง เพื่อให้ `git status` สะอาด — ชุดหลักฐานยังตรวจผ่านครบ
+- ลบ `/home/nt/NTAPI/NTAPI-Setup-0.7.2.exe` (181 MB) หลังตรวจ sha256 ครบแล้ว — เก็บค่าไว้ใน `PROVENANCE/releases/v0.7.2.json`
