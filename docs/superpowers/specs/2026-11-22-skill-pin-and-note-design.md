@@ -120,6 +120,59 @@ A new branch, in the same style as the existing ones:
   except none at all (single line). Empty string means "delete the note".
 - Anything else is dropped silently, as the other branches do.
 
+### v2 — the label that travels with the skill (`NTAPI.label.json`)
+
+Problem this solves: a note in `prefs.json` belongs to one machine. Copy the
+skill folder to another machine, hand it to someone else, or carry the whole
+`skills/` folder on a USB stick, and the words are left behind.
+
+A skill folder may carry a sidecar file next to its `SKILL.md`:
+
+```text
+skills/apk-reverse/
+├── SKILL.md            ← never written, never labelled by us
+└── NTAPI.label.json    ← optional; the user's own words, this skill only
+```
+
+```json
+{ "note": "แกะแอป Android", "v": 1 }
+```
+
+Rules:
+
+- **Opt-in per skill.** A toggle in the editor row: "keep this name with the
+  skill". Off by default; a note lives in `prefs.json` until the user turns it
+  on. Turning it off deletes the sidecar and copies the note back to prefs.
+- **Written only into a folder the scan reported.** The path is
+  `path.dirname(skill.path)` taken from the roster this build just scanned —
+  never a path read from `prefs.json`, never a string from the renderer.
+  Filename is fixed: `NTAPI.label.json`.
+- **Precedence:** if a readable sidecar exists for a skill, it is the note for
+  that skill and wins over `prefs.json`. Unreadable, malformed, or oversized
+  (> 2 KB) is ignored with no error on screen — the app falls back to prefs,
+  then to the skill's own description.
+- **Write failure keeps the note.** A read-only pack folder, a permission
+  error, or a full disk must leave the user's words in `prefs.json` and say so
+  in one notice ("saved on this machine only"). Nothing is lost.
+- **Only the note travels, not the pin.** A pin is an ordering choice for one
+  person's list on one machine (`prefs.json`); a folder that arrives already
+  pinned on a colleague's machine would be a surprise. It also keeps `prefs.json`
+  the only place ordering is decided.
+- **`SKILL.md` is still read-only.** The sidecar is never merged into the
+  skill's frontmatter, so the AI's roster, the skill's own `description`, and
+  "already installed" detection are all exactly as they are today. pi reads
+  `SKILL.md` and does not look at other files in the folder.
+- **Privacy, said plainly in the UI:** a label travels with the folder. Sharing
+  the skill shares the words. Thai text in a label will be visible to whoever
+  receives that folder.
+- Scan cost: one `readFileSync` per skill folder that contains the file, only
+  when the page is open on `/skill` (bounded by the same 60 s cache).
+
+Tests: sidecar present → its note is shown; edit → the sidecar is rewritten and
+`SKILL.md`'s hash does not change; malformed sidecar → ignored, prefs used;
+read-only folder → note still in prefs + notice; toggle off → sidecar deleted,
+note back in prefs; a sidecar with a note but no pin never reorders the list.
+
 ### Row anatomy
 
 ```
