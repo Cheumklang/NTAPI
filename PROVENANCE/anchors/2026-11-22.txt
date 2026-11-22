@@ -4,3 +4,9 @@ head_seq 241
 head_hash 7b035cbb44c1858cb8fd5125a9e943fbdb6a37dac3cb8cf7c1aac6df8e12c2f4
 git_head 5994c739986cf14a1b5fce7e91c61f2b2f125731
 verify must print this head_hash
+date 2026-11-22T06:41:28.043Z
+entries 247
+head_seq 247
+head_hash 4be997749b8f30b8e2b3a9b8701d39fa9a570562fc3e6b79832e4ee1090a408b
+git_head cb58f4ed12c5b8b704ff9a10b57cd7f5b5683e9d
+verify must print this head_hash

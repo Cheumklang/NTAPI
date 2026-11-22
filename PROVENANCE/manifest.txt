@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-22T02:55:40.018Z
-entries 241
-head_hash 7b035cbb44c1858cb8fd5125a9e943fbdb6a37dac3cb8cf7c1aac6df8e12c2f4
-git 5994c739986cf14a1b5fce7e91c61f2b2f125731
+updated 2026-11-22T06:41:28.043Z
+entries 247
+head_hash 4be997749b8f30b8e2b3a9b8701d39fa9a570562fc3e6b79832e4ee1090a408b
+git cb58f4ed12c5b8b704ff9a10b57cd7f5b5683e9d
 
 latest entries:
-  #234 2026-11-21T19:45:09.860Z release — Released version 0.6.21
-  #235 2026-11-21T19:48:19.951Z commit — docs: ask before releasing, every time
-  #236 2026-11-21T20:18:43.099Z commit — desktop: five bugs the NVIDIA model walked straight into
-  #237 2026-11-21T20:25:54.702Z commit — chore(release): 0.6.22 — the window list answers, the screenshot stops lying
-  #238 2026-11-21T20:30:04.135Z release — Released version 0.6.22
-  #239 2026-11-21T20:39:34.096Z commit — docs: hand this session over
   #240 2026-11-22T02:50:30.323Z commit — ปล่อย 0.6.23: สลับปุ่มธีม/เบราว์เซอร์, tooltip ตาม OS, pin/สีแชทข้ามสองฝั่ง, คิวนับถอยหลัง
   #241 2026-11-22T02:55:39.885Z release — Released version 0.6.23
+  #242 2026-11-22T02:55:44.666Z commit — chore(provenance): record v0.6.23
+  #243 2026-11-22T02:55:52.299Z commit — docs: บันทึกการปล่อย 0.6.23
+  #244 2026-11-22T06:32:00.519Z commit — ปล่อย 0.7.0: ควบคุมเครื่องบน Windows ใช้งานได้จริง (อ่าน/กดหน้าต่าง Chromium, ภาพ, audit)
+  #245 2026-11-22T06:32:11.328Z commit — chore(provenance): บันทึกคอมมิต 0.7.0
+  #246 2026-11-22T06:36:04.681Z commit — docs: ส่งต่อ session — ปล่อย 0.7.0 และแผนที่ไฟล์ควบคุมเครื่อง
+  #247 2026-11-22T06:41:20.700Z release — Released version 0.7.0

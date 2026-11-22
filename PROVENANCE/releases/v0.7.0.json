@@ -1,0 +1,22 @@
+{
+  "version": "0.7.0",
+  "tag": "v0.7.0",
+  "recordedAt": "2026-11-22T06:41:20.684Z",
+  "git": {
+    "head": "cb58f4ed12c5b8b704ff9a10b57cd7f5b5683e9d",
+    "branch": "master",
+    "tree": "bf678458a565748339fd50401511ef26bffac85b",
+    "subject": "docs: ส่งต่อ session — ปล่อย 0.7.0 และแผนที่ไฟล์ควบคุมเครื่อง",
+    "authorDate": "2026-11-22T13:36:03+07:00",
+    "commitCount": 474
+  },
+  "ci": "",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.7.0.exe",
+      "size": 181573066,
+      "sha256": "2249c8e2edfc8ae8322ca35497a131f17f70877ce9ae99889a3429085eeff006"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.7.0"
+}
