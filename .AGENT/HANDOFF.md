@@ -1,6 +1,42 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 สถานะล่าสุด (2026-11-22): ปล่อย **0.7.1** แล้ว — tag `v0.7.1` pushed · CI build+publish ที่ `Cheumklang/NTAPI-releases` (installer 181,579,071 B · sha256 `2dbfad88…9212`) · `provenance verify` OK 251 entries · **ไม่มีงานค้าง**: หมุด/สีแชทอยู่รอดข้ามเครื่อง + แถบเตือนคีย์ที่ปลดล็อกไม่ได้ (0.7.0: commit `0334de5` + provenance `6fa980b`) · ควบคุมเครื่อง Windows ใช้งานได้จริง: อ่าน/กดหน้าต่าง Chromium (MSAA), ภาพ, audit ระบุ session+model · Nemotron ทำ Notepad + Calculator ได้เอง · `selftest-system-control` 191 PASS · `npm test` 95/98 (แดงเดิม 3) · **งานถัดไป: `git tag v0.7.0 && git push` → CI build → `provenance record-release`**
+> **📌 สถานะล่าสุด (2026-11-22): ปล่อย **0.7.1** แล้ว — tag `v0.7.1` push · CI publish ที่ `Cheumklang/NTAPI-releases` · `provenance verify` **OK 252 entries** · **ไม่มีงานค้าง** · ฝั่ง Ubuntu: `npm test` **99/99** + `check:sara` ok (ยังไม่ได้รันเทสต์ฝั่ง Windows VM รอบนี้ — แดงเดิมเดิม: skill-scan/notices/system-control/data-root) · สองเรื่องที่แก้: หมุด/สีแชทอยู่รอดข้ามเครื่อง (`session-marks` คีย์ = ชื่อไฟล์) · แถบเตือนคีย์ที่ `safeStorage` ปลดล็อกไม่ได้ (`key-health`) · คีย์ผู้ให้บริการผูกกับ OS ⇒ ต้องกรอกแยกฝั่ง (เจ้าของจัดการเองแล้ว)
+
+## 🚀 ปล่อย 0.7.1 — 2026-11-22 (รอบล่าสุด)
+
+```
+b23d952  ปล่อย 0.7.1: หมุด/สีแชทอยู่รอดหลังรีสตาร์ท และเตือนเมื่อคีย์ปลดล็อกไม่ได้
+9b9d592  chore(provenance): บันทึกคอมมิต 0.7.1
+2476744  chore(provenance): บันทึกการปล่อย v0.7.1 พร้อม sha256 ของ installer
+```
+- `app/package.json` → `0.7.1` · 12 ไฟล์ +374/−126 · tag `v0.7.1` **push แล้ว** · CI publish ที่ `Cheumklang/NTAPI-releases`
+- installer `NTAPI-Setup-0.7.1.exe` 181,579,071 B · sha256 `2dbfad8803b9051414709ecfbd3392cf3988c9f4c3b2a6701e0a7f9bcf369212`
+- `provenance verify` → **OK 252 entries, 100 record files** · `npm test` **99/99** · `check:sara` ok
+- `PROVENANCE/ledger.jsonl` ค้าง 1 บรรทัด = hook เขียนบันทึกของ commit ตัวเอง (ปกติของ repo นี้ ไม่ใช่ของตกหล่น)
+
+### สองบั๊กที่แก้รอบนี้ (อาการเดียวกัน: "ของที่เคยตั้งไว้หายเงียบ")
+1. **หมุด/สีแชทหายทุกครั้งที่ปิด-เปิดโปรแกรม** — คีย์เคยเป็น path ของไฟล์ session
+   สองฝั่งของ data root สะกดไม่เหมือนกัน (`/home/...` กับ `Z:\...`) และ `path.resolve`
+   ไม่รู้จัก path ของอีกฝั่ง → เอา cwd ต่อเข้าข้างหน้า ซ้ำทุกครั้งที่สลับเครื่อง = คีย์ที่ไม่มีใครหาเจอ
+   - **แก้**: `src/session-marks.js` → `markKey` = **ชื่อไฟล์ session ตัวพิมพ์เล็ก** (basename, lower) ซึ่งทั้งสองฝั่งผลิตตรงกัน
+     · `migrateMarks(store)` ยุบคีย์เก่าทุกแบบ (absolute / relative / มัลแกลง) เป็นชื่อไฟล์ + รวม `pinned`/`color` → หมุดเดิมกู้คืนได้
+     · `markPath` **ลบออก** · `main.js` prune ไล่ `liveSessionMarkKeys()` (อ่านรายชื่อไฟล์จริง) และ **ไม่ลบเลยถ้าอ่านโฟลเดอร์ไม่ได้**
+   - หลักฐานก่อนแก้ (จาก `prefs.json` จริง): คีย์ `"/home/nt/NT-ALL/NTAPI/app/z:\home\nt\...\ntapi\ntapi\2026-....jsonl"`
+     และ `"/home/nt/NT-ALL/NTAPI/app/NTAPI/2026-..."` · หลังแก้คีย์แดงของแชท `2026-11-22T07-28-25` กลับมา ✓
+     (คีย์น้ำเงินอีกอันชี้ไฟล์ที่ถูกลบไปแล้ว จึงถูก prune ตามกฎ)
+2. **ผู้ให้บริการหายหมดหลัง GNOME keyring ถูกสร้างใหม่** — คีย์ที่ `safeStorage` ปลดล็อกไม่ได้
+   ถูกปฏิบัติเหมือน "ยังไม่เคยใส่" → providers หลุดจากรายการโมเดลโดยไม่มีการบอกอะไร
+   - **แก้**: `src/key-health.js` (ใหม่) + IPC `providers:key-health` (`main.js`, `preload.js`) + แถบเตือนใน `renderer/app.js`
+     (`keysUnreadable`, 30 วิ, บอกชื่อเจ้าที่คีย์อ่านไม่ได้ + ชี้ไป ตั้งค่า → ผู้ให้บริการ)
+   - **ตรวจจริงแล้ว**: `safeStorage.decryptString` บน `nvidia.json` (v10) ล้มเหลว ขณะที่การเข้ารหัสใหม่เป็น v11
+     ⇒ keystore เปลี่ยนจริง คีย์เดิมกู้ไม่ได้ (ผู้ใช้กรอกใหม่เองแล้ว)
+   - **ข้อเท็จจริงที่ต้องจำ**: คีย์ผูกกับ OS (DPAPI ↔ libsecret) ⇒ **ข้ามฝั่งไม่ได้** แม้ใช้ data root ร่วม
+     · ตัวคีย์ (string) ใช้ได้ทั้งสอง OS · แนะนำ 1 คีย์ต่อ 1 OS ต่อ 1 บริษัท · prefs/sessions/mcp.json ร่วมกันได้ปกติ
+   - **สิ่งที่ยังไม่ทำ (เจ้าของสั่ง "3" = ไม่ทำ)**: label ประจำเครื่องในไฟล์คีย์ · โหมดคีย์เดินทางได้ (กุญแจใน data root)
+
+### ของที่อาจเก็บกวาด (ไม่ผูกกับแอป)
+- `/home/nt/NTAPI/tools/keystest.js` · `keystest2.js` · `keyroundtrip.js` · `decrypt-basictext.js` — สคริปต์พิสูจน์ว่า safeStorage ถอดคีย์เดิมไม่ได้
+- ภาพหน้าจอตรวจ UI: `/home/nt/NTAPI/images/desktop-*.png`
 
 ## 🚀 ปล่อย 0.7.0 — 2026-11-22
 
