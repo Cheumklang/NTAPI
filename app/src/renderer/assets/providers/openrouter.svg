@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="OpenRouter">
+  <!-- OpenRouter mark: one key fanning out into three routes, which is what the
+       service does — many vendors behind a single credential. -->
+  <rect width="64" height="64" rx="14" fill="#101014"/>
+  <circle cx="18" cy="32" r="6" fill="#ffffff"/>
+  <path d="M24 32h12" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <path d="M36 32c8-12 14-12 20-12" stroke="#9aa0ff" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M36 32h20" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <path d="M36 32c8 12 14 12 20 12" stroke="#9aa0ff" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <circle cx="56" cy="20" r="3.2" fill="#9aa0ff"/>
+  <circle cx="56" cy="32" r="3.2" fill="#ffffff"/>
+  <circle cx="56" cy="44" r="3.2" fill="#9aa0ff"/>
+</svg>

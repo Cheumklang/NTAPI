@@ -147,6 +147,143 @@
           </div>
 
           <!--
+            ntfy. A room of push notifications for the user's own phone, driven
+            from here so the ntfy website is never needed. It sits beside the
+            browser chip because both answer "how does this machine reach the
+            outside world" — and because the sidebar is where a thing that keeps
+            running in the background belongs.
+
+            The panel is four groups in the order they are used: who you are,
+            which room, what arrives, what you send. Everything in it works
+            without an account; signing in only raises the daily limit and keeps
+            a name of your own.
+          -->
+          <div class="ntfy-wrap" id="ntfyWrap">
+            <button
+              id="ntfyChip"
+              class="chip-btn ntfy-chip"
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="ntfyPanel"
+              data-i18n-aria="ntfyTitle"
+              data-state="off"
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M6 9a6 6 0 0 1 12 0v4.5l1.5 2.5h-15L6 13.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M10 18.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+              <span class="ntfy-dot" aria-hidden="true"></span>
+            </button>
+
+            <div class="ntfy-panel" id="ntfyPanel" role="dialog" aria-labelledby="ntfyLabel" hidden>
+              <div class="ntfy-head">
+                <span class="ntfy-label" id="ntfyLabel" data-i18n="ntfyTitle">ntfy</span>
+                <span class="ntfy-state" id="ntfyState">ปิดอยู่</span>
+              </div>
+              <!--
+                The master switch. Off means: no stream, no commands, no replies —
+                the rooms and the login stay exactly as they are, so sitting at the
+                computer does not mean signing out of anything.
+              -->
+              <label class="ntfy-switch ntfy-master">
+                <input id="ntfyEnabled" type="checkbox" />
+                <span data-i18n="ntfyEnabledLabel">เปิดใช้งาน ntfy</span>
+              </label>
+
+              <!-- 1. account -->
+              <section class="ntfy-group">
+                <h3 class="ntfy-group-title" data-i18n="ntfyAccount">บัญชี</h3>
+                <p class="ntfy-account" id="ntfyAccountLine"></p>
+                <div class="ntfy-fields" id="ntfyAuthFields">
+                  <input id="ntfyUser" class="ntfy-input" type="text" autocomplete="username" spellcheck="false" data-i18n-ph="ntfyUser" placeholder="ชื่อผู้ใช้" />
+                  <input id="ntfyPass" class="ntfy-input" type="password" autocomplete="current-password" spellcheck="false" data-i18n-ph="ntfyPass" placeholder="รหัสผ่าน" />
+                  <input id="ntfyEmail" class="ntfy-input" type="email" autocomplete="email" spellcheck="false" data-i18n-ph="ntfyEmail" placeholder="อีเมล (ไม่บังคับ)" />
+                </div>
+                <div class="ntfy-row">
+                  <button type="button" class="ntfy-btn" id="ntfyLogin" data-i18n="ntfyLogin">เข้าสู่ระบบ</button>
+                  <button type="button" class="ntfy-btn quiet" id="ntfySignup" data-i18n="ntfySignup">สมัคร</button>
+                  <button type="button" class="ntfy-btn quiet" id="ntfyLogout" data-i18n="ntfyLogout" hidden>ออกจากระบบ</button>
+                </div>
+                <p class="ntfy-note" id="ntfyAccountNote" hidden></p>
+              </section>
+
+              <!-- 2. rooms -->
+              <section class="ntfy-group">
+                <h3 class="ntfy-group-title" data-i18n="ntfyRooms">ห้อง</h3>
+                <ul class="ntfy-rooms" id="ntfyRooms"></ul>
+                <div class="ntfy-row">
+                  <input id="ntfyRoomName" class="ntfy-input mono" type="text" spellcheck="false" data-i18n-ph="ntfyRoomName" placeholder="ชื่อห้อง" />
+                  <button type="button" class="ntfy-btn" id="ntfyAddRoom" data-i18n="ntfyAddRoom">สร้างห้อง</button>
+                </div>
+                <p class="ntfy-hint" data-i18n="ntfyRoomHint">ชื่อห้องต้องเดาไม่ได้ — ระบบตั้งชื่อยาว ๆ ให้เองแล้วคัดลอกให้</p>
+                <div class="ntfy-row">
+                  <button type="button" class="ntfy-btn quiet" id="ntfyCopyTopic" data-i18n="ntfyCopy">คัดลอกลิงก์ห้อง</button>
+                  <button type="button" class="ntfy-btn quiet" id="ntfyRemoveRoom" data-i18n="ntfyRemoveRoom">ลบห้องนี้</button>
+                </div>
+              </section>
+
+              <!-- 3. what arrives -->
+              <section class="ntfy-group ntfy-incoming">
+                <h3 class="ntfy-group-title" data-i18n="ntfyIncoming">ข้อความที่รับ</h3>
+                <!--
+                  The slide: สรุป or ทั้งหมด. The character count only means
+                  something for a summary, so choosing ทั้งหมด disables the field
+                  rather than leaving a number on screen that changes nothing.
+                -->
+                <div class="ntfy-slide" role="group" id="ntfySlide">
+                  <button type="button" class="ntfy-slide-opt" data-mode="summary" aria-pressed="true" data-i18n="ntfyModeSummary">สรุป</button>
+                  <button type="button" class="ntfy-slide-opt" data-mode="full" aria-pressed="false" data-i18n="ntfyModeFull">ทั้งหมด</button>
+                </div>
+                <div class="ntfy-source" role="group" aria-labelledby="ntfySourceLabel">
+                  <span class="ntfy-source-label" id="ntfySourceLabel" data-i18n="ntfySourceLabel">สรุปด้วย</span>
+                  <div class="ntfy-slide" id="ntfySource">
+                    <button type="button" class="ntfy-slide-opt" data-source="local" aria-pressed="true" data-i18n="ntfySourceLocal">โมเดลในเครื่อง</button>
+                    <button type="button" class="ntfy-slide-opt" data-source="provider" aria-pressed="false" data-i18n="ntfySourceProvider">ผู้ให้บริการ</button>
+                  </div>
+                </div>
+                <p class="ntfy-hint" data-i18n="ntfySourceHint">ในเครื่อง = ฟรี ใช้ GPU สักครู่ · ผู้ให้บริการ = เสียโทเคนนิดหน่อย ได้สรุปจากโมเดลที่ตอบ</p>
+                <label class="ntfy-limit">
+                  <span data-i18n="ntfyLimit">จำนวนตัวอักษรที่ใช้สรุป</span>
+                  <input id="ntfyLimit" class="ntfy-input num" type="number" min="20" max="4000" step="10" value="200" />
+                  <span class="ntfy-note" id="ntfyLimitNote"></span>
+                </label>
+                <div class="ntfy-row">
+                  <button type="button" class="ntfy-btn quiet" id="ntfyClear" data-i18n="ntfyClear">ล้างประวัติ</button>
+                  <span class="ntfy-note" id="ntfyIncomingNote"></span>
+                </div>
+                <ul class="ntfy-messages" id="ntfyMessages"></ul>
+              </section>
+
+              <!-- 4. commands, and the answer going back -->
+              <section class="ntfy-group">
+                <h3 class="ntfy-group-title" data-i18n="ntfyCommands">รับคำสั่งจากห้อง này</h3>
+                <!--
+                  The room is the chat: what arrives is a message for the agent,
+                  and the answer goes back to the phone on its own. The switch is
+                  here because a topic on a public server is readable by anyone
+                  who learns its name — turning this on is handing them tools.
+                -->
+                <label class="ntfy-switch">
+                  <input id="ntfyCommands" type="checkbox" />
+                  <span data-i18n="ntfyCommandsLabel">ส่งข้อความในห้องเข้ามาเป็นคำสั่ง แล้วส่งคำตอบกลับ</span>
+                </label>
+                <p class="ntfy-hint" data-i18n="ntfyCommandsHint">ต้องเปิดโปรแกรมทิ้งไว้ · คำตอบกลับไปตามโหมด สรุป/ทั้งหมด ด้านบน · ใครรู้ชื่อห้องก็สั่งงานเครื่องนี้ได้</p>
+                <p class="ntfy-note" id="ntfyCommandNote" hidden></p>
+              </section>
+
+              <details class="ntfy-server">
+                <summary data-i18n="ntfyServerSummary">เซิร์ฟเวอร์และอื่น ๆ</summary>
+                <div class="ntfy-row">
+                  <input id="ntfyServer" class="ntfy-input mono" type="text" spellcheck="false" placeholder="https://ntfy.sh" />
+                  <button type="button" class="ntfy-btn quiet" id="ntfySaveServer" data-i18n="ntfySave">บันทึก</button>
+                </div>
+                <p class="ntfy-hint" data-i18n="ntfyServerHint">ใช้ ntfy.sh หรือเซิร์ฟเวอร์ของคุณเอง (self-host) — เปลี่ยนเซิร์ฟเวอร์แล้วต้องเข้าสู่ระบบใหม่</p>
+              </details>
+            </div>
+          </div>
+
+          <!--
             Tool approval. It used to take a whole block under the workspace
             picker; the three choices now live in a popover that opens when the
             pointer rests on the shield, or on click / keyboard focus.
@@ -467,6 +604,23 @@
               changed — which read as a bug. Now it dims and locks instead, so the
               control stays where the eye expects it and still says why it is off.
             -->
+            <div class="vision-slot" id="visionSlot">
+              <button
+                id="visionBtn"
+                class="think-btn"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                data-i18n-title="visionTitle"
+              >
+                <span class="think-btn-label" id="visionLabel" data-i18n="visionLabel">Pictures:</span>
+                <span id="visionValue" class="think-btn-value">&mdash;</span>
+                <svg class="think-btn-chevron" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <div class="think-menu vision-menu" id="visionMenu" role="menu" aria-labelledby="visionLabel" hidden></div>
+            </div>
             <div class="think-slot">
               <button
                 id="thinkingBtn"
@@ -536,7 +690,26 @@
                     <input id="modelFreeOnly" type="checkbox" />
                     <span id="modelFreeOnlyLabel">Free only</span>
                   </label>
+                  <!--
+                    The list is read once at boot and kept for ten minutes. This
+                    is how a reader asks for today's catalogs on purpose, and
+                    the tooltip says what that costs them: a few network calls
+                    per provider, and no key ever leaves the machine.
+                  -->
+                  <button
+                    id="modelRefresh"
+                    class="model-refresh"
+                    type="button"
+                    data-i18n-title="modelRefreshTitle"
+                    data-i18n-aria="modelRefresh"
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                      <path d="M20 12a8 8 0 1 1-2.3-5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                      <path d="M20 4v4.2h-4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
                 </div>
+                <div class="model-refresh-note" id="modelRefreshNote" hidden></div>
                 <div class="model-list" id="modelList" role="listbox" aria-label="Model"></div>
                 <div class="model-menu-empty" id="modelMenuEmpty" hidden>No models match</div>
                 <div class="model-tip" id="modelTip" hidden aria-hidden="true"></div>
@@ -941,6 +1114,101 @@
                     </div>
                   </div>
 
+                <!--
+                     One tile per company, five to a row: the list outgrew a column of
+                     cards, and a grid keeps room for the next company without pushing
+                     the form further down the page. A tick on the logo's corner means
+                     a key is saved and readable — it sits outside the mark so the logo
+                     stays recognisable. Clicking a tile opens that one form below.
+                -->
+                <div class="provider-grid" id="providerGrid" role="group" aria-label="Providers">
+                  <button type="button" class="provider-tile" data-provider="coarena" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/coarena.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="coarenaSection">Coarena</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="zro" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/zro.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="zroSection">Zro</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="nvidia" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/nvidia.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="nvidiaSection">NVIDIA</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="tokenharbor" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/tokenharbor.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="tokenharborSection">Token Harbor</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="llm7" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/llm7.png" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="llm7Section">LLM7.io</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="deepseek" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/deepseek.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="deepseekSection">DeepSeek</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="anthropic" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/anthropic.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="anthropicSection">Claude</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="google" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/google.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="googleSection">Gemini</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="zai" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/zai.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="zaiSection">z.ai</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="openrouter" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/openrouter.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="openrouterSection">OpenRouter</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="cloudflare" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/cloudflare.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="cloudflareSection">Cloudflare</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="llamacpp" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/llamacpp.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="llamacppSection">llama.cpp</span>
+                  </button>
+                </div>
+                <div class="provider-detail" id="providerDetail">
+
                   <div class="provider-card" id="coarenaRow" data-provider="coarena">
                     <div class="provider-card-head">
                       <img class="provider-logo" src="assets/providers/coarena.svg" alt="" aria-hidden="true" />
@@ -1100,6 +1368,99 @@
                       <button id="googleBuy" class="link-btn" data-i18n="googleBuy"></button>
                     </div>
                   </div>
+
+                  <div class="provider-card" id="zaiRow" data-provider="zai">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/zai.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="zaiSection">z.ai</span>
+                        <p id="zaiStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="zaiKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="id.secret&hellip;" aria-label="z.ai API key" />
+                      <button id="zaiSave" class="ghost small" data-i18n="zaiSave">Save</button>
+                      <button id="zaiRemove" class="ghost small danger" data-i18n="zaiRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="zaiGetKey" class="link-btn" data-i18n="zaiGetKey">Get a key at z.ai</button>
+                      <span class="link-sep" aria-hidden="true">&middot;</span>
+                      <button id="zaiBuy" class="link-btn" data-i18n="zaiBuy"></button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="openrouterRow" data-provider="openrouter">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/openrouter.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="openrouterSection">OpenRouter</span>
+                        <p id="openrouterStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="openrouterKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-&hellip;" aria-label="OpenRouter API key" />
+                      <button id="openrouterSave" class="ghost small" data-i18n="openrouterSave">Save</button>
+                      <button id="openrouterRemove" class="ghost small danger" data-i18n="openrouterRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="openrouterGetKey" class="link-btn" data-i18n="openrouterGetKey">Get a key at openrouter.ai</button>
+                      <span class="link-sep" aria-hidden="true">&middot;</span>
+                      <button id="openrouterBuy" class="link-btn" data-i18n="openrouterBuy"></button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="cloudflareRow" data-provider="cloudflare">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/cloudflare.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="cloudflareSection">Cloudflare</span>
+                        <p id="cloudflareStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="cloudflareAccountInput" class="settings-input mono" type="text" autocomplete="off" spellcheck="false" placeholder="account id" aria-label="Cloudflare account id" />
+                      <input id="cloudflareKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API token&hellip;" aria-label="Cloudflare API token" />
+                      <button id="cloudflareSave" class="ghost small" data-i18n="cloudflareSave">Save</button>
+                      <button id="cloudflareRemove" class="ghost small danger" data-i18n="cloudflareRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="cloudflareGetKey" class="link-btn" data-i18n="cloudflareGetKey">Get a token at dash.cloudflare.com</button>
+                      <span class="link-sep" aria-hidden="true">&middot;</span>
+                      <button id="cloudflareBuy" class="link-btn" data-i18n="cloudflareBuy"></button>
+                    </div>
+                  </div>
+
+                  <!--
+                    The local model is the one provider with no key: it installs
+                    files. Everything it says is about those files — not
+                    installed, downloading with a percentage, ready, or running.
+                  -->
+                  <div class="provider-card" id="llamacppRow" data-provider="llamacpp">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/llamacpp.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="llamacppSection">llama.cpp</span>
+                        <p id="llamacppStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <!--
+                      One switch, not a start button: it stays where the user put
+                      it, so "is it on?" is answered by looking at it.
+                    -->
+                    <label class="slide-switch" id="llamacppSwitchRow">
+                      <input id="llamacppEnabled" type="checkbox" />
+                      <span data-i18n="llamacppEnabledLabel">Use the model on this machine</span>
+                    </label>
+                    <div class="provider-actions">
+                      <button id="llamacppInstall" class="ghost small" data-i18n="llamacppInstall">Install</button>
+                      <button id="llamacppCancel" class="ghost small" data-i18n="llamacppCancel" hidden>Cancel</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <span class="settings-hint" data-i18n="llamacppCost">A free way to look at pictures</span>
+                    </div>
+                    <p class="settings-hint" data-i18n="llamacppInstallNote">One 5.8 GB download.</p>
+                  </div>
+                </div>
                 </div>
               </div>
             </section>

@@ -6,10 +6,11 @@
  * from Node so the renderer rules can be tested without Electron (see
  * scripts/selftest-provider-ui.js).
  *
- * Six providers can be registered in one session: FreePi (`free-pi`,
- * `free-pi-defense`), Coarena, Zro, NVIDIA, Token Harbor, LLM7.io and DeepSeek.
- * Ads and the FreePi usage meter belong to FreePi; the keyed providers show
- * their own meter instead.
+ * Any number of providers can be registered in one session: FreePi
+ * (`free-pi`, `free-pi-defense`), Coarena, Zro, NVIDIA, Token Harbor, LLM7.io,
+ * DeepSeek, Claude, Gemini, z.ai, OpenRouter and Cloudflare. Ads and the FreePi
+ * usage meter belong to FreePi; the keyed providers show their own meter
+ * instead.
  */
 (function (root) {
   'use strict';
@@ -23,6 +24,9 @@
   const DEEPSEEK_PROVIDER = 'deepseek';
   const ANTHROPIC_PROVIDER = 'anthropic';
   const GOOGLE_PROVIDER = 'google';
+  const ZAI_PROVIDER = 'zai';
+  const OPENROUTER_PROVIDER = 'openrouter';
+  const CLOUDFLARE_PROVIDER = 'cloudflare';
   const SEPARATOR = ' \u00b7 ';
 
   /** Bundled marks, resolved relative to the renderer page. */
@@ -37,6 +41,9 @@
     deepseek: 'assets/providers/deepseek.svg',
     anthropic: 'assets/providers/anthropic.svg',
     google: 'assets/providers/google.svg',
+    zai: 'assets/providers/zai.svg',
+    openrouter: 'assets/providers/openrouter.svg',
+    cloudflare: 'assets/providers/cloudflare.svg',
   };
 
   /** Human-facing provider name; unknown providers pass through unchanged. */
@@ -54,6 +61,9 @@
     if (provider === DEEPSEEK_PROVIDER) return 'DeepSeek';
     if (provider === ANTHROPIC_PROVIDER) return 'Claude';
     if (provider === GOOGLE_PROVIDER) return 'Gemini';
+    if (provider === ZAI_PROVIDER) return 'z.ai';
+    if (provider === OPENROUTER_PROVIDER) return 'OpenRouter';
+    if (provider === CLOUDFLARE_PROVIDER) return 'Cloudflare';
     return String(provider || '');
   }
 
@@ -157,6 +167,9 @@
     if (provider === DEEPSEEK_PROVIDER) return { showAds: false, meter: 'deepseek' };
     if (provider === ANTHROPIC_PROVIDER) return { showAds: false, meter: 'anthropic' };
     if (provider === GOOGLE_PROVIDER) return { showAds: false, meter: 'google' };
+    if (provider === ZAI_PROVIDER) return { showAds: false, meter: 'zai' };
+    if (provider === OPENROUTER_PROVIDER) return { showAds: false, meter: 'openrouter' };
+    if (provider === CLOUDFLARE_PROVIDER) return { showAds: false, meter: 'cloudflare' };
     return { showAds: false, meter: null };
   }
 
@@ -234,6 +247,24 @@
     return out;
   }
 
+  /**
+   * One ntfy message as the panel shows it.
+   *
+   * "สรุป" is a character budget, not a paragraph count: the window flattens the
+   * text, cuts it at the number the reader chose and marks the cut, so what is
+   * on screen is always a prefix of what arrived. "ทั้งหมด" hands the message
+   * back untouched — there is nothing to configure, which is why the panel
+   * disables the number instead of leaving it looking meaningful.
+   */
+  function ntfySummary(message, { mode = 'summary', limit = 200 } = {}) {
+    const text = String(message ?? '');
+    if (mode !== 'summary') return text;
+    const flat = text.replace(/\s+/g, ' ').trim();
+    const max = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Math.floor(Number(limit)) : 200;
+    if (flat.length <= max) return flat;
+    return `${flat.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+  }
+
   root.FPProvider = {
     providerLabel,
     isFreePiProvider,
@@ -249,5 +280,6 @@
     byModelName,
     resolveSkillMention,
     extractImagePaths,
+    ntfySummary,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

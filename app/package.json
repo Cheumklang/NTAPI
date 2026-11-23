@@ -1,7 +1,7 @@
 {
   "name": "ntapi-desktop",
   "productName": "NTAPI",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "description": "รวม AI ที่มีโควตาฟรีไว้ในที่เดียว ลองก่อนจ่ายรายเดือน",
   "main": "src/main.js",
   "scripts": {
@@ -58,6 +58,10 @@
     "check:tooluse": "electron --no-sandbox scripts/check-provider-tooluse.js",
     "check:liveturn": "electron --no-sandbox scripts/check-live-turn-bubble.js",
     "check:sara": "node scripts/check-sara-am.js",
+    "check:grid": "electron --no-sandbox scripts/check-provider-grid.js",
+    "check:models": "electron --no-sandbox scripts/check-model-refresh.js",
+    "check:vision": "electron --no-sandbox scripts/check-local-vision.js",
+    "check:ntfy": "electron --no-sandbox scripts/check-ntfy-panel.js",
     "check:skills": "node scripts/selftest-skill-menu.js && node scripts/selftest-skill-notes.js"
   },
   "author": "Chanathip Cheumklang",

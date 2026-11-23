@@ -29,7 +29,7 @@ console.log('both ->', JSON.stringify(both));
 check('both providers registered', both.freePi && both.coarena);
 check('free-pi stays the default', both.defaultProvider === 'free-pi' && both.defaultModel === PREFERRED_FREE_PI_MODEL);
 check('ads only with free-pi', both.ads === true);
-check('free-pi tools only with free-pi', both.freePiTools === true && FREE_PI_TOOL_NAMES.length === 5);
+check('free-pi tools only with free-pi', both.freePiTools === true && FREE_PI_TOOL_NAMES.length === 6);
 
 const coOnly = planProviders({ hasFreePiAuth: false, coarenaKey: 'k', freePiModels: pi, coarenaModels: co });
 console.log('coarena-only ->', JSON.stringify(coOnly));

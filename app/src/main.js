@@ -18,6 +18,20 @@ const os = require('node:os');
 const { randomUUID } = require('node:crypto');
 
 /**
+ * Startup timings, on demand.
+ *
+ * `NTAPI_BOOT_TRACE=1` prints one `[boot] +Nms ...` line per milestone, and the
+ * renderer's own marks arrive through `ui:log` on the same channel. Off by
+ * default, so an ordinary start does no extra work and the console stays clean.
+ */
+const BOOT_TRACE = !!process.env.NTAPI_BOOT_TRACE;
+function bootTrace(label) {
+  if (!BOOT_TRACE) return;
+  console.log(`[boot] +${Math.round(process.uptime() * 1000)}ms ${label}`);
+}
+bootTrace('main.js loaded');
+
+/**
  * Update splash: the update replaces this .exe, so the app has to quit, and the
  * user was left staring at an empty desktop wondering whether to reopen it. The
  * installer spawns this same executable with `--ntapi-splash`; that copy owns a
@@ -49,6 +63,7 @@ app.setName('FreePi');
 app.setAppUserModelId('ai.ntapi.desktop');
 
 const bridge = require('./freepi-bridge');
+const { createLlamaCpp } = require('./llamacpp');
 const { resetFreePiSession } = require('./session-reset');
 const {
   createBrowserBridge,
@@ -95,6 +110,7 @@ function logCrash(kind, detail) {
  */
 function logUi(line) {
   logCrash('ui', line);
+  if (BOOT_TRACE) console.log('[boot-ui]', line);
 }
 process.on('uncaughtException', (err) => logCrash('uncaughtException', safeErrorMessage(err)));
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', safeErrorMessage(reason)));
@@ -156,21 +172,26 @@ try {
   ]);
 } catch {}
 const { createProviderKeyStore } = require('./provider-key');
+const { createNtfyService } = require('./ntfy-service');
+const { summarizeWithProvider } = require('./provider-chat');
 const { unreadableProviders } = require('./key-health');
 const { installSseErrorGuard } = require('./sse-error-guard');
-const { readCoarenaKeyInfo, COARENA_PROVIDER } = require('./coarena');
+const { readCoarenaKeyInfo, COARENA_PROVIDER, COARENA_BASE_URL } = require('./coarena');
 
 // Some OpenAI-compatible gateways answer a streaming request with 200 and the
 // failure inside the SSE body; without this pi would wait forever for a turn
 // that already failed. Installed before any provider request can run.
 installSseErrorGuard();
-const { checkZroKey } = require('./zro');
-const { checkNvidiaKey } = require('./nvidia');
-const { checkTokenHarborKey } = require('./tokenharbor');
-const { checkLlm7Key } = require('./llm7');
-const { checkDeepSeekKey } = require('./deepseek');
-const { checkAnthropicKey } = require('./anthropic');
-const { checkGoogleKey } = require('./google-ai');
+const { checkZroKey, ZRO_BASE_URL } = require('./zro');
+const { checkNvidiaKey, NVIDIA_BASE_URL } = require('./nvidia');
+const { checkTokenHarborKey, TOKENHARBOR_BASE_URL } = require('./tokenharbor');
+const { checkLlm7Key, LLM7_BASE_URL } = require('./llm7');
+const { checkDeepSeekKey, DEEPSEEK_BASE_URL } = require('./deepseek');
+const { checkZaiKey, ZAI_BASE_URL } = require('./zai');
+const { checkOpenRouterKey, OPENROUTER_BASE_URL } = require('./openrouter');
+const { checkCloudflareKey, cloudflareBaseUrl } = require('./cloudflare');
+const { checkAnthropicKey, ANTHROPIC_BASE_URL } = require('./anthropic');
+const { checkGoogleKey, GOOGLE_BASE_URL } = require('./google-ai');
 const { focusExistingWindow } = require('./single-instance');
 const { isUserAbort } = require('./turn-abort');
 const { promptOptionsFor } = require('./prompt-mode');
@@ -280,9 +301,20 @@ function resolveSdk() {
 
   for (const dir of candidates) {
     if (!fs.existsSync(dir)) continue;
-    try {
-      return require(dir);
-    } catch {}
+    /*
+     * The bundled entry first, and this is not a micro-optimisation. The package
+     * root (`dist/index.js`) is a barrel re-exporting ~1,100 modules, and reading
+     * those from the folder this VM shares with the host (`Z:`) costs 16 s on
+     * every launch - the window sat blank for all of it. `dist/bundle/index.js`
+     * exposes the same 156 names from one chunk file and loads in about a second.
+     * The root stays as the fallback, for a package built without a bundle.
+     */
+    for (const entry of [path.join(dir, 'dist', 'bundle', 'index.js'), dir]) {
+      try {
+        const loaded = require(entry);
+        if (loaded && loaded.SessionManager) return loaded;
+      } catch {}
+    }
   }
 
   throw new Error(
@@ -457,8 +489,59 @@ const googleKeys = createProviderKeyStore({
   safeStorage,
   fileName: 'google.json',
 });
+const zaiKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'zai.json',
+});
+const openrouterKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'openrouter.json',
+});
+const cloudflareKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'cloudflare.json',
+});
+/**
+ * Workers AI is scoped to an account id as well as a token, and one is useless
+ * without the other. The id lives in its own small store beside the token so it
+ * is encrypted and released by exactly the same code.
+ */
+const cloudflareAccounts = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'cloudflare-account.json',
+});
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
+
+/**
+ * ntfy: rooms of push notifications, driven from the sidebar chip.
+ *
+ * The service keeps its own files (`ntfy.json`, `ntfy-messages.json`) and one
+ * live subscription; everything it reports is forwarded to the window as a
+ * `ntfy:event`, so the panel redraws from the event rather than by polling.
+ */
+const ntfyService = createNtfyService({
+  dir: DATA_ROOT,
+  safeStorage,
+  log: (line) => console.log(line),
+});
+
+/**
+ * The local vision model. Its files live beside the keys, and it is started on
+ * demand: a 5 GB model held in memory for a session that never looks at a
+ * picture is memory the rest of the machine cannot use.
+ */
+const llamaCpp = createLlamaCpp({
+  dir: path.join(DATA_ROOT, 'llamacpp'),
+  // Remembered, but not acted on at launch: the switch is the user's decision,
+  // while booting a 5 GB model every time is nobody's.
+  enabled: readPrefs().llamaCppEnabled !== false,
+  log: () => send('llamacpp:progress', llamaCpp.status()),
+});
 
 /**
  * Where the agent's generated files land. Users can repoint each of these from
@@ -2676,6 +2759,7 @@ async function attachTab(tabId, manager, cwd) {
     tabs.delete(tabId);
   }
 
+  const bridgeStarted = Date.now();
   const handle = await bridge.createFreePiSession({
     cwd,
     sessionManager: manager,
@@ -2706,6 +2790,20 @@ async function attachTab(tabId, manager, cwd) {
     },
     browserBridge,
     systemBridge,
+    /**
+     * Looking at a picture without paying for it: `mode` says where it goes and
+     * `describe` runs the local model. The app owns both, so the tool never
+     * reaches a key or a model name by itself.
+     */
+    localVision: {
+      mode: () => visionMode(),
+      status: () => llamaCpp.status(),
+      start: () => llamaCpp.start(),
+      describe: (input) => llamaCpp.describeImage(input),
+    },
+    // The agent can put a line on the user's phone through the room the panel
+    // already holds — no room name, server or token crosses the tool call.
+    ntfy: { publish: (payload) => ntfyService.publish(payload) },
     downloadsDir: resolveFolder('downloads', cwd),
     // One ad per turn is what unlocks free completions. Keep the last one so
     // switching tabs does not blank the banner while the ad is still live.
@@ -2783,6 +2881,12 @@ async function attachTab(tabId, manager, cwd) {
     // API's own /models list intersected with the families this app offers.
     anthropicKey: anthropicKeys.read(),
     googleKey: googleKeys.read(),
+    // z.ai, OpenRouter and Cloudflare: one key each, except Cloudflare which
+    // also needs the account its token is scoped to.
+    zaiKey: zaiKeys.read(),
+    openrouterKey: openrouterKeys.read(),
+    cloudflareKey: cloudflareKeys.read(),
+    cloudflareAccountId: cloudflareAccounts.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -3189,6 +3293,7 @@ function createWindow() {
     };
     uiReadyResolver = () => finish('ui ready');
     win.webContents.once('did-finish-load', () => setTimeout(() => finish('timeout'), UI_READY_TIMEOUT_MS));
+    if (BOOT_TRACE) win.webContents.once('did-finish-load', () => bootTrace('did-finish-load'));
     win.once('closed', () => finish('window closed'));
   });
   win.on('closed', () => {
@@ -3333,13 +3438,16 @@ ipcMain.handle('app:quit', async () => {
 // renderer can read it before the first paint without a synchronous IPC — which
 // deadlocks any page loaded without a main process behind it.
 ipcMain.handle('app:boot', async () => {
+  const startedAt = Date.now();
   migrateLegacyPrefs();
   const prefs = readPrefs();
   const lastCwd = prefs.lastCwd && fs.existsSync(prefs.lastCwd) ? prefs.lastCwd : null;
+  const sessions = lastCwd ? await listSessions(lastCwd) : [];
+  bootTrace(`app:boot served in ${Date.now() - startedAt}ms (${sessions.length} sessions listed)`);
   return {
     lastCwd,
     version: app.getVersion(),
-    sessions: lastCwd ? await listSessions(lastCwd) : [],
+    sessions,
     openTabs: Array.isArray(prefs.openTabs) ? prefs.openTabs : [],
     lang: initialLang(prefs),
     theme: readTheme(),
@@ -3463,6 +3571,206 @@ async function coarenaStatus() {
 }
 
 /**
+ * The "update model list" button: re-read every configured provider's catalog,
+ * then hand each tab its new list.
+ *
+ * Every tab holds its own provider registrations, so the refresh runs per tab;
+ * the counts the button reports are the ones the first tab ended up with. A
+ * provider that could not be read is named in `errors` rather than silently
+ * leaving its old rows in place.
+ */
+ipcMain.handle('models:refresh', async () => {
+  let counts = {};
+  const errors = [];
+  let tabsTouched = 0;
+  for (const [tabId, tab] of tabs) {
+    if (typeof tab.handle?.refreshCatalogs !== 'function') continue;
+    try {
+      const res = await tab.handle.refreshCatalogs();
+      if (!tabsTouched) {
+        counts = res.counts || {};
+        errors.push(...(res.errors || []));
+      }
+      tabsTouched += 1;
+    } catch (err) {
+      errors.push({ provider: 'tab', error: err instanceof Error ? err.message : String(err) });
+    }
+    sendTab(tabId, 'model:changed', { model: tab.handle.session?.model || null });
+    sendTab(tabId, 'agent:history', { state: tabState(tabId) });
+  }
+  return { ok: errors.length === 0, counts, errors, tabs: tabsTouched };
+});
+
+/* ------------------------------- ntfy ---------------------------------- */
+
+/**
+ * ntfy from the sidebar: rooms of push notifications for the user's own phone.
+ *
+ * The service owns the files and the live subscription; these handlers are a
+ * thin surface over it. Every event it emits is forwarded to the window, so the
+ * panel is redrawn by what happened rather than by asking again.
+ */
+ntfyService.setEmitter((type, payload) => send('ntfy:event', { type, payload }));
+
+function ntfyBoot() {
+  return ntfyService.load();
+}
+
+ipcMain.handle('ntfy:state', async () => ntfyBoot());
+
+ipcMain.handle('ntfy:init', async () => {
+  const state = await ntfyService.init();
+  return { ok: true, state };
+});
+
+ipcMain.handle('ntfy:setServer', async (_e, { server } = {}) => {
+  const res = ntfyService.setServer(server);
+  return res.ok ? { ok: true, state: res.state } : res;
+});
+
+ipcMain.handle('ntfy:setSummary', async (_e, { enabled, limit, source } = {}) => {
+  const res = ntfyService.setSummary({ enabled, limit, source });
+  return { ok: true, state: res.state };
+});
+
+ipcMain.handle('ntfy:addTopic', async (_e, { name, label } = {}) => {
+  const res = ntfyService.addTopic(name, label);
+  return { ok: true, topic: res.topic, state: res.state };
+});
+
+ipcMain.handle('ntfy:removeTopic', async (_e, { name } = {}) => ({
+  ok: true,
+  state: ntfyService.removeTopic(name).state,
+}));
+
+ipcMain.handle('ntfy:setActiveTopic', async (_e, { name } = {}) => {
+  const res = ntfyService.setActiveTopic(name);
+  return res.ok ? { ok: true, state: res.state } : res;
+});
+
+ipcMain.handle('ntfy:clearMessages', async () => ({ ok: true, state: ntfyService.clearMessages().state }));
+
+ipcMain.handle('ntfy:signup', async (_e, { username, password, email } = {}) => {
+  const res = await ntfyService.signUp({ username, password, email });
+  return res.ok ? { ok: true, state: res.state } : res;
+});
+
+ipcMain.handle('ntfy:login', async (_e, { username, password } = {}) => {
+  const res = await ntfyService.logIn({ username, password });
+  return res.ok ? { ok: true, state: res.state } : res;
+});
+
+ipcMain.handle('ntfy:logout', async () => ({ ok: true, state: ntfyService.logout().state }));
+
+ipcMain.handle('ntfy:setEnabled', async (_e, { enabled } = {}) => ({
+  ok: true,
+  state: ntfyService.setEnabled(enabled !== false).state,
+}));
+
+/**
+ * Which provider/model a tab is on, and how to reach it with a one-shot call.
+ *
+ * Read from the tab rather than from settings: the answer came from *that*
+ * model, so the summary should come from it too. Only providers whose key and
+ * endpoint this app already holds can be reached this way; anything else says so
+ * and the caller falls back to the local model.
+ */
+function summarizeTarget(tabId) {
+  const tab = tabs.get(tabId || activeTabId) || null;
+  const model = tab?.handle?.session?.model || null;
+  if (!model) return null;
+  const provider = String(model.provider || '');
+  const baseUrls = {
+    zai: ZAI_BASE_URL,
+    openrouter: OPENROUTER_BASE_URL,
+    cloudflare: cloudflareAccounts.status().readable ? cloudflareBaseUrl(cloudflareAccounts.read()) : '',
+    coarena: COARENA_BASE_URL,
+    deepseek: DEEPSEEK_BASE_URL,
+    llm7: LLM7_BASE_URL,
+    nvidia: NVIDIA_BASE_URL,
+    tokenharbor: TOKENHARBOR_BASE_URL,
+    zro: ZRO_BASE_URL,
+    anthropic: ANTHROPIC_BASE_URL,
+    google: GOOGLE_BASE_URL,
+  };
+  const stores = {
+    zai: zaiKeys,
+    openrouter: openrouterKeys,
+    cloudflare: cloudflareKeys,
+    coarena: coarenaKeys,
+    deepseek: deepseekKeys,
+    llm7: llm7Keys,
+    nvidia: nvidiaKeys,
+    tokenharbor: tokenharborKeys,
+    zro: zroKeys,
+    anthropic: anthropicKeys,
+    google: googleKeys,
+  };
+  const baseUrl = baseUrls[provider] || '';
+  const store = stores[provider] || null;
+  const apiKey = store ? store.read() : '';
+  if (!baseUrl || !apiKey) return null;
+  return { provider, baseUrl, apiKey, model: model.id };
+}
+
+/**
+ * Summarize a finished answer for the phone.
+ *
+ * The order is the user's choice, with one fallback: provider → local, or local
+ * → provider. If neither can answer, the answer is shortened by cutting it, and
+ * the reply says which of the three happened so a five-second phone summary is
+ * never mistaken for a real one.
+ */
+ipcMain.handle('ntfy:summarize', async (_e, { text, limit, source, tabId } = {}) => {
+  const body = String(text || '');
+  const max = Number(limit) || 200;
+  if (!body.trim()) return { ok: false, error: 'Nothing to summarize.' };
+  const wanted = source === 'provider' ? 'provider' : 'local';
+  const order = wanted === 'provider' ? ['provider', 'local'] : ['local', 'provider'];
+  const tried = [];
+
+  for (const route of order) {
+    if (route === 'provider') {
+      const target = summarizeTarget(tabId);
+      if (!target) {
+        tried.push({ route, error: 'no provider key for this model' });
+        continue;
+      }
+      const res = await summarizeWithProvider({ ...target, text: body, limit: max });
+      if (res.ok) return { ok: true, via: 'provider', summary: res.summary, model: target.model };
+      tried.push({ route, error: res.error });
+      continue;
+    }
+    // Local: start the model if it is installed and idle; it holds the GPU only
+    // while this runs.
+    try {
+      const status = llamaCpp.status();
+      if (!status.installed) {
+        tried.push({ route, error: 'the local model is not installed' });
+        continue;
+      }
+      if (!status.running) await llamaCpp.start();
+      const res = await llamaCpp.summarize({ text: body, limit: max });
+      return { ok: true, via: 'local', summary: res.text };
+    } catch (err) {
+      tried.push({ route, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  return { ok: false, error: 'No summarizer answered.', tried };
+});
+
+ipcMain.handle('ntfy:publish', async (_e, payload = {}) => ntfyService.publish(payload));
+
+/**
+ * Push a copy to the phone. The agent calls this through the same service, so a
+ * long turn that finally finishes can say so without the user watching.
+ */
+ipcMain.handle('ntfy:notify', async (_e, { title, message, priority, tags } = {}) =>
+  ntfyService.publish({ title, message, priority, tags })
+);
+
+/**
  * Push a new key (or its removal) into every open tab. Registration is live, so
  * a tab on that provider keeps working without reopening; a tab left on a
  * removed provider is moved to a model that still exists and told why.
@@ -3571,6 +3879,34 @@ function applyGoogleKeyToTabs(key) {
   });
 }
 
+function applyZaiKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'zai',
+    label: 'z.ai',
+    key,
+    apply: (handle, next) => handle.applyZaiKey(next),
+  });
+}
+
+function applyOpenRouterKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'openrouter',
+    label: 'OpenRouter',
+    key,
+    apply: (handle, next) => handle.applyOpenRouterKey(next),
+  });
+}
+
+/** Both halves of the Workers AI credential travel together. */
+function applyCloudflareKeyToTabs(key, accountId) {
+  return applyKeyToTabs({
+    provider: 'cloudflare',
+    label: 'Cloudflare',
+    key,
+    apply: (handle, next) => handle.applyCloudflareKey(next, accountId),
+  });
+}
+
 /**
  * Keys that are on disk but cannot be decrypted here.
  *
@@ -3589,6 +3925,10 @@ function keyHealth() {
     { provider: 'deepseek', status: deepseekKeys.status() },
     { provider: 'anthropic', status: anthropicKeys.status() },
     { provider: 'google', status: googleKeys.status() },
+    { provider: 'zai', status: zaiKeys.status() },
+    { provider: 'openrouter', status: openrouterKeys.status() },
+    { provider: 'cloudflare', status: cloudflareKeys.status() },
+    { provider: 'cloudflare-account', status: cloudflareAccounts.status() },
   ]);
 }
 
@@ -3904,6 +4244,242 @@ ipcMain.handle('deepseek:clearKey', async () => {
   return { ok: true, status: deepseekKeys.status(), applied };
 });
 
+/* ------------------------- z.ai / OpenRouter / Cloudflare ---------------- */
+
+/**
+ * These three publish no per-key usage endpoint either; the status is the
+ * store's own state, and SetKey proves the credential before it is written.
+ *
+ * Cloudflare's status carries both halves: a token with no account id is not a
+ * configured provider, and the window has to say which half is missing.
+ */
+async function zaiStatus() {
+  return zaiKeys.status();
+}
+
+ipcMain.handle('zai:status', async () => zaiStatus());
+
+ipcMain.handle('zai:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) return { ok: false, status: zaiKeys.status(), error: 'Enter a z.ai API key first.' };
+
+  const check = await checkZaiKey(raw);
+  if (!check.ok && !check.offline) {
+    return { ok: false, status: zaiKeys.status(), error: check.error, code: check.code || null };
+  }
+
+  try {
+    zaiKeys.save(raw);
+    const applied = await applyZaiKeyToTabs(raw);
+    return { ok: true, status: zaiKeys.status(), unverified: Boolean(check.offline), applied };
+  } catch (err) {
+    return {
+      ok: false,
+      status: zaiKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('zai:clearKey', async () => {
+  try {
+    zaiKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: zaiKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyZaiKeyToTabs(null);
+  return { ok: true, status: zaiKeys.status(), applied };
+});
+
+async function openrouterStatus() {
+  return openrouterKeys.status();
+}
+
+ipcMain.handle('openrouter:status', async () => openrouterStatus());
+
+ipcMain.handle('openrouter:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: openrouterKeys.status(), error: 'Enter an OpenRouter API key first.' };
+  }
+
+  const check = await checkOpenRouterKey(raw);
+  if (!check.ok && !check.offline) {
+    return {
+      ok: false,
+      status: openrouterKeys.status(),
+      error: check.error,
+      code: check.code || null,
+    };
+  }
+
+  try {
+    openrouterKeys.save(raw);
+    const applied = await applyOpenRouterKeyToTabs(raw);
+    return { ok: true, status: openrouterKeys.status(), unverified: Boolean(check.offline), applied };
+  } catch (err) {
+    return {
+      ok: false,
+      status: openrouterKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('openrouter:clearKey', async () => {
+  try {
+    openrouterKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: openrouterKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyOpenRouterKeyToTabs(null);
+  return { ok: true, status: openrouterKeys.status(), applied };
+});
+
+/**
+ * Workers AI needs a token *and* the account its token is scoped to, so this is
+ * the one provider whose form has two fields and whose status reports two.
+ */
+async function cloudflareStatus() {
+  const token = cloudflareKeys.status();
+  const account = cloudflareAccounts.status();
+  return {
+    ...token,
+    accountConfigured: account.configured,
+    accountReadable: account.readable,
+    accountHint: account.hint,
+    // The tick in Settings means "this provider can be used", which needs both.
+    configured: Boolean(token.configured && account.configured),
+    readable: Boolean(token.readable && account.readable),
+  };
+}
+
+ipcMain.handle('cloudflare:status', async () => cloudflareStatus());
+
+ipcMain.handle('cloudflare:setKey', async (_e, { key, accountId } = {}) => {
+  const raw = String(key || '').trim();
+  const account = String(accountId || '').trim();
+  if (!account) {
+    return { ok: false, status: await cloudflareStatus(), error: 'Enter your Cloudflare account id first.' };
+  }
+  if (!raw) {
+    return { ok: false, status: await cloudflareStatus(), error: 'Enter a Cloudflare API token first.' };
+  }
+
+  // The account id is checked with the token: one without the other reaches
+  // nothing, and a wrong id would save cleanly and fail on the first turn.
+  const check = await checkCloudflareKey(raw, account);
+  if (!check.ok && !check.offline) {
+    return { ok: false, status: await cloudflareStatus(), error: check.error, code: check.code || null };
+  }
+
+  try {
+    cloudflareKeys.save(raw);
+    cloudflareAccounts.save(account);
+    const applied = await applyCloudflareKeyToTabs(raw, account);
+    return {
+      ok: true,
+      status: await cloudflareStatus(),
+      unverified: Boolean(check.offline),
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: await cloudflareStatus(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('cloudflare:clearKey', async () => {
+  try {
+    cloudflareKeys.clear();
+    cloudflareAccounts.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: await cloudflareStatus(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyCloudflareKeyToTabs(null, null);
+  return { ok: true, status: await cloudflareStatus(), applied };
+});
+
+/**
+ * The local vision model. Setup downloads ~5.8 GB, so it runs as its own step
+ * with progress pushed to the window rather than a call that hangs for minutes;
+ * every handler answers with a status the UI can paint as it is.
+ */
+ipcMain.handle('llamacpp:status', async () => llamaCpp.status());
+
+ipcMain.handle('llamacpp:setup', async () => {
+  try {
+    const status = await llamaCpp.setup(() => send('llamacpp:progress', llamaCpp.status()));
+    // The switch being on is the user asking for this model, so finishing the
+    // download starts it — the card then shows one honest state instead of "on
+    // but not running".
+    if (status.installed && status.enabled) {
+      try {
+        return { ok: true, status: await llamaCpp.start() };
+      } catch (err) {
+        return { ok: false, status: llamaCpp.status(), error: err instanceof Error ? err.message : String(err) };
+      }
+    }
+    return { ok: true, status };
+  } catch (err) {
+    return { ok: false, status: llamaCpp.status(), error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
+ipcMain.handle('llamacpp:cancel', async () => llamaCpp.cancelSetup());
+
+/**
+ * One switch instead of start/stop buttons: on means the model is allowed to
+ * run (and runs now), off means nothing on this machine runs it.
+ */
+ipcMain.handle('llamacpp:setEnabled', async (_e, { enabled } = {}) => {
+  const on = enabled !== false;
+  writePrefs({ llamaCppEnabled: on });
+  llamaCpp.setEnabled(on);
+  if (!on) return { ok: true, status: await llamaCpp.stop() };
+  if (!llamaCpp.status().installed) return { ok: true, status: llamaCpp.status() };
+  try {
+    return { ok: true, status: await llamaCpp.start() };
+  } catch (err) {
+    return { ok: false, status: llamaCpp.status(), error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
+/**
+ * Where a picture goes when the agent looks at one: sent to the model in the
+ * conversation ('model'), described by the local model ('local'), or not looked
+ * at all ('off'). Stored with the other preferences.
+ */
+const VISION_MODES = ['model', 'local', 'off'];
+
+function visionMode() {
+  const saved = readPrefs().visionMode;
+  return VISION_MODES.includes(saved) ? saved : 'model';
+}
+
+ipcMain.handle('vision:get', async () => visionMode());
+
+ipcMain.handle('vision:set', async (_e, { mode } = {}) => {
+  if (!VISION_MODES.includes(mode)) return { ok: false, mode: visionMode() };
+  writePrefs({ visionMode: mode });
+  return { ok: true, mode };
+});
+
 /**
  * Claude publishes no per-key usage endpoint; the status is the store's own
  * state. SetKey also proves the key and learns which model ids this account can
@@ -4108,6 +4684,12 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     deepseek: await deepseekStatus(),
     anthropic: await anthropicStatus(),
     google: await googleStatus(),
+    zai: await zaiStatus(),
+    openrouter: await openrouterStatus(),
+    cloudflare: await cloudflareStatus(),
+    // Looking at a picture: which route, and is the local model ready to serve it.
+    visionMode: visionMode(),
+    llamacpp: llamaCpp.status(),
   };
 });
 
@@ -4144,6 +4726,7 @@ function winState() {
 
 ipcMain.on('ui:log', (_e, line) => logUi(String(line || '').slice(0, 2000)));
 ipcMain.on('ui:ready', () => {
+  bootTrace('ui ready (renderer signalled)');
   const resolve = uiReadyResolver;
   uiReadyResolver = null;
   if (resolve) resolve();
@@ -4208,11 +4791,14 @@ ipcMain.handle('tab:open', async (_e, opts = {}) => {
 
   const tabId = opts.tabId && !tabs.has(opts.tabId) ? opts.tabId : newTabId();
 
+  const openStarted = Date.now();
   const manager = opts.sessionId
     ? openExisting(cwd, opts.sessionId)
     : sdk.SessionManager.create(cwd, sessionDirFor(cwd));
+  bootTrace(`tab:open opened the session in ${Date.now() - openStarted}ms`);
 
   const state = await attachTab(tabId, manager, cwd);
+  bootTrace(`tab:open attachTab done in ${Date.now() - openStarted}ms`);
   activeTabId = tabId;
   persistTabs();
   return { tabId, state };
@@ -6457,6 +7043,7 @@ app.whenReady().then(async () => {
   // The second copy quits above; make sure it never builds a window or opens
   // the presence port on its way out.
   if (!hasSingleInstanceLock) return;
+  bootTrace('app ready');
 
   // A switch left on from the previous run comes back with its escape hatch:
   // handing out access for a new session without a way to take it back is the
@@ -6479,6 +7066,7 @@ app.whenReady().then(async () => {
   try {
     await migrateSessionDirs();
   } catch {}
+  bootTrace('session dirs migrated');
 
   // Adopt whatever client version the backend currently accepts, so a build cut
   // months ago never pins a machine without free-pi-cli to a number the backend
@@ -6498,6 +7086,7 @@ app.whenReady().then(async () => {
    * looked like the app had failed to come back.
    */
   createWindow();
+  bootTrace('window created');
 
   try {
     sdk = resolveSdk();
@@ -6506,6 +7095,7 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
+  bootTrace('sdk resolved');
 
   // The build just replaced itself. Say so once — and put the coffee QR in
   // front of the person at the moment they are most likely to feel like it.
@@ -6584,6 +7174,11 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   if (sponsorRefreshTimer) clearInterval(sponsorRefreshTimer);
+  // The local model holds several GB of GPU memory; a closed window must not
+  // leave it running in the background.
+  void llamaCpp.stop();
+  // Nor may the notification stream keep a socket open with nothing to draw in.
+  ntfyService.stop();
   for (const tab of tabs.values()) {
     try {
       tab.handle.dispose();

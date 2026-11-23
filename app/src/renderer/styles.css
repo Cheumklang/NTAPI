@@ -1472,6 +1472,38 @@ button { font-family: inherit; }
 }
 .model-free-toggle:hover { color: var(--text); }
 
+/*
+ * The update button and the line it reports on. Both sit in the search row, so
+ * the note is one quiet line under it and never a dialog on top of the menu the
+ * reader is working in.
+ */
+.model-refresh {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+.model-refresh:hover { color: var(--text); border-color: var(--line-2); }
+.model-refresh:disabled { cursor: progress; opacity: 0.7; }
+.model-refresh[aria-busy='true'] svg { animation: model-refresh-spin 900ms linear infinite; }
+@keyframes model-refresh-spin { to { transform: rotate(360deg); } }
+.model-refresh-note {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.model-refresh-note.error { color: #e0685d; }
+
 @media (max-width: 720px) {
   .model-picker-btn { min-width: 0; max-width: 190px; }
   .model-picker-name { max-width: 118px; }
@@ -3670,6 +3702,117 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Separator between "get a key" and "buy credits" — two different journeys in one row. */
 .provider-card-foot .link-sep { color: var(--muted, var(--muted-soft)); font-size: 12px; }
 
+/*
+ * Providers: one tile per company, five to a row.
+ *
+ * The column of full cards had grown past the point where the key somebody came
+ * to fix could be found, and every new company pushed it further down. The grid
+ * holds eleven today and stays readable at twenty; the form for the chosen
+ * company opens underneath, one at a time.
+ */
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+.provider-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-3);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.provider-tile:hover { border-color: rgba(124, 92, 255, .35); }
+.provider-tile.active { border-color: var(--accent); background: var(--bg-2); }
+.provider-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.provider-tile-logo-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px;
+}
+.provider-tile-logo {
+  max-width: 40px;
+  max-height: 40px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.provider-tile-name {
+  max-width: 100%;
+  font-size: 11.5px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/*
+ * The tick sits on the logo's top-right corner but outside the mark itself.
+ * Drawn over the artwork it covered exactly the part that says which company
+ * this is, which is the one thing the tile exists to say.
+ */
+.provider-tile-tick {
+  position: absolute;
+  /* Placed so the badge clears the mark entirely: at -5/-7 it sat on the
+     logo's top-right corner and covered the one part that says which company
+     this is. Thirteen pixels out, it touches nothing. */
+  top: -11px;
+  right: -14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  color: var(--bg-3);
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--bg-3);
+}
+/* The mark takes the panel colour: light ink on the dark green tick in the
+   light theme, dark ink on the pale one in the dark theme. */
+.provider-tile[aria-pressed="true"] .provider-tile-tick { box-shadow: 0 0 0 2px var(--bg-2); }
+/* `display: flex` above beats the UA sheet's `[hidden] { display: none }`, so an
+   unconfigured tile would still show a tick. The attribute needs its own rule. */
+.provider-tile-tick[hidden] { display: none; }
+/*
+ * Four marks are drawn in near-white ink (Coarena, Zro, Token Harbor, OpenRouter)
+ * and vanished on the light theme's pale tile. They get a dark plate of their own
+ * — the same plate z.ai and Cloudflare already draw into their own artwork — and
+ * only those four, so the other logos keep the tile as their background.
+ */
+html[data-theme='light'] .provider-tile[data-provider='coarena'] .provider-tile-logo-wrap,
+html[data-theme='light'] .provider-tile[data-provider='zro'] .provider-tile-logo-wrap,
+html[data-theme='light'] .provider-tile[data-provider='tokenharbor'] .provider-tile-logo-wrap,
+html[data-theme='light'] .provider-tile[data-provider='openrouter'] .provider-tile-logo-wrap {
+  background: #161a23;
+  border-radius: 9px;
+}
+
+.provider-detail { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.provider-detail[hidden] { display: none; }
+.provider-detail .provider-card[hidden] { display: none; }
+/* Cloudflare asks for two values, so its row stacks them instead of squeezing
+   both into one line at the minimum window width. */
+.provider-card .provider-actions input.mono[type="text"] { flex: 1 1 160px; min-width: 140px; }
+
 /* About: the licence block reads as one statement, not as a field of statistics. */
 .about-legal { gap: 6px; }
 .about-legal-text { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--muted, var(--muted-soft)); max-width: 58ch; }
@@ -4353,6 +4496,31 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
 .think-item:hover:not(:disabled) { background: var(--surface-3); }
 .think-item[aria-selected="true"] { background: var(--surface-3); border-color: var(--line-2); }
 .think-item:disabled { opacity: .5; cursor: default; }
+
+/* The picture control reuses the reasoning control's look, but each row carries
+   its price: the three routes differ by cost, not by a level. */
+.vision-slot { position: relative; display: flex; align-items: center; flex: 0 0 auto; }
+.vision-menu { min-width: 268px; max-width: 300px; }
+.vision-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 7px 9px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.vision-item:hover:not(:disabled) { background: var(--surface-3); }
+.vision-item[aria-checked="true"] { background: var(--surface-3); border-color: var(--line-2); }
+.vision-item:disabled { opacity: .55; cursor: default; }
+.vision-item-name { font-size: 13px; }
+.vision-item-hint { font-size: 11px; line-height: 1.35; color: var(--muted); }
 
 .think-switch {
   position: relative;
@@ -5311,6 +5479,230 @@ html[lang="th"] .about-name-th {
 }
 .sys-note[hidden] { display: none; }
 
+/* ------------------------------- ntfy panel ------------------------------- */
+/*
+ * The chip opens a panel placed on the window (same reason as the desktop
+ * control's: the sidebar clips its own overflow). Four groups, in the order they
+ * are used, separated by hairlines rather than boxes — the panel is tall enough
+ * without drawing a card around every part of it.
+ */
+.ntfy-wrap { position: relative; display: inline-flex; }
+.ntfy-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line-2);
+  flex: 0 0 auto;
+}
+.ntfy-chip[data-state='live'] .ntfy-dot { background: #46d39a; }
+.ntfy-chip[data-state='error'] .ntfy-dot { background: #e0685d; }
+.ntfy-count {
+  min-width: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #46d39a;
+  color: #10261d;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ntfy-count[hidden] { display: none; }
+
+.ntfy-panel {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  width: 336px;
+  max-width: calc(100vw - 32px);
+  max-height: min(86vh, 760px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .45);
+}
+.ntfy-panel[hidden] { display: none; }
+.ntfy-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ntfy-label {
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ntfy-state {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, .05);
+}
+.ntfy-panel[data-state='live'] .ntfy-state { color: #7ee0b4; background: rgba(70, 211, 154, .14); }
+.ntfy-panel[data-state='error'] .ntfy-state { color: #ff9aa3; background: rgba(224, 104, 93, .16); }
+
+.ntfy-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+  /* The groups keep their height; only the arriving list is allowed to give it
+   * up, so the forms below stay where the reader left them. */
+  flex: 0 0 auto;
+}
+/* The one part with no natural end: its list scrolls inside it, and the group
+ * itself keeps its content height. Letting the group shrink here is what pushed
+ * its controls out over the group below it — a flex child that may shrink to
+ * zero still paints its content. */
+.ntfy-incoming { flex: 0 0 auto; }
+.ntfy-group:first-of-type { border-top: 0; padding-top: 0; }
+.ntfy-group-title {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* A row never squeezes a control: the input gives up width first, and when even
+ * that is not enough the row wraps instead of letting two boxes share pixels. */
+.ntfy-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ntfy-row > .ntfy-input { flex: 1 1 120px; width: auto; }
+.ntfy-row > .ntfy-btn { flex: 0 0 auto; }
+.ntfy-fields { display: flex; flex-direction: column; gap: 6px; }
+.ntfy-input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12.5px;
+}
+.ntfy-input.mono { font-family: var(--mono, ui-monospace, SFMono-Regular, monospace); font-size: 12px; }
+.ntfy-input.num { width: 84px; flex: 0 0 auto; }
+.ntfy-input:focus { outline: none; border-color: var(--line-2); }
+.ntfy-input:disabled { opacity: .5; }
+.ntfy-input[hidden] { display: none; }
+
+textarea.ntfy-input { resize: vertical; min-height: 44px; line-height: 1.4; }
+
+.ntfy-btn {
+  padding: 7px 11px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: rgba(70, 211, 154, .16);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  /* A short word in a wide row still gets a button, not a sliver. */
+  min-width: 64px;
+}
+.ntfy-btn:hover { background: rgba(70, 211, 154, .24); }
+.ntfy-btn.quiet { background: transparent; font-weight: 500; color: var(--muted); }
+.ntfy-btn.quiet:hover { color: var(--text); background: rgba(255, 255, 255, .06); }
+.ntfy-btn[disabled] { opacity: .55; cursor: progress; }
+.ntfy-btn[hidden] { display: none; }
+
+/* The slide: two options in one track, the chosen one filled. */
+.ntfy-slide {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  align-self: flex-start;
+}
+.ntfy-slide-opt {
+  padding: 6px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ntfy-slide-opt[aria-pressed='true'] { background: rgba(70, 211, 154, .2); color: var(--text); }
+.ntfy-limit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.ntfy-limit > .ntfy-input { flex: 0 0 auto; }
+.ntfy-limit.disabled { opacity: .5; }
+
+.ntfy-rooms { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.ntfy-room {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.ntfy-room:hover { background: rgba(255, 255, 255, .05); color: var(--text); }
+.ntfy-room[aria-current='true'] { border-color: var(--line-2); background: rgba(70, 211, 154, .12); color: var(--text); }
+.ntfy-room-name { font-family: var(--mono, ui-monospace, monospace); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ntfy-room-badge { margin-left: auto; font-size: 10px; color: #7ee0b4; }
+
+.ntfy-messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 96px;
+  overflow-y: auto;
+  /* The list is the one thing that scrolls inside the panel; the panel itself
+   * scrolls only when the window is too short for all four groups. */
+  overscroll-behavior: contain;
+}
+.ntfy-msg {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.ntfy-msg-head { display: flex; gap: 6px; align-items: baseline; font-size: 11px; color: var(--muted); }
+.ntfy-msg-title { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ntfy-msg-time { margin-left: auto; font-variant-numeric: tabular-nums; }
+.ntfy-msg-body { margin: 3px 0 0; font-size: 12px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.ntfy-empty { margin: 0; font-size: 11.5px; color: var(--muted); }
+
+.ntfy-note { margin: 0; font-size: 11px; line-height: 1.45; color: var(--muted); }
+.ntfy-note.error { color: #ff9aa3; }
+.ntfy-note.ok { color: #7ee0b4; }
+.ntfy-note[hidden] { display: none; }
+.ntfy-hint { margin: 0; font-size: 11px; line-height: 1.45; color: var(--muted); opacity: .85; }
+.ntfy-server { border-top: 1px solid var(--line); padding-top: 8px; }
+.ntfy-server > summary { font-size: 11.5px; color: var(--muted); cursor: pointer; }
+.ntfy-server[open] > summary { margin-bottom: 7px; }
+
 /* The strip is fixed, so it never reflows the conversation under it. */
 /* ------------------------ status numbers (the count) ------------------------ */
 /*
@@ -5407,3 +5799,39 @@ html[lang="th"] .about-name-th {
 .tok-value {
   min-width: 13ch;
 }
+
+/* The command switch: the label is the target, so the row is a comfortable
+ * line to press and the tick sits inside it. */
+.slide-switch,
+.ntfy-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  min-height: 26px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+.slide-switch input,
+.ntfy-switch input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: #46d39a;
+  cursor: pointer;
+}
+
+/* The local model's switch sits under its own status line, above the buttons. */
+.slide-switch { margin: 2px 0 4px; }
+.slide-switch input:disabled + span { color: var(--muted); }
+
+/* The master switch sits at the top of the panel, on its own line. */
+.ntfy-master { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.ntfy-source { display: flex; flex-direction: column; gap: 5px; }
+.ntfy-source-label { font-size: 11.5px; color: var(--muted); }
+.ntfy-source .ntfy-slide { align-self: stretch; }
+.ntfy-source .ntfy-slide-opt { flex: 1 1 auto; }

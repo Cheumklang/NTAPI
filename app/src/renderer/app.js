@@ -22,6 +22,8 @@ const modelPickerPlan = el('modelPickerPlan');
 const modelPickerFreeTier = el('modelPickerFreeTier');
 const modelMenu = el('modelMenu');
 const modelSearch = el('modelSearch');
+const modelRefresh = el('modelRefresh');
+const modelRefreshNote = el('modelRefreshNote');
 const modelFreeOnly = el('modelFreeOnly');
 const modelFreeOnlyLabel = el('modelFreeOnlyLabel');
 const modelList = el('modelList');
@@ -318,6 +320,78 @@ const STRINGS = {
     googleUnverified: 'Gemini could not be reached — the key was saved unverified.',
     googleSaveFailed: 'Could not save the key:',
     googleRemoved: 'Gemini key removed.',
+    zaiSection: 'z.ai',
+    zaiSave: 'Save',
+    zaiRemove: 'Remove',
+    zaiRemoveTitle: 'Remove the z.ai key?',
+    zaiRemoveSub: 'z.ai models leave the list. A model already running keeps going until the turn ends.',
+    zaiConfigured: 'Configured',
+    zaiUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    zaiNotConfigured: 'No key yet — z.ai models stay hidden.',
+    zaiGetKey: 'Get a key at z.ai',
+    zaiBuy: 'Top up at z.ai',
+    zaiSaved: 'z.ai key saved.',
+    zaiUnverified: 'z.ai could not be reached — the key was saved unverified.',
+    zaiSaveFailed: 'Could not save the key:',
+    zaiRemoved: 'z.ai key removed.',
+    openrouterSection: 'OpenRouter',
+    openrouterSave: 'Save',
+    openrouterRemove: 'Remove',
+    openrouterRemoveTitle: 'Remove the OpenRouter key?',
+    openrouterRemoveSub: 'OpenRouter models leave the list. A model already running keeps going until the turn ends.',
+    openrouterConfigured: 'Configured',
+    openrouterUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    openrouterNotConfigured: 'No key yet — OpenRouter models stay hidden.',
+    openrouterGetKey: 'Get a key at openrouter.ai',
+    openrouterBuy: 'Top up at openrouter.ai',
+    openrouterSaved: 'OpenRouter key saved.',
+    openrouterUnverified: 'OpenRouter could not be reached — the key was saved unverified.',
+    openrouterSaveFailed: 'Could not save the key:',
+    openrouterRemoved: 'OpenRouter key removed.',
+    cloudflareSection: 'Cloudflare',
+    cloudflareKeyLabel: 'API token',
+    cloudflareAccountLabel: 'Account ID',
+    cloudflareSave: 'Save',
+    cloudflareRemove: 'Remove',
+    cloudflareRemoveTitle: 'Remove the Cloudflare credential?',
+    cloudflareRemoveSub: 'Both the account id and the token are deleted, and Cloudflare models leave the list.',
+    cloudflareConfigured: 'Configured',
+    cloudflareUnreadable: 'This credential was saved on another machine and cannot be read here — enter it again.',
+    cloudflareNotConfigured: 'No credential yet — Cloudflare models stay hidden.',
+    cloudflareAccountMissing: 'Enter both the account id and the token — Workers AI needs both.',
+    cloudflareGetKey: 'Get a token at dash.cloudflare.com',
+    cloudflareBuy: 'Top up at dash.cloudflare.com',
+    cloudflareSaved: 'Cloudflare credential saved.',
+    cloudflareUnverified: 'Cloudflare could not be reached — the credential was saved unverified.',
+    cloudflareSaveFailed: 'Could not save the credential:',
+    cloudflareRemoved: 'Cloudflare credential removed.',
+    providerTileHasKey: 'key saved',
+    llamacppSection: 'llama.cpp',
+    llamacppInstall: 'Install',
+    llamacppCancel: 'Cancel',
+    llamacppEnabledLabel: 'Use the model on this machine',
+    llamacppOff: 'Off — nothing runs on this machine until you switch it back on',
+    llamacppNotInstalled: 'Not installed · 5.8 GB on first use',
+    llamacppDownloading: 'Downloading {what} — {pct}%',
+    llamacppStarting: 'Starting the local model…',
+    llamacppReady: 'Ready — starts when a picture needs looking at',
+    llamacppRunning: 'Running on this machine (port {port})',
+    llamacppFailed: 'Not running: {error}',
+    llamacppCost:
+      'A free way to look at pictures: the local model describes them on this GPU, and only its words join the conversation.',
+    llamacppInstallNote:
+      'One 5.8 GB download. Runs beside the chat, needs a Vulkan-capable GPU, and stops when the window closes.',
+    visionTitle: 'Where a picture goes when the agent looks at one',
+    visionLabel: 'Pictures:',
+    visionModel: 'This model',
+    visionLocal: 'This machine',
+    visionOff: 'Off',
+    visionHintModel: 'The picture joins the chat: about 1,300 tokens each, and it leaves this machine',
+    visionHintLocal:
+      'Described by the local model: no tokens for the picture, nothing leaves this machine, ~10 s and the GPU is busy',
+    visionHintLocalMissing: 'Not installed yet — Settings → Providers → llama.cpp',
+    visionHintLocalOff: 'The local model is switched off — Settings → Providers → llama.cpp',
+    visionHintOff: 'Pictures are not looked at at all',
     googleMeterLabel: 'Pay per token',
     googlePrice: '{in} in / {out} out per 1M',
     googleLimits: 'Gemini 2.5 Pro $1.25 in / $10 out per 1M',
@@ -887,6 +961,78 @@ const STRINGS = {
     googleUnverified: 'ติดต่อ Gemini ไม่ได้ — บันทึกคีย์แบบยังไม่ยืนยัน',
     googleSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
     googleRemoved: 'ลบคีย์ Gemini แล้ว',
+    zaiSection: 'z.ai',
+    zaiSave: 'บันทึก',
+    zaiRemove: 'ลบออก',
+    zaiRemoveTitle: 'ลบคีย์ z.ai?',
+    zaiRemoveSub: 'โมเดล z.ai จะหายจากรายการ โมเดลที่กำลังทำงานอยู่จะใช้ต่อจนจบเทิร์น',
+    zaiConfigured: 'ตั้งค่าแล้ว',
+    zaiUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    zaiNotConfigured: 'ยังไม่มีคีย์ — โมเดล z.ai จะไม่แสดง',
+    zaiGetKey: 'ขอคีย์ที่ z.ai',
+    zaiBuy: 'เติมเงินที่ z.ai',
+    zaiSaved: 'บันทึกคีย์ z.ai แล้ว',
+    zaiUnverified: 'ติดต่อ z.ai ไม่ได้ — บันทึกคีย์ไว้โดยยังไม่ตรวจ',
+    zaiSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    zaiRemoved: 'ลบคีย์ z.ai แล้ว',
+    openrouterSection: 'OpenRouter',
+    openrouterSave: 'บันทึก',
+    openrouterRemove: 'ลบออก',
+    openrouterRemoveTitle: 'ลบคีย์ OpenRouter?',
+    openrouterRemoveSub: 'โมเดล OpenRouter จะหายจากรายการ โมเดลที่กำลังทำงานอยู่จะใช้ต่อจนจบเทิร์น',
+    openrouterConfigured: 'ตั้งค่าแล้ว',
+    openrouterUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    openrouterNotConfigured: 'ยังไม่มีคีย์ — โมเดล OpenRouter จะไม่แสดง',
+    openrouterGetKey: 'ขอคีย์ที่ openrouter.ai',
+    openrouterBuy: 'เติมเงินที่ openrouter.ai',
+    openrouterSaved: 'บันทึกคีย์ OpenRouter แล้ว',
+    openrouterUnverified: 'ติดต่อ OpenRouter ไม่ได้ — บันทึกคีย์ไว้โดยยังไม่ตรวจ',
+    openrouterSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    openrouterRemoved: 'ลบคีย์ OpenRouter แล้ว',
+    cloudflareSection: 'Cloudflare',
+    cloudflareKeyLabel: 'API token',
+    cloudflareAccountLabel: 'Account ID',
+    cloudflareSave: 'บันทึก',
+    cloudflareRemove: 'ลบออก',
+    cloudflareRemoveTitle: 'ลบข้อมูล Cloudflare?',
+    cloudflareRemoveSub: 'ลบทั้ง Account ID และ token แล้วโมเดล Cloudflare จะหายจากรายการ',
+    cloudflareConfigured: 'ตั้งค่าแล้ว',
+    cloudflareUnreadable: 'ข้อมูลนี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    cloudflareNotConfigured: 'ยังไม่มีข้อมูล — โมเดล Cloudflare จะไม่แสดง',
+    cloudflareAccountMissing: 'ต้องกรอกทั้ง Account ID และ token — Workers AI ใช้ทั้งคู่',
+    cloudflareGetKey: 'ขอ token ที่ dash.cloudflare.com',
+    cloudflareBuy: 'เติมเงินที่ dash.cloudflare.com',
+    cloudflareSaved: 'บันทึกข้อมูล Cloudflare แล้ว',
+    cloudflareUnverified: 'ติดต่อ Cloudflare ไม่ได้ — บันทึกไว้โดยยังไม่ตรวจ',
+    cloudflareSaveFailed: 'บันทึกข้อมูลไม่สำเร็จ:',
+    cloudflareRemoved: 'ลบข้อมูล Cloudflare แล้ว',
+    providerTileHasKey: 'มีคีย์แล้ว',
+    llamacppSection: 'llama.cpp',
+    llamacppInstall: 'ติดตั้ง',
+    llamacppCancel: 'ยกเลิก',
+    llamacppEnabledLabel: 'ใช้โมเดลบนเครื่องนี้',
+    llamacppOff: 'ปิดอยู่ — ยังไม่ทำงานบนเครื่องนี้ จนกว่าจะเปิดสวิตช์กลับ',
+    visionHintLocalOff: 'สวิตช์โมเดลในเครื่องปิดอยู่ — ตั้งค่า → ผู้ให้บริการ → llama.cpp',
+    llamacppNotInstalled: 'ยังไม่ได้ติดตั้ง · 5.8 GB ครั้งแรก',
+    llamacppDownloading: 'กำลังโหลด {what} — {pct}%',
+    llamacppStarting: 'กำลังเริ่มโมเดลในเครื่อง…',
+    llamacppReady: 'พร้อมแล้ว — จะเริ่มเองเมื่อมีภาพให้ดู',
+    llamacppRunning: 'กำลังทำงานบนเครื่องนี้ (พอร์ต {port})',
+    llamacppFailed: 'ไม่ทำงาน: {error}',
+    llamacppCost:
+      'ทางดูภาพแบบไม่เสียเงิน: โมเดลในเครื่องบรรยายภาพด้วย GPU นี้ แล้วมีแค่คำบรรยายที่เข้าบทสนทนา',
+    llamacppInstallNote:
+      'ดาวน์โหลดครั้งเดียว 5.8 GB ทำงานคู่กับแชท ต้องมี GPU ที่รองรับ Vulkan และหยุดเองเมื่อปิดหน้าต่าง',
+    visionTitle: 'ภาพจะไปที่ไหนเมื่อ AI ดูภาพ',
+    visionLabel: 'ดูภาพ:',
+    visionModel: 'โมเดลนี้',
+    visionLocal: 'ในเครื่องนี้',
+    visionOff: 'ปิด',
+    visionHintModel: 'ภาพเข้าบทสนทนา: ~1,300 โทเคนต่อภาพ และภาพออกจากเครื่องนี้',
+    visionHintLocal:
+      'โมเดลในเครื่องบรรยายให้: ไม่กินโทเคนสำหรับภาพ ภาพไม่ออกจากเครื่อง ~10 วิ และ GPU ไม่ว่างระหว่างนั้น',
+    visionHintLocalMissing: 'ยังไม่ได้ติดตั้ง — ตั้งค่า → ผู้ให้บริการ → llama.cpp',
+    visionHintOff: 'ไม่ดูภาพเลย',
     googleMeterLabel: 'จ่ายตามโทเคน',
     googlePrice: '{in} เข้า / {out} ออก ต่อ 1M',
     googleLimits: 'Gemini 2.5 Pro $1.25 เข้า / $10 ออก ต่อ 1M',
@@ -1251,6 +1397,10 @@ function applyLanguage() {
   for (const node of document.querySelectorAll('[data-i18n-aria]')) {
     node.setAttribute('aria-label', t(node.getAttribute('data-i18n-aria')));
   }
+  // A placeholder is read too, and by the same rule as every other word.
+  for (const node of document.querySelectorAll('[data-i18n-ph]')) {
+    node.placeholder = t(node.getAttribute('data-i18n-ph'));
+  }
   const btn = el('langBtn');
   if (btn) {
     btn.textContent = lang === 'en' ? 'EN' : 'TH';
@@ -1258,6 +1408,9 @@ function applyLanguage() {
   }
   // The terms card carries its own switch, since it covers the title bar.
   if (typeof paintTermsLang === 'function') paintTermsLang();
+  // Menus built by hand keep their old words until something repaints them.
+  if (typeof paintVisionControl === 'function') paintVisionControl();
+  if (typeof paintNtfy === 'function' && ntfyState) paintNtfy();
   // The theme chip's tooltip is translated too.
   if (typeof paintThemeButton === 'function') paintThemeButton();
   const online = el('brandOnline');
@@ -3170,6 +3323,8 @@ function openModelMenu() {
   modelPickerBtn.setAttribute('aria-expanded', 'true');
   modelSearch.value = '';
   modelSearch.placeholder = t('searchModels');
+  // A result from last time is not a result for this visit.
+  if (modelRefreshNote) modelRefreshNote.hidden = true;
   filterModelMenu();
 
   // Bring the active model into view before the user starts typing.
@@ -3407,6 +3562,49 @@ modelPickerBtn.addEventListener('keydown', (e) => {
 });
 
 modelSearch.addEventListener('input', filterModelMenu);
+
+/*
+ * "Update model list".
+ *
+ * The catalogs are read once when a tab opens and kept for ten minutes, so a
+ * provider that shipped a model this afternoon is not in the list until then.
+ * This button asks for the current lists on purpose and reports what came back,
+ * per provider, in the line under the search box — the rows themselves arrive
+ * through the usual model list, so nothing here rebuilds the menu by hand.
+ */
+modelRefresh.addEventListener('click', async () => {
+  if (modelRefresh.getAttribute('aria-busy') === 'true') return;
+  modelRefresh.setAttribute('aria-busy', 'true');
+  modelRefresh.disabled = true;
+  modelRefreshNote.hidden = false;
+  modelRefreshNote.classList.remove('error');
+  modelRefreshNote.textContent = t('modelRefreshBusy');
+
+  const label = (id) => FPProvider.providerLabel(id) || id;
+  try {
+    const res = await api.modelsRefresh();
+    const counts = Object.entries(res?.counts || {}).filter(([, n]) => Number(n) > 0);
+    const failed = (Array.isArray(res?.errors) ? res.errors : []).map((e) => label(e.provider));
+    const parts = counts.map(([provider, n]) => `${label(provider)} ${n}`);
+    if (!parts.length && !failed.length) {
+      modelRefreshNote.textContent = t('modelRefreshNone');
+    } else {
+      modelRefreshNote.textContent = [
+        parts.join(' · '),
+        failed.length ? `${t('modelRefreshFailed')}: ${failed.join(', ')}` : '',
+      ]
+        .filter(Boolean)
+        .join(' — ');
+      modelRefreshNote.classList.toggle('error', failed.length > 0);
+    }
+  } catch {
+    modelRefreshNote.classList.add('error');
+    modelRefreshNote.textContent = t('modelRefreshFailed');
+  }
+
+  modelRefresh.setAttribute('aria-busy', 'false');
+  modelRefresh.disabled = false;
+});
 modelSearch.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
@@ -3921,6 +4119,7 @@ function paintCoarenaSettings() {
   node.textContent = text;
   node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
   if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
 }
 
 async function refreshCoarenaStatus() {
@@ -3956,6 +4155,7 @@ function paintZroSettings() {
   node.textContent = text;
   node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
   if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
 }
 
 async function refreshZroStatus() {
@@ -3989,6 +4189,7 @@ function paintNvidiaSettings() {
   node.textContent = text;
   node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
   if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
 }
 
 async function refreshNvidiaStatus() {
@@ -4022,6 +4223,7 @@ function paintTokenharborSettings() {
   node.textContent = text;
   node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
   if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
 }
 
 async function refreshTokenharborStatus() {
@@ -4040,6 +4242,12 @@ let llm7Status = null;
 let deepseekStatus = null;
 let anthropicStatus = null;
 let googleStatus = null;
+let zaiStatus = null;
+let openrouterStatus = null;
+let cloudflareStatus = null;
+/** The local vision model (llama.cpp) and where a picture goes when it is looked at. */
+let llamacppStatus = null;
+let visionMode = 'model';
 
 function paintLlm7Settings() {
   const node = el('llm7Status');
@@ -4059,6 +4267,7 @@ function paintLlm7Settings() {
   node.textContent = text;
   node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
   if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
 }
 
 async function refreshLlm7Status() {
@@ -4090,6 +4299,7 @@ function paintDeepSeekSettings() {
   node.textContent = text;
   node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
   if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
 }
 
 async function refreshDeepSeekStatus() {
@@ -4121,6 +4331,7 @@ function paintAnthropicSettings() {
   node.textContent = text;
   node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
   if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
 }
 
 async function refreshAnthropicStatus() {
@@ -4152,7 +4363,888 @@ function paintGoogleSettings() {
   node.textContent = text;
   node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
   if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
 }
+
+
+/* ------------------------- z.ai / OpenRouter / Cloudflare ---------------- */
+
+function paintZaiSettings() {
+  const node = el('zaiStatus');
+  const remove = el('zaiRemove');
+  if (!node) return;
+
+  const s = zaiStatus;
+  let text = t('zaiNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('zaiConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('zaiUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
+}
+
+function paintOpenRouterSettings() {
+  const node = el('openrouterStatus');
+  const remove = el('openrouterRemove');
+  if (!node) return;
+
+  const s = openrouterStatus;
+  let text = t('openrouterNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('openrouterConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('openrouterUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
+}
+
+function paintCloudflareSettings() {
+  const node = el('cloudflareStatus');
+  const remove = el('cloudflareRemove');
+  if (!node) return;
+
+  const s = cloudflareStatus;
+  let text = t('cloudflareNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('cloudflareConfigured')} · ${how}`;
+    if (s.accountHint) text += ` · account ...${s.accountHint}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.tokenConfigured !== false && s?.configured === false && (s?.accountConfigured || s?.hint)) {
+    // One half saved, the other missing: say which, instead of "no credential".
+    text = t('cloudflareAccountMissing');
+  } else if (s?.configured) {
+    text = t('cloudflareUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle(
+    'warn',
+    Boolean((s?.configured && !s.readable) || (s?.configured === false && s?.accountConfigured && !s?.accountReadable))
+  );
+  if (remove) remove.disabled = !s?.configured && !s?.accountConfigured;
+  paintProviderGrid();
+}
+
+/**
+ * The local vision model's own card: the only provider that installs files
+ * instead of holding a key, so it says what it is doing — not installed,
+ * downloading with a percentage, ready, or running on a port.
+ */
+function paintLlamaCppSettings() {
+  const node = el('llamacppStatus');
+  if (!node) return;
+
+  const s = llamacppStatus;
+  const phase = s?.phase || 'idle';
+  const busy = phase === 'downloading' || phase === 'starting';
+
+  const on = s?.enabled !== false;
+  let text = t('llamacppNotInstalled');
+  if (phase === 'downloading' && s?.progress) {
+    const { label, done, total } = s.progress;
+    const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0;
+    text = t('llamacppDownloading', { what: label || '', pct });
+  } else if (phase === 'starting') {
+    text = t('llamacppStarting');
+  } else if (s?.running) {
+    text = t('llamacppRunning', { port: s.port || '' });
+  } else if (phase === 'error' && s?.error) {
+    text = t('llamacppFailed', { error: s.error });
+  } else if (s?.installed && on) {
+    text = t('llamacppReady');
+  } else if (s?.installed) {
+    text = t('llamacppOff');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', phase === 'error');
+
+  const install = el('llamacppInstall');
+  if (install) {
+    install.hidden = Boolean(s?.installed) || busy;
+    install.disabled = busy;
+  }
+  const cancel = el('llamacppCancel');
+  if (cancel) cancel.hidden = phase !== 'downloading';
+  const toggle = el('llamacppEnabled');
+  if (toggle) {
+    // A model that is not installed has nothing to switch on yet.
+    toggle.checked = on;
+    toggle.disabled = !s?.installed || busy;
+  }
+  paintProviderGrid();
+}
+
+/*
+ * The picture control: where a picture goes when the agent looks at one.
+ *
+ * `model` puts it in the conversation (costs tokens, leaves the machine),
+ * `local` has the local model describe it (free, nothing leaves), `off` refuses
+ * to look at all. It sits beside the thinking control because both answer the
+ * same question — what will this turn cost me.
+ */
+const VISION_MODES = ['model', 'local', 'off'];
+
+function visionModeLabel(mode) {
+  if (mode === 'local') return t('visionLocal');
+  if (mode === 'off') return t('visionOff');
+  return t('visionModel');
+}
+
+function paintVisionControl() {
+  const btn = el('visionBtn');
+  const menu = el('visionMenu');
+  if (!btn || !menu) return;
+
+  const valueEl = el('visionValue');
+  if (valueEl) valueEl.textContent = visionModeLabel(visionMode);
+
+  const installed = Boolean(llamacppStatus?.installed);
+  const on = llamacppStatus?.enabled !== false;
+  const key = `${lang}|${installed}|${on}`;
+  if (menu.dataset.key !== key) {
+    menu.dataset.key = key;
+    menu.replaceChildren(
+      ...VISION_MODES.map((mode) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'vision-item';
+        row.dataset.mode = mode;
+        row.setAttribute('role', 'menuitemradio');
+
+        const name = document.createElement('span');
+        name.className = 'vision-item-name';
+        name.textContent = visionModeLabel(mode);
+
+        const hint = document.createElement('span');
+        hint.className = 'vision-item-hint';
+        if (mode === 'local' && !installed) hint.textContent = t('visionHintLocalMissing');
+        else if (mode === 'local' && !on) hint.textContent = t('visionHintLocalOff');
+        else if (mode === 'model') hint.textContent = t('visionHintModel');
+        else if (mode === 'local') hint.textContent = t('visionHintLocal');
+        else hint.textContent = t('visionHintOff');
+
+        row.append(name, hint);
+        // A model that is not installed cannot be chosen yet: say so, do not
+        // offer a route that fails on the first picture.
+        row.disabled = mode === 'local' && (!installed || !on);
+        row.addEventListener('click', async () => {
+          setVisionMenu(false);
+          if (mode === visionMode) return;
+          const res = await api.visionSet(mode);
+          visionMode = res?.mode || visionMode;
+          paintVisionControl();
+        });
+        return row;
+      })
+    );
+  }
+
+  for (const row of menu.querySelectorAll('.vision-item')) {
+    row.setAttribute('aria-checked', String(row.dataset.mode === visionMode));
+  }
+}
+
+function setVisionMenu(open) {
+  const menu = el('visionMenu');
+  const btn = el('visionBtn');
+  if (!menu || !btn) return;
+  menu.hidden = !open;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+el('visionBtn')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  setVisionMenu(el('visionMenu')?.hidden !== false);
+});
+
+// Hover opens it, like the thinking control beside it; the click above stays for
+// keyboard and touch.
+let visionHideTimer = 0;
+document.querySelector('.vision-slot')?.addEventListener('pointerenter', () => {
+  clearTimeout(visionHideTimer);
+  setVisionMenu(true);
+});
+document.querySelector('.vision-slot')?.addEventListener('pointerleave', () => {
+  clearTimeout(visionHideTimer);
+  visionHideTimer = setTimeout(() => {
+    const slot = document.querySelector('.vision-slot');
+    if (!slot || !slot.contains(document.activeElement)) setVisionMenu(false);
+  }, 220);
+});
+
+document.addEventListener('click', (e) => {
+  const menu = el('visionMenu');
+  if (!menu || menu.hidden) return;
+  if (!e.target.closest('.vision-slot')) setVisionMenu(false);
+});
+
+document.addEventListener('keydown', (e) => {
+  const menu = el('visionMenu');
+  if (e.key !== 'Escape' || !menu || menu.hidden) return;
+  setVisionMenu(false);
+  el('visionBtn')?.focus();
+});
+
+/* ---------------- the local model: install, start, stop --------------- */
+
+async function llamaCppCall(fn) {
+  const res = await fn();
+  llamacppStatus = res?.status || llamacppStatus;
+  paintLlamaCppSettings();
+  paintVisionControl();
+  if (res && res.ok === false && res.error) showNotice(res.error);
+}
+
+el('llamacppInstall')?.addEventListener('click', () => llamaCppCall(() => api.llamacppSetup()));
+el('llamacppCancel')?.addEventListener('click', () => llamaCppCall(() => api.llamacppCancel()));
+el('llamacppEnabled')?.addEventListener('change', () =>
+  llamaCppCall(() => api.llamacppSetEnabled(el('llamacppEnabled').checked))
+);
+
+// Download progress comes from main while setup runs; repaint both the card and
+// the picture control (installed flips the "this machine" choice on).
+api.onLlamaCppProgress?.((status) => {
+  if (!status) return;
+  llamacppStatus = status;
+  paintLlamaCppSettings();
+  paintVisionControl();
+});
+
+// The picture control is on screen before Settings is ever opened, so its state
+// is read once at boot rather than waiting for the settings payload.
+(async () => {
+  try {
+    visionMode = (await api.visionGet()) || visionMode;
+    llamacppStatus = (await api.llamacppStatus()) || llamacppStatus;
+  } catch {}
+  paintVisionControl();
+})();
+
+/* --------------------------------- ntfy --------------------------------- */
+
+/*
+ * The ntfy panel.
+ *
+ * ntfy is a pub/sub notification service: a "room" is a topic you publish to and
+ * listen on, and the phone app subscribes to the same name. Main holds the
+ * credential and the live subscription; this draws what it reports, so there is
+ * one place that knows whether a stream is up.
+ *
+ * Four groups, in the order they are used: account, rooms, what arrives, what
+ * you send. Everything works signed out — an anonymous account still has a daily
+ * message allowance — so the account group is a way to raise a limit and keep a
+ * name, not a gate.
+ */
+let ntfyState = null;
+
+function placeNtfyPanel() {
+  const panel = el('ntfyPanel');
+  const chip = el('ntfyChip');
+  if (!panel || !chip || panel.hidden) return;
+  const r = chip.getBoundingClientRect();
+  const w = panel.offsetWidth || 336;
+  const h = panel.offsetHeight || 0;
+  const margin = 10;
+  const left = Math.max(margin, Math.min(r.right + margin, window.innerWidth - w - margin));
+  const top = Math.max(margin, Math.min(r.top, window.innerHeight - h - margin));
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.top = `${Math.round(top)}px`;
+}
+
+function ntfyPanelOpen(open) {
+  const panel = el('ntfyPanel');
+  if (!panel) return;
+  el('ntfyChip').setAttribute('aria-expanded', open ? 'true' : 'false');
+  panel.hidden = !open;
+  if (open) {
+    paintNtfy();
+    placeNtfyPanel();
+  }
+}
+
+/** One line under the account fields: what the server says this caller may do. */
+function ntfyAccountText(state) {
+  const account = state.account || null;
+  const who = state.signedIn ? state.username || t('ntfySignedIn') : t('ntfyAnon');
+  const left = account?.stats?.messages_remaining;
+  const total = account?.limits?.messages;
+  if (Number.isFinite(left) && Number.isFinite(total)) {
+    return `${who} · ${t('ntfyQuota').replace('{left}', String(left)).replace('{total}', String(total))}`;
+  }
+  if (account?.error) return `${who} · ${account.error}`;
+  return who;
+}
+
+function paintNtfy() {
+  if (!ntfyState) return;
+  const state = ntfyState;
+  const chip = el('ntfyChip');
+  const panel = el('ntfyPanel');
+  const on = state.enabled !== false;
+  const live = on && Boolean(state.status?.connected);
+  const failed = on && Boolean(state.status?.error);
+  chip.dataset.state = failed ? 'error' : live ? 'live' : 'off';
+  panel.dataset.state = on ? chip.dataset.state : 'off';
+  el('ntfyState').textContent = !on
+    ? t('ntfyStateOff')
+    : failed
+      ? t('ntfyStateError')
+      : live
+        ? t('ntfyStateLive')
+        : t('ntfyStateOff');
+  el('ntfyEnabled').checked = on;
+  // Nothing below can work with the integration off, so the rest of the panel
+  // says so rather than looking broken.
+  panel.classList.toggle('is-off', !on);
+  chip.title = `${t('ntfyTitle')} — ${el('ntfyState').textContent}`;
+
+
+  el('ntfyAccountLine').textContent = ntfyAccountText(state);
+  const signedIn = Boolean(state.signedIn);
+  el('ntfyAuthFields').hidden = signedIn;
+  el('ntfyLogout').hidden = !signedIn;
+  // A server with signup or login switched off says so by not offering it.
+  el('ntfyLogin').hidden = signedIn || state.config?.login === false;
+  el('ntfySignup').hidden = signedIn || state.config?.signup === false;
+
+  const rooms = el('ntfyRooms');
+  rooms.innerHTML = '';
+  if (!state.topics.length) {
+    const empty = document.createElement('li');
+    empty.className = 'ntfy-empty';
+    empty.textContent = t('ntfyNoRooms');
+    rooms.appendChild(empty);
+  }
+  for (const topic of state.topics) {
+    const item = document.createElement('li');
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'ntfy-room';
+    row.dataset.topic = topic.name;
+    row.setAttribute('aria-current', topic.name === state.activeTopic ? 'true' : 'false');
+    const name = document.createElement('span');
+    name.className = 'ntfy-room-name';
+    name.textContent = topic.name;
+    row.appendChild(name);
+    if (topic.name === state.activeTopic) {
+      const badge = document.createElement('span');
+      badge.className = 'ntfy-room-badge';
+      badge.textContent = live ? t('ntfyLive') : t('ntfyOff');
+      row.appendChild(badge);
+    }
+    row.addEventListener('click', () => ntfyCall(() => api.ntfySetActiveTopic(topic.name)));
+    item.appendChild(row);
+    rooms.appendChild(item);
+  }
+
+  const summaryMode = state.summary.enabled !== false;
+  const source = state.summary.source === 'provider' ? 'provider' : 'local';
+  for (const option of el('ntfySource').querySelectorAll('.ntfy-slide-opt')) {
+    option.setAttribute('aria-pressed', String(option.dataset.source === source));
+  }
+  for (const option of el('ntfySlide').querySelectorAll('.ntfy-slide-opt')) {
+    option.setAttribute('aria-pressed', String((option.dataset.mode === 'summary') === summaryMode));
+  }
+  const limit = el('ntfyLimit');
+  limit.value = String(state.summary.limit);
+  limit.disabled = !summaryMode;
+  limit.closest('.ntfy-limit').classList.toggle('disabled', !summaryMode);
+  el('ntfyLimitNote').textContent = summaryMode ? '' : t('ntfyLimitOff');
+
+  const list = el('ntfyMessages');
+  list.innerHTML = '';
+  if (!state.messages.length) {
+    const empty = document.createElement('li');
+    empty.className = 'ntfy-empty';
+    empty.textContent = t('ntfyNoMessages');
+    list.appendChild(empty);
+  }
+  for (const message of state.messages.slice(-30).reverse()) {
+    const item = document.createElement('li');
+    item.className = 'ntfy-msg';
+    const head = document.createElement('div');
+    head.className = 'ntfy-msg-head';
+    if (message.title) {
+      const title = document.createElement('span');
+      title.className = 'ntfy-msg-title';
+      title.textContent = message.title;
+      head.appendChild(title);
+    }
+    const time = document.createElement('span');
+    time.className = 'ntfy-msg-time';
+    time.textContent = new Date(message.time || Date.now()).toLocaleTimeString();
+    head.appendChild(time);
+    const body = document.createElement('p');
+    body.className = 'ntfy-msg-body';
+    body.textContent = FPProvider.ntfySummary(message.message, {
+      mode: summaryMode ? 'summary' : 'full',
+      limit: state.summary.limit,
+    });
+    item.append(head, body);
+    list.appendChild(item);
+  }
+
+  el('ntfyServer').value = state.server || '';
+  el('ntfyCommands').checked = ntfyCommandsOn();
+  el('ntfyRemoveRoom').disabled = !state.activeTopic;
+  el('ntfyCopyTopic').disabled = !state.activeTopic;
+}
+
+/** Every call returns a fresh state; one place applies it and repaints. */
+async function ntfyCall(fn, { note } = {}) {
+  try {
+    const res = await fn();
+    if (res?.state) ntfyState = res.state;
+    paintNtfy();
+    if (!res || res.ok === false) return res;
+    if (note && res.ok) showNotice(note);
+    return res;
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Report the result of an action in the group it belongs to. */
+function ntfyNote(id, text, kind = '') {
+  const node = el(id);
+  if (!node) return;
+  node.textContent = text || '';
+  node.hidden = !text;
+  node.classList.toggle('error', kind === 'error');
+  node.classList.toggle('ok', kind === 'ok');
+}
+
+el('ntfyChip')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  ntfyPanelOpen(el('ntfyPanel').hidden);
+});
+
+// Pointing at the chip opens the panel and leaving closes it, the same gesture the
+// thinking and approval controls in that row use. Click and Escape still work.
+let ntfyHideTimer = 0;
+el('ntfyWrap')?.addEventListener('pointerenter', () => {
+  clearTimeout(ntfyHideTimer);
+  if (el('ntfyPanel').hidden) ntfyPanelOpen(true);
+});
+el('ntfyWrap')?.addEventListener('pointerleave', () => {
+  clearTimeout(ntfyHideTimer);
+  ntfyHideTimer = setTimeout(() => {
+    if (!el('ntfyWrap').contains(document.activeElement)) ntfyPanelOpen(false);
+  }, 220);
+});
+el('ntfyWrap')?.addEventListener('focusin', (event) => {
+  clearTimeout(ntfyHideTimer);
+  // Focus moving onto the chip itself is how Escape puts the panel away; opening
+  // it again here would make Escape do nothing at all.
+  if (event.target === el('ntfyChip')) return;
+  if (el('ntfyPanel').hidden) ntfyPanelOpen(true);
+});
+
+document.addEventListener('click', (event) => {
+  const panel = el('ntfyPanel');
+  if (!panel || panel.hidden) return;
+  if (!el('ntfyWrap').contains(event.target)) ntfyPanelOpen(false);
+});
+
+document.addEventListener('keydown', (event) => {
+  const panel = el('ntfyPanel');
+  if (event.key !== 'Escape' || !panel || panel.hidden) return;
+  ntfyPanelOpen(false);
+  el('ntfyChip').focus();
+});
+
+window.addEventListener('resize', () => placeNtfyPanel());
+el('sidebar')?.addEventListener('scroll', () => placeNtfyPanel(), { passive: true });
+
+el('ntfyLogin')?.addEventListener('click', async () => {
+  ntfyNote('ntfyAccountNote', t('ntfyWorking'));
+  const res = await ntfyCall(() =>
+    api.ntfyLogin(el('ntfyUser').value.trim(), el('ntfyPass').value)
+  );
+  el('ntfyPass').value = '';
+  ntfyNote('ntfyAccountNote', res?.ok ? t('ntfyLoginOk') : res?.error || t('ntfyFailed'), res?.ok ? 'ok' : 'error');
+});
+
+el('ntfySignup')?.addEventListener('click', async () => {
+  ntfyNote('ntfyAccountNote', t('ntfyWorking'));
+  const res = await ntfyCall(() =>
+    api.ntfySignup(el('ntfyUser').value.trim(), el('ntfyPass').value, el('ntfyEmail').value.trim())
+  );
+  el('ntfyPass').value = '';
+  ntfyNote('ntfyAccountNote', res?.ok ? t('ntfySignupOk') : res?.error || t('ntfyFailed'), res?.ok ? 'ok' : 'error');
+});
+
+el('ntfyLogout')?.addEventListener('click', async () => {
+  const res = await ntfyCall(() => api.ntfyLogout());
+  ntfyNote('ntfyAccountNote', res?.ok ? t('ntfyLoggedOut') : '', res?.ok ? 'ok' : '');
+});
+
+el('ntfyAddRoom')?.addEventListener('click', async () => {
+  const typed = el('ntfyRoomName').value.trim();
+  const res = await ntfyCall(() => api.ntfyAddTopic(typed, typed));
+  el('ntfyRoomName').value = '';
+  if (res?.topic?.name) {
+    // The name is the only thing standing between this room and anyone who
+    // guesses it, so it is handed over ready to paste into the phone app.
+    await copyNtfyTopic(res.topic.name);
+  }
+});
+
+for (const option of el('ntfySlide')?.querySelectorAll('.ntfy-slide-opt') || []) {
+  option.addEventListener('click', () =>
+    ntfyCall(() => api.ntfySetSummary(option.dataset.mode === 'summary', el('ntfyLimit').value))
+  );
+}
+
+el('ntfyLimit')?.addEventListener('change', () =>
+  ntfyCall(() => api.ntfySetSummary(true, el('ntfyLimit').value))
+);
+
+el('ntfyClear')?.addEventListener('click', () => ntfyCall(() => api.ntfyClearMessages()));
+
+async function copyNtfyTopic(name) {
+  const topic = name || ntfyState?.activeTopic;
+  if (!topic) return;
+  const link = `${ntfyState.server}/${topic}`;
+  try {
+    await api.copyText(link);
+    ntfyNote('ntfyAccountNote', t('ntfyCopied'), 'ok');
+  } catch {
+    ntfyNote('ntfyAccountNote', link);
+  }
+}
+
+el('ntfyCopyTopic')?.addEventListener('click', () => copyNtfyTopic(null));
+
+el('ntfyRemoveRoom')?.addEventListener('click', () =>
+  ntfyCall(() => api.ntfyRemoveTopic(ntfyState?.activeTopic))
+);
+
+/*
+ * The room is the chat.
+ *
+ * A message arriving in the room is a message *to the agent*: it becomes a prompt
+ * in the chat that is open, and the answer that turn produces goes back to the
+ * room — cut to the chosen length in "สรุป", whole in "ทั้งหมด". That is the whole
+ * loop: the phone asks, the machine answers, and the app has to stay open for it.
+ *
+ * Two things keep it from talking to itself: a reply is published with the
+ * `ntapi-reply` tag and is skipped when it comes back down the stream, and the
+ * ids we sent are remembered in case a server drops the tag.
+ */
+const NTFY_COMMANDS_KEY = 'ntapi.ntfyCommands';
+/** tabId -> when a command turned up, so the reply is sent when *that* turn ends. */
+const ntfyPending = new Map();
+const ntfySentIds = new Set();
+
+function ntfyCommandsOn() {
+  try {
+    return localStorage.getItem(NTFY_COMMANDS_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function paintNtfyCommands() {
+  const box = el('ntfyCommands');
+  if (!box) return;
+  box.checked = ntfyCommandsOn();
+  el('ntfyCommandNote').hidden = true;
+}
+
+el('ntfyCommands')?.addEventListener('change', () => {
+  try {
+    localStorage.setItem(NTFY_COMMANDS_KEY, el('ntfyCommands').checked ? '1' : '0');
+  } catch {}
+});
+
+/** Is this message one of our own answers coming back down the stream? */
+function ntfyIsOwnReply(message) {
+  if (!message) return true;
+  if (Array.isArray(message.tags) && message.tags.includes('ntapi-reply')) return true;
+  return Boolean(message.id && ntfySentIds.has(message.id));
+}
+
+/**
+ * Run one room message as a prompt.
+ *
+ * The composer does the sending, so a command gets everything a typed message
+ * gets: slash commands, the hold countdown, the queue when a turn is running.
+ */
+async function ntfyRunCommand(message) {
+  const view = activeView();
+  if (!view || !message?.message) return;
+  const text = message.message.trim();
+  if (!text) return;
+
+  ntfyNote('ntfyCommandNote', t('ntfyCommandRunning'), 'ok');
+  ntfyPending.set(view.tabId, { at: Date.now() });
+  input.value = text;
+  autoGrow();
+  updateSendState();
+  try {
+    await submit();
+  } catch (err) {
+    ntfyPending.delete(view.tabId);
+    ntfyNote('ntfyCommandNote', errorText(err), 'error');
+  }
+}
+
+/**
+ * Send a finished turn's answer to the room.
+ *
+ * The transcript is read from the main process rather than from the DOM: the tab
+ * may have been in the background while the turn ran, and a background tab's
+ * bubbles are not what the reader was looking at either.
+ */
+/**
+ * The last thing the agent said, from either side of the IPC boundary.
+ *
+ * Main's projection is the authority, but it can lag a beat behind the settle
+ * event, so the view's own copy is the fallback. Reading only one of the two is
+ * how a reply silently went missing: the settle arrived, the read came back
+ * empty, and the answer was never published anywhere.
+ */
+function lastAssistantText(messages) {
+  const list = Array.isArray(messages) ? messages : [];
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const m = list[i];
+    if (m && m.kind === 'assistant' && String(m.text || '').trim()) return String(m.text);
+  }
+  return '';
+}
+
+async function ntfyReplyWithAnswer(tabId) {
+  ntfyPending.delete(tabId);
+  if (!ntfyState?.activeTopic) {
+    api.uiLog?.('[ntfy] reply skipped: no active room');
+    return;
+  }
+
+  const view = views.get(tabId) || null;
+  let text = '';
+  for (let attempt = 0; attempt < 3 && !text; attempt += 1) {
+    if (attempt) await new Promise((r) => setTimeout(r, 400));
+    try {
+      const state = await api.getTabState(tabId);
+      text = lastAssistantText(state?.messages);
+    } catch (err) {
+      api.uiLog?.(`[ntfy] reply read failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    if (!text) text = lastAssistantText(view?.messages);
+  }
+  if (!text) {
+    api.uiLog?.('[ntfy] reply skipped: the turn produced no assistant text');
+    ntfyNote('ntfyCommandNote', t('ntfyNoAnswer'), 'error');
+    return;
+  }
+
+  const summaryMode = ntfyState?.summary?.enabled !== false;
+  const limit = ntfyState?.summary?.limit || 200;
+  // "สรุป" asks a model for a short version; "ทั้งหมด" sends the answer as it is.
+  // If no summarizer answers, the text is shortened by cutting it and the note
+  // says so, so a truncated answer is never mistaken for a summary.
+  let body = text;
+  let via = 'full';
+  if (summaryMode) {
+    const res = await api.ntfySummarize({
+      text,
+      limit,
+      source: ntfyState?.summary?.source || 'local',
+      tabId,
+    });
+    if (res?.ok && res.summary) {
+      body = String(res.summary).trim().slice(0, Math.max(40, limit * 2));
+      via = res.via || 'model';
+    } else {
+      body = FPProvider.ntfySummary(text, { mode: 'summary', limit });
+      via = 'cut';
+      api.uiLog?.(`[ntfy] summary fell back to cutting: ${res?.error || 'no answer'}`);
+    }
+  }
+  const res = await ntfyCall(() =>
+    api.ntfyPublish({ message: body, title: t('ntfyReplyTitle'), priority: 3, tags: ['ntapi-reply'] })
+  );
+  api.uiLog?.(`[ntfy] reply ${res?.ok ? 'sent' : 'failed'} (${body.length} chars, ${via})${res?.ok ? '' : ' — ' + (res?.error || 'unknown')}`);
+  if (res?.id) ntfySentIds.add(res.id);
+  ntfyNote(
+    'ntfyCommandNote',
+    res?.ok
+      ? via === 'cut'
+        ? t('ntfyRepliedCut')
+        : t('ntfyReplied')
+      : res?.error || t('ntfyFailed'),
+    res?.ok ? 'ok' : 'error'
+  );
+}
+
+api.onSettled?.((payload = {}) => {
+  if (!payload.tabId || !ntfyPending.has(payload.tabId)) return;
+  void ntfyReplyWithAnswer(payload.tabId);
+});
+
+el('ntfyEnabled')?.addEventListener('change', () =>
+  ntfyCall(() => api.ntfySetEnabled(el('ntfyEnabled').checked))
+);
+
+for (const option of el('ntfySource')?.querySelectorAll('.ntfy-slide-opt') || []) {
+  option.addEventListener('click', () =>
+    ntfyCall(() => api.ntfySetSummary(undefined, undefined, option.dataset.source))
+  );
+}
+
+el('ntfySaveServer')?.addEventListener('click', async () => {
+  const res = await ntfyCall(() => api.ntfySetServer(el('ntfyServer').value.trim()));
+  ntfyNote('ntfyAccountNote', res?.ok ? t('ntfySaved') : res?.error || t('ntfyFailed'), res?.ok ? 'ok' : 'error');
+});
+
+// Everything the main process reports arrives here: a message, the stream going
+// up or down, the account, what the server offers.
+api.onNtfyEvent?.(({ type, payload } = {}) => {
+  if (type === 'message') {
+    ntfyState = payload?.state || ntfyState;
+    paintNtfy();
+    // A message from the room is a message to the agent, unless it is the answer
+    // this app just sent coming back down the same stream.
+    const message = payload?.message || null;
+    if (message && !ntfyIsOwnReply(message) && ntfyCommandsOn()) void ntfyRunCommand(message);
+    return;
+  }
+  if (type === 'status' && ntfyState) ntfyState = { ...ntfyState, status: payload };
+  if (type === 'account' && ntfyState) ntfyState = { ...ntfyState, account: payload?.account || null };
+  if (type === 'config' && ntfyState) ntfyState = { ...ntfyState, config: payload };
+  paintNtfy();
+});
+
+// The panel is on screen from boot; the stream is started once, not when a
+// reader happens to open it, so a notification arrives while the chat is idle.
+(async () => {
+  try {
+    ntfyState = (await api.ntfyState()) || null;
+    paintNtfy();
+    const started = await api.ntfyInit();
+    if (started?.state) {
+      ntfyState = started.state;
+      paintNtfy();
+    }
+  } catch {}
+})();
+
+/*
+ * The tile grid.
+ *
+ * Settings shows one tile per company and exactly one form below it: the list of
+ * full cards had grown past the point where anybody could find the key they came
+ * to fix. A tick on the logo's corner marks a company whose key is saved and
+ * readable here — unreadable (copied from another machine) is not a tick, because
+ * the picker cannot use it either.
+ */
+const PROVIDER_TILE_ORDER = [
+  'coarena',
+  'zro',
+  'nvidia',
+  'tokenharbor',
+  'llm7',
+  'deepseek',
+  'anthropic',
+  'google',
+  'zai',
+  'openrouter',
+  'cloudflare',
+  'llamacpp',
+];
+
+/** Which provider's form is open under the grid (null = only the tiles). */
+let providerTileSelected = null;
+
+function providerStatusOf(id) {
+  return (
+    {
+      coarena: coarenaStatus,
+      zro: zroStatus,
+      nvidia: nvidiaStatus,
+      tokenharbor: tokenharborStatus,
+      llm7: llm7Status,
+      deepseek: deepseekStatus,
+      anthropic: anthropicStatus,
+      google: googleStatus,
+      zai: zaiStatus,
+      openrouter: openrouterStatus,
+      cloudflare: cloudflareStatus,
+      // A local model has no key: "usable" means installed and switched on — the
+      // tick must not blink just because the model is idle between pictures.
+      llamacpp: llamacppStatus
+        ? {
+            configured: Boolean(llamacppStatus.installed) && llamacppStatus.enabled !== false,
+            readable: Boolean(llamacppStatus.installed) && llamacppStatus.enabled !== false,
+          }
+        : null,
+    }[id] || null
+  );
+}
+
+/** A tick means "the picker can use this key", so unreadable is not enough. */
+function providerTileHasKey(status) {
+  return Boolean(status && status.configured && status.readable);
+}
+
+function paintProviderGrid() {
+  const grid = el('providerGrid');
+  if (!grid) return;
+
+  for (const tile of grid.querySelectorAll('.provider-tile')) {
+    const id = tile.dataset.provider;
+    const has = providerTileHasKey(providerStatusOf(id));
+    const active = id === providerTileSelected;
+    tile.classList.toggle('configured', has);
+    tile.classList.toggle('active', active);
+    tile.setAttribute('aria-pressed', String(active));
+    const tick = tile.querySelector('.provider-tile-tick');
+    if (tick) tick.hidden = !has;
+    const name = tile.querySelector('.provider-tile-name');
+    const label = name ? name.textContent.trim() : id;
+    tile.setAttribute('aria-label', has ? `${label} — ${t('providerTileHasKey')}` : label);
+  }
+
+  for (const card of document.querySelectorAll('#providerDetail .provider-card')) {
+    card.hidden = card.dataset.provider !== providerTileSelected;
+  }
+  const detail = el('providerDetail');
+  if (detail) detail.hidden = !providerTileSelected;
+}
+
+/** Open one company's form; a second click on the same tile closes it. */
+function selectProviderTile(id) {
+  providerTileSelected = providerTileSelected === id ? null : id;
+  paintProviderGrid();
+  if (!providerTileSelected) return;
+  const card = document.querySelector(
+    `#providerDetail .provider-card[data-provider="${providerTileSelected}"]`
+  );
+  const input = card ? card.querySelector('input') : null;
+  if (input) input.focus();
+}
+
+el('providerGrid')?.addEventListener('click', (e) => {
+  const tile = e.target.closest('.provider-tile');
+  if (!tile) return;
+  selectProviderTile(tile.dataset.provider);
+});
 
 async function refreshGoogleStatus() {
   try {
@@ -5047,6 +6139,11 @@ async function openSettings() {
   deepseekStatus = settingsData?.deepseek || null;
   anthropicStatus = settingsData?.anthropic || null;
   googleStatus = settingsData?.google || null;
+  zaiStatus = settingsData?.zai || null;
+  openrouterStatus = settingsData?.openrouter || null;
+  cloudflareStatus = settingsData?.cloudflare || null;
+  llamacppStatus = settingsData?.llamacpp || null;
+  visionMode = settingsData?.visionMode || 'model';
   paintCoarenaSettings();
   paintZroSettings();
   paintNvidiaSettings();
@@ -5055,6 +6152,18 @@ async function openSettings() {
   paintDeepSeekSettings();
   paintAnthropicSettings();
   paintGoogleSettings();
+  paintZaiSettings();
+  paintOpenRouterSettings();
+  paintCloudflareSettings();
+  paintLlamaCppSettings();
+  paintVisionControl();
+  // Nothing chosen yet: open the first company that already has a key, so the
+  // panel does not start on an empty form.
+  if (!providerTileSelected) {
+    providerTileSelected =
+      PROVIDER_TILE_ORDER.find((id) => providerTileHasKey(providerStatusOf(id))) || null;
+  }
+  paintProviderGrid();
   paintMcpSettings();
   paintProviderMeter(activeView());
   renderSettings();
@@ -5941,6 +7050,138 @@ el('anthropicBuy')?.addEventListener('click', () => {
 
 /* ------------------------- Gemini key ------------------------- */
 
+
+el('zaiSave')?.addEventListener('click', async () => {
+  const inputEl = el('zaiKeyInput');
+  const button = el('zaiSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.zaiSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      zaiStatus = res.status || null;
+      paintZaiSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('zaiUnverified') : t('zaiSaved'));
+    } else {
+      showNotice(`${t('zaiSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('zaiSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('zaiRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'zaiRemove',
+    title: t('zaiRemoveTitle'),
+    sub: t('zaiRemoveSub'),
+    action: t('zaiRemove'),
+  });
+});
+
+el('zaiGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://z.ai/').catch(() => {});
+});
+el('zaiBuy')?.addEventListener('click', () => {
+  api.openExternal('https://z.ai/').catch(() => {});
+});
+
+el('openrouterSave')?.addEventListener('click', async () => {
+  const inputEl = el('openrouterKeyInput');
+  const button = el('openrouterSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.openrouterSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      openrouterStatus = res.status || null;
+      paintOpenRouterSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('openrouterUnverified') : t('openrouterSaved'));
+    } else {
+      showNotice(`${t('openrouterSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('openrouterSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('openrouterRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'openrouterRemove',
+    title: t('openrouterRemoveTitle'),
+    sub: t('openrouterRemoveSub'),
+    action: t('openrouterRemove'),
+  });
+});
+
+el('openrouterGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://openrouter.ai/keys').catch(() => {});
+});
+el('openrouterBuy')?.addEventListener('click', () => {
+  api.openExternal('https://openrouter.ai/credits').catch(() => {});
+});
+
+el('cloudflareSave')?.addEventListener('click', async () => {
+  const keyEl = el('cloudflareKeyInput');
+  const accountEl = el('cloudflareAccountInput');
+  const button = el('cloudflareSave');
+  const key = (keyEl?.value || '').trim();
+  const accountId = (accountEl?.value || '').trim();
+  if (!key || !accountId) {
+    showNotice(t('cloudflareAccountMissing'));
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    const res = await api.cloudflareSetKey(key, accountId);
+    if (res?.ok) {
+      if (keyEl) keyEl.value = '';
+      if (accountEl) accountEl.value = '';
+      cloudflareStatus = res.status || null;
+      paintCloudflareSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('cloudflareUnverified') : t('cloudflareSaved'));
+    } else {
+      showNotice(`${t('cloudflareSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(
+      `${t('cloudflareSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim()
+    );
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('cloudflareRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'cloudflareRemove',
+    title: t('cloudflareRemoveTitle'),
+    sub: t('cloudflareRemoveSub'),
+    action: t('cloudflareRemove'),
+  });
+});
+
+el('cloudflareGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://dash.cloudflare.com/profile/api-tokens').catch(() => {});
+});
+el('cloudflareBuy')?.addEventListener('click', () => {
+  api.openExternal('https://dash.cloudflare.com/').catch(() => {});
+});
+
 el('googleSave')?.addEventListener('click', async () => {
   const inputEl = el('googleKeyInput');
   const button = el('googleSave');
@@ -6614,6 +7855,46 @@ el('confirmDelete').addEventListener('click', async () => {
     return;
   }
 
+  if (state.kind === 'zaiRemove') {
+    const res = await api.zaiClearKey();
+    if (res?.ok) {
+      zaiStatus = res.status || null;
+      paintZaiSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('zaiRemoved'));
+    } else {
+      showNotice(`${t('zaiSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
+  if (state.kind === 'openrouterRemove') {
+    const res = await api.openrouterClearKey();
+    if (res?.ok) {
+      openrouterStatus = res.status || null;
+      paintOpenRouterSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('openrouterRemoved'));
+    } else {
+      showNotice(`${t('openrouterSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
+  if (state.kind === 'cloudflareRemove') {
+    const res = await api.cloudflareClearKey();
+    if (res?.ok) {
+      cloudflareStatus = res.status || null;
+      paintCloudflareSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('cloudflareRemoved'));
+    } else {
+      showNotice(`${t('cloudflareSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
+
   const res = await api.deleteSession(state.cwd, state.session.path);
   if (!res?.ok) {
     showNotice(t('deleteFailed', { error: res?.error || t('unknownError') }));
@@ -7258,7 +8539,15 @@ el('termsDecline')?.addEventListener('click', () => {
 });
 
 async function boot() {
+  const bootT0 = performance.now();
+  const bootMark = (label) => {
+    try {
+      api.uiLog?.(`[boot] ${label} (${Math.round(performance.now() - bootT0)}ms)`);
+    } catch {}
+  };
+  bootMark('boot() start');
   const info = await api.boot();
+  bootMark('prefs ready');
   appPrefs = info.prefs || info;
   profile = info.profile || {};
   if (info.lang) lang = info.lang === 'th' ? 'th' : 'en';
@@ -7323,6 +8612,7 @@ async function boot() {
       } catch {}
     }
     restoringTabs = false;
+    bootMark(`tabs restored (${views.size} views)`);
   }
 
   // Which conversation the window was on when it was closed. Read before any
@@ -11358,6 +12648,7 @@ api.onLog((p) => console.log(`[${p.tabId}]`, p.text));
  * render is the earliest honest moment to say "ready".
  */
 function signalUiReady() {
+  api.uiLog?.('[boot] renderer ready (2 frames painted)');
   const done = () => {
     try {
       api.uiReady?.();
@@ -11469,6 +12760,66 @@ Object.assign(STRINGS.en, {
   reasoningTitle: 'Reasoning effort',
   modelTitle: 'Model',
   freeOnlyTitle: 'Free only',
+  modelRefresh: 'Update model list',
+  modelRefreshTitle:
+    'Read the latest model list from every provider whose key is saved here. A few network calls, no tokens used, and no key ever leaves this machine.',
+  modelRefreshBusy: 'Reading the latest lists…',
+  modelRefreshFailed: 'could not be read',
+  modelRefreshNone: 'No provider with a saved key to update.',
+  ntfyTitle: 'ntfy',
+  ntfyStateLive: 'listening',
+  ntfyStateOff: 'off',
+  ntfyStateError: 'stopped',
+  ntfyLive: 'live',
+  ntfyOff: 'idle',
+  ntfyAccount: 'Account',
+  ntfyAnon: 'Signed out — a daily allowance per IP, no account needed',
+  ntfySignedIn: 'Signed in',
+  ntfyQuota: '{left} of {total} messages left today',
+  ntfyUser: 'Username',
+  ntfyPass: 'Password',
+  ntfyEmail: 'Email (optional)',
+  ntfyLogin: 'Sign in',
+  ntfySignup: 'Sign up',
+  ntfyLogout: 'Sign out',
+  ntfyLoginOk: 'Signed in.',
+  ntfySignupOk: 'Account created and signed in.',
+  ntfyLoggedOut: 'Signed out.',
+  ntfyWorking: 'Working…',
+  ntfyFailed: 'That did not work.',
+  ntfyRooms: 'Rooms',
+  ntfyNoRooms: 'No room yet — create one and the name is copied for your phone.',
+  ntfyRoomName: 'Room name',
+  ntfyAddRoom: 'New room',
+  ntfyRoomHint: 'A room name must be unguessable: leave it empty and the name is generated, then copied.',
+  ntfyCopy: 'Copy room link',
+  ntfyCopied: 'Room link copied — paste it into the ntfy app on your phone.',
+  ntfyRemoveRoom: 'Remove this room',
+  ntfyIncoming: 'Arriving',
+  ntfyModeSummary: 'Summary',
+  ntfyModeFull: 'Everything',
+  ntfyLimit: 'Characters used per summary',
+  ntfyLimitOff: 'not used',
+  ntfyClear: 'Clear history',
+  ntfyNoMessages: 'Nothing received yet.',
+  ntfySourceLabel: 'Summarize with',
+  ntfySourceLocal: 'This machine',
+  ntfySourceProvider: 'The provider',
+  ntfySourceHint: 'This machine: free, uses the GPU for a few seconds · the provider: a few tokens, summarized by the model that answered',
+  ntfyEnabledLabel: 'Turn ntfy on',
+  ntfyRepliedCut: 'Answer sent to the room — shortened by cutting it (no summarizer answered).',
+  ntfyCommands: 'Commands',
+  ntfyCommandsLabel: 'Treat room messages as commands, and answer back',
+  ntfyCommandsHint:
+    'The app must stay open · answers go back in the mode chosen above · anyone who knows the room name can run tools on this machine',
+  ntfyCommandRunning: 'Running that as a command…',
+  ntfyReplyTitle: 'NTAPI',
+  ntfyReplied: 'Answer sent to the room.',
+  ntfyNoAnswer: 'That turn produced no text to send back.',
+  ntfyServerSummary: 'Server and more',
+  ntfyServerHint: 'Use ntfy.sh or your own server (self-hosted). Changing the server signs you out.',
+  ntfySave: 'Save',
+  ntfySaved: 'Saved.',
   jumpLatest: 'Jump to the newest message',
   attachTitle: 'Attach files (Ctrl+V to paste)',
   findPrev: 'Previous match',
@@ -11575,6 +12926,66 @@ Object.assign(STRINGS.th, {
   reasoningTitle: 'ระดับความคิด',
   modelTitle: 'โมเดล',
   freeOnlyTitle: 'เฉพาะฟรี',
+  modelRefresh: 'อัปเดตรายการโมเดล',
+  modelRefreshTitle:
+    'ดึงรายการโมเดลล่าสุดจากทุกค่ายที่บันทึกคีย์ไว้ในเครื่องนี้ · ยิงเครือข่ายนับครั้ง · ไม่ใช้โทเคน และคีย์ไม่ออกจากเครื่อง',
+  modelRefreshBusy: 'กำลังดึงรายการล่าสุด…',
+  modelRefreshFailed: 'ดึงไม่ได้',
+  modelRefreshNone: 'ยังไม่มีค่ายที่บันทึกคีย์ไว้ให้อัปเดต',
+  ntfyTitle: 'ntfy',
+  ntfyStateLive: 'กำลังฟังอยู่',
+  ntfyStateOff: 'ปิดอยู่',
+  ntfyStateError: 'หยุดชั่วคราว',
+  ntfyLive: 'ทำงานอยู่',
+  ntfyOff: 'ว่าง',
+  ntfyAccount: 'บัญชี',
+  ntfyAnon: 'ยังไม่เข้าสู่ระบบ — ใช้วันละจำนวนจำกัดต่อ IP ไม่ต้องมีบัญชีก็ได้',
+  ntfySignedIn: 'เข้าสู่ระบบแล้ว',
+  ntfyQuota: 'เหลือ {left} จาก {total} ข้อความวันนี้',
+  ntfyUser: 'ชื่อผู้ใช้',
+  ntfyPass: 'รหัสผ่าน',
+  ntfyEmail: 'อีเมล (ไม่บังคับ)',
+  ntfyLogin: 'เข้าสู่ระบบ',
+  ntfySignup: 'สมัคร',
+  ntfyLogout: 'ออกจากระบบ',
+  ntfyLoginOk: 'เข้าสู่ระบบแล้ว',
+  ntfySignupOk: 'สร้างบัญชีและเข้าสู่ระบบแล้ว',
+  ntfyLoggedOut: 'ออกจากระบบแล้ว',
+  ntfyWorking: 'กำลังทำ…',
+  ntfyFailed: 'ทำไม่สำเร็จ',
+  ntfyRooms: 'ห้อง',
+  ntfyNoRooms: 'ยังไม่มีห้อง — สร้างห้องแล้วระบบจะคัดลอกชื่อให้เอาไปใส่ในมือถือ',
+  ntfyRoomName: 'ชื่อห้อง',
+  ntfyAddRoom: 'สร้างห้อง',
+  ntfyRoomHint: 'ชื่อห้องต้องเดาไม่ได้ — เว้นว่างไว้แล้วระบบจะตั้งชื่อยาว ๆ ให้ แล้วคัดลอกให้ทันที',
+  ntfyCopy: 'คัดลอกลิงก์ห้อง',
+  ntfyCopied: 'คัดลอกลิงก์ห้องแล้ว — เอาไปวางในแอป ntfy บนมือถือ',
+  ntfyRemoveRoom: 'ลบห้องนี้',
+  ntfyIncoming: 'ข้อความที่รับ',
+  ntfyModeSummary: 'สรุป',
+  ntfyModeFull: 'ทั้งหมด',
+  ntfyLimit: 'จำนวนตัวอักษรที่ใช้สรุป',
+  ntfyLimitOff: 'ไม่ได้ใช้',
+  ntfyClear: 'ล้างประวัติ',
+  ntfyNoMessages: 'ยังไม่มีข้อความเข้ามา',
+  ntfySourceLabel: 'สรุปด้วย',
+  ntfySourceLocal: 'โมเดลในเครื่อง',
+  ntfySourceProvider: 'ผู้ให้บริการ',
+  ntfySourceHint: 'ในเครื่อง = ฟรี ใช้ GPU สักครู่ · ผู้ให้บริการ = เสียโทเคนนิดหน่อย ได้สรุปจากโมเดลที่ตอบ',
+  ntfyEnabledLabel: 'เปิดใช้งาน ntfy',
+  ntfyRepliedCut: 'ส่งคำตอบกลับไปที่ห้องแล้ว — ย่อด้วยการตัดข้อความ (ไม่มีตัวสรุปตอบ)',
+  ntfyCommands: 'รับคำสั่ง',
+  ntfyCommandsLabel: 'ถือว่าข้อความในห้องเป็นคำสั่ง แล้วตอบกลับให้',
+  ntfyCommandsHint:
+    'ต้องเปิดโปรแกรมทิ้งไว้ · คำตอบกลับไปตามโหมด สรุป/ทั้งหมด ด้านบน · ใครรู้ชื่อห้องก็สั่งงานเครื่องนี้ได้',
+  ntfyCommandRunning: 'กำลังทำตามคำสั่งจากห้อง…',
+  ntfyReplyTitle: 'NTAPI',
+  ntfyReplied: 'ส่งคำตอบกลับไปที่ห้องแล้ว',
+  ntfyNoAnswer: 'เทิร์นนั้นไม่มีข้อความให้ส่งกลับ',
+  ntfyServerSummary: 'เซิร์ฟเวอร์และอื่น ๆ',
+  ntfyServerHint: 'ใช้ ntfy.sh หรือเซิร์ฟเวอร์ของคุณเอง (self-host) — เปลี่ยนเซิร์ฟเวอร์แล้วต้องเข้าสู่ระบบใหม่',
+  ntfySave: 'บันทึก',
+  ntfySaved: 'บันทึกแล้ว',
   jumpLatest: 'ไปข้อความล่าสุด',
   attachTitle: 'แนบไฟล์ (Ctrl+V เพื่อวาง)',
   findPrev: 'ผลก่อนหน้า',

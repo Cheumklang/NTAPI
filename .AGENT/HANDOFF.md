@@ -1,8 +1,103 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-24 (Linux) — ✅ ปิดรอบ 0.8.0 (คอมมิต + แท็ก + ปล่อยแล้ว):** อ่านบล็อกนี้ก่อนบล็อกอื่น
+>
+> **รอบนี้เพิ่มจากบล็อกถัดไป**
+> - **สรุป ntfy เป็นของจริง**: สไลซ์ "สรุปด้วย" = โมเดลในเครื่อง (ฟรี, GPU ไม่กี่วิ) หรือผู้ให้บริการ (เสียโทเคนนิดหน่อย, `src/provider-chat.js` รองรับ OpenAI-compatible / Anthropic / Google) · ถ้าไม่มีตัวสรุปตอบ = ตัดข้อความแล้ว**บอกตรง ๆ** ว่า "ย่อด้วยการตัด"
+> - **สวิตช์เปิด-ปิด ntfy** ที่หัวแผง (ปิด = หยุดสตรีม ไม่รับคำสั่ง ไม่ตอบกลับ; ห้อง/ล็อกอินยังอยู่)
+> - **ไม่มีตัวเลขบนปุ่ม ntfy** แล้ว · เมนู **ntfy และ "ดูภาพ" เปิดด้วยการชี้เมาส์** เหมือนปุ่มข้างเคียง (คลิก/Escape ยังใช้ได้)
+> - **เมนู "ดูภาพ" เปลี่ยนภาษาตามที่ตั้งไว้** (เดิมสร้างครั้งเดียวตอนบูต จึงค้างเป็นอังกฤษ)
+> - **llama.cpp: เปลี่ยนปุ่ม เริ่ม/หยุด เป็นสวิตช์สไลด์ตัวเดียวที่จำค่าไว้** (ผู้ใช้เลือกทาง A) — "เปิดอยู่หรือเปล่า" ตอบได้ด้วยการมองสวิตช์ · เปิด = เริ่มโมเดลทันที (อุ่นเครื่องในตัว ไม่มีปุ่มแยก) · ปิด = หยุดและ**ไม่ยอมเริ่มเอง** แม้มีภาพ (`err.code='DISABLED'`) · ไม่สตาร์ทเองตอนเปิดแอป (บูตไม่ช้าลง) · ไทล์ llama.cpp tick = ติดตั้ง **และ** สวิตช์เปิด (ไม่กะพริบตามตอนโมเดลว่าง)
+>
+> **ตัวเลข/หลักฐาน**: `npm test` **108/108** · `check:grid` · `check:models` · `check:vision` (รวมเคสสวิตช์เปิด-ปิด) · `check:ntfy` · `selftest-summarize` · `check:sara` · `prove:verify` ผ่านทั้งหมด · ภาพ: `shots/ntfy-panel-*.png`, `shots/vision-menu-*.png`
+>
+> **ค้าง/ยังไม่ทดสอบ**: ntfy บัญชีจริง (โทเคน `cheumklang` ถูก ntfy.sh ปฏิเสธ 401 — แบบไม่ล็อกอินยังใช้ได้), push มือถือจริง, self-host, ไฟล์แนบ · llama.cpp บน Windows (`win-cuda-12`) · สรุปทาง B ใช้ไม่ได้ถ้าค่ายที่ตอบไม่มีคีย์เก็บไว้ (จะ fallback ไป A)
+>
+> **📌 2026-11-23 (Linux) — แคตตาล็อกโมเดลเต็ม + แผง ntfy (ยังไม่คอมมิต):** อ่านบล็อกนี้ก่อนบล็อกอื่น
+>
+> **ทำเสร็จรอบนี้ (working tree)**
+> - **โมเดลจากแคตตาล็อกจริง** (ผู้ใช้เลือกทาง C): Cloudflare อ่าน \`?task=Text Generation\` แล้วใช้ \`price/context_window/vision/require_workers_paid\` จาก API (บัญชีจริง: **24 แถว = 21 ฟรี / 3 ต้อง Workers Paid**) · OpenRouter ดึงทั้ง \`/models\` (**477 แถว, 23 ฟรี** จากราคา \$0/$0) · z.ai ขยายตาราง 3 → **13** ตัว (แถวที่ไม่ประกาศราคา = ไม่ใส่ราคา) · เดิม Cloudflare โชว์ 2 และเสียเงินทั้งหมดเพราะเป็นรายชื่อฝังมือตัดกับแคตตาล็อก
+> - **ปุ่ม "อัปเดตรายการโมเดล"** ในเมนูเลือกโมเดล (IPC \`models:refresh\`) — ล้างแคช 10 นาที, รายงานจำนวนต่อค่าย + ค่ายที่ดึงไม่ได้, tooltip บอกว่าไม่ใช้โทเคนและคีย์ไม่ออกจากเครื่อง — วัดแล้ว: **514 แถววาดใน 32–44 ms, ค้นหา 3 ms**
+> - **แผง ntfy** ข้างปุ่มควบคุมเบราว์เซอร์ (\`ntfy.js\` + \`ntfy-service.js\` + chip/popover 4 กลุ่ม: บัญชี · ห้อง · ข้อความที่รับ · ส่ง) — ใช้ได้โดยไม่ต้องเข้าเว็บ ntfy; **สไลซ์ สรุป/ทั้งหมด** (สรุปตั้งจำนวนตัวอักษรได้, ทั้งหมดปิดช่องนั้น), ชื่อห้องตั้งต้น \`ntapi-<สุ่ม>\` + คัดลอกลิงก์, โควตาจริงต่อ IP, ช่อง self-host, tool **\`ntfy_send\`** ให้เอเจนต์ส่งเข้าห้องได้
+>
+> **ตัวเลข/หลักฐาน**: \`npm test\` **107/107** · \`npm run check:ntfy\` ผ่าน · \`npm run check:models\` ผ่าน · \`check:sara\` ok · ภาพ: \`shots/ntfy-panel-{dark,light}.png\`, \`shots/model-refresh-{dark,light}.png\` · บั๊กที่เทสต์จับได้เอง: ส่งข้อความ ntfy เป็น JSON (ต้องเป็น text/plain) — แก้แล้ว
+>
+> **ยังไม่ได้ทดสอบ (ต้องมีบัญชี/มือถือจริง)**: สมัคร-ล็อกอิน ntfy จริง, รับข้อความเข้าจริงผ่านแอปมือถือ, self-host, ไฟล์แนบ, เด้งเตือนเดสก์ท็อป · endpoint สมัคร/ล็อกอิน **ไม่มีในเอกสาร ntfy** (อ่านจากเว็บแอปเขา) ถ้าเขาเปลี่ยน ปุ่มสมัคร/ล็อกอินจะพังก่อนส่วนอื่น
+>
+> **แก้เพิ่ม (ผู้ใช้รายงาน "ปุ่มในแผง ntfy เบียดทับกัน")**: ต้นเหตุคือกลุ่ม "ข้อความที่รับ" เป็น flex child เดียวที่หดได้ → ถูกบีบเหลือ 10px แต่ยังวาดเนื้อหาทับกลุ่ม "ส่ง" · แก้ให้กลุ่มไม่หด + ลิสต์เลื่อนเอง + แถว controls wrap + input ไม่ใช้ width:100% ใน flex row + ปุ่มขั้นต่ำ 64px · เพิ่มเทสต์วัดกล่องจริง (ทับ/ล้น/บีบ/แคบ/ลิสต์ล้น) ที่หน้าต่าง 1280px และ 460px พร้อม self-test ที่พิสูจน์ว่าตรวจเจอบั๊กเดิมได้
+>
+> **ทดสอบ ntfy กับเซิร์ฟเวอร์จริงแล้ว (ห้องของผู้ใช้เอง) — เจอ+แก้ 3 บั๊ก**: (1) สตรีมส่ง `Uint8Array` แต่โค้ดเดิมใช้ `String(chunk)` ⇒ **ข้อความทุกข้อความถูกทิ้งเงียบ ๆ** (เทสต์เดิมใช้ string จึงผ่าน) แก้เป็น `TextDecoder({stream:true})` + เทสต์ตัดกลางคำไทย (2) หัวข้อภาษาไทยทำให้ `undici` โยน ByteString error ⇒ encode RFC 2047 (3) โทเคนที่เซิร์ฟเวอร์ปฏิเสธแต่แผงบอกว่า "เข้าสู่ระบบแล้ว" ⇒ ตรวจ `GET /v1/account` ก่อนเก็บ (minted → login token → ถ้าพังทั้งคู่ไม่เก็บและบอกผู้ใช้) · **หมายเหตุ**: โทเคนบัญชี `cheumklang` ถูก ntfy.sh ปฏิเสธ 401 (การใช้งานแบบไม่ล็อกอินยังปกติ) — ต้องล็อกอินใหม่/ยืนยันอีเมล
+>
+> **ntfy เปลี่ยนเป็นช่องทางคุยกับเอเจนต์ (ตามคำสั่งผู้ใช้)**: เอากลุ่ม "ส่งข้อความ" ออก · ข้อความที่เข้ามาในห้อง = คำสั่ง → รันเป็นพรอมป์ในแท็บที่เปิด (ผ่าน `submit()`) → เมื่อเทิร์นจบ ส่งคำตอบกลับเข้าห้อง ตัดตามโหมด สรุป/ทั้งหมด · คำตอบติดแท็ก `ntapi-reply` + จำ id กันข้อความตัวเองวนมาเป็นคำสั่ง · สวิตช์ "รับคำสั่ง" (เปิดเป็นค่าเริ่มต้น + คำเตือนว่าใครรู้ชื่อห้องก็สั่งเครื่องได้) · `publish` ได้ 401 จะลองส่งแบบไม่ล็อกอินต่อ (โทเคนบัญชีผู้ใช้ถูก ntfy.sh ปฏิเสธอยู่) · เทสต์: `check:ntfy` ครอบลูปคำสั่งครบ + `selftest-ntfy` ครอบ retry · ต้อง**ปิด-เปิดแอปใหม่**จึงจะเห็นโค้ดนี้
+>
+> **ntfy รอบล่าสุด (ตามคำสั่งผู้ใช้)**: **สรุปจริงเลือกได้** A = โมเดลในเครื่อง (`llamacpp.summarize`) / B = ผู้ให้บริการ (`src/provider-chat.js`, 3 รูปแบบ API) พร้อม fallback และบอกตรง ๆ ถ้าต้องตัดข้อความ · **สวิตช์เปิด-ปิด ntfy** ที่หัวแผง (ปิด = หยุดสตรีม ไม่รับคำสั่ง) · เอา**ตัวเลขบนปุ่ม**ออก · เมนู ntfy และ "ดูภาพ" **เปิดด้วยการชี้เมาส์** · แก้เมนู "ดูภาพ" ให้เปลี่ยนภาษาตามที่ตั้งไว้ (เดิมสร้างครั้งเดียวตอนบูต) · เทสต์: `npm test` 108/108, `selftest-summarize.js` ใหม่, `check:ntfy` ครอบสวิตช์/ตัวเลือก/ hover/no-badge
+>
+> **ค้าง**: ยังไม่คอมมิตงานทั้งก้อน (boot-speed + 3 เจ้า + ตารางไอคอน + local vision + tick fix + แคตตาล็อกเต็ม + ntfy)
+
+
+> **📌 2026-11-23 (Linux) — ✅ เสร็จแล้ว (ยังไม่คอมมิต): ดูภาพฟรีด้วยโมเดลในเครื่อง + แก้บั๊ก tick:** เริ่มอ่านบล็อกนี้ก่อนบล็อกอื่น
+>
+> **ทำเสร็จแล้ว (working tree, ยังไม่ commit ทั้งหมด)**
+> - **บั๊ก tick**: ไทล์ที่ยังไม่มีคีย์โชว์เครื่องหมายถูกทั้งแถว → ต้นเหตุ `.provider-tile-tick{display:flex}` ชนะ `[hidden]{display:none}`; แก้ `app/src/renderer/styles.css` + เปลี่ยน `app/scripts/check-provider-grid.js` ให้เช็ค `getComputedStyle(...).display` (ถอดกฎออก = FAIL 11 ไทล์, ใส่กลับ = ผ่าน)
+> - **ทางดูภาพที่ 3 (local, ฟรี)**: `app/src/llamacpp.js` ดาวน์โหลด+รัน llama.cpp เอง — build **Vulkan 36 MB** (pin `b12648`) + **Qwen3-VL-8B Q4_K_M 4.68 GB** + **mmproj-F16 1.08 GB** เก็บที่ `~/.local/share/ntapi/llamacpp/`; IPC `llamacpp:status|setup|cancel|start|stop` + `vision:get|set`; หยุดเซิร์ฟเวอร์ตอนปิดหน้าต่าง
+> - **UI**: ไทล์ที่ 12 `llama.cpp` ใน Settings (ไม่มีคีย์; tick = ติดตั้ง **และ** กำลังรัน) + ปุ่ม **"ดูภาพ:"** ข้างปุ่มการคิด = `โมเดลนี้ / ในเครื่องนี้ / ปิด` (ล็อก "ในเครื่องนี้" พร้อมเหตุผลถ้ายังไม่ติดตั้ง); ค่าเก็บใน `prefs.json` → `visionMode`
+> - **bridge**: `look_at_image` แยกทางตาม `visionMode` (off = ปฏิเสธ · local = บรรยายในเครื่องแล้วคืนเป็นข้อความ · model = แนบภาพเหมือนเดิม)
+>
+> **ตัวเลขที่วัดได้ (เครื่องนี้: GTX 1080 Ti, Linux)**: start 3.0 วิ · ภาพ 1 ใบ → 111 โทเคน 7.95 วิ · อ่านชื่อ 12 ไทล์ในสกรีนช็อตถูก (พลาด "z.ai"→"z.al") · prompt ของภาพ = 1,009 โทเคนแต่จ่าย 0 · บูต `ui ready` 5.9 วิ · `npm test` 106/106 สคริปต์ · `check-provider-grid` 25/25 · `check-local-vision` 20/20 · `check:sara` ok · `prove:verify` OK 281
+>
+> **ไฟล์/บริบทที่ต้องรู้**: โมเดลที่โหลดไว้ทดสอบอยู่ที่ `/home/nt/NTAPI/dl/models/qwen3-vl-{4b,8b}/` (8B ใช้อยู่จริงผ่าน symlink ใน data dir; 4B ไม่ได้ใช้ = ลบได้ 3.2 GB) · ภาพตรวจ: `shots/vision-menu-{dark,light}.png`, `shots/provider-grid-{dark,light}.png` · เทสต์ Electron ต้องรัน `npx electron scripts/<name>.js --no-sandbox` และ**ปิดแอปที่ผู้ใช้เปิดอยู่ก่อน** ไม่งั้นติด single-instance lock (หรือเติม `--user-data-dir=/tmp/ntapi-smoke`)
+>
+> **ค้าง / ต้องตัดสินใจต่อ**
+> - ยังไม่ทดสอบเส้นทาง **กดติดตั้งผ่าน UI จริง** (ทดสอบด้วยไฟล์ที่เตรียมไว้ ไม่ได้โหลดซ้ำ) — กดในหน้า Settings หนึ่งครั้งเพื่อดู progress/ยกเลิก
+> - Windows ยังไม่รองรับ local vision (ต้องใช้ `win-cuda-12`; มี `shortcut:` กำกับใน `src/llamacpp.js`)
+> - ยังไม่ได้วัด "ประหยัดโทเคน" จากเทิร์นจริง; ยังไม่ทดสอบฟอนต์ไทยเล็ก ๆ ในภาพ และภาพกราฟ/ตารางหนาแน่น
+> - **ยังไม่คอมมิตงานทั้งก้อน** (boot-speed + 3 เจ้า z.ai/OpenRouter/Cloudflare + ตารางไอคอน + local vision + แก้ tick) — รอคำสั่งผู้ใช้; ถ้าจะแยก commits แนะนำ 3 ก้อน: boot-speed / providers+grid / local-vision+tick-fix
+>
+
+
+> **📌 2026-11-23 — ✅ เสร็จแล้ว (ดูบล็อกบนสุด):** เดิมค้างรอผู้ใช้ตอบ: คำขอใหม่ 2 เรื่อง — (1) เพิ่มผู้ให้บริการ `z.ai` / OpenRouter / Cloudflare (2) เปลี่ยนหน้า Settings → Providers จาก "รายการ์ดเรียงลงมา" เป็น "กริดไอคอนบริษัท แถวละ 5" + ติ๊กถูกบนโลโก้เมื่อมีคีย์ · สำรวจแล้ว: provider 1 ตัว = โมดูล `src/<name>.js` (base URL/models/ตรวจคีย์) + `createProviderKeyStore` ใน `main.js` + IPC status/set/remove + preload + `provider-plan.js` + i18n en/th + `assets/providers/<name>.svg`; การ์ดปัจจุบันอยู่ใน `src/renderer/index.html` (`provider-cards` ~บรรทัด 920-1100) และ `paintXSettings()` ใน `src/renderer/app.js` · ยังไม่มีโลโก้ 3 บริษัทใหม่ · คำถามที่ต้องได้คำตอบก่อน: Cloudflare Workers AI ต้องใช้ Account ID + API token (2 ช่อง) หรือไม่ · รายการโมเดลจะใช้แคตตาล็อกตายตัวหรือยิง `/models` สด · มีคีย์จริงให้ทดสอบไหม · ข้อเสนอกริด: `repeat(5, 1fr)` โลโก้กลาง + ชื่อใต้โลโก้ + ติ๊กมุมขวาบนของโลโก้แบบ badge ลอยนอกวง logo แล้วคลิกไทล์เพื่อเปิดฟอร์มคีย์ใต้กริด (อนุมัติแล้วค่อยลงมือ)
+>
+
+
+> **📌 2026-11-23 — ✅ เสร็จแล้ว (ยังไม่คอมมิต): เปิดโปรแกรมช้า: SDK โหลด 16.7 วิ → 1.0 วิ:** ผู้ใช้รายงาน "เปิดโปรแกรมช้า" ⇒ วัดจริงบน Windows VM (`node boot-trace-run.js` + `NTAPI_BOOT_TRACE=1`) พบ `resolveSdk()` กิน **16.7 วิ** — หน้าต่างว่างตั้งแต่ 1.0 วิ ถึง 18.2 วิ เพราะ `require()` package root (`dist/index.js`) เป็น barrel ที่ต้องอ่าน ~1,092 ไฟล์จาก `Z:` (โฟลเดอร์ที่แชร์กับ Ubuntu — stat/read ช้า และ cache ไม่ช่วย: วัดซ้ำได้ 16-18 วิ ทุกครั้ง ขณะที่สำเนาบนดิสก์ local = 1.5 วิ) · แก้ `resolveSdk()` (`app/src/main.js`) ให้ลอง `dist/bundle/index.js` (entry ที่ pre-bundle, export ครบ **156 ชื่อเท่ากัน** — ตรวจด้วยสคริปต์แล้ว) ก่อน แล้ว fallback ไป root (package รุ่นเก่าที่ไม่มี bundle ยังใช้ได้) ⇒ **~1.0 วิ** · วัดซ้ำ: boot → `ui ready` **21.8 วิ → 5.9 วิ** (1 แท็บ) / 8.3 วิ (2 แท็บ) · ที่เหลือยังไม่ได้แก้: `bindExtensions` ~1.4-1.8 วิ/แท็บ · `createAgentSessionServices` ~0.3-0.5 วิ/แท็บ · `listSessions` ~80-210 ms · เพิ่ม trace แบบ opt-in: `NTAPI_BOOT_TRACE=1` → main พิมพ์ `[boot] +Nms <milestone>` และ renderer ส่งผ่าน `ui:log` เป็น `[boot-ui]` (ปิดเป็นค่าเริ่มต้น = ไม่มีงานเพิ่มตอนใช้จริง) — ไฟล์ที่แตะ: `app/src/main.js`, `app/src/freepi-bridge.js`, `app/src/renderer/app.js` · `npm test` **103/104** (แดงเดิม `selftest-skill-scan.js` = symlink EPERM บน Windows) · `check:sara` ok · `prove:verify` OK 278 · **ยังไม่ commit** (รอผู้ใช้สั่ง) · ขั้นถัดไปที่เสนอ: ตัด `bindExtensions` ต่อแท็บ หรือกู้เฉพาะแท็บ active แบบ lazy
+>
+
+> **📌 2026-11-22 — คิวไม่ปล่อยข้อความหลังเทิร์นจบไม่ปกติ (session นี้):** commit `b771e06` — `agent:settled` พ่วง `failed` และ renderer ถือ `view.queueHold` ⇒ เทิร์นที่จบด้วย limit/error/หยุด **ไม่ส่ง** ข้อความในคิวเองอีก ต้องกดปุ่ม "ส่งเลย" ในแถบคิว (หรือรอเทิร์นถัดไปที่จบปกติ) · เหตุผล: ผู้ใช้รายงานว่าเทิร์นตายเพราะ limit แล้วข้อความในคิวออกทันที พอสลับ model ตัวใหม่เริ่มงานใหม่ทับงานเก่าที่ยังไม่เสร็จ · เทสต์ใหม่ `app/scripts/check-queue-hold.js` 12/12 · `npm test` 104/104 · `prove:verify` OK 274 · `check:sara` ok · ส่วนขยายที่ผูกกับ session (`bindExtensions` ใน `freepi-bridge.js`, commit `1a78812`) ต้องคงไว้: ponytail ฉีดกฎที่ `before_agent_start` ซึ่งทำงานหลัง `session_start`
+>
+> **📌 2026-11-22 — ค้างรอคำสั่งผู้ใช้ (ยังไม่เริ่ม):** แผน "เส้นทางฟรีสำรอง" ตอนโควตาหมด — **A** ปุ่มในแบนเนอร์ error ("ลองเส้นทางฟรีอื่น" + ส่งข้อความเดิมซ้ำ) · **B** มาร์กเส้นที่โควตาหมด + เวลารีเซ็ตใน picker · **C** สลับเส้นทางฟรีอัตโนมัติแบบ opt-in (ปิดเป็นค่าเริ่มต้น เพราะเทสต์เดิมยืนยันว่าห้ามสลับเงียบ) · **AirLLM ตัดทิ้งตามคำสั่งผู้ใช้** (13.3 วิ/token, ไม่มี HTTP API, ไม่มี tool calling) · llama.cpp/ollama ในเครื่อง = ตัวเลือกสำหรับผู้ใช้ที่มี GPU เท่านั้น ยังไม่เริ่ม · **ห้ามแก้โค้ดจนผู้ใช้สั่ง**
+>
+> **📌 2026-11-22 — ของค้างบนเครื่อง (ไม่ผูกกับ repo):** หลังถอน claude-mem ยังเหลือ `~/.local/share/ollama` (~6.8GB รวมโมเดล `qwen2.5:7b-instruct`) และ unit `~/.config/systemd/user/ollama-ntapi.service` (สถานะ disabled) — ลบได้ถ้าไม่ใช้ ollama อีก; `extensions/ponytail` (symlink → `~/.pi/agent/git/github.com/DietrichGebert/ponytail/pi-extension`) ยังใช้งานได้ ปกติ (โหลดครบ 6 คำสั่ง ไม่มี error)
+>
+> **📌 2026-11-22 — สำรวจโค้ดด้วย Graphify:** สร้าง code-only graph ใน `graphify-out/` จาก working tree ขณะ HEAD=`b771e06d11c72b56860a6dc8e2de3c90ca487c9b` (รวม source changes ที่มีใน working tree) · 333 ไฟล์ (3,779 nodes · 7,254 links; รายงาน clustering 6,416 edges; ไม่ส่ง LLM/API) · จุดนำทางและคำสั่ง query อยู่ที่ `.AGENT/GRAPHIFY.md` · source code ไม่ได้แก้ · หากโค้ดเปลี่ยนให้ระวังกราฟเก่าและใช้ `graphify update .` หรือ full extract ตามคู่มือ
+>
+> **📌 2026-11-22 — เครื่องมือประจำ repo:** ใช้ `ponytail` และ `graphify` สำหรับ workspace Ubuntu `/home/nt/NT-ALL/NTAPI` / Windows VM `Z:\NT-ALL\NTAPI` · Graphify CLI `0.9.115` + Pi skill ใน `.pi/skills/graphify/` (ใช้ร่วมผ่าน repo; CLI ติดตั้งแยกเครื่อง) · `claude-mem` ถอนจาก Ubuntu แล้วตามคำสั่งผู้ใช้: plugin/worker/NTAPI extension และโฟลเดอร์ข้อมูล `~/.claude-mem` (ฐานข้อมูล + backup) ถูกลบออกทั้งหมด · ยังไม่ยืนยัน CLI Graphify บน Windows VM
+>
 > **📌 สถานะล่าสุด (2026-11-22): ปล่อย **0.7.2** แล้ว — tag `v0.7.2` push · CI publish ที่ `Cheumklang/NTAPI-releases` (เหลือรุ่นเดียวตามกฎ prune) · `provenance verify` **OK 257 entries** · **ไม่มีงานค้าง** · ฝั่ง Ubuntu: `npm test` **101/101** + `check:sara` ok · 4 งานเก็บค้างปิดครบ (ลบไฟล์ทดลอง · Electron `--no-sandbox` ในสคริปต์เทสต์ · probe tool-use จริง · push) · 3 เรื่องที่เพิ่มรอบนี้: reality policy · liveTurnStart · check-provider-tooluse
 >
 > ฝั่ง Windows VM ยังไม่ได้รันเทสต์รอบนี้ (แดงเดิม: skill-scan/notices/system-control/data-root)
+
+## ✅ คิวถือข้อความเมื่อเทิร์นจบไม่ปกติ — 2026-11-22 (session นี้)
+
+commit `b771e06` · ต่อจาก `1a78812` (ผูกส่วนขยายกับ session) และ `07fb310` (สกิลปักหมุด + คำอธิบายผู้ใช้)
+
+### ปัญหาที่ผู้ใช้เจอ
+คิวถูกปล่อยออกทุกครั้งที่ `agent:settled` — จบปกติ, โดน limit, provider error, หรือกดหยุด ก็ปล่อยเหมือนกัน ⇒ เทิร์นตายเพราะ limit แล้วข้อความที่คิวไว้ออกทันที พอผู้ใช้สลับ model ตัวใหม่เห็นข้อความเป็นงานถัดไปแล้วเริ่มทำเลย ทั้งที่ `recoverInterruptedTurn` เพิ่งเขียนบริบท "งานเดิมยังไม่เสร็จ" ลงเซสชัน
+
+### ที่แก้
+- `app/src/main.js` — ตอน `agent_settled` คำนวณ `turnFailure()` ครั้งเดียว แล้วส่ง `{ aborted, failed }` ไปกับ `agent:settled`; ส่ง failure ก้อนเดียวกันให้ `announceIfUnreported(tabId, tab, failure)` (ไม่ต้องอ่าน message list ที่ pi อาจเขียนทับซ้ำสองรอบ)
+- `app/src/renderer/app.js` — `view.queueHold = 'failed' | 'stopped' | null` ตั้งใน `onSettled` · `drainQueue()` ปฏิเสธทุกทางเมื่อ hold อยู่ (ปุ่มลบแถว, บันทึกแก้ไข, นับถอยหลังหมด, สลับแท็บ) · `renderQueue()` วาดบรรทัด `.queue-hold` + ปุ่ม `.queue-hold-send` ("ส่งเลย") · `createView()` เริ่มด้วย `queueHold: null`
+- `app/src/renderer/styles.css` — `.queue-hold`, `.queue-hold-why`, `.queue-hold-send` (เส้นเดียว สีเตือน ตามสไตล์คิวที่ไม่เป็น panel)
+- i18n en+th: `queueHeldFailed`, `queueHeldStopped`, `queueHeldSend`, `queueHeldSendTitle` (สระอำ U+0E33 ผ่าน `check:sara`)
+- เทสต์ปรับ: `selftest-hold-before-send.js` เลิกใช้ slice ตายตัว 1600 ตัวอักษร (ตัดจบที่ `\n});` ของ handler) · `selftest-model-fallback.js` ยอมรับ signature ที่มี optional failure
+
+### เทสต์
+- `app/scripts/check-queue-hold.js` (ใหม่): failed ไม่ส่ง · Stop ไม่ส่ง · มีบรรทัดบอกเหตุ+ปุ่ม · กดแล้วส่งจริง · `failed:false` ยังส่งเหมือนเดิม — **12/12**
+- `npm test` **104/104** · `npm run check:stale-queue` 10/10 · `npm run prove:verify` OK 274 · `npm run check:sara` ok
+- `npm run check:queue-hold` เพิ่มใน `package.json` แล้ว
+
+### กติกาที่คงไว้
+- เทิร์นจบปกติ = ปล่อยคิวทันทีเหมือนเดิม (พฤติกรรมเดิมไม่เปลี่ยน)
+- ห้ามสลับ model เงียบ ๆ (เทสต์เดิมบังคับ) — ทางออกคือปุ่มที่ผู้ใช้กดเอง
 
 ## 🚀 ปล่อย 0.7.2 — 2026-11-22 (รอบล่าสุด)
 
@@ -3239,3 +3334,47 @@ AI ขับ Chrome ของผู้ใช้เองได้ผ่านส
 - การรวมหลายบริษัทในที่เดียวที่ต้องการ → **มีอยู่แล้ว** ในแอป (ทุกคีย์ที่บันทึกถูกรวมเป็น dropdown เดียวผ่าน `provider-plan.js`)
 
 **งานค้างเดียวที่ยังไม่เลือกทาง** = แผนอัปเดต delta (ตัวเลือก A–D ด้านบน) + rotate PAT `RELEASE_TOKEN`
+
+---
+
+## 2026-11-23 (ต่อ) — เพิ่ม 3 เจ้า + ตารางไอคอน (เสร็จแล้ว รอรีวิว/คอมมิต)
+
+**ทำเสร็จในรอบนี้**
+- ผู้ให้บริการใหม่ 3 เจ้า ต่อครบทุกจุด (โมดูล / key store / IPC / preload / planner / provider-ui / i18n en+th / Settings UI): **z.ai (GLM)**, **OpenRouter**, **Cloudflare Workers AI**
+- Cloudflare เป็นเจ้าเดียวที่ credential มีสองครึ่ง (token + Account ID) — บันทึก/ตรวจ/ลบพร้อมกัน, `cloudflareStatus()` นับ `configured` ก็ต่อเมื่อมีทั้งคู่
+- Settings → Providers = **ตารางไอคอน 5 ช่อง/แถว** (11 เจ้า) แทนลิสต์การ์ดยาว; คลิกไอคอน → ฟอร์มของเจ้านั้นเปิดใต้ตาราง (เปิดทีละอัน, คลิกซ้ำ = ปิด)
+- ป้ายถูก (tick) = คีย์ที่ **อ่านได้บนเครื่องนี้** เท่านั้น (คีย์ที่ย้ายมาจากเครื่องอื่นไม่ tick เพราะ picker ใช้ไม่ได้) และวางมุมขวาบน **นอกวงโลโก้** ไม่บังภาพ
+- ไลต์โหมด: Coarena / Zro / Token Harbor / OpenRouter วาดด้วยหมึกเกือบขาว → ให้แผ่นพื้นเข้มเฉพาะ 4 ตัวนี้ในธีมสว่าง
+
+**ตัวเลข/หลักฐาน**
+- `npm test`: 2456 PASS · แดงเดิมตัวเดียว `selftest-skill-scan.js` (EPERM symlink บน Windows, ไม่เกี่ยวกับงานนี้)
+- `scripts/check-provider-grid.js` ผ่านทั้ง 25 เช็ค (11 ไอคอน, 5/แถว, tick ไม่ทับโลโก้, contrast ≥ 4.5 ทั้งสองธีม, เปิด/สลับ/ปิดฟอร์ม)
+- `check:sara` ok · `node --check` ผ่านทุกไฟล์ที่แก้
+- endpoint จริงยืนยันแล้วด้วยคีย์ปลอม (401/401/400) — ยัง**ไม่ได้**ทดสอบเทิร์นจริงเพราะไม่มีคีย์จริงของผู้ใช้
+- ภาพ: `shots/provider-grid-dark.png`, `shots/provider-grid-light.png` (สคริปต์เขียนเองรอบใหม่ได้)
+
+**ค้าง / ต้องตัดสินใจ**
+- ยังไม่คอมมิต (รอคำสั่งผู้ใช้) — งานนี้ยังไม่แยกจาก boot-speed fix ใน working tree
+- ถ้าจะทดสอบเทิร์นจริง: ต้องมีคีย์ z.ai หรือ OpenRouter (Cloudflare ต้องมี Account ID ด้วย)
+- ราคา/catalog ของทั้งสามดึงสดจาก `/models` ตอนบันทึกคีย์; ถ้าดึงไม่ได้จะใช้ shortlist ที่ฝังไว้
+
+---
+
+## 2026-11-23 (Linux) — ดูภาพฟรีด้วยโมเดลในเครื่อง (llama.cpp) + แก้บั๊ก tick
+
+**ทำเสร็จในรอบนี้**
+- แก้บั๊ก: ไทล์ที่ยังไม่มีคีย์โชว์เครื่องหมายถูกทั้งแถว — เกิดจาก CSS `display:flex` ทับ `[hidden]`; แก้ที่ `styles.css` และแก้เทสต์ให้เช็คสถานะที่ตาเห็น (`getComputedStyle`) ไม่ใช่ค่า property
+- ทางดูภาพที่ 3: **local** — ดาวน์โหลด llama.cpp (Vulkan 36 MB) + Qwen3-VL-8B Q4_K_M (4.68 GB) + mmproj-F16 (1.08 GB) แล้วรันเซิร์ฟเวอร์เองบน 127.0.0.1; ภาพถูกบรรยายเป็นข้อความในเครื่อง และมีแค่ข้อความที่เข้าบทสนทนา
+- โมดูล `src/llamacpp.js` + IPC 6 ตัว (`llamacpp:status|setup|cancel|start|stop`, `vision:get|set`) + `preload` + ปุ่ม **"ดูภาพ:"** ข้างปุ่มการคิด (โมเดลนี้ / ในเครื่องนี้ / ปิด) + ไทล์ที่ 12 ใน Settings
+- ปิดหน้าต่าง = `llamaCpp.stop()` (กันโมเดลค้างกิน GPU 6 GB)
+
+**ตัวเลข/หลักฐาน**
+- start 3.0 วิ · ตอบ 111 โทเคน 7.95 วิ · อ่านชื่อ 12 ไอคอนในสกรีนช็อตได้ (พลาด "z.ai" → "z.al" 1 ตัว)
+- `npm test` 106/106 สคริปต์ · `check-provider-grid.js` 25/25 · `check-local-vision.js` 20/20 · `check:sara` ok · บูต `ui ready` 5.9 วิ
+- ไฟล์ที่โหลดไว้ทดสอบ: `/home/nt/NTAPI/dl/` (binary + โมเดล 4B และ 8B) — คัดลอก/ลิงก์เข้า `~/.local/share/ntapi/llamacpp/` เพื่อทดสอบโดยไม่ต้องโหลดซ้ำ
+
+**ค้าง / ต้องตัดสินใจ**
+- ยังไม่ทดสอบเส้นทาง **ติดตั้งผ่าน UI จริง** (ทดสอบด้วยไฟล์ที่เตรียมไว้) — ต้องลองกดติดตั้งในหน้า Settings หนึ่งครั้งเพื่อดู progress/ยกเลิก
+- ยังไม่รองรับ Windows (มี `shortcut:` ระบุไว้ใน `src/llamacpp.js`) — ต้องใช้ `win-cuda-12` และเลือก build ตาม GPU
+- ยังไม่วัด "ประหยัดโทเคน" จริงเป็นตัวเลขจากการเทิร์นจริง (ประเมินจาก prompt_tokens 1,009 ของภาพเทียบกับทาง cloud)
+- ยังไม่คอมมิตงานทั้งก้อน (boot-speed + 3 เจ้า + ตารางไอคอน + local vision)

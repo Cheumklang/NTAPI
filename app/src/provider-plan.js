@@ -10,7 +10,7 @@
  *
  * Pure on purpose: no SDK, no network, no fs. The tests pin down the states the
  * UI can be in (any combination of FreePi, Coarena, Zro, NVIDIA, Token Harbor,
- * LLM7.io, DeepSeek, Claude and Gemini).
+ * LLM7.io, DeepSeek, Claude, Gemini, z.ai, OpenRouter and Cloudflare).
  */
 
 const { preferredLlm7Model } = require('./llm7');
@@ -24,13 +24,16 @@ const LLM7_PROVIDER = 'llm7';
 const DEEPSEEK_PROVIDER = 'deepseek';
 const ANTHROPIC_PROVIDER = 'anthropic';
 const GOOGLE_PROVIDER = 'google';
+const ZAI_PROVIDER = 'zai';
+const OPENROUTER_PROVIDER = 'openrouter';
+const CLOUDFLARE_PROVIDER = 'cloudflare';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
 /**
  * Tools that live on the FreePi backend. They stay registered only while
  * FreePi is available; a Coarena-only session must not offer them.
  */
-const FREE_PI_TOOL_NAMES = ['web_search', 'docs_lookup', 'generate_image', 'free_pi_usage', 'look_at_image'];
+const FREE_PI_TOOL_NAMES = ['web_search', 'docs_lookup', 'generate_image', 'free_pi_usage', 'look_at_image', 'ntfy_send'];
 
 /**
  * @param {object} input
@@ -43,7 +46,7 @@ const FREE_PI_TOOL_NAMES = ['web_search', 'docs_lookup', 'generate_image', 'free
  *   coarena: boolean,
  *   ads: boolean,
  *   freePiTools: boolean,
- *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'llm7'|'deepseek'|'anthropic'|'google'|null,
+ *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'llm7'|'deepseek'|'anthropic'|'google'|'zai'|'openrouter'|'cloudflare'|null,
  *   defaultModel: string|null,
  *   available: boolean,
  * }}
@@ -58,6 +61,9 @@ function planProviders({
   deepseekKey,
   anthropicKey,
   googleKey,
+  zaiKey,
+  openrouterKey,
+  cloudflareKey,
   freePiModels,
   coarenaModels,
   zroModels,
@@ -67,6 +73,9 @@ function planProviders({
   deepseekModels,
   anthropicModels,
   googleModels,
+  zaiModels,
+  openrouterModels,
+  cloudflareModels,
 }) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
   const coarenaList = Array.isArray(coarenaModels) ? coarenaModels : [];
@@ -77,6 +86,9 @@ function planProviders({
   const deepseekList = Array.isArray(deepseekModels) ? deepseekModels : [];
   const anthropicList = Array.isArray(anthropicModels) ? anthropicModels : [];
   const googleList = Array.isArray(googleModels) ? googleModels : [];
+  const zaiList = Array.isArray(zaiModels) ? zaiModels : [];
+  const openrouterList = Array.isArray(openrouterModels) ? openrouterModels : [];
+  const cloudflareList = Array.isArray(cloudflareModels) ? cloudflareModels : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
   // empty and a session could not pick a model at all.
@@ -89,6 +101,9 @@ function planProviders({
   const deepseek = Boolean(deepseekKey) && deepseekList.length > 0;
   const anthropic = Boolean(anthropicKey) && anthropicList.length > 0;
   const google = Boolean(googleKey) && googleList.length > 0;
+  const zai = Boolean(zaiKey) && zaiList.length > 0;
+  const openrouter = Boolean(openrouterKey) && openrouterList.length > 0;
+  const cloudflare = Boolean(cloudflareKey) && cloudflareList.length > 0;
 
   let defaultProvider = null;
   let defaultModel = null;
@@ -137,6 +152,16 @@ function planProviders({
     // flag has to be explicit — an untagged entry proves nothing.
     const freeRow = googleList.find((m) => m.freeTier === true);
     defaultModel = (freeRow || googleList[0]).id;
+  } else if (zai) {
+    // Paid from the first token like the rows above, so it stays behind them.
+    defaultProvider = ZAI_PROVIDER;
+    defaultModel = zaiList[0].id;
+  } else if (openrouter) {
+    defaultProvider = OPENROUTER_PROVIDER;
+    defaultModel = openrouterList[0].id;
+  } else if (cloudflare) {
+    defaultProvider = CLOUDFLARE_PROVIDER;
+    defaultModel = cloudflareList[0].id;
   }
 
   return {
@@ -149,6 +174,9 @@ function planProviders({
     deepseek,
     anthropic,
     google,
+    zai,
+    openrouter,
+    cloudflare,
     ads: freePi,
     freePiTools: freePi,
     defaultProvider,
@@ -162,7 +190,10 @@ function planProviders({
       llm7 ||
       deepseek ||
       anthropic ||
-      google,
+      google ||
+      zai ||
+      openrouter ||
+      cloudflare,
   };
 }
 
@@ -177,6 +208,9 @@ module.exports = {
   DEEPSEEK_PROVIDER,
   ANTHROPIC_PROVIDER,
   GOOGLE_PROVIDER,
+  ZAI_PROVIDER,
+  OPENROUTER_PROVIDER,
+  CLOUDFLARE_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
 };

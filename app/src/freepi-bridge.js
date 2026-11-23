@@ -17,7 +17,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
-const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER, ANTHROPIC_PROVIDER, GOOGLE_PROVIDER } = require('./provider-plan');
+const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER, ANTHROPIC_PROVIDER, GOOGLE_PROVIDER, ZAI_PROVIDER, OPENROUTER_PROVIDER, CLOUDFLARE_PROVIDER } = require('./provider-plan');
 const { detectClientVersion, upgradedClientVersion, FALLBACK_CLIENT_VERSION } = require('./client-version');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels, retagModels, setCoarenaFreeTier } = require('./coarena');
 const {
@@ -57,6 +57,17 @@ const {
   googleProviderConfig,
   googleModelEntries,
 } = require('./google-ai');
+const { resolveZaiModels, zaiProviderConfig, zaiModelEntries } = require('./zai');
+const {
+  resolveOpenRouterModels,
+  openrouterProviderConfig,
+  openrouterModelEntries,
+} = require('./openrouter');
+const {
+  resolveCloudflareModels,
+  cloudflareProviderConfig,
+  cloudflareModelEntries,
+} = require('./cloudflare');
 const { providerIdleTimeoutMs } = require('./provider-timeout');
 const { tagPlans } = require('./model-filter');
 const { pruneImages } = require('./image-history');
@@ -718,6 +729,18 @@ async function createFreePiSession(options) {
      * so a disabled feature cannot be called by accident.
      */
     browserBridge = null,
+    /**
+     * The app's local vision model: `{ mode(), start(), describe(), status() }`.
+     * Present means a picture can be described in this machine instead of being
+     * sent to a provider; null means that route does not exist here.
+     */
+    localVision = null,
+    /**
+     * The app's ntfy rooms: `{ publish({title, message, priority}) }`. Present
+     * means the agent can put a message on the user's own phone; null means the
+     * panel is the only way to send one.
+     */
+    ntfy = null,
     /** Reasoning level for models that support it: off | minimal | low | medium | high. */
     thinkingLevel = 'off',
     /**
@@ -758,6 +781,14 @@ async function createFreePiSession(options) {
     anthropicKey = null,
     /** Gemini API key, or null. Native Generative Language API, paid. */
     googleKey = null,
+    /** z.ai (GLM) key, or null. OpenAI-compatible, paid. */
+    zaiKey = null,
+    /** OpenRouter key, or null. One key, many vendors, paid. */
+    openrouterKey = null,
+    /** Cloudflare Workers AI token, or null. Paired with its account id. */
+    cloudflareKey = null,
+    /** The Cloudflare account the token is scoped to (Workers AI needs both). */
+    cloudflareAccountId = null,
     /**
      * Injectable so tests can simulate "no FreePi login" without touching the
      * real credentials file. Production uses the normal resolver.
@@ -773,6 +804,10 @@ async function createFreePiSession(options) {
   let activeDeepseekKey = deepseekKey ? String(deepseekKey).trim() : null;
   let activeAnthropicKey = anthropicKey ? String(anthropicKey).trim() : null;
   let activeGoogleKey = googleKey ? String(googleKey).trim() : null;
+  let activeZaiKey = zaiKey ? String(zaiKey).trim() : null;
+  let activeOpenRouterKey = openrouterKey ? String(openrouterKey).trim() : null;
+  let activeCloudflareKey = cloudflareKey ? String(cloudflareKey).trim() : null;
+  let activeCloudflareAccount = cloudflareAccountId ? String(cloudflareAccountId).trim() : null;
 
   const downloadsDirAbs = path.isAbsolute(downloadsDir)
     ? downloadsDir
@@ -832,8 +867,17 @@ async function createFreePiSession(options) {
    * is kept for ten minutes. A key the user just saved is a different entry, so
    * saving one still reads its catalog immediately.
    */
-  const [nvidiaModels, tokenharborModels, llm7Catalog, deepseekModels, anthropicModels, googleModels] =
-    await Promise.all([
+  const [
+    nvidiaModels,
+    tokenharborModels,
+    llm7Catalog,
+    deepseekModels,
+    anthropicModels,
+    googleModels,
+    zaiModels,
+    openrouterModels,
+    cloudflareModels,
+  ] = await Promise.all([
       cachedCatalog('nvidia', activeNvidiaKey, () => resolveNvidiaModels(activeNvidiaKey)),
       cachedCatalog('tokenharbor', activeTokenHarborKey, () =>
         resolveTokenHarborModels(activeTokenHarborKey)
@@ -844,6 +888,17 @@ async function createFreePiSession(options) {
       cachedCatalog('deepseek', activeDeepseekKey, () => resolveDeepSeekModels(activeDeepseekKey)),
       cachedCatalog('anthropic', activeAnthropicKey, () => resolveAnthropicModels(activeAnthropicKey)),
       cachedCatalog('google', activeGoogleKey, () => resolveGoogleModels(activeGoogleKey)),
+      cachedCatalog('zai', activeZaiKey, () => resolveZaiModels(activeZaiKey)),
+      cachedCatalog('openrouter', activeOpenRouterKey, () =>
+        resolveOpenRouterModels(activeOpenRouterKey)
+      ),
+      // Workers AI needs both halves of the credential, so the cache key does too:
+      // the same token pointed at another account is a different catalog.
+      cachedCatalog(
+        'cloudflare',
+        activeCloudflareKey ? `${activeCloudflareKey}@${activeCloudflareAccount || ''}` : null,
+        () => resolveCloudflareModels(activeCloudflareKey, activeCloudflareAccount)
+      ),
     ]);
   const llm7Models = activeLlm7Key ? tagPlans(llm7Catalog.models) : [];
 
@@ -858,6 +913,9 @@ async function createFreePiSession(options) {
     deepseekKey: activeDeepseekKey,
     anthropicKey: activeAnthropicKey,
     googleKey: activeGoogleKey,
+    zaiKey: activeZaiKey,
+    openrouterKey: activeOpenRouterKey,
+    cloudflareKey: activeCloudflareKey && activeCloudflareAccount ? activeCloudflareKey : null,
     freePiModels: models,
     coarenaModels,
     zroModels,
@@ -867,10 +925,13 @@ async function createFreePiSession(options) {
     deepseekModels,
     anthropicModels,
     googleModels,
+    zaiModels,
+    openrouterModels,
+    cloudflareModels,
   });
   if (!plan.available) {
     throw new Error(
-      'No AI provider available — sign in to FreePi or add a Coarena, Zro, NVIDIA, Token Harbor, LLM7 or DeepSeek key in Settings.'
+      'No AI provider available — sign in to FreePi or add a provider key in Settings (Coarena, Zro, NVIDIA, Token Harbor, LLM7, DeepSeek, Claude, Gemini, z.ai, OpenRouter, Cloudflare).'
     );
   }
   log(
@@ -882,7 +943,10 @@ async function createFreePiSession(options) {
       `llm7=${plan.llm7 ? llm7Models.length : 0} (catalog ${llm7Catalog.source}), ` +
       `deepseek=${plan.deepseek ? deepseekModels.length : 0}, ` +
       `anthropic=${plan.anthropic ? anthropicModels.length : 0}, ` +
-      `google=${plan.google ? googleModels.length : 0}`
+      `google=${plan.google ? googleModels.length : 0}, ` +
+      `zai=${plan.zai ? zaiModels.length : 0}, ` +
+      `openrouter=${plan.openrouter ? openrouterModels.length : 0}, ` +
+      `cloudflare=${plan.cloudflare ? cloudflareModels.length : 0}`
   );
 
   // Ads: one per user turn, tagged with the turn id the completion carries.
@@ -967,6 +1031,28 @@ async function createFreePiSession(options) {
         pi.registerProvider(
           GOOGLE_PROVIDER,
           googleProviderConfig({ apiKey: activeGoogleKey, models: googleModels })
+        );
+      }
+      if (plan.zai) {
+        pi.registerProvider(
+          ZAI_PROVIDER,
+          zaiProviderConfig({ apiKey: activeZaiKey, models: zaiModels })
+        );
+      }
+      if (plan.openrouter) {
+        pi.registerProvider(
+          OPENROUTER_PROVIDER,
+          openrouterProviderConfig({ apiKey: activeOpenRouterKey, models: openrouterModels })
+        );
+      }
+      if (plan.cloudflare) {
+        pi.registerProvider(
+          CLOUDFLARE_PROVIDER,
+          cloudflareProviderConfig({
+            apiKey: activeCloudflareKey,
+            accountId: activeCloudflareAccount,
+            models: cloudflareModels,
+          })
         );
       }
       // Images accumulate in history every time a model reads one. Trim before
@@ -1549,6 +1635,55 @@ async function createFreePiSession(options) {
   };
 
   /**
+   * `ntfy_send`: put a line on the user's phone.
+   *
+   * The room, the server and the credential all live in the app's panel, so the
+   * tool asks for none of them — it sends to whatever room is active there. That
+   * also means the tool is only registered when a publish path was handed in.
+   */
+  const ntfyExtension = {
+    name: 'freepi-desktop-ntfy',
+    factory(pi) {
+      if (!ntfy || typeof ntfy.publish !== 'function') return;
+      pi.registerTool({
+        name: 'ntfy_send',
+        label: 'Notify phone',
+        description:
+          "Send a push notification to the user's own phone through the ntfy room set up in this app (the bell in the left sidebar). " +
+          'Use it when a long job finishes or when you need an answer while they are away. Needs a room to exist; say so in one line if it does not.',
+        promptSnippet: 'Send a push notification to the user\u2019s phone',
+        parameters: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: 'The text to send (one or two lines)' },
+            title: { type: 'string', description: 'Short heading, e.g. "Build finished"' },
+            priority: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 5,
+              description: '1 min, 3 normal, 4 important, 5 urgent',
+            },
+          },
+          required: ['message'],
+        },
+        async execute(_id, params) {
+          const res = await ntfy.publish({
+            message: String(params?.message || ''),
+            title: params?.title ? String(params.title) : '',
+            priority: Number(params?.priority) || 3,
+          });
+          if (!res || res.ok === false) {
+            return {
+              content: [{ type: 'text', text: `Could not send: ${res?.error || 'no room is set up in the ntfy panel'}` }],
+            };
+          }
+          return { content: [{ type: 'text', text: 'Sent to the phone.' }] };
+        },
+      });
+    },
+  };
+
+  /**
    * `look_at_image`: show an image to the active model when it can see images;
    * otherwise fall back to the free-pi vision endpoint. Mirrors the tool
    * free-pi-cli registers, with one addition: a vision-capable model receives
@@ -1630,6 +1765,49 @@ async function createFreePiSession(options) {
           // A model that accepts images gets the picture itself: no second
           // provider, no free-pi allowance, and no 429 when FreePi is capped.
           const model = sessionModel(ctx, visionSession);
+          const visionMode = localVision && localVision.mode ? localVision.mode() : 'model';
+
+          if (visionMode === 'off') {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: 'Looking at images is turned off in Settings (see the picture control beside the thinking control). Turn it on to review this file.',
+                },
+              ],
+            };
+          }
+
+          if (visionMode === 'local' && localVision) {
+            try {
+              const shrunkLocal = shrinkImageForModel(buf, mediaType);
+              const localStatus = localVision.status ? localVision.status() : null;
+              if (!localStatus || !localStatus.running) await localVision.start();
+              const answer = await localVision.describe({
+                base64: shrunkLocal.data,
+                mime: shrunkLocal.mimeType,
+                question: String(params?.question || 'Describe this image for someone who cannot see it.'),
+              });
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `${answer.text}\n\n(looked at by the local model; the picture never left this machine)`,
+                  },
+                ],
+              };
+            } catch (err) {
+              // A switched-off model is a decision, not a fault: say that, and
+              // do not send the reader to a page they just came from.
+              const why = err instanceof Error ? err.message : String(err);
+              const text =
+                err && err.code === 'DISABLED'
+                  ? `This picture was not looked at: ${why}.`
+                  : `The local vision model could not look at this image: ${why}. Settings → Providers → llama.cpp shows what it needs.`;
+              return { content: [{ type: 'text', text }] };
+            }
+          }
+
           if (modelSeesImages(model)) {
             const shrunk = shrinkImageForModel(buf, mediaType);
             return {
@@ -1833,6 +2011,10 @@ async function createFreePiSession(options) {
     { projectTrusted: true }
   );
 
+  const sdkTrace = (label, ms) => {
+    if (process.env.NTAPI_BOOT_TRACE) console.log(`[boot-sdk] ${label} ${ms}ms`);
+  };
+  const servicesStarted = Date.now();
   const services = await sdk.createAgentSessionServices({
     cwd,
     // Passing the app's own root here is what makes skills resolve from
@@ -1847,7 +2029,7 @@ async function createFreePiSession(options) {
         // Ads and the FreePi-backed tools only exist when FreePi is registered.
         ...(plan.ads ? [ads.extension] : []),
         providerExtension,
-        ...(plan.freePiTools ? [visionExtension, extraToolsExtension] : []),
+        ...(plan.freePiTools ? [visionExtension, ntfyExtension, extraToolsExtension] : []),
         downloadsPolicyExtension,
         realityPolicyExtension,
         ...(browserBridge ? [browserExtension] : []),
@@ -1866,6 +2048,8 @@ async function createFreePiSession(options) {
     },
   });
 
+  sdkTrace('createAgentSessionServices', Date.now() - servicesStarted);
+  const sessionStarted = Date.now();
   const { session } = await sdk.createAgentSessionFromServices({
     services,
     sessionManager,
@@ -1879,12 +2063,15 @@ async function createFreePiSession(options) {
   // CLI call this right after building the session; a windowed host has to do it
   // itself. `mode: 'print'` is the honest label: there is no terminal to draw in,
   // and extensions that need one already check `hasUI`.
+  sdkTrace('createAgentSessionFromServices', Date.now() - sessionStarted);
+  const bindStarted = Date.now();
   try {
     await session.bindExtensions({ mode: 'print' });
   } catch (err) {
     log(`extensions: session_start failed — ${err instanceof Error ? err.message : String(err)}`);
   }
 
+  sdkTrace('bindExtensions', Date.now() - bindStarted);
   // Show a banner ad as soon as the session opens, so the window is never left
   // without one while it waits for the first message.
   if (plan.ads) ads.prefetchLaunchAd().catch(() => {});
@@ -1903,6 +2090,9 @@ async function createFreePiSession(options) {
   let deepseekEntries = plan.deepseek ? deepseekModelEntries(deepseekModels) : [];
   let anthropicEntries = plan.anthropic ? anthropicModelEntries(anthropicModels) : [];
   let googleEntries = plan.google ? googleModelEntries(googleModels) : [];
+  let zaiEntries = plan.zai ? zaiModelEntries(zaiModels) : [];
+  let openrouterEntries = plan.openrouter ? openrouterModelEntries(openrouterModels) : [];
+  let cloudflareEntries = plan.cloudflare ? cloudflareModelEntries(cloudflareModels) : [];
   let modelList = [];
 
   /**
@@ -1921,6 +2111,9 @@ async function createFreePiSession(options) {
       ...deepseekEntries,
       ...anthropicEntries,
       ...googleEntries,
+      ...zaiEntries,
+      ...openrouterEntries,
+      ...cloudflareEntries,
     ];
     return modelList;
   }
@@ -2173,6 +2366,89 @@ async function createFreePiSession(options) {
     return { ok: true, models: rebuildModelList() };
   }
 
+  /** Swap the z.ai key while the tab is open. */
+  async function applyZaiKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(ZAI_PROVIDER);
+      } catch {}
+    }
+
+    activeZaiKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeZaiKey) {
+      zaiEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolveZaiModels(activeZaiKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(ZAI_PROVIDER, zaiProviderConfig({ apiKey: activeZaiKey, models }));
+    }
+    zaiEntries = zaiModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
+  /** Swap the OpenRouter key while the tab is open. */
+  async function applyOpenRouterKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(OPENROUTER_PROVIDER);
+      } catch {}
+    }
+
+    activeOpenRouterKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeOpenRouterKey) {
+      openrouterEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolveOpenRouterModels(activeOpenRouterKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        OPENROUTER_PROVIDER,
+        openrouterProviderConfig({ apiKey: activeOpenRouterKey, models })
+      );
+    }
+    openrouterEntries = openrouterModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
+  /**
+   * Swap the Cloudflare credential while the tab is open. Both halves change
+   * together: a token without its account id points at an endpoint that does not
+   * exist, so an empty id unregisters the provider.
+   */
+  async function applyCloudflareKey(nextKey, nextAccountId) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(CLOUDFLARE_PROVIDER);
+      } catch {}
+    }
+
+    activeCloudflareKey = nextKey ? String(nextKey).trim() : null;
+    if (nextAccountId !== undefined) {
+      activeCloudflareAccount = nextAccountId ? String(nextAccountId).trim() : null;
+    }
+    if (!activeCloudflareKey || !activeCloudflareAccount) {
+      cloudflareEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolveCloudflareModels(activeCloudflareKey, activeCloudflareAccount);
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        CLOUDFLARE_PROVIDER,
+        cloudflareProviderConfig({
+          apiKey: activeCloudflareKey,
+          accountId: activeCloudflareAccount,
+          models,
+        })
+      );
+    }
+    cloudflareEntries = cloudflareModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
   /**
    * Re-register the free-pi provider after the backend says our version header
    * is too old. The header is resolved per call now (see currentClientVersion),
@@ -2207,10 +2483,55 @@ async function createFreePiSession(options) {
     return next;
   }
 
+  /**
+   * Re-read every configured provider's catalog, ignoring the ten-minute cache.
+   *
+   * The cache holds one answer per key for ten minutes, so a refresh that only
+   * re-ran the resolvers would hand back the same stale lists. Clearing it first
+   * is what makes this an update rather than a repaint.
+   *
+   * One provider failing must not lose the others: each step is caught on its
+   * own and reported, and a provider that could not be read keeps the rows it
+   * already had.
+   */
+  async function refreshCatalogs() {
+    catalogCache.clear();
+    const steps = [
+      ['coarena', activeCoarenaKey, () => applyCoarenaKey(activeCoarenaKey)],
+      ['nvidia', activeNvidiaKey, () => applyNvidiaKey(activeNvidiaKey)],
+      ['tokenharbor', activeTokenHarborKey, () => applyTokenHarborKey(activeTokenHarborKey)],
+      ['llm7', activeLlm7Key, () => applyLlm7Key(activeLlm7Key)],
+      ['deepseek', activeDeepseekKey, () => applyDeepSeekKey(activeDeepseekKey)],
+      ['anthropic', activeAnthropicKey, () => applyAnthropicKey(activeAnthropicKey)],
+      ['google', activeGoogleKey, () => applyGoogleKey(activeGoogleKey)],
+      ['zai', activeZaiKey, () => applyZaiKey(activeZaiKey)],
+      ['openrouter', activeOpenRouterKey, () => applyOpenRouterKey(activeOpenRouterKey)],
+      ['cloudflare', activeCloudflareKey, () => applyCloudflareKey(activeCloudflareKey)],
+    ];
+
+    const errors = [];
+    for (const [name, key, run] of steps) {
+      if (!key) continue;
+      try {
+        await run();
+      } catch (err) {
+        errors.push({ provider: name, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    rebuildModelList();
+    const counts = {};
+    for (const entry of modelList) {
+      counts[entry.provider] = (counts[entry.provider] || 0) + 1;
+    }
+    return { ok: errors.length === 0, counts, errors, models: modelList };
+  }
+
   return {
     session,
     services,
     refreshClientVersion,
+    refreshCatalogs,
     // Getter: a live key swap rebuilds this list inside the same handle.
     get modelList() {
       return modelList;
