@@ -3760,6 +3760,8 @@ ipcMain.handle('ntfy:summarize', async (_e, { text, limit, source, tabId } = {})
   return { ok: false, error: 'No summarizer answered.', tried };
 });
 
+ipcMain.handle('ntfy:setNotify', async (_e, { onSettle, mode } = {}) => ntfyService.setNotify({ onSettle, mode }));
+
 ipcMain.handle('ntfy:publish', async (_e, payload = {}) => ntfyService.publish(payload));
 
 /**

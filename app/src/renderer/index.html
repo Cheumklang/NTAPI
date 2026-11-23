@@ -272,6 +272,24 @@
                 <p class="ntfy-note" id="ntfyCommandNote" hidden></p>
               </section>
 
+              <!-- 5. telling the phone when a turn ends, however it started -->
+              <section class="ntfy-group">
+                <h3 class="ntfy-group-title" data-i18n="ntfyNotifyTitle">เมื่อเทิร์นจบ</h3>
+                <label class="ntfy-switch">
+                  <input id="ntfyNotify" type="checkbox" />
+                  <span data-i18n="ntfyNotifyLabel">ส่งข้อความเข้าห้องให้ด้วย</span>
+                </label>
+                <div class="ntfy-source" role="group" aria-labelledby="ntfyNotifyWhenLabel">
+                  <span class="ntfy-source-label" id="ntfyNotifyWhenLabel" data-i18n="ntfyNotifyWhenLabel">ส่งเมื่อไหร่</span>
+                  <div class="ntfy-slide" id="ntfyNotifyWhen">
+                    <button type="button" class="ntfy-slide-opt" data-mode="always" aria-pressed="false" data-i18n="ntfyNotifyAlways">ทุกเทิร์น</button>
+                    <button type="button" class="ntfy-slide-opt" data-mode="long" aria-pressed="true" data-i18n="ntfyNotifyLong">เกิน 1 นาที</button>
+                    <button type="button" class="ntfy-slide-opt" data-mode="away" aria-pressed="false" data-i18n="ntfyNotifyAway">ตอนไม่อยู่</button>
+                  </div>
+                </div>
+                <p class="ntfy-hint" data-i18n="ntfyNotifyHint">ใช้เส้นทางสรุปด้านบน · เทิร์นที่มาจากห้องตอบกลับอยู่แล้วจึงไม่ส่งซ้ำ</p>
+              </section>
+
               <details class="ntfy-server">
                 <summary data-i18n="ntfyServerSummary">เซิร์ฟเวอร์และอื่น ๆ</summary>
                 <div class="ntfy-row">
@@ -1091,9 +1109,111 @@
                 </p>
 
                 <div class="provider-cards">
-                  <!-- The free lane is FreePi's account rather than an API key, but
-                       it uses the same card shape as the rows below. -->
-                  <div class="provider-card" id="freepiRow" data-provider="free-pi">
+                <!--
+                     One tile per company, five to a row: the list outgrew a column of
+                     cards, and a grid keeps room for the next company without pushing
+                     the form further down the page. A tick on the logo's corner means
+                     a key is saved and readable — it sits outside the mark so the logo
+                     stays recognisable. Clicking a tile opens that one form below.
+                -->
+                <div class="provider-grid" id="providerGrid" role="group" aria-label="Providers">
+                  <button type="button" class="provider-tile" data-provider="anthropic" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/anthropic.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="anthropicSection">Claude</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="cloudflare" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/cloudflare.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="cloudflareSection">Cloudflare</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="coarena" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/coarena.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="coarenaSection">Coarena</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="deepseek" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/deepseek.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="deepseekSection">DeepSeek</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="freepi" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/freepi.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="freepiSection">FreePi</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="google" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/google.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="googleSection">Gemini</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="llamacpp" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/llamacpp.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="llamacppSection">llama.cpp</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="llm7" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/llm7.png" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="llm7Section">LLM7.io</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="nvidia" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/nvidia.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="nvidiaSection">NVIDIA</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="openrouter" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/openrouter.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="openrouterSection">OpenRouter</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="tokenharbor" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/tokenharbor.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="tokenharborSection">Token Harbor</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="zai" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/zai.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="zaiSection">z.ai</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="zro" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/zro.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="zroSection">Zro</span>
+                  </button>
+</div>
+                <div class="provider-detail" id="providerDetail">
+
+                  <!-- FreePi is an account rather than an API key, but it is one company
+                       among the others: its own tile, its own card. -->
+                  <div class="provider-card" id="freepiRow" data-provider="freepi">
                     <div class="provider-card-head">
                       <img class="provider-logo" src="assets/providers/freepi.svg" alt="" aria-hidden="true" />
                       <div class="provider-info">
@@ -1113,101 +1233,6 @@
                       <button id="accountGetKey" class="link-btn" data-i18n="freepiGetKey">Sign in at freepi.ai</button>
                     </div>
                   </div>
-
-                <!--
-                     One tile per company, five to a row: the list outgrew a column of
-                     cards, and a grid keeps room for the next company without pushing
-                     the form further down the page. A tick on the logo's corner means
-                     a key is saved and readable — it sits outside the mark so the logo
-                     stays recognisable. Clicking a tile opens that one form below.
-                -->
-                <div class="provider-grid" id="providerGrid" role="group" aria-label="Providers">
-                  <button type="button" class="provider-tile" data-provider="coarena" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/coarena.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="coarenaSection">Coarena</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="zro" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/zro.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="zroSection">Zro</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="nvidia" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/nvidia.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="nvidiaSection">NVIDIA</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="tokenharbor" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/tokenharbor.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="tokenharborSection">Token Harbor</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="llm7" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/llm7.png" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="llm7Section">LLM7.io</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="deepseek" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/deepseek.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="deepseekSection">DeepSeek</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="anthropic" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/anthropic.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="anthropicSection">Claude</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="google" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/google.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="googleSection">Gemini</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="zai" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/zai.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="zaiSection">z.ai</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="openrouter" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/openrouter.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="openrouterSection">OpenRouter</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="cloudflare" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/cloudflare.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="cloudflareSection">Cloudflare</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="llamacpp" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/llamacpp.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="llamacppSection">llama.cpp</span>
-                  </button>
-                </div>
-                <div class="provider-detail" id="providerDetail">
 
                   <div class="provider-card" id="coarenaRow" data-provider="coarena">
                     <div class="provider-card-head">

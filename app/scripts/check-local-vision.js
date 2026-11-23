@@ -170,7 +170,10 @@ app.whenReady().then(async () => {
       switchDisabled: el('llamacppEnabled')?.disabled,
       startButton: Boolean(el('llamacppStart')),
       stopButton: Boolean(el('llamacppStop')),
-      switchText: document.querySelector('#llamacppRow .slide-switch span')?.textContent.trim() || '',
+      switchText: document.querySelector("#llamacppRow .slide-switch span")?.textContent.trim() || "",
+      switchAppearance: getComputedStyle(el("llamacppEnabled")).appearance,
+      switchWidth: Math.round(el("llamacppEnabled").getBoundingClientRect().width),
+      switchHeight: Math.round(el("llamacppEnabled").getBoundingClientRect().height),
     };
   })()`);
   check('the tile opens the local model card', JSON.stringify(card.open) === JSON.stringify(['llamacpp']), card.open);
@@ -178,7 +181,12 @@ app.whenReady().then(async () => {
   check('install is gone once installed', card.installHidden === true, card.installHidden);
   check('there is one switch, not a start and a stop button', card.startButton === false && card.stopButton === false, card);
   check('the switch reads on while the model runs', card.switchOn === true, card.switchOn);
-  check('and it is usable once installed', card.switchDisabled === false, card.switchDisabled);
+  check("and it is usable once installed", card.switchDisabled === false, card.switchDisabled);
+  check(
+    "the switch is a slide, not a tick box (same as the ntfy ones)",
+    card.switchAppearance === "none" && card.switchWidth > card.switchHeight,
+    { appearance: card.switchAppearance, w: card.switchWidth, h: card.switchHeight }
+  );
   check('its label says what it turns on', card.switchText.length > 10, card.switchText);
 
   // --- installed but switched off ---------------------------------------

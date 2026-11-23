@@ -4,7 +4,8 @@
  * The ntfy panel, in the real window.
  *
  * What is checked: the chip sits on the browser-control row and opens a panel of
- * four groups in the order they are used; the สรุป/ทั้งหมด slide really decides
+ * five groups in the order they are used (a finished turn goes to the phone too,
+ * whatever started it); the สรุป/ทั้งหมด slide really decides
  * what a message looks like and disables the character box when it has no
  * meaning; sending asks for the right thing; a message that arrives raises the
  * chip's count without opening anything; and Escape puts the panel away.
@@ -35,6 +36,7 @@ function state(over = {}) {
     activeTopic: 'ntapi-abcdefghij',
     enabled: true,
     summary: { enabled: true, limit: 200, source: 'local' },
+    notify: { onSettle: false, mode: 'long' },
     messages: [{ id: 'm1', time: Date.now(), topic: 'ntapi-abcdefghij', title: 'Build finished', message: LONG }],
     config: { login: true, signup: true, checked: true },
     account: { username: null, anonymous: true, limits: { messages: 250 }, stats: { messages_remaining: 248 } },
@@ -44,6 +46,8 @@ function state(over = {}) {
 }
 
 const calls = [];
+// Mirrors the service: each call patches the settings, it does not replace them.
+let notifySettings = { onSettle: false, mode: 'long' };
 
 app.whenReady().then(async () => {
   // The stub answers like the service: what it was asked for is what comes
@@ -63,6 +67,13 @@ app.whenReady().then(async () => {
       };
     }
     if (name === 'setEnabled') return { ok: true, state: state({ enabled: payload.enabled !== false }) };
+    if (name === 'setNotify') {
+      notifySettings = {
+        onSettle: payload.onSettle === undefined ? notifySettings.onSettle : payload.onSettle === true,
+        mode: payload.mode || notifySettings.mode,
+      };
+      return { ok: true, state: state({ notify: { ...notifySettings } }) };
+    }
     if (name === 'publish') return { ok: true, id: 'r' + calls.length, state: state() };
     return { ok: true, state: state(), topic: { name: 'ntapi-newroom99', label: 'x' } };
   };
@@ -105,6 +116,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('ntfy:init', async () => ({ ok: true, state: state() }));
   ipcMain.handle('ntfy:setSummary', record('setSummary'));
   ipcMain.handle('ntfy:setEnabled', record('setEnabled'));
+  ipcMain.handle('ntfy:setNotify', record('setNotify'));
   // The summarizer: answers with a real summary so the test can tell it apart
   // from a cut.
   ipcMain.handle('ntfy:summarize', async (_e, payload = {}) => {
@@ -171,7 +183,7 @@ app.whenReady().then(async () => {
   })()`);
   check('clicking the chip opens the panel', opened.hidden === false && opened.expanded === 'true', opened);
   check('the panel is placed fully inside the window', opened.withinWindow === true, opened);
-  check('it has the four groups, in order', opened.groups.length === 4, opened.groups);
+  check('it has the five groups, in order', opened.groups.length === 5, opened.groups);
   check('the chip says the stream is up', opened.dot === 'live' && opened.state.length > 0, opened);
   console.log(`info: panel ${opened.w}x${opened.h} · content ${opened.scroll.content}px in ${opened.scroll.client}px`);
   check('the account line carries the quota', /248/.test(opened.account), opened.account);
@@ -365,6 +377,103 @@ app.whenReady().then(async () => {
     calls.filter((c) => c.name === 'setEnabled')
   );
 
+  // Every on/off control is a slide switch in the accent colour, not a tick box.
+  const switchStyle = await win.webContents.executeJavaScript(`(() => {
+    const read = (node) => {
+      const s = getComputedStyle(node);
+      return { appearance: s.appearance || s.webkitAppearance, radius: s.borderRadius, width: Math.round(node.getBoundingClientRect().width), height: Math.round(node.getBoundingClientRect().height), accent: s.accentColor };
+    };
+    const off = read(el('ntfyNotify'));
+    el('ntfyNotify').checked = true;
+    const on = read(el('ntfyNotify'));
+    return { off, on };
+  })()`).catch((err) => ({ error: String(err && err.message) }));
+  check(
+    'the switches are slides, not tick boxes',
+    switchStyle.off && switchStyle.off.appearance === 'none' && switchStyle.off.width > switchStyle.off.height,
+    switchStyle
+  );
+
+  // The switch is the theme's purple when it is on. It used to be the green
+  // success colour, which said "this went well", not "this is on".
+  // The colour animates over 150ms, so reading it in the same tick measures the
+  // colour it is leaving, not the one it is going to.
+  // The colour animates over 150ms, so the transition is switched off for the
+  // measurement: reading a frame of it measured the colour it was leaving.
+  const switchColour = await win.webContents.executeJavaScript(`(() => {
+    const box = el('ntfyNotify');
+    box.style.transition = 'none';
+    const read = () => getComputedStyle(box).backgroundColor;
+    box.checked = false;
+    const off = read();
+    box.checked = true;
+    const on = read();
+    box.style.transition = '';
+    const label = box.parentElement.querySelector('span');
+    return { off, on, label: label ? getComputedStyle(label).color : '' };
+  })()`);
+  const rgb = (value) => (value.match(/\d+/g) || []).map(Number);
+  check('the switch has two visibly different states', switchColour.on !== switchColour.off, switchColour);
+  check(
+    'the on colour is the theme purple, not the green success colour',
+    rgb(switchColour.on)[1] < rgb(switchColour.on)[0] && rgb(switchColour.on)[1] < rgb(switchColour.on)[2],
+    switchColour.on
+  );
+  check('its label stays readable in the text colour', rgb(switchColour.label)[1] > 120, switchColour.label);
+
+  const notifyUi = await win.webContents.executeJavaScript(`(() => {
+    el('ntfyNotify').checked = true;
+    el('ntfyNotify').dispatchEvent(new Event('change'));
+    return { pressed: [...el('ntfyNotifyWhen').querySelectorAll('.ntfy-slide-opt')].map((b) => b.dataset.mode + ':' + b.getAttribute('aria-pressed')) };
+  })()`);
+  check('the notify switch is on the panel', notifyUi.pressed.join(',') === 'always:false,long:true,away:false', notifyUi.pressed);
+  check(
+    'turning it on is saved',
+    calls.some((c) => c.name === 'setNotify' && c.payload.onSettle === true),
+    calls.filter((c) => c.name === 'setNotify')
+  );
+  await win.webContents.executeJavaScript(`(async () => {
+    el('ntfyNotifyWhen').querySelector('.ntfy-slide-opt[data-mode="always"]').click();
+    await new Promise((r) => setTimeout(r, 200));
+    return true;
+  })()`);
+  check(
+    'choosing when to send is saved',
+    calls.some((c) => c.name === 'setNotify' && c.payload.mode === 'always'),
+    calls.filter((c) => c.name === 'setNotify')
+  );
+
+  // A turn that started in the window ends: one line goes to the room by itself.
+  // This is the case the reply above never covered, and the reason the phone was
+  // quiet while the user was working in the app.
+  const beforeNotify = calls.filter((c) => c.name === 'publish').length;
+  win.webContents.send('agent:settled', { tabId: 't1', aborted: false, failed: false });
+  await new Promise((r) => setTimeout(r, 800));
+  const sentByItself = calls.filter((c) => c.name === 'publish').slice(beforeNotify);
+  check('a finished turn reaches the room by itself', sentByItself.length === 1, sentByItself.map((c) => c.payload?.title));
+  check(
+    'and it carries the summary, not the raw answer',
+    sentByItself[0]?.payload?.message === 'สรุปสั้นจากโมเดล',
+    sentByItself[0]?.payload?.message
+  );
+  check('it is tagged as a finished-turn note', (sentByItself[0]?.payload?.tags || []).includes('ntapi-done'), sentByItself[0]?.payload?.tags);
+
+  // With the switch off nothing is sent: the panel decided it, not the code path.
+  await win.webContents.executeJavaScript(`(async () => {
+    el('ntfyNotify').checked = false;
+    el('ntfyNotify').dispatchEvent(new Event('change'));
+    await new Promise((r) => setTimeout(r, 200));
+    return true;
+  })()`);
+  const beforeQuiet = calls.filter((c) => c.name === 'publish').length;
+  win.webContents.send('agent:settled', { tabId: 't1', aborted: false, failed: false });
+  await new Promise((r) => setTimeout(r, 800));
+  check(
+    'with the switch off the room stays quiet',
+    calls.filter((c) => c.name === 'publish').length === beforeQuiet,
+    calls.filter((c) => c.name === 'publish').slice(beforeQuiet)
+  );
+
   // Hover opens the panel, the same gesture as the controls beside it.
   const hover = await win.webContents.executeJavaScript(`(async () => {
     if (!el('ntfyPanel').hidden) el('ntfyChip').click();
@@ -392,7 +501,7 @@ app.whenReady().then(async () => {
     };
   })()`);
   check('the send-message group is gone', commandUi.sendGone === true, commandUi);
-  check('the last group is the command switch', commandUi.exists === true && commandUi.hasLabel === true, commandUi);
+  check('the command switch is its own group', commandUi.exists === true && commandUi.hasLabel === true, commandUi);
   check('it is on by default', commandUi.checked === true, commandUi.checked);
 
   // A message from the room becomes a prompt, and the answer goes back to it.

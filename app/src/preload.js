@@ -123,6 +123,7 @@ contextBridge.exposeInMainWorld('freepi', {
   ntfySetServer: (server) => ipcRenderer.invoke('ntfy:setServer', { server }),
   ntfySetSummary: (enabled, limit, source) => ipcRenderer.invoke('ntfy:setSummary', { enabled, limit, source }),
   ntfySetEnabled: (enabled) => ipcRenderer.invoke('ntfy:setEnabled', { enabled }),
+  ntfySetNotify: (patch) => ipcRenderer.invoke('ntfy:setNotify', patch),
   ntfySummarize: (payload) => ipcRenderer.invoke('ntfy:summarize', payload),
   ntfyAddTopic: (name, label) => ipcRenderer.invoke('ntfy:addTopic', { name, label }),
   ntfyRemoveTopic: (name) => ipcRenderer.invoke('ntfy:removeTopic', { name }),

@@ -28,7 +28,8 @@ function check(name, ok, detail) {
   }
 }
 
-const TILES = ['coarena', 'zro', 'nvidia', 'tokenharbor', 'llm7', 'deepseek', 'anthropic', 'google', 'zai', 'openrouter', 'cloudflare'];
+// A-Z by the name on the tile, which is what the grid has to show.
+const TILE_ORDER = ['anthropic', 'cloudflare', 'coarena', 'deepseek', 'freepi', 'google', 'llamacpp', 'llm7', 'nvidia', 'openrouter', 'tokenharbor', 'zai', 'zro'];
 
 /** Statuses the stubbed main process reports: two keys saved, the rest empty. */
 function status(configured) {
@@ -44,6 +45,8 @@ app.whenReady().then(async () => {
   ipcMain.handle('session:list', async () => []);
   ipcMain.handle('tab:state', async () => null);
   ipcMain.handle('providers:key-health', async () => []);
+  // FreePi's tick is its signed-in session, so the account has to answer.
+  ipcMain.handle('account:status', async () => ({ hasToken: true, guest: false, signedIn: true }));
   ipcMain.handle('settings:get', async () => ({
     dataRoot: 'C:/NTAPI',
     coarena: status(true),
@@ -98,6 +101,7 @@ app.whenReady().then(async () => {
 
     // First-row length, measured: a hidden panel resolves grid-template-columns to
     // the literal repeat() text, which counts nothing.
+    const order = tiles.map((t) => t.dataset.provider);
     const firstRow = tiles.filter((t) => Math.abs(t.getBoundingClientRect().top - tiles[0].getBoundingClientRect().top) < 2).length;
     const marks = tiles.map((t) => t.querySelector('.provider-tile-logo')?.getAttribute('src') || '');
     const names = tiles.map((t) => t.querySelector('.provider-tile-name')?.textContent.trim() || '');
@@ -124,9 +128,27 @@ app.whenReady().then(async () => {
     const nameSize = parseFloat(getComputedStyle(tiles[0].querySelector('.provider-tile-name')).fontSize);
     const tileH = rect(tiles[0]).h;
 
+    const freepi = tiles.find((t) => t.dataset.provider === 'freepi');
+    const freepiTile = freepi
+      ? {
+          logo: freepi.querySelector('.provider-tile-logo')?.getAttribute('src') || '',
+          name: freepi.querySelector('.provider-tile-name')?.textContent.trim() || '',
+          tick: Boolean(freepi.querySelector('.provider-tile-tick')),
+        }
+      : null;
+    // A card outside #providerDetail would sit above the grid all the time.
+    const freepiAboveGrid = Boolean(
+      document.querySelector('#freepiRow') &&
+        !document.querySelector('#providerDetail #freepiRow')
+    );
+
     // Whatever was saved opens first; one form, and only one.
     const openFirst = visibleCards().map((c) => c.dataset.provider);
     // Clicking another tile swaps the form; clicking it again closes it.
+    // FreePi above all: its card is one of the detail cards now.
+    freepi.click();
+    const afterFreepi = visibleCards().map((c) => c.dataset.provider);
+    freepi.click();
     tiles.find((t) => t.dataset.provider === 'zai').click();
     await new Promise((r) => setTimeout(r, 60));
     const afterZai = visibleCards().map((c) => c.dataset.provider);
@@ -208,16 +230,25 @@ app.whenReady().then(async () => {
       zaiActive,
       afterToggle,
       detailExists: Boolean(detail),
+      order,
+      freepiTile,
+      freepiAboveGrid,
+      afterFreepi,
       readings,
     };
   })()`);
 
-  check('twelve provider tiles', result.tiles === 12, result.tiles);
+  check('thirteen provider tiles', result.tiles === 13, result.tiles);
+  check('tiles run A-Z by the name they show', JSON.stringify(result.order) === JSON.stringify(TILE_ORDER), result.order);
+  check('FreePi is a tile like the others', result.freepiTile && result.freepiTile.logo && result.freepiTile.name === 'FreePi', result.freepiTile);
+  check('FreePi has no card above the grid', result.freepiAboveGrid === false, result.freepiAboveGrid);
+  check('a signed-in FreePi carries the tick', result.ticked.includes('freepi'), result.ticked);
+  check('the tick stays only for a readable key or a session', JSON.stringify(result.ticked) === JSON.stringify(['coarena', 'deepseek', 'freepi']), result.ticked);
+  check('the FreePi tile opens its card', JSON.stringify(result.afterFreepi) === JSON.stringify(['freepi']), result.afterFreepi);
   check('the grid has a real width', result.gridWidth > 400, result.gridWidth);
   check('five tiles to a row', result.columns === 5, { firstRow: result.columns, gridWidth: result.gridWidth });
   check('every tile has a bundled mark', result.marksOk);
   check('every company is named under its mark', result.names.every((n) => n && n.length > 1), result.names);
-  check('a tick only for a readable saved key', JSON.stringify(result.ticked) === JSON.stringify(['coarena', 'deepseek']), result.ticked);
   check('the tick does not cover the logo', result.tileOverlap === false, {
     tick: result.tickRect,
     logo: result.logoTileRect,
@@ -267,4 +298,8 @@ app.whenReady().then(async () => {
   }
   console.log('\nAll provider-grid checks passed.');
   app.exit(0);
+}).catch((err) => {
+  // A thrown check is a failure with a line number, not a hang.
+  console.error('grid check crashed:', err && err.stack ? err.stack : err);
+  app.exit(1);
 });

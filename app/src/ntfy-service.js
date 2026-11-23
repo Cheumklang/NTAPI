@@ -41,6 +41,9 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
     topics: [],
     activeTopic: null,
     summary: { enabled: true, limit: 200, source: 'local' },
+    // One line to the phone when a turn ends, whatever started it. Off by
+    // default: a notification for every answer is a notification nobody reads.
+    notify: { onSettle: false, mode: 'long' },
   };
   /**
    * Whether the whole integration is switched on. Off means: no stream, no
@@ -112,6 +115,10 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
           limit: clampLimit(saved.summary?.limit),
           source: saved.summary?.source === 'provider' ? 'provider' : 'local',
         },
+        notify: {
+          onSettle: saved.notify?.onSettle === true,
+          mode: NOTIFY_MODES.includes(saved.notify?.mode) ? saved.notify.mode : 'long',
+        },
       };
       enabled = saved.enabled !== false;
     }
@@ -121,6 +128,8 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       settings.activeTopic = settings.topics[0]?.name || null;
     }
   }
+
+  const NOTIFY_MODES = ['always', 'long', 'away'];
 
   function clampLimit(value) {
     const n = Number(value);
@@ -137,6 +146,7 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       topics: settings.topics,
       activeTopic: settings.activeTopic,
       summary: settings.summary,
+      notify: settings.notify,
       enabled,
     });
   }
@@ -153,6 +163,7 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       topics: settings.topics.map((t) => ({ name: t.name, label: t.label || t.name })),
       activeTopic: settings.activeTopic,
       summary: { ...settings.summary },
+      notify: { ...settings.notify },
       enabled,
       messages: messages.slice(-MAX_MESSAGES),
       config: { ...config },
@@ -294,6 +305,20 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
         // 'local' shortens with the model in this machine (free, GPU seconds);
         // 'provider' asks the provider that wrote the answer (a few tokens).
         source: source === 'provider' ? 'provider' : source === 'local' ? 'local' : settings.summary.source,
+      };
+      save();
+      return { ok: true, state: snapshot() };
+    },
+
+    /**
+     * When the phone hears about a finished turn. `mode`: 'always' every turn,
+     * 'long' only a turn that took a while, 'away' only when the window is not
+     * in front of anyone.
+     */
+    setNotify({ onSettle, mode } = {}) {
+      settings.notify = {
+        onSettle: onSettle === undefined ? settings.notify.onSettle : Boolean(onSettle),
+        mode: NOTIFY_MODES.includes(mode) ? mode : settings.notify.mode,
       };
       save();
       return { ok: true, state: snapshot() };

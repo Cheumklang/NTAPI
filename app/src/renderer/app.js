@@ -4713,6 +4713,20 @@ function paintNtfy() {
   panel.classList.toggle('is-off', !on);
   chip.title = `${t('ntfyTitle')} — ${el('ntfyState').textContent}`;
 
+  // Telling the phone when a turn ends: the switch, and when it fires.
+  const notifyOn = state.notify?.onSettle === true;
+  const notifyBox = el('ntfyNotify');
+  if (notifyBox) notifyBox.checked = notifyOn;
+  const notifyWhen = el('ntfyNotifyWhen');
+  if (notifyWhen) {
+    const mode = ['always', 'long', 'away'].includes(state.notify?.mode) ? state.notify.mode : 'long';
+    for (const option of notifyWhen.querySelectorAll('.ntfy-slide-opt')) {
+      option.setAttribute('aria-pressed', String(option.dataset.mode === mode));
+    }
+    // The choice means nothing while the switch is off.
+    notifyWhen.classList.toggle('disabled', !notifyOn || !on);
+  }
+
 
   el('ntfyAccountLine').textContent = ntfyAccountText(state);
   const signedIn = Boolean(state.signedIn);
@@ -5029,13 +5043,11 @@ function lastAssistantText(messages) {
   return '';
 }
 
-async function ntfyReplyWithAnswer(tabId) {
-  ntfyPending.delete(tabId);
-  if (!ntfyState?.activeTopic) {
-    api.uiLog?.('[ntfy] reply skipped: no active room');
-    return;
-  }
-
+/**
+ * The last thing the agent said, retried: main's projection can lag the settle
+ * event by a beat, and the view's own copy is the fallback.
+ */
+async function ntfyReadAnswer(tabId) {
   const view = views.get(tabId) || null;
   let text = '';
   for (let attempt = 0; attempt < 3 && !text; attempt += 1) {
@@ -5044,10 +5056,37 @@ async function ntfyReplyWithAnswer(tabId) {
       const state = await api.getTabState(tabId);
       text = lastAssistantText(state?.messages);
     } catch (err) {
-      api.uiLog?.(`[ntfy] reply read failed: ${err instanceof Error ? err.message : String(err)}`);
+      api.uiLog?.(`[ntfy] read failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     if (!text) text = lastAssistantText(view?.messages);
   }
+  return text;
+}
+
+/**
+ * The text that goes to the phone: a real summary when the panel asks for one,
+ * the answer itself for "ทั้งหมด", and a marked cut when no summarizer answered.
+ */
+async function ntfyComposeBody(text, tabId) {
+  const summaryMode = ntfyState?.summary?.enabled !== false;
+  const limit = ntfyState?.summary?.limit || 200;
+  if (!summaryMode) return { body: text, via: 'full' };
+  const res = await api.ntfySummarize({ text, limit, source: ntfyState?.summary?.source || 'local', tabId });
+  if (res?.ok && res.summary) {
+    return { body: String(res.summary).trim().slice(0, Math.max(40, limit * 2)), via: res.via || 'model' };
+  }
+  api.uiLog?.(`[ntfy] summary fell back to cutting: ${res?.error || 'no answer'}`);
+  return { body: FPProvider.ntfySummary(text, { mode: 'summary', limit }), via: 'cut' };
+}
+
+async function ntfyReplyWithAnswer(tabId) {
+  ntfyPending.delete(tabId);
+  if (!ntfyState?.activeTopic) {
+    api.uiLog?.('[ntfy] reply skipped: no active room');
+    return;
+  }
+
+  const text = await ntfyReadAnswer(tabId);
   if (!text) {
     api.uiLog?.('[ntfy] reply skipped: the turn produced no assistant text');
     ntfyNote('ntfyCommandNote', t('ntfyNoAnswer'), 'error');
@@ -5059,24 +5098,7 @@ async function ntfyReplyWithAnswer(tabId) {
   // "สรุป" asks a model for a short version; "ทั้งหมด" sends the answer as it is.
   // If no summarizer answers, the text is shortened by cutting it and the note
   // says so, so a truncated answer is never mistaken for a summary.
-  let body = text;
-  let via = 'full';
-  if (summaryMode) {
-    const res = await api.ntfySummarize({
-      text,
-      limit,
-      source: ntfyState?.summary?.source || 'local',
-      tabId,
-    });
-    if (res?.ok && res.summary) {
-      body = String(res.summary).trim().slice(0, Math.max(40, limit * 2));
-      via = res.via || 'model';
-    } else {
-      body = FPProvider.ntfySummary(text, { mode: 'summary', limit });
-      via = 'cut';
-      api.uiLog?.(`[ntfy] summary fell back to cutting: ${res?.error || 'no answer'}`);
-    }
-  }
+  const { body, via } = await ntfyComposeBody(text, tabId);
   const res = await ntfyCall(() =>
     api.ntfyPublish({ message: body, title: t('ntfyReplyTitle'), priority: 3, tags: ['ntapi-reply'] })
   );
@@ -5093,14 +5115,66 @@ async function ntfyReplyWithAnswer(tabId) {
   );
 }
 
+/**
+ * When a turn ends, one line goes to the phone — if the panel's switch is on.
+ *
+ * The reply above only ever answered a turn that came *from* the room, which is
+ * why a job typed in the window never reached the phone: the switch is what makes
+ * it work for every turn, without anyone having to ask for it each session.
+ */
+const ntfyTurnStart = new Map();
+const NTFY_LONG_TURN_MS = 60 * 1000;
+
+api.onTurnStart?.((payload = {}) => {
+  if (payload.tabId) ntfyTurnStart.set(payload.tabId, Date.now());
+});
+
+async function ntfyNotifySettled(tabId, payload = {}) {
+  const cfg = ntfyState?.notify;
+  const startedAt = ntfyTurnStart.get(tabId) || 0;
+  ntfyTurnStart.delete(tabId);
+  if (!cfg?.onSettle || ntfyState?.enabled === false) return;
+  if (!ntfyState?.activeTopic || ntfyPending.has(tabId)) return;
+  // 'long' is the default: a two-second answer does not deserve a push.
+  if (cfg.mode === 'long' && startedAt && Date.now() - startedAt < NTFY_LONG_TURN_MS) return;
+  // 'away' means the window really is not in front of anyone.
+  if (cfg.mode === 'away' && document.visibilityState === 'visible' && document.hasFocus()) return;
+
+  const text = await ntfyReadAnswer(tabId);
+  if (!text) return;
+  const { body, via } = await ntfyComposeBody(text, tabId);
+  const res = await ntfyCall(() =>
+    api.ntfyPublish({
+      message: body,
+      title: payload.failed ? t('ntfyNotifyFailed') : t('ntfyNotifyDone'),
+      priority: 3,
+      tags: ['ntapi-done'],
+    })
+  );
+  if (res?.id) ntfySentIds.add(res.id);
+  api.uiLog?.(`[ntfy] settle notification ${res?.ok ? 'sent' : 'failed'} (${body.length} chars, ${via})`);
+}
+
 api.onSettled?.((payload = {}) => {
-  if (!payload.tabId || !ntfyPending.has(payload.tabId)) return;
-  void ntfyReplyWithAnswer(payload.tabId);
+  if (!payload.tabId) return;
+  if (ntfyPending.has(payload.tabId)) {
+    void ntfyReplyWithAnswer(payload.tabId);
+    return;
+  }
+  void ntfyNotifySettled(payload.tabId, payload);
 });
 
 el('ntfyEnabled')?.addEventListener('change', () =>
   ntfyCall(() => api.ntfySetEnabled(el('ntfyEnabled').checked))
 );
+
+el('ntfyNotify')?.addEventListener('change', () =>
+  ntfyCall(() => api.ntfySetNotify({ onSettle: el('ntfyNotify').checked }))
+);
+
+for (const option of el('ntfyNotifyWhen')?.querySelectorAll('.ntfy-slide-opt') || []) {
+  option.addEventListener('click', () => ntfyCall(() => api.ntfySetNotify({ mode: option.dataset.mode })));
+}
 
 for (const option of el('ntfySource')?.querySelectorAll('.ntfy-slide-opt') || []) {
   option.addEventListener('click', () =>
@@ -5154,19 +5228,24 @@ api.onNtfyEvent?.(({ type, payload } = {}) => {
  * readable here — unreadable (copied from another machine) is not a tick, because
  * the picker cannot use it either.
  */
+// A-Z by the name each tile shows — Claude, Cloudflare, Coarena, DeepSeek,
+// FreePi, Gemini, llama.cpp, LLM7.io, NVIDIA, OpenRouter, Token Harbor, z.ai, Zro.
+// The order is the same in the grid markup; this list is what picks the first
+// configured tile to open.
 const PROVIDER_TILE_ORDER = [
-  'coarena',
-  'zro',
-  'nvidia',
-  'tokenharbor',
-  'llm7',
-  'deepseek',
   'anthropic',
-  'google',
-  'zai',
-  'openrouter',
   'cloudflare',
+  'coarena',
+  'deepseek',
+  'freepi',
+  'google',
   'llamacpp',
+  'llm7',
+  'nvidia',
+  'openrouter',
+  'tokenharbor',
+  'zai',
+  'zro',
 ];
 
 /** Which provider's form is open under the grid (null = only the tiles). */
@@ -5175,6 +5254,11 @@ let providerTileSelected = null;
 function providerStatusOf(id) {
   return (
     {
+      // FreePi has a session rather than a key: signed in is what "usable" means,
+      // the same thing the tile tick says for a readable key.
+      freepi: accountData
+        ? { configured: Boolean(accountData.hasToken), readable: Boolean(accountData.hasToken) }
+        : null,
       coarena: coarenaStatus,
       zro: zroStatus,
       nvidia: nvidiaStatus,
@@ -7509,6 +7593,9 @@ async function renderAccount() {
 
   const st = await api.accountStatus();
   accountData = st;
+  // FreePi's tick comes from this answer, so the grid has to be painted again
+  // once it arrives — otherwise it stays wrong until the next repaint.
+  paintProviderGrid();
 
   // Reset sessions needs a sign-in: with no token it has nothing to clear.
   const resetBtn = el('accountResetSession');
@@ -12806,6 +12893,15 @@ Object.assign(STRINGS.en, {
   ntfySourceLocal: 'This machine',
   ntfySourceProvider: 'The provider',
   ntfySourceHint: 'This machine: free, uses the GPU for a few seconds · the provider: a few tokens, summarized by the model that answered',
+  ntfyNotifyTitle: 'When a turn ends',
+  ntfyNotifyLabel: 'Send a line to the room too',
+  ntfyNotifyWhenLabel: 'Send when',
+  ntfyNotifyAlways: 'Every turn',
+  ntfyNotifyLong: 'Over a minute',
+  ntfyNotifyAway: 'Only when away',
+  ntfyNotifyHint: 'Uses the summary route above · a turn that came from the room already answers back, so it is not sent twice',
+  ntfyNotifyDone: 'NTAPI finished',
+  ntfyNotifyFailed: 'NTAPI stopped with an error',
   ntfyEnabledLabel: 'Turn ntfy on',
   ntfyRepliedCut: 'Answer sent to the room — shortened by cutting it (no summarizer answered).',
   ntfyCommands: 'Commands',
@@ -12972,6 +13068,15 @@ Object.assign(STRINGS.th, {
   ntfySourceLocal: 'โมเดลในเครื่อง',
   ntfySourceProvider: 'ผู้ให้บริการ',
   ntfySourceHint: 'ในเครื่อง = ฟรี ใช้ GPU สักครู่ · ผู้ให้บริการ = เสียโทเคนนิดหน่อย ได้สรุปจากโมเดลที่ตอบ',
+  ntfyNotifyTitle: 'เมื่อเทิร์นจบ',
+  ntfyNotifyLabel: 'ส่งข้อความเข้าห้องให้ด้วย',
+  ntfyNotifyWhenLabel: 'ส่งเมื่อไหร่',
+  ntfyNotifyAlways: 'ทุกเทิร์น',
+  ntfyNotifyLong: 'เกิน 1 นาที',
+  ntfyNotifyAway: 'ตอนไม่อยู่',
+  ntfyNotifyHint: 'ใช้เส้นทางสรุปด้านบน · เทิร์นที่มาจากห้องตอบกลับอยู่แล้วจึงไม่ส่งซ้ำ',
+  ntfyNotifyDone: 'NTAPI ทำงานเสร็จแล้ว',
+  ntfyNotifyFailed: 'NTAPI หยุดพร้อมข้อผิดพลาด',
   ntfyEnabledLabel: 'เปิดใช้งาน ntfy',
   ntfyRepliedCut: 'ส่งคำตอบกลับไปที่ห้องแล้ว — ย่อด้วยการตัดข้อความ (ไม่มีตัวสรุปตอบ)',
   ntfyCommands: 'รับคำสั่ง',
