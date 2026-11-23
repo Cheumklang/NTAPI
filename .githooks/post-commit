@@ -2,7 +2,21 @@
 # Every commit is appended to the authorship ledger, so the record is written by
 # the commit that made it instead of being remembered afterwards. A failure here
 # must never block a commit: the ledger can be filled in by hand ("record-commit").
+#
+# A commit cannot contain its own hash, so the entry it writes cannot ride along
+# with it. Committing the ledger on its own keeps the working tree clean instead
+# of leaving one dirty line behind after every commit. That bookkeeping commit is
+# not recorded (no work in it, only the record of work) which is why the flag
+# below also stops this hook from going round again.
+if [ -n "$NTAPI_PROVENANCE_BOOKKEEPING" ]; then
+  exit 0
+fi
 if command -v node >/dev/null 2>&1; then
   node "$(git rev-parse --show-toplevel)/app/scripts/provenance.js" record-commit >/dev/null 2>&1 || true
+fi
+if ! git diff --quiet -- PROVENANCE/ledger.jsonl; then
+  git add PROVENANCE/ledger.jsonl || exit 0
+  NTAPI_PROVENANCE_BOOKKEEPING=1 git commit -q \
+    -m "PROVENANCE: บันทึกคอมมิต $(git rev-parse --short HEAD)" >/dev/null 2>&1 || true
 fi
 exit 0

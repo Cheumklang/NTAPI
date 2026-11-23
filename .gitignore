@@ -32,3 +32,7 @@ NTAPI ADS/shots/
 # A copy of the app run with a Windows prefs path creates a folder literally
 # named "C:\NTAPI" here; it holds sessions and auth, never source.
 app/C:*
+
+# Agent scratch space and generated graph output: never source, never shipped.
+.pi/
+graphify-out/
