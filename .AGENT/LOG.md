@@ -3836,3 +3836,6 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ผู้ใช้: จุดบอกสถานะของ 3 ปุ่มอยู่คนละที่ ดูไม่มืออาชีพ · ต้นแบบคือชิป ntfy (ไม่ต้องแก้)
 - `index.html`: `sys-dot` ย้ายมาก่อน svg · `styles.css`: `.sys-dot` (7px inline, `var(--line-2)`, on = `#f5b544`), `#browserBtn .dot` (7px inline, `var(--line-2)`) — เลิกใช้ absolute ทั้งคู่
 - เทสต์ 108/108 · `check:sara` ok · ยังไม่ commit/ไม่ bump
+## 2026-11-24 (Linux) — ปล่อย v0.9.1 (จุดสถานะ 3 ชิป)
+- commit `ee6fd44` · bump 0.9.0 → 0.9.1 · tag `v0.9.1` push · CI ออก Setup + latest.yml ครบ
+- prune อัตโนมัติ: v0.9.0 หายทั้ง release + แท็ก (ทั้ง NTAPI และ NTAPI-releases) ⇒ เหลือ v0.9.1 รุ่นเดียว
