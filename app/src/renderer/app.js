@@ -4920,10 +4920,19 @@ for (const option of el('ntfyCommands')?.querySelectorAll('.ntfy-slide-opt') || 
   option.addEventListener('click', () => setNtfyCommands(option.dataset.on === '1'));
 }
 
-/** Is this message one of our own answers coming back down the stream? */
+/** Tags this app puts on what it publishes: an answer, or the turn-end note. */
+const NTFY_OWN_TAGS = ['ntapi-reply', 'ntapi-done'];
+
+/**
+ * Is this message one of our own coming back down the stream?
+ *
+ * Both kinds count. Filtering only the answer is what let the turn-end note be
+ * run as a command: it became a prompt, the reply to it published another note,
+ * and the room talked to itself in a loop.
+ */
 function ntfyIsOwnReply(message) {
   if (!message) return true;
-  if (Array.isArray(message.tags) && message.tags.includes('ntapi-reply')) return true;
+  if (Array.isArray(message.tags) && message.tags.some((tag) => NTFY_OWN_TAGS.includes(tag))) return true;
   return Boolean(message.id && ntfySentIds.has(message.id));
 }
 
@@ -5072,7 +5081,12 @@ async function ntfyReplyWithAnswer(tabId) {
     api.ntfyPublish({ message: body, title: t('ntfyReplyTitle'), priority: 3, tags: ['ntapi-reply'], tabId })
   );
   api.uiLog?.(`[ntfy] reply ${res?.ok ? 'sent' : 'failed'} (${body.length} chars, ${via})${res?.ok ? '' : ' — ' + (res?.error || 'unknown')}`);
-  if (res?.id) ntfySentIds.add(res.id);
+  if (res?.id) {
+    ntfySentIds.add(res.id);
+    // A long session publishes many answers; only the recent ids can still be
+    // in flight on the stream.
+    if (ntfySentIds.size > 500) ntfySentIds.delete(ntfySentIds.values().next().value);
+  }
   ntfyNote(
     'ntfyCommandNote',
     res?.ok
@@ -5113,7 +5127,10 @@ async function ntfyNotifySettled(tabId, payload = {}) {
       tabId,
     })
   );
-  if (res?.id) ntfySentIds.add(res.id);
+  if (res?.id) {
+    ntfySentIds.add(res.id);
+    if (ntfySentIds.size > 500) ntfySentIds.delete(ntfySentIds.values().next().value);
+  }
   api.uiLog?.(`[ntfy] settle notification ${res?.ok ? 'sent' : 'failed'} (${body.length} chars, ${via})`);
 }
 

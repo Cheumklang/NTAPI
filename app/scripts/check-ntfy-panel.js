@@ -511,6 +511,24 @@ app.whenReady().then(async () => {
     calls.filter((c) => c.name === 'sendPrompt').slice(-2)
   );
 
+  // The turn-end note is ours too. It was the one that actually looped: it came
+  // back down the stream, was run as a command, and its reply published another.
+  const beforeDone = calls.filter((c) => c.name === 'sendPrompt').length;
+  win.webContents.send('ntfy:event', {
+    type: 'message',
+    payload: {
+      sessionKey: 'tab:t1',
+      message: { id: 'd1', time: Date.now(), title: 'NTAPI finished', message: 'สรุปสั้นจากโมเดล', tags: ['ntapi-done'] },
+      state: state(),
+    },
+  });
+  await new Promise((r) => setTimeout(r, 400));
+  check(
+    'our own turn-end note is not run as a command',
+    calls.filter((c) => c.name === 'sendPrompt').length === beforeDone,
+    calls.filter((c) => c.name === 'sendPrompt').slice(-2)
+  );
+
   // Switching commands off must stop the loop dead.
   await win.webContents.executeJavaScript(`(() => {
     el('ntfyCommands').querySelector('.ntfy-slide-opt[data-on="0"]').click();

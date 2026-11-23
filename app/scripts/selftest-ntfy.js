@@ -488,6 +488,42 @@ async function main() {
   check('and the room is still there', offReloaded.topic === 'ntapi-off-second', offReloaded.topic);
   fs.rmSync(offDir, { recursive: true, force: true });
 
+  /* The room must not answer itself: our own answer and our own turn-end note
+   * come straight back down the stream, and running either as a command is the
+   * loop that made the app reply to its own summary. */
+  const echoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ntapi-ntfy-echo-'));
+  let deliver = null;
+  const echoClient = {
+    ...require('../src/ntfy'),
+    fetchServerConfig: async () => ({ ok: true, login: true, signup: true }),
+    fetchAccount: async () => ({ ok: true, limits: null, stats: null }),
+    subscribe: async (_server, { onMessage, onOpen }) => {
+      deliver = onMessage;
+      if (onOpen) onOpen({ topic: 'x' });
+      await new Promise((r) => setTimeout(r, 50));
+    },
+    publish: async () => ({ ok: true, status: 200, id: 'own-1' }),
+  };
+  const echo = createNtfyService({ dir: echoDir, safeStorage: fakeSafeStorage, client: echoClient, log: () => {} });
+  echo.load();
+  echo.setActiveSession('file:/sessions/echo.jsonl');
+  echo.setEnabled(true);
+  await new Promise((r) => setTimeout(r, 20));
+  const heard = [];
+  echo.setEmitter((type, payload) => {
+    if (type === 'message') heard.push(payload.message);
+  });
+  const echoSent = await echo.publish({ message: 'our answer', tags: ['ntapi-reply'] });
+  check('an answer is remembered by id', echoSent.ok === true && echoSent.id === 'own-1', echoSent);
+  deliver({ id: 'own-1', time: Date.now() + 1000, message: 'our answer', tags: [] });
+  deliver({ id: 'own-2', time: Date.now() + 1000, message: 'turn finished', tags: ['ntapi-done'] });
+  deliver({ id: 'own-3', time: Date.now() + 1000, message: 'typed on the phone', tags: [] });
+  await new Promise((r) => setTimeout(r, 20));
+  check('our own message is not handed back as a command', heard.length === 1, heard.map((m) => m.message));
+  check('a real message from the phone still arrives', heard[0]?.message === 'typed on the phone', heard[0]);
+  echo.stop();
+  fs.rmSync(echoDir, { recursive: true, force: true });
+
   fs.rmSync(dir, { recursive: true, force: true });
   console.log(failures ? `\n${failures} ntfy check(s) failed` : '\nAll ntfy checks passed.');
   process.exit(failures ? 1 : 0);

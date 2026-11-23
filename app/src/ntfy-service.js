@@ -28,6 +28,14 @@ const RECONNECT_MS = 5000;
 const MAX_SUMMARY = 4000;
 const MAX_SESSIONS = 200;
 const NOTIFY_MODES = ['always', 'away'];
+/**
+ * Tags this app puts on what it publishes. A message carrying one of them is
+ * our own and must never run as a command: the stream hands it straight back,
+ * and running it is what made the app answer itself in a loop.
+ */
+const OWN_TAGS = ['ntapi-reply', 'ntapi-done'];
+/** Ids of messages this process published, remembered against a lost tag. */
+const MAX_SENT_IDS = 500;
 
 function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
   const api = client || require('./ntfy');
@@ -58,6 +66,8 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
   let statuses = new Map();
   /** sessionKey -> { controller, timer } */
   let streams = new Map();
+  /** Ids published here, newest last, so the echo is recognised by id too. */
+  let sentIds = new Set();
   let stopped = false;
   let emit = () => {};
 
@@ -175,6 +185,15 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
     return record;
   }
 
+  /** Keep a published id so the copy that comes back is not run as a command. */
+  function rememberSent(res) {
+    if (!res?.ok || !res.id) return;
+    sentIds.add(String(res.id));
+    if (sentIds.size > MAX_SENT_IDS) {
+      sentIds = new Set([...sentIds].slice(-MAX_SENT_IDS));
+    }
+  }
+
   function statusOf(key) {
     const room = key ? settings.sessions[key] : null;
     return statuses.get(key) || { connected: false, topic: room?.topic || null, error: null };
@@ -256,6 +275,11 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
         onMessage: (message) => {
           // A room made a moment ago must not replay its cache as commands.
           if (roomAt && message.time && message.time < roomAt) return;
+          // Our own answer or notification coming back down the same stream.
+          // The tag is the durable half of the guard; the id covers a server
+          // that drops tags.
+          if (Array.isArray(message.tags) && message.tags.some((tag) => OWN_TAGS.includes(tag))) return;
+          if (message.id && sentIds.has(message.id)) return;
           const current = settings.sessions[key];
           if (!current) return;
           current.since = message.id || current.since;
@@ -511,12 +535,15 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       if (!room?.topic) return { ok: false, error: 'Switch notifications on for this session first.' };
       const payload = { ...message, topic: room.topic };
       const auth = { token: settings.token, username: settings.username, password: message.password };
-      const res = await api.publish(settings.server, payload, auth);
-      if (res.ok || res.status !== 401 || !auth.token) return res;
-      // A token the server refuses must not lose the message: the room itself is
-      // open, so the same send goes again without credentials and says so.
-      const anonymous = await api.publish(settings.server, payload, {});
-      return anonymous.ok ? { ...anonymous, anonymous: true } : res;
+      let res = await api.publish(settings.server, payload, auth);
+      if (!res.ok && res.status === 401 && auth.token) {
+        // A token the server refuses must not lose the message: the room itself
+        // is open, so the same send goes again without credentials and says so.
+        const anonymous = await api.publish(settings.server, payload, {});
+        if (anonymous.ok) res = { ...anonymous, anonymous: true };
+      }
+      rememberSent(res);
+      return res;
     },
 
     async init() {
