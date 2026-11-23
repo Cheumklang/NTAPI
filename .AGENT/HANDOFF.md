@@ -11,6 +11,8 @@
 >
 > **ตัวเลข/หลักฐาน**: `npm test` **108/108** · `check:grid` · `check:models` · `check:vision` (รวมเคสสวิตช์เปิด-ปิด) · `check:ntfy` · `selftest-summarize` · `check:sara` · `prove:verify` ผ่านทั้งหมด · ภาพ: `shots/ntfy-panel-*.png`, `shots/vision-menu-*.png`
 >
+> **ปล่อยแล้ว (ยืนยันจาก API)**: tag `v0.8.0` → Actions "Release" บิลด์+อัปโหลดสำเร็จ (`NTAPI-Setup-0.8.0.exe` 173.4 MB) และ `prune-releases` ลบ v0.7.3 อัตโนมัติ ⇒ **บนหน้าดาวน์โหลดเหลือ v0.8.0 เวอร์ชั่นเดียว** · **อย่ารัน `npm run release` บนเครื่อง Linux** (ไม่มี wine ⇒ ล้มเหลว; ปล่อยด้วยการ push แท็กเท่านั้น) · CI: ซ่อมเทสต์ `selftest-first-run-lang` ที่พังเพราะระยะตัวอักษร 1200 ถูกดันเกินโดยโค้ดใหม่ (บน Windows นับ CRLF) — ย้าย `paintTermsLang()` ไปหัว `applyLanguage`
+>
 > **ค้าง/ยังไม่ทดสอบ**: ntfy บัญชีจริง (โทเคน `cheumklang` ถูก ntfy.sh ปฏิเสธ 401 — แบบไม่ล็อกอินยังใช้ได้), push มือถือจริง, self-host, ไฟล์แนบ · llama.cpp บน Windows (`win-cuda-12`) · สรุปทาง B ใช้ไม่ได้ถ้าค่ายที่ตอบไม่มีคีย์เก็บไว้ (จะ fallback ไป A)
 >
 > **📌 2026-11-23 (Linux) — แคตตาล็อกโมเดลเต็ม + แผง ntfy (ยังไม่คอมมิต):** อ่านบล็อกนี้ก่อนบล็อกอื่น

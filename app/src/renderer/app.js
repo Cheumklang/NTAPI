@@ -1385,6 +1385,8 @@ function formatSpan(ms, opts) {
 /** Apply translations to every element carrying data-i18n. */
 function applyLanguage() {
   document.documentElement.lang = lang;
+  // The terms card carries its own switch, since it covers the title bar.
+  if (typeof paintTermsLang === 'function') paintTermsLang();
   for (const node of document.querySelectorAll('[data-i18n]')) {
     node.textContent = t(node.getAttribute('data-i18n'));
   }
@@ -1406,13 +1408,11 @@ function applyLanguage() {
     btn.textContent = lang === 'en' ? 'EN' : 'TH';
     btn.title = lang === 'en' ? 'Switch to Thai' : 'เปลี่ยนเป็นภาษาอังกฤษ';
   }
-  // The terms card carries its own switch, since it covers the title bar.
-  if (typeof paintTermsLang === 'function') paintTermsLang();
+  // The theme chip's tooltip is translated too.
+  if (typeof paintThemeButton === 'function') paintThemeButton();
   // Menus built by hand keep their old words until something repaints them.
   if (typeof paintVisionControl === 'function') paintVisionControl();
   if (typeof paintNtfy === 'function' && ntfyState) paintNtfy();
-  // The theme chip's tooltip is translated too.
-  if (typeof paintThemeButton === 'function') paintThemeButton();
   const online = el('brandOnline');
   if (online?.dataset.count) {
     const n = Number(online.dataset.count);

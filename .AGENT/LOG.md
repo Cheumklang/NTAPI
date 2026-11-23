@@ -3809,3 +3809,12 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **เมนู "ดูภาพ"**: แถว "ในเครื่องนี้" ปิดเลือก + บอก `visionHintLocalOff` เมื่อสวิตช์ปิด (ไม่ปล่อยให้เลือกเส้นทางที่ล้มเหลว)
 - เทสต์: `selftest-llamacpp` เพิ่ม (ค่าเริ่มต้นเปิด · ปิดแล้ว start ต้อง thrown `DISABLED` และ phase ไม่เป็น error) · `check:vision` เพิ่ม (ไม่มีปุ่ม start/stop แล้ว · สวิตช์สะท้อนสถานะ · ปิดแล้วไทล์ไม่มี tick + แถวในเครื่องถูกล็อก + การ์ดบอกว่าปิด)
 - ผล: `npm test` **108/108** · `check:grid`/`check:models`/`check:vision`/`check:ntfy`/`check:sara` ผ่าน · ปิดรอบเป็น **0.8.0**
+
+### 9) ปล่อย 0.8.0 + ซ่อมเทสต์ที่ CI จับได้
+
+- **ปล่อยแล้ว**: คอมมิต `0.8.0` → แท็ก `v0.8.0` → push · **GitHub Actions "Release" สร้าง installer บน windows-latest แล้วอัปโหลดเข้า `Cheumklang/NTAPI-releases` สำเร็จ** (NTAPI-Setup-0.8.0.exe 173.4 MB + latest.yml + blockmap)
+- **เหลือเวอร์ชั่นเดียวแล้ว**: ไม่ต้องทำอะไรเพิ่ม — มี workflow `prune-releases.yml` ที่รันอัตโนมัติหลัง Release สำเร็จ และตั้ง `KEEP_COUNT=NTAPI_UPDATE_RETENTION:-1` + ลบแท็กด้วย → ตรวจจาก API แล้ว: **release เหลือ `v0.8.0` เดียว** (v0.7.3 ถูกลบทั้ง release และแท็ก)
+  - บทเรียน: `npm run release` ในเครื่องนี้ใช้ไม่ได้ และไม่ควรใช้ — บิลด์ NSIS ต้องมี `wine` ซึ่งเครื่องนี้ไม่มี (sudo ต้องใส่รหัส) · เส้นทางที่ถูกคือ push แท็ก แล้วให้ Actions บิลด์ · เคยลองเพิ่มสคริปต์ prune เอง แล้ว **ลบทิ้ง** เพราะซ้ำกับ workflow ที่มีอยู่
+- **CI จับได้ 1 อย่างที่เป็นของเรา** (นอกนั้นมีมาก่อนแล้วทุกอัน): `selftest-first-run-lang` เช็คระยะตัวอักษรจาก `applyLanguage` ถึง `paintTermsLang()` ภายใน 1200 ตัว — ของเดิม 991 (CRLF 1011) แต่หลังงานรอบนี้กลายเป็น 1198 (CRLF **1222**) ⇒ บน Linux ผ่าน แต่บน Windows ที่ checkout เป็น CRLF **ไม่ผ่าน**
+  - แก้ที่ต้นเหตุฝั่งโค้ด (ไม่ใช่ผ่อนเทสต์): ย้าย `paintTermsLang()` ไปหัว `applyLanguage` → เหลือ 177 (CRLF 180) มีระยะเหลือเฟือ
+- เทสต์: `npm test` **108/108** · `check:vision` ผ่าน · `check:sara` ok
