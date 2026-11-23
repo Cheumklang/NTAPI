@@ -1,63 +1,63 @@
 'use strict';
 
 /**
- * The ntfy side of the window: which server, which rooms, what arrived, and the
- * one live subscription.
+ * The ntfy side of the window: which server, which rooms, and the live streams.
  *
- * Kept apart from `ntfy.js` (which is only HTTP and knows nothing) so the state
- * can be exercised with a stub client and a temporary folder. Everything it
- * writes lives in the data root next to the other per-machine files:
+ * A room belongs to a session — one session, one room — so a reader never has to
+ * pick between rooms that belong to chats they are not looking at. Sessions are
+ * keyed by the chat's session file (its tab id until the file exists), and a
+ * session that has never been switched on starts switched off.
  *
- *   ntfy.json           server, username, credential, rooms, summary setting
- *   ntfy-messages.json  the last messages received, newest last
+ * Everything this writes lives in the data root next to the other per-machine
+ * files:
+ *
+ *   ntfy.json  server, username, credential, summary setting, and one room per
+ *              session with its on/off switch and the id it last read
  *
  * The credential is encrypted with Electron's safeStorage when it is available
- * (the same protection the provider keys get). Messages are not encrypted: they
- * are the user's own notifications, they are only ever read back by this panel,
- * and the file is written 0600.
+ * (the same protection the provider keys get). The file is written 0600.
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 
 const SETTINGS_FILE = 'ntfy.json';
-const MESSAGES_FILE = 'ntfy-messages.json';
-const FILE_VERSION = 1;
+const FILE_VERSION = 2;
 const MODE = 0o600;
-const MAX_MESSAGES = 100;
 const RECONNECT_MS = 5000;
 const MAX_SUMMARY = 4000;
+const MAX_SESSIONS = 200;
+const NOTIFY_MODES = ['always', 'away'];
 
 function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
   const api = client || require('./ntfy');
   const settingsPath = path.join(dir, SETTINGS_FILE);
-  const messagesPath = path.join(dir, MESSAGES_FILE);
 
-  /** @type {{server: string, username: string|null, token: string|null, topics: Array, activeTopic: string|null, summary: {enabled: boolean, limit: number}}} */
+  /**
+   * @type {{server: string, username: string|null, token: string|null,
+   *   sessions: Record<string, {topic: string|null, enabled: boolean, since?: string, at?: number}>,
+   *   summary: {enabled: boolean, limit: number, source: string},
+   *   notify: {onSettle: boolean, mode: string}}}
+   */
   let settings = {
     server: api.NTFY_DEFAULT_SERVER,
     username: null,
     token: null,
-    topics: [],
-    activeTopic: null,
+    sessions: {},
     summary: { enabled: true, limit: 200, source: 'local' },
-    // One line to the phone when a turn ends, whatever started it. Off by
-    // default: a notification for every answer is a notification nobody reads.
-    notify: { onSettle: false, mode: 'long' },
+    // Commands and the turn-end line are both on by default: switching a
+    // session's room on is the one decision the reader is making.
+    notify: { onSettle: true, mode: 'always' },
   };
-  /**
-   * Whether the whole integration is switched on. Off means: no stream, no
-   * commands, no replies — the panel stays where it is, so sitting at the
-   * computer does not require signing out of anything.
-   */
-  let enabled = true;
-  let messages = [];
+  /** The session whose room the panel shows; set by the main process. */
+  let activeKey = null;
+  /** A room inherited from a pre-session settings file, adopted once. */
+  let legacy = null;
   let config = { login: true, signup: true, checked: false };
   let account = null;
-  let status = { connected: false, topic: null, error: null };
-  let streamAbort = null;
-  let streamSince = 'all';
-  let reconnectTimer = null;
+  let statuses = new Map();
+  /** sessionKey -> { controller, timer } */
+  let streams = new Map();
   let stopped = false;
   let emit = () => {};
 
@@ -101,35 +101,43 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
 
   function load() {
     const saved = readJson(settingsPath, null);
-    if (saved && typeof saved === 'object') {
-      settings = {
-        server: api.normalizeServer(saved.server) || api.NTFY_DEFAULT_SERVER,
-        username: saved.username || null,
-        token: unpackToken(saved.token),
-        topics: Array.isArray(saved.topics)
-          ? saved.topics.filter((t) => t && api.sanitizeTopicName(t.name)).slice(0, 50)
-          : [],
-        activeTopic: api.sanitizeTopicName(saved.activeTopic) || null,
-        summary: {
-          enabled: saved.summary?.enabled !== false,
-          limit: clampLimit(saved.summary?.limit),
-          source: saved.summary?.source === 'provider' ? 'provider' : 'local',
-        },
-        notify: {
-          onSettle: saved.notify?.onSettle === true,
-          mode: NOTIFY_MODES.includes(saved.notify?.mode) ? saved.notify.mode : 'long',
-        },
-      };
-      enabled = saved.enabled !== false;
-    }
-    const savedMessages = readJson(messagesPath, null);
-    if (Array.isArray(savedMessages)) messages = savedMessages.slice(-MAX_MESSAGES);
-    if (settings.activeTopic && !settings.topics.some((t) => t.name === settings.activeTopic)) {
-      settings.activeTopic = settings.topics[0]?.name || null;
+    settings = {
+      server: api.normalizeServer(saved?.server) || api.NTFY_DEFAULT_SERVER,
+      username: saved?.username || null,
+      token: unpackToken(saved?.token),
+      sessions: {},
+      summary: {
+        enabled: saved?.summary?.enabled !== false,
+        limit: clampLimit(saved?.summary?.limit),
+        source: saved?.summary?.source === 'provider' ? 'provider' : 'local',
+      },
+      notify: {
+        onSettle: saved?.notify?.onSettle !== false,
+        // "Over a minute" is gone; an old file that chose it now means every
+        // turn, which is what a reader who turned this on was asking for.
+        mode: NOTIFY_MODES.includes(saved?.notify?.mode) ? saved.notify.mode : 'always',
+      },
+    };
+    const savedSessions = saved?.sessions && typeof saved.sessions === 'object' ? saved.sessions : null;
+    if (savedSessions) {
+      for (const [key, value] of Object.entries(savedSessions)) {
+        const topic = api.sanitizeTopicName(value?.topic) || null;
+        if (!key) continue;
+        settings.sessions[key] = {
+          topic,
+          enabled: Boolean(topic) && value?.enabled === true,
+          since: typeof value?.since === 'string' ? value.since : 'all',
+          at: Number(value?.at) || 0,
+        };
+        if (Object.keys(settings.sessions).length >= MAX_SESSIONS) break;
+      }
+    } else if (Array.isArray(saved?.topics) && saved.topics.length) {
+      // Settings written before rooms were per-session: the room the reader was
+      // using is handed to the first session that opens, so it keeps working.
+      const name = api.sanitizeTopicName(saved.activeTopic) || api.sanitizeTopicName(saved.topics[0]?.name);
+      if (name) legacy = { topic: name, enabled: saved.enabled !== false };
     }
   }
-
-  const NOTIFY_MODES = ['always', 'long', 'away'];
 
   function clampLimit(value) {
     const n = Number(value);
@@ -143,32 +151,59 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       server: settings.server,
       username: settings.username,
       token: packToken(settings.token),
-      topics: settings.topics,
-      activeTopic: settings.activeTopic,
+      sessions: settings.sessions,
       summary: settings.summary,
       notify: settings.notify,
-      enabled,
     });
   }
 
-  function saveMessages() {
-    writeJson(messagesPath, messages.slice(-MAX_MESSAGES));
+  /** The record for one session; a session seen for the first time is off. */
+  function sessionOf(key) {
+    if (!key) return null;
+    let record = settings.sessions[key];
+    if (!record) {
+      record = { topic: null, enabled: false, since: 'all', at: 0 };
+      if (legacy?.topic) {
+        record.topic = legacy.topic;
+        record.enabled = legacy.enabled;
+        record.at = Date.now();
+        legacy = null;
+      }
+      settings.sessions[key] = record;
+      save();
+    }
+    return record;
+  }
+
+  function statusOf(key) {
+    const room = key ? settings.sessions[key] : null;
+    return statuses.get(key) || { connected: false, topic: room?.topic || null, error: null };
   }
 
   function snapshot() {
+    const room = activeKey ? settings.sessions[activeKey] || null : null;
+    const topic = room?.topic || null;
     return {
       server: settings.server,
       username: settings.username,
       signedIn: Boolean(settings.token),
-      topics: settings.topics.map((t) => ({ name: t.name, label: t.label || t.name })),
-      activeTopic: settings.activeTopic,
+      sessionKey: activeKey,
+      topic,
+      link: topic ? `${settings.server}/${topic}` : null,
+      enabled: Boolean(room?.enabled),
+      // Every session's switch, so a turn ending in a background chat knows
+      // whether its own room is on without asking again.
+      rooms: Object.fromEntries(
+        Object.entries(settings.sessions).map(([key, value]) => [
+          key,
+          { topic: value.topic || null, enabled: Boolean(value.enabled && value.topic) },
+        ])
+      ),
       summary: { ...settings.summary },
       notify: { ...settings.notify },
-      enabled,
-      messages: messages.slice(-MAX_MESSAGES),
       config: { ...config },
       account,
-      status: { ...status },
+      status: statusOf(activeKey),
     };
   }
 
@@ -176,65 +211,72 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
     emit(type, payload);
   }
 
-  function setStatus(next) {
-    status = { ...status, ...next };
-    announce('status', { ...status });
+  function setStatus(key, next) {
+    if (!key) return;
+    statuses.set(key, { ...statusOf(key), ...next });
+    if (key === activeKey) announce('status', { ...statusOf(key), sessionKey: key });
   }
 
-  /* --------------------------- the live stream --------------------------- */
+  /* --------------------------- the live streams --------------------------- */
 
-  function stopStream() {
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-    }
-    if (streamAbort) {
-      try {
-        streamAbort.abort();
-      } catch {}
-      streamAbort = null;
-    }
-    if (status.connected) setStatus({ connected: false, error: null });
+  function stopStream(key) {
+    const entry = streams.get(key);
+    if (!entry) return;
+    streams.delete(key);
+    if (entry.timer) clearTimeout(entry.timer);
+    try {
+      entry.controller.abort();
+    } catch {}
+    if (statusOf(key).connected) setStatus(key, { connected: false, error: null });
   }
 
   /**
-   * Listen to the active room, and keep listening.
+   * Listen to one session's room, and keep listening.
    *
    * A dropped stream is normal — the server restarts, a laptop sleeps — so it
-   * reconnects with `since` set to the last id already held, which is what stops
-   * a reconnect from replaying the room's whole cache into the panel.
+   * reconnects from the last id already seen, which is what stops a reconnect
+   * from replaying the room's whole cache into the panel.
    */
-  function startStream() {
-    stopStream();
-    const topic = settings.activeTopic;
-    if (!topic || stopped || !enabled) return;
-    streamSince = messages.length ? messages[messages.length - 1].id || 'all' : 'all';
+  function startStream(key) {
+    stopStream(key);
+    const room = settings.sessions[key];
+    if (!room?.topic || !room.enabled || stopped) return;
     const controller = new AbortController();
-    streamAbort = controller;
-    setStatus({ topic, error: null });
+    const entry = { controller, timer: null };
+    streams.set(key, entry);
+    setStatus(key, { topic: room.topic, error: null });
+    const roomAt = room.at || 0;
 
     api
       .subscribe(settings.server, {
-        topic,
-        since: streamSince,
+        topic: room.topic,
+        since: room.since || 'all',
         signal: controller.signal,
-        onOpen: () => setStatus({ connected: true, topic, error: null }),
+        onOpen: () => setStatus(key, { connected: true, topic: room.topic, error: null }),
         onMessage: (message) => {
-          messages = [...messages, message].slice(-MAX_MESSAGES);
-          saveMessages();
-          streamSince = message.id || streamSince;
-          announce('message', { message, state: snapshot() });
+          // A room made a moment ago must not replay its cache as commands.
+          if (roomAt && message.time && message.time < roomAt) return;
+          const current = settings.sessions[key];
+          if (!current) return;
+          current.since = message.id || current.since;
+          save();
+          announce('message', { sessionKey: key, message, state: key === activeKey ? snapshot() : null });
         },
-        onError: (err) => {
-          setStatus({ connected: false, topic, error: err?.error || 'The stream stopped.' });
-        },
+        onError: (err) => setStatus(key, { connected: false, topic: room.topic, error: err?.error || 'The stream stopped.' }),
       })
       .catch(() => {})
       .then(() => {
-        if (stopped || controller.signal.aborted || settings.activeTopic !== topic) return;
-        reconnectTimer = setTimeout(startStream, RECONNECT_MS);
-        if (reconnectTimer.unref) reconnectTimer.unref();
+        if (stopped || controller.signal.aborted || !streams.has(key)) return;
+        entry.timer = setTimeout(() => startStream(key), RECONNECT_MS);
+        if (entry.timer.unref) entry.timer.unref();
       });
+  }
+
+  /** Start the streams of every session that is switched on. */
+  function startEnabled() {
+    for (const [key, room] of Object.entries(settings.sessions)) {
+      if (room.enabled && room.topic) startStream(key);
+    }
   }
 
   /* ------------------------------- actions ------------------------------- */
@@ -280,6 +322,43 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       emit = typeof fn === 'function' ? fn : () => {};
     },
 
+    /**
+     * Follow a session: its room is what the panel shows, and its room is what
+     * the agent's own `ntfy_send` publishes to. Other switched-on sessions keep
+     * their streams, so a message to one of them still arrives.
+     */
+    setActiveSession(key) {
+      const next = key ? String(key) : null;
+      if (next === activeKey) return snapshot();
+      activeKey = next;
+      sessionOf(next);
+      if (next) startStream(next);
+      return snapshot();
+    },
+
+    /** Stop listening to a session whose tab is gone; its room is kept. */
+    stopSession(key) {
+      if (key) stopStream(String(key));
+    },
+
+    /** A chat that gained a session file keeps the room it already had. */
+    rekey(fromKey, toKey) {
+      if (!fromKey || !toKey || fromKey === toKey) return snapshot();
+      if (settings.sessions[fromKey] && !settings.sessions[toKey]) {
+        const wasStreaming = streams.has(fromKey);
+        stopStream(fromKey);
+        settings.sessions[toKey] = settings.sessions[fromKey];
+        delete settings.sessions[fromKey];
+        const status = statuses.get(fromKey);
+        statuses.delete(fromKey);
+        if (status) statuses.set(toKey, status);
+        if (activeKey === fromKey) activeKey = toKey;
+        save();
+        if (wasStreaming) startStream(toKey);
+      }
+      return snapshot();
+    },
+
     setServer(input) {
       const server = api.normalizeServer(input);
       if (!server) return { ok: false, error: 'That does not look like a server address.' };
@@ -291,10 +370,10 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       account = null;
       config = { login: true, signup: true, checked: false };
       save();
-      stopStream();
+      for (const key of [...streams.keys()]) stopStream(key);
       readConfig().catch(() => {});
       refreshAccount().catch(() => {});
-      startStream();
+      startEnabled();
       return { ok: true, state: snapshot() };
     },
 
@@ -310,11 +389,7 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       return { ok: true, state: snapshot() };
     },
 
-    /**
-     * When the phone hears about a finished turn. `mode`: 'always' every turn,
-     * 'long' only a turn that took a while, 'away' only when the window is not
-     * in front of anyone.
-     */
+    /** When the phone hears about a finished turn: 'always', or 'away'. */
     setNotify({ onSettle, mode } = {}) {
       settings.notify = {
         onSettle: onSettle === undefined ? settings.notify.onSettle : Boolean(onSettle),
@@ -324,56 +399,51 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       return { ok: true, state: snapshot() };
     },
 
-    /** The master switch: off stops the stream and every command with it. */
+    /**
+     * The switch for this session's room. Turning it on with no room yet makes
+     * one — the session and the room are the same decision.
+     */
     setEnabled(next) {
-      enabled = next !== false;
-      save();
-      if (!enabled) {
-        stopStream();
-        setStatus({ connected: false, topic: settings.activeTopic, error: null });
-      } else if (settings.activeTopic) {
-        startStream();
+      const room = sessionOf(activeKey);
+      if (!room) return { ok: true, state: snapshot() };
+      room.enabled = next !== false;
+      if (room.enabled && !room.topic) {
+        room.topic = api.randomTopicName();
+        room.since = 'all';
+        room.at = Date.now();
       }
+      save();
+      if (room.enabled) startStream(activeKey);
+      else stopStream(activeKey);
+      setStatus(activeKey, { connected: false, topic: room.topic || null, error: null });
       return { ok: true, state: snapshot() };
     },
 
-    addTopic(name, label) {
+    /** Give this session's room a name of its own (empty = generate one). */
+    addTopic(name) {
+      const room = sessionOf(activeKey);
+      if (!room) return { ok: false, error: 'Open a session first.' };
       const clean = api.sanitizeTopicName(name) || api.randomTopicName();
-      const existing = settings.topics.find((t) => t.name === clean);
-      if (!existing) {
-        settings.topics = [...settings.topics, { name: clean, label: String(label || clean).slice(0, 60) }];
-      }
-      settings.activeTopic = clean;
+      const same = clean === room.topic;
+      room.topic = clean;
+      room.since = same ? room.since : 'all';
+      room.at = same ? room.at : Date.now();
       save();
-      startStream();
-      return { ok: true, topic: { name: clean, label: label || clean }, state: snapshot() };
+      if (room.enabled) startStream(activeKey);
+      return { ok: true, topic: { name: clean }, state: snapshot() };
     },
 
-    removeTopic(name) {
-      const clean = api.sanitizeTopicName(name);
-      settings.topics = settings.topics.filter((t) => t.name !== clean);
-      if (settings.activeTopic === clean) {
-        settings.activeTopic = settings.topics[0]?.name || null;
-        startStream();
-      }
+    /** Forget this session's room and switch it off. */
+    removeTopic() {
+      const room = sessionOf(activeKey);
+      if (!room) return { ok: true, state: snapshot() };
+      stopStream(activeKey);
+      room.topic = null;
+      room.enabled = false;
+      room.since = 'all';
+      room.at = 0;
       save();
-      return { ok: true, state: snapshot() };
-    },
-
-    setActiveTopic(name) {
-      const clean = api.sanitizeTopicName(name);
-      if (!clean || !settings.topics.some((t) => t.name === clean)) {
-        return { ok: false, error: 'That room is not in the list.' };
-      }
-      settings.activeTopic = clean;
-      save();
-      startStream();
-      return { ok: true, state: snapshot() };
-    },
-
-    clearMessages() {
-      messages = [];
-      saveMessages();
+      setStatus(activeKey, { connected: false, topic: null, error: null });
       return { ok: true, state: snapshot() };
     },
 
@@ -434,10 +504,13 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       return { ok: true, state: snapshot() };
     },
 
-    async publish(message) {
-      if (!settings.activeTopic) return { ok: false, error: 'Pick a room first.' };
-      const payload = { ...message, topic: settings.activeTopic };
-      const auth = { token: settings.token, username: settings.username, password: message?.password };
+    /** Send to a session's room; the active one unless a key is given. */
+    async publish(message = {}) {
+      const key = message.sessionKey || activeKey;
+      const room = key ? settings.sessions[key] : null;
+      if (!room?.topic) return { ok: false, error: 'Switch notifications on for this session first.' };
+      const payload = { ...message, topic: room.topic };
+      const auth = { token: settings.token, username: settings.username, password: message.password };
       const res = await api.publish(settings.server, payload, auth);
       if (res.ok || res.status !== 401 || !auth.token) return res;
       // A token the server refuses must not lose the message: the room itself is
@@ -449,19 +522,28 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
     async init() {
       stopped = false;
       await readConfig().catch(() => {});
-      if (settings.activeTopic) startStream();
+      startEnabled();
       await refreshAccount().catch(() => {});
       return snapshot();
     },
 
     stop() {
       stopped = true;
-      stopStream();
+      for (const key of [...streams.keys()]) stopStream(key);
     },
 
     /** Test hook: a service with no timers or fetch left behind. */
-    _internal: { get settings() { return settings; }, startStream, stopStream },
+    _internal: {
+      get settings() {
+        return settings;
+      },
+      get activeKey() {
+        return activeKey;
+      },
+      startStream,
+      stopStream,
+    },
   };
 }
 
-module.exports = { createNtfyService, SETTINGS_FILE, MESSAGES_FILE, MAX_MESSAGES };
+module.exports = { createNtfyService, SETTINGS_FILE };

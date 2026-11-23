@@ -32,12 +32,14 @@ function state(over = {}) {
     server: 'https://ntfy.sh',
     username: null,
     signedIn: false,
-    topics: [{ name: 'ntapi-abcdefghij', label: 'ntapi-abcdefghij' }],
-    activeTopic: 'ntapi-abcdefghij',
+    // The stub tab has no session file yet, so main keys it by its tab id.
+    sessionKey: 'tab:t1',
+    topic: 'ntapi-abcdefghij',
+    link: 'https://ntfy.sh/ntapi-abcdefghij',
     enabled: true,
+    rooms: { 'tab:t1': { topic: 'ntapi-abcdefghij', enabled: true } },
     summary: { enabled: true, limit: 200, source: 'local' },
-    notify: { onSettle: false, mode: 'long' },
-    messages: [{ id: 'm1', time: Date.now(), topic: 'ntapi-abcdefghij', title: 'Build finished', message: LONG }],
+    notify: { onSettle: true, mode: 'always' },
     config: { login: true, signup: true, checked: true },
     account: { username: null, anonymous: true, limits: { messages: 250 }, stats: { messages_remaining: 248 } },
     status: { connected: true, topic: 'ntapi-abcdefghij', error: null },
@@ -123,10 +125,8 @@ app.whenReady().then(async () => {
     calls.push({ name: 'summarize', payload });
     return { ok: true, via: payload.source === 'provider' ? 'provider' : 'local', summary: 'สรุปสั้นจากโมเดล' };
   });
-  ipcMain.handle('ntfy:setActiveTopic', record('setActiveTopic'));
   ipcMain.handle('ntfy:addTopic', record('addTopic'));
   ipcMain.handle('ntfy:removeTopic', record('removeTopic'));
-  ipcMain.handle('ntfy:clearMessages', record('clearMessages'));
   ipcMain.handle('ntfy:publish', record('publish'));
   ipcMain.handle('ntfy:login', record('login'));
   ipcMain.handle('ntfy:signup', record('signup'));
@@ -248,7 +248,7 @@ app.whenReady().then(async () => {
       const spilling = [...panel.querySelectorAll('.ntfy-group')]
         .filter((g) => g.scrollHeight > g.clientHeight + 1)
         .map((g) => ({ group: g.className, content: g.scrollHeight, box: g.clientHeight }));
-      const switchLabel = panel.querySelector('.ntfy-switch');
+      const switchLabel = panel.querySelector('.ntfy-power');
       const switchBox = switchLabel ? switchLabel.getBoundingClientRect() : null;
       return {
         overlaps, outside, squeezed, thin, tiny, spilling,
@@ -267,22 +267,17 @@ app.whenReady().then(async () => {
   check('no button is a sliver', layout.thin.length === 0, layout.thin);
   check('no group paints over the one below it', layout.spilling.length === 0, layout.spilling);
   check('no control is too short to hit', layout.tiny.length === 0, layout.tiny);
-  check('the command switch is a full row to press', layout.switchHeight >= 24, layout.switchHeight);
+  check('each on/off row is a full row to press', layout.switchHeight >= 24, layout.switchHeight);
 
   const summary = await win.webContents.executeJavaScript(`(() => {
-    const body = document.querySelector('#ntfyMessages .ntfy-msg-body').textContent;
     const pressed = [...el('ntfySlide').querySelectorAll('.ntfy-slide-opt')].map((b) => b.dataset.mode + ':' + b.getAttribute('aria-pressed'));
     return {
-      body,
-      endsWithEllipsis: body.endsWith('…'),
-      length: body.length,
       pressed,
       limitDisabled: el('ntfyLimit').disabled,
       limitValue: el('ntfyLimit').value,
     };
   })()`);
   check('the slide starts on สรุป', summary.pressed.join(',') === 'summary:true,full:false', summary.pressed);
-  check('a summary is cut to the chosen length', summary.endsWithEllipsis && summary.length <= 201, summary);
   check('the character box is usable in สรุป', summary.limitDisabled === false && summary.limitValue === '200', summary);
 
   const full = await win.webContents.executeJavaScript(`(async () => {
@@ -291,12 +286,10 @@ app.whenReady().then(async () => {
     return {
       pressed: [...el('ntfySlide').querySelectorAll('.ntfy-slide-opt')].map((b) => b.dataset.mode + ':' + b.getAttribute('aria-pressed')),
       limitDisabled: el('ntfyLimit').disabled,
-      body: document.querySelector('#ntfyMessages .ntfy-msg-body').textContent,
       note: el('ntfyLimitNote').textContent.trim(),
     };
   })()`);
   check('choosing ทั้งหมด moves the slide', full.pressed.join(',') === 'summary:false,full:true', full.pressed);
-  check('the full message is shown whole', full.body.length === LONG.length && !full.body.endsWith('…'), full.body.length);
   check('the character box is disabled when it means nothing', full.limitDisabled === true, full);
   check('and the panel says why it is disabled', full.note.length > 0, full.note);
   check('choosing it asked the main process', calls.some((c) => c.name === 'setSummary' && c.payload.enabled === false), calls.slice(-3));
@@ -307,26 +300,25 @@ app.whenReady().then(async () => {
     el('ntfyLimit').value = '60';
     el('ntfyLimit').dispatchEvent(new Event('change'));
     await new Promise((r) => setTimeout(r, 200));
-    const cut = document.querySelector('#ntfyMessages .ntfy-msg-body').textContent;
-    return { cut, limitDisabled: el('ntfyLimit').disabled };
+    return { limitDisabled: el('ntfyLimit').disabled };
   })()`);
-  check('a shorter limit shortens the summary', backend.cut.length <= 61 && backend.cut.endsWith('…'), backend.cut.length);
+  check('the box comes back in สรุป', backend.limitDisabled === false, backend);
   check(
     'the chosen length is saved',
     calls.some((c) => c.name === 'setSummary' && String(c.payload.limit) === '60' && c.payload.enabled === true),
     calls.slice(-3)
   );
 
-  const room = await win.webContents.executeJavaScript(`(async () => {
-    el('ntfyAddRoom').click();
-    await new Promise((r) => setTimeout(r, 250));
-    el('ntfyRooms').querySelector('.ntfy-room').click();
-    await new Promise((r) => setTimeout(r, 150));
-    return { rows: el('ntfyRooms').querySelectorAll('.ntfy-room').length };
-  })()`);
-  check('rooms are listed', room.rows >= 1, room);
-  check('adding a room asks for one', calls.some((c) => c.name === 'addTopic'), calls.filter((c) => c.name === 'addTopic'));
-  check('clicking a room makes it active', calls.some((c) => c.name === 'setActiveTopic'), calls.slice(-2));
+  // One session, one room: the panel shows this session's link, not a list of
+  // rooms belonging to chats that are not on screen.
+  const room = await win.webContents.executeJavaScript(`(() => ({
+    line: el('ntfyRoomLine').textContent.trim(),
+    hasList: Boolean(el('ntfyRooms')),
+    copyDisabled: el('ntfyCopyTopic').disabled,
+  }))()`);
+  check('the room section shows this session\'s link', room.line === 'https://ntfy.sh/ntapi-abcdefghij', room.line);
+  check('there is no room list to get lost in', room.hasList === false, room);
+  check('the link can be copied', room.copyDisabled === false, room);
 
   // Boot restore is not what this check is about; open the tab directly so the
   // command loop has a chat to land in.
@@ -347,21 +339,19 @@ app.whenReady().then(async () => {
   console.log('info: view state', JSON.stringify(viewInfo));
 
   const switches = await win.webContents.executeJavaScript(`(() => {
-    const master = el('ntfyEnabled');
+    const master = [...el('ntfyPower').querySelectorAll('.ntfy-slide-opt')].map((b) => b.dataset.on + ':' + b.getAttribute('aria-pressed'));
     const source = [...el('ntfySource').querySelectorAll('.ntfy-slide-opt')].map((b) => b.dataset.source + ':' + b.getAttribute('aria-pressed'));
-    return { master: master ? master.checked : null, source };
+    return { master, source };
   })()`);
-  check('the master switch is on when the service is', switches.master === true, switches.master);
+  check('the on/off control is a เปิด/ปิด slide', switches.master.join(',') === '1:true,0:false', switches.master);
   check('the summary source starts on this machine', switches.source.join(',') === 'local:true,provider:false', switches.source);
 
   await win.webContents.executeJavaScript(`(async () => {
     el('ntfySource').querySelector('.ntfy-slide-opt[data-source="provider"]').click();
     await new Promise((r) => setTimeout(r, 200));
-    el('ntfyEnabled').checked = false;
-    el('ntfyEnabled').dispatchEvent(new Event('change'));
+    el('ntfyPower').querySelector('.ntfy-slide-opt[data-on="0"]').click();
     await new Promise((r) => setTimeout(r, 200));
-    el('ntfyEnabled').checked = true;
-    el('ntfyEnabled').dispatchEvent(new Event('change'));
+    el('ntfyPower').querySelector('.ntfy-slide-opt[data-on="1"]').click();
     await new Promise((r) => setTimeout(r, 200));
     return true;
   })()`);
@@ -377,56 +367,30 @@ app.whenReady().then(async () => {
     calls.filter((c) => c.name === 'setEnabled')
   );
 
-  // Every on/off control is a slide switch in the accent colour, not a tick box.
-  const switchStyle = await win.webContents.executeJavaScript(`(() => {
-    const read = (node) => {
-      const s = getComputedStyle(node);
-      return { appearance: s.appearance || s.webkitAppearance, radius: s.borderRadius, width: Math.round(node.getBoundingClientRect().width), height: Math.round(node.getBoundingClientRect().height), accent: s.accentColor };
+  // Every on/off control is the same เปิด/ปิด slide as the summary choice, not
+  // a tick box: one gesture to learn for the whole panel.
+  const slideStyle = await win.webContents.executeJavaScript(`(() => {
+    const on = el('ntfyPower').querySelector('.ntfy-slide-opt[data-on="1"]');
+    const off = el('ntfyPower').querySelector('.ntfy-slide-opt[data-on="0"]');
+    const pressed = getComputedStyle(on).backgroundColor;
+    const idle = getComputedStyle(off).backgroundColor;
+    return { pressed, idle, label: on.textContent.trim() };
+  })()`);
+  check('the chosen half of the slide is filled', slideStyle.pressed !== slideStyle.idle, slideStyle);
+  check('the slide reads on / off', ['เปิด', 'On'].includes(slideStyle.label), slideStyle.label);
+
+  const notifyUi = await win.webContents.executeJavaScript(`(async () => {
+    el('ntfyNotify').querySelector('.ntfy-slide-opt[data-on="0"]').click();
+    await new Promise((r) => setTimeout(r, 150));
+    el('ntfyNotify').querySelector('.ntfy-slide-opt[data-on="1"]').click();
+    await new Promise((r) => setTimeout(r, 150));
+    return {
+      pressed: [...el('ntfyNotifyWhen').querySelectorAll('.ntfy-slide-opt')].map((b) => b.dataset.mode + ':' + b.getAttribute('aria-pressed')),
+      modes: [...el('ntfyNotifyWhen').querySelectorAll('.ntfy-slide-opt')].map((b) => b.dataset.mode),
     };
-    const off = read(el('ntfyNotify'));
-    el('ntfyNotify').checked = true;
-    const on = read(el('ntfyNotify'));
-    return { off, on };
-  })()`).catch((err) => ({ error: String(err && err.message) }));
-  check(
-    'the switches are slides, not tick boxes',
-    switchStyle.off && switchStyle.off.appearance === 'none' && switchStyle.off.width > switchStyle.off.height,
-    switchStyle
-  );
-
-  // The switch is the theme's purple when it is on. It used to be the green
-  // success colour, which said "this went well", not "this is on".
-  // The colour animates over 150ms, so reading it in the same tick measures the
-  // colour it is leaving, not the one it is going to.
-  // The colour animates over 150ms, so the transition is switched off for the
-  // measurement: reading a frame of it measured the colour it was leaving.
-  const switchColour = await win.webContents.executeJavaScript(`(() => {
-    const box = el('ntfyNotify');
-    box.style.transition = 'none';
-    const read = () => getComputedStyle(box).backgroundColor;
-    box.checked = false;
-    const off = read();
-    box.checked = true;
-    const on = read();
-    box.style.transition = '';
-    const label = box.parentElement.querySelector('span');
-    return { off, on, label: label ? getComputedStyle(label).color : '' };
   })()`);
-  const rgb = (value) => (value.match(/\d+/g) || []).map(Number);
-  check('the switch has two visibly different states', switchColour.on !== switchColour.off, switchColour);
-  check(
-    'the on colour is the theme purple, not the green success colour',
-    rgb(switchColour.on)[1] < rgb(switchColour.on)[0] && rgb(switchColour.on)[1] < rgb(switchColour.on)[2],
-    switchColour.on
-  );
-  check('its label stays readable in the text colour', rgb(switchColour.label)[1] > 120, switchColour.label);
-
-  const notifyUi = await win.webContents.executeJavaScript(`(() => {
-    el('ntfyNotify').checked = true;
-    el('ntfyNotify').dispatchEvent(new Event('change'));
-    return { pressed: [...el('ntfyNotifyWhen').querySelectorAll('.ntfy-slide-opt')].map((b) => b.dataset.mode + ':' + b.getAttribute('aria-pressed')) };
-  })()`);
-  check('the notify switch is on the panel', notifyUi.pressed.join(',') === 'always:false,long:true,away:false', notifyUi.pressed);
+  check('the turn-end slide has only two choices now', notifyUi.modes.join(',') === 'always,away', notifyUi.modes);
+  check('and it starts on every turn', notifyUi.pressed.join(',') === 'always:true,away:false', notifyUi.pressed);
   check(
     'turning it on is saved',
     calls.some((c) => c.name === 'setNotify' && c.payload.onSettle === true),
@@ -460,8 +424,7 @@ app.whenReady().then(async () => {
 
   // With the switch off nothing is sent: the panel decided it, not the code path.
   await win.webContents.executeJavaScript(`(async () => {
-    el('ntfyNotify').checked = false;
-    el('ntfyNotify').dispatchEvent(new Event('change'));
+    el('ntfyNotify').querySelector('.ntfy-slide-opt[data-on="0"]').click();
     await new Promise((r) => setTimeout(r, 200));
     return true;
   })()`);
@@ -474,40 +437,40 @@ app.whenReady().then(async () => {
     calls.filter((c) => c.name === 'publish').slice(beforeQuiet)
   );
 
-  // Hover opens the panel, the same gesture as the controls beside it.
+  // A click opens the panel; pointing at the chip does not.
   const hover = await win.webContents.executeJavaScript(`(async () => {
     if (!el('ntfyPanel').hidden) el('ntfyChip').click();
     const closed = el('ntfyPanel').hidden;
     el('ntfyWrap').dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    const stillClosed = el('ntfyPanel').hidden;
+    el('ntfyChip').click();
     await new Promise((r) => setTimeout(r, 150));
-    const opened = !el('ntfyPanel').hidden;
-    el('ntfyWrap').dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
-    await new Promise((r) => setTimeout(r, 350));
-    return { closed, opened, closedAgain: el('ntfyPanel').hidden };
+    return { closed, stillClosed, opened: !el('ntfyPanel').hidden };
   })()`);
-  check('pointing at the chip opens the panel', hover.closed === true && hover.opened === true, hover);
-  check('leaving it closes it again', hover.closedAgain === true, hover);
+  check('pointing at the chip no longer opens the panel', hover.closed === true && hover.stillClosed === true, hover);
+  check('a click opens it', hover.opened === true, hover);
 
   const commandUi = await win.webContents.executeJavaScript(`(() => {
-    const box = el('ntfyCommands');
-    const label = box ? box.closest('.ntfy-switch') : null;
+    const slide = el('ntfyCommands');
+    const on = slide && slide.querySelector('.ntfy-slide-opt[data-on="1"]');
     return {
-      exists: Boolean(box),
-      checked: box ? box.checked : null,
-      hasLabel: label ? label.textContent.trim().length > 10 : false,
-      title: el('ntfyCommands') ? (document.querySelector('.ntfy-group-title:last-of-type') || {}).textContent || '' : '',
+      exists: Boolean(slide),
+      checked: on ? on.getAttribute('aria-pressed') === 'true' : null,
       sendGone: !el('ntfySend') && !el('ntfyBody') && !el('ntfyTitle'),
       groups: [...document.querySelectorAll('#ntfyPanel .ntfy-group-title')].map((n) => n.textContent.trim()),
     };
   })()`);
   check('the send-message group is gone', commandUi.sendGone === true, commandUi);
-  check('the command switch is its own group', commandUi.exists === true && commandUi.hasLabel === true, commandUi);
+  check('the command on/off is a slide of its own', commandUi.exists === true, commandUi);
   check('it is on by default', commandUi.checked === true, commandUi.checked);
+  check('the history group is gone', !commandUi.groups.includes('ข้อความที่รับ'), commandUi.groups);
 
   // A message from the room becomes a prompt, and the answer goes back to it.
   win.webContents.send('ntfy:event', {
     type: 'message',
     payload: {
+      sessionKey: 'tab:t1',
       message: { id: 'cmd1', time: Date.now(), title: '', message: 'list the files here', tags: [] },
       state: state(),
     },
@@ -536,6 +499,7 @@ app.whenReady().then(async () => {
   win.webContents.send('ntfy:event', {
     type: 'message',
     payload: {
+      sessionKey: 'tab:t1',
       message: { id: 'r9', time: Date.now(), title: 'NTAPI', message: 'the answer', tags: ['ntapi-reply'] },
       state: state(),
     },
@@ -549,14 +513,13 @@ app.whenReady().then(async () => {
 
   // Switching commands off must stop the loop dead.
   await win.webContents.executeJavaScript(`(() => {
-    el('ntfyCommands').checked = false;
-    el('ntfyCommands').dispatchEvent(new Event('change'));
+    el('ntfyCommands').querySelector('.ntfy-slide-opt[data-on="0"]').click();
     return true;
   })()`);
   const beforeOff = calls.filter((c) => c.name === 'sendPrompt').length;
   win.webContents.send('ntfy:event', {
     type: 'message',
-    payload: { message: { id: 'cmd2', time: Date.now(), message: 'do something else', tags: [] }, state: state() },
+    payload: { sessionKey: 'tab:t1', message: { id: 'cmd2', time: Date.now(), message: 'do something else', tags: [] }, state: state() },
   });
   await new Promise((r) => setTimeout(r, 400));
   check(
@@ -565,8 +528,7 @@ app.whenReady().then(async () => {
     calls.filter((c) => c.name === 'sendPrompt').length
   );
   await win.webContents.executeJavaScript(`(() => {
-    el('ntfyCommands').checked = true;
-    el('ntfyCommands').dispatchEvent(new Event('change'));
+    el('ntfyCommands').querySelector('.ntfy-slide-opt[data-on="1"]').click();
     return true;
   })()`);
 
@@ -579,7 +541,7 @@ app.whenReady().then(async () => {
   })()`);
   win.webContents.send('ntfy:event', {
     type: 'message',
-    payload: { message: { id: 'm2', time: Date.now(), title: 'Ping', message: 'hello from the phone' }, state: state() },
+    payload: { sessionKey: 'tab:t1', message: { id: 'm2', time: Date.now(), title: 'Ping', message: 'hello from the phone' }, state: state() },
   });
   await new Promise((r) => setTimeout(r, 250));
   const counted = await win.webContents.executeJavaScript(`(() => ({
@@ -595,7 +557,7 @@ app.whenReady().then(async () => {
    */
   await win.webContents.executeJavaScript(`(() => {
     if (el('ntfyPanel').hidden) el('ntfyChip').click();
-    const group = document.querySelector('.ntfy-group.ntfy-incoming');
+    const group = document.querySelector('#ntfyPanel .ntfy-group');
     group.dataset.proof = 'on';
     group.style.flex = '1 1 auto';
     group.style.minHeight = '0px';
@@ -604,7 +566,7 @@ app.whenReady().then(async () => {
   await new Promise((r) => setTimeout(r, 150));
   const broken = await measurePanel();
   await win.webContents.executeJavaScript(`(() => {
-    const group = document.querySelector('.ntfy-group.ntfy-incoming');
+    const group = document.querySelector('#ntfyPanel .ntfy-group');
     group.style.flex = '';
     group.style.minHeight = '';
     delete group.dataset.proof;

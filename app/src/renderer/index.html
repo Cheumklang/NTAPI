@@ -178,18 +178,22 @@
 
             <div class="ntfy-panel" id="ntfyPanel" role="dialog" aria-labelledby="ntfyLabel" hidden>
               <div class="ntfy-head">
-                <span class="ntfy-label" id="ntfyLabel" data-i18n="ntfyTitle">ntfy</span>
+                <span class="ntfy-label" id="ntfyLabel" data-i18n="ntfyTitle">แจ้งเตือน/สั่งงานผ่านลิงก์</span>
                 <span class="ntfy-state" id="ntfyState">ปิดอยู่</span>
               </div>
               <!--
-                The master switch. Off means: no stream, no commands, no replies —
-                the rooms and the login stay exactly as they are, so sitting at the
-                computer does not mean signing out of anything.
+                The switch for this session's room. Off means: no stream, no
+                commands, no replies — the room and the login stay exactly as
+                they are. Every session has its own room, and a session that has
+                never been switched on starts off.
               -->
-              <label class="ntfy-switch ntfy-master">
-                <input id="ntfyEnabled" type="checkbox" />
-                <span data-i18n="ntfyEnabledLabel">เปิดใช้งาน ntfy</span>
-              </label>
+              <div class="ntfy-power">
+                <span class="ntfy-source-label" id="ntfyPowerLabel" data-i18n="ntfyEnabledLabel">การใช้งานเซสชันนี้</span>
+                <div class="ntfy-slide" id="ntfyPower" role="group" aria-labelledby="ntfyPowerLabel">
+                  <button type="button" class="ntfy-slide-opt" data-on="1" data-i18n="ntfyOn">เปิด</button>
+                  <button type="button" class="ntfy-slide-opt" data-on="0" data-i18n="ntfyOffLabel">ปิด</button>
+                </div>
+              </div>
 
               <!-- 1. account -->
               <section class="ntfy-group">
@@ -208,24 +212,21 @@
                 <p class="ntfy-note" id="ntfyAccountNote" hidden></p>
               </section>
 
-              <!-- 2. rooms -->
+              <!-- 2. the one room this session owns -->
               <section class="ntfy-group">
-                <h3 class="ntfy-group-title" data-i18n="ntfyRooms">ห้อง</h3>
-                <ul class="ntfy-rooms" id="ntfyRooms"></ul>
-                <div class="ntfy-row">
-                  <input id="ntfyRoomName" class="ntfy-input mono" type="text" spellcheck="false" data-i18n-ph="ntfyRoomName" placeholder="ชื่อห้อง" />
-                  <button type="button" class="ntfy-btn" id="ntfyAddRoom" data-i18n="ntfyAddRoom">สร้างห้อง</button>
-                </div>
-                <p class="ntfy-hint" data-i18n="ntfyRoomHint">ชื่อห้องต้องเดาไม่ได้ — ระบบตั้งชื่อยาว ๆ ให้เองแล้วคัดลอกให้</p>
+                <h3 class="ntfy-group-title" data-i18n="ntfyRoomTitle">ห้องของเซสชันนี้</h3>
+                <p class="ntfy-room-line mono" id="ntfyRoomLine"></p>
                 <div class="ntfy-row">
                   <button type="button" class="ntfy-btn quiet" id="ntfyCopyTopic" data-i18n="ntfyCopy">คัดลอกลิงก์ห้อง</button>
                   <button type="button" class="ntfy-btn quiet" id="ntfyRemoveRoom" data-i18n="ntfyRemoveRoom">ลบห้องนี้</button>
                 </div>
+                <p class="ntfy-note" id="ntfyRoomNote" hidden></p>
+                <p class="ntfy-hint" data-i18n="ntfyRoomHint">ห้องผูกกับเซสชันนี้ — เปิดใช้งานแล้วระบบตั้งชื่อยาว ๆ ให้เองและคัดลอกให้ · ข้อความที่รับดูได้จากลิงก์ห้อง</p>
               </section>
 
-              <!-- 3. what arrives -->
-              <section class="ntfy-group ntfy-incoming">
-                <h3 class="ntfy-group-title" data-i18n="ntfyIncoming">ข้อความที่รับ</h3>
+              <!-- 3. the shape of what is sent -->
+              <section class="ntfy-group">
+                <h3 class="ntfy-group-title" data-i18n="ntfyFormat">รูปแบบข้อความที่ส่ง</h3>
                 <!--
                   The slide: สรุป or ทั้งหมด. The character count only means
                   something for a summary, so choosing ทั้งหมด disables the field
@@ -248,43 +249,43 @@
                   <input id="ntfyLimit" class="ntfy-input num" type="number" min="20" max="4000" step="10" value="200" />
                   <span class="ntfy-note" id="ntfyLimitNote"></span>
                 </label>
-                <div class="ntfy-row">
-                  <button type="button" class="ntfy-btn quiet" id="ntfyClear" data-i18n="ntfyClear">ล้างประวัติ</button>
-                  <span class="ntfy-note" id="ntfyIncomingNote"></span>
-                </div>
-                <ul class="ntfy-messages" id="ntfyMessages"></ul>
               </section>
 
               <!-- 4. commands, and the answer going back -->
               <section class="ntfy-group">
-                <h3 class="ntfy-group-title" data-i18n="ntfyCommands">รับคำสั่งจากห้อง này</h3>
+                <h3 class="ntfy-group-title" data-i18n="ntfyCommands">รับคำสั่งจากห้องนี้</h3>
                 <!--
                   The room is the chat: what arrives is a message for the agent,
                   and the answer goes back to the phone on its own. The switch is
                   here because a topic on a public server is readable by anyone
                   who learns its name — turning this on is handing them tools.
                 -->
-                <label class="ntfy-switch">
-                  <input id="ntfyCommands" type="checkbox" />
-                  <span data-i18n="ntfyCommandsLabel">ส่งข้อความในห้องเข้ามาเป็นคำสั่ง แล้วส่งคำตอบกลับ</span>
-                </label>
-                <p class="ntfy-hint" data-i18n="ntfyCommandsHint">ต้องเปิดโปรแกรมทิ้งไว้ · คำตอบกลับไปตามโหมด สรุป/ทั้งหมด ด้านบน · ใครรู้ชื่อห้องก็สั่งงานเครื่องนี้ได้</p>
+                <div class="ntfy-power">
+                  <span class="ntfy-source-label" id="ntfyCommandsLabel" data-i18n="ntfyCommandsState">สถานะ</span>
+                  <div class="ntfy-slide" id="ntfyCommands" role="group" aria-labelledby="ntfyCommandsLabel">
+                    <button type="button" class="ntfy-slide-opt" data-on="1" data-i18n="ntfyOn">เปิด</button>
+                    <button type="button" class="ntfy-slide-opt" data-on="0" data-i18n="ntfyOffLabel">ปิด</button>
+                  </div>
+                </div>
+                <p class="ntfy-hint" data-i18n="ntfyCommandsHint">ส่งข้อความในห้องเข้ามาเป็นคำสั่ง แล้วส่งคำตอบกลับ · ต้องเปิดโปรแกรมทิ้งไว้ · ใครรู้ชื่อห้องก็สั่งงานเครื่องนี้ได้</p>
                 <p class="ntfy-note" id="ntfyCommandNote" hidden></p>
               </section>
 
               <!-- 5. telling the phone when a turn ends, however it started -->
               <section class="ntfy-group">
                 <h3 class="ntfy-group-title" data-i18n="ntfyNotifyTitle">เมื่อเทิร์นจบ</h3>
-                <label class="ntfy-switch">
-                  <input id="ntfyNotify" type="checkbox" />
-                  <span data-i18n="ntfyNotifyLabel">ส่งข้อความเข้าห้องให้ด้วย</span>
-                </label>
+                <div class="ntfy-power">
+                  <span class="ntfy-source-label" id="ntfyNotifyLabel" data-i18n="ntfyNotifyState">สถานะ</span>
+                  <div class="ntfy-slide" id="ntfyNotify" role="group" aria-labelledby="ntfyNotifyLabel">
+                    <button type="button" class="ntfy-slide-opt" data-on="1" data-i18n="ntfyOn">เปิด</button>
+                    <button type="button" class="ntfy-slide-opt" data-on="0" data-i18n="ntfyOffLabel">ปิด</button>
+                  </div>
+                </div>
                 <div class="ntfy-source" role="group" aria-labelledby="ntfyNotifyWhenLabel">
                   <span class="ntfy-source-label" id="ntfyNotifyWhenLabel" data-i18n="ntfyNotifyWhenLabel">ส่งเมื่อไหร่</span>
                   <div class="ntfy-slide" id="ntfyNotifyWhen">
-                    <button type="button" class="ntfy-slide-opt" data-mode="always" aria-pressed="false" data-i18n="ntfyNotifyAlways">ทุกเทิร์น</button>
-                    <button type="button" class="ntfy-slide-opt" data-mode="long" aria-pressed="true" data-i18n="ntfyNotifyLong">เกิน 1 นาที</button>
-                    <button type="button" class="ntfy-slide-opt" data-mode="away" aria-pressed="false" data-i18n="ntfyNotifyAway">ตอนไม่อยู่</button>
+                    <button type="button" class="ntfy-slide-opt" data-mode="always" aria-pressed="true" data-i18n="ntfyNotifyAlways">ทุกเทิร์น</button>
+                    <button type="button" class="ntfy-slide-opt" data-mode="away" aria-pressed="false" data-i18n="ntfyNotifyAway">ตอนไม่อยู่หน้าโปรแกรม</button>
                   </div>
                 </div>
                 <p class="ntfy-hint" data-i18n="ntfyNotifyHint">ใช้เส้นทางสรุปด้านบน · เทิร์นที่มาจากห้องตอบกลับอยู่แล้วจึงไม่ส่งซ้ำ</p>

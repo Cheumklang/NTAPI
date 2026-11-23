@@ -4695,7 +4695,7 @@ function paintNtfy() {
   const state = ntfyState;
   const chip = el('ntfyChip');
   const panel = el('ntfyPanel');
-  const on = state.enabled !== false;
+  const on = state.enabled === true;
   const live = on && Boolean(state.status?.connected);
   const failed = on && Boolean(state.status?.error);
   chip.dataset.state = failed ? 'error' : live ? 'live' : 'off';
@@ -4707,26 +4707,34 @@ function paintNtfy() {
       : live
         ? t('ntfyStateLive')
         : t('ntfyStateOff');
-  el('ntfyEnabled').checked = on;
-  // Nothing below can work with the integration off, so the rest of the panel
-  // says so rather than looking broken.
+  // Nothing below can work with the session's room off, so the rest of the
+  // panel says so rather than looking broken.
   panel.classList.toggle('is-off', !on);
   chip.title = `${t('ntfyTitle')} — ${el('ntfyState').textContent}`;
 
+  /** One เปิด/ปิด slide: the chosen half is the pressed one. */
+  const paintPower = (id, value, guarded = true) => {
+    const slide = el(id);
+    if (!slide) return;
+    for (const option of slide.querySelectorAll('.ntfy-slide-opt')) {
+      option.setAttribute('aria-pressed', String((option.dataset.on === '1') === Boolean(value)));
+    }
+    if (guarded) slide.classList.toggle('disabled', !on);
+  };
+  paintPower('ntfyPower', on, false);
+
   // Telling the phone when a turn ends: the switch, and when it fires.
   const notifyOn = state.notify?.onSettle === true;
-  const notifyBox = el('ntfyNotify');
-  if (notifyBox) notifyBox.checked = notifyOn;
+  paintPower('ntfyNotify', notifyOn);
   const notifyWhen = el('ntfyNotifyWhen');
   if (notifyWhen) {
-    const mode = ['always', 'long', 'away'].includes(state.notify?.mode) ? state.notify.mode : 'long';
+    const mode = ['always', 'away'].includes(state.notify?.mode) ? state.notify.mode : 'always';
     for (const option of notifyWhen.querySelectorAll('.ntfy-slide-opt')) {
       option.setAttribute('aria-pressed', String(option.dataset.mode === mode));
     }
     // The choice means nothing while the switch is off.
     notifyWhen.classList.toggle('disabled', !notifyOn || !on);
   }
-
 
   el('ntfyAccountLine').textContent = ntfyAccountText(state);
   const signedIn = Boolean(state.signedIn);
@@ -4736,35 +4744,11 @@ function paintNtfy() {
   el('ntfyLogin').hidden = signedIn || state.config?.login === false;
   el('ntfySignup').hidden = signedIn || state.config?.signup === false;
 
-  const rooms = el('ntfyRooms');
-  rooms.innerHTML = '';
-  if (!state.topics.length) {
-    const empty = document.createElement('li');
-    empty.className = 'ntfy-empty';
-    empty.textContent = t('ntfyNoRooms');
-    rooms.appendChild(empty);
-  }
-  for (const topic of state.topics) {
-    const item = document.createElement('li');
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'ntfy-room';
-    row.dataset.topic = topic.name;
-    row.setAttribute('aria-current', topic.name === state.activeTopic ? 'true' : 'false');
-    const name = document.createElement('span');
-    name.className = 'ntfy-room-name';
-    name.textContent = topic.name;
-    row.appendChild(name);
-    if (topic.name === state.activeTopic) {
-      const badge = document.createElement('span');
-      badge.className = 'ntfy-room-badge';
-      badge.textContent = live ? t('ntfyLive') : t('ntfyOff');
-      row.appendChild(badge);
-    }
-    row.addEventListener('click', () => ntfyCall(() => api.ntfySetActiveTopic(topic.name)));
-    item.appendChild(row);
-    rooms.appendChild(item);
-  }
+  // One session, one room: the link is the whole room section.
+  el('ntfyRoomLine').textContent = state.link || t('ntfyNoRoom');
+  el('ntfyRoomNote').hidden = true;
+  el('ntfyRemoveRoom').disabled = !state.topic;
+  el('ntfyCopyTopic').disabled = !state.topic;
 
   const summaryMode = state.summary.enabled !== false;
   const source = state.summary.source === 'provider' ? 'provider' : 'local';
@@ -4780,50 +4764,18 @@ function paintNtfy() {
   limit.closest('.ntfy-limit').classList.toggle('disabled', !summaryMode);
   el('ntfyLimitNote').textContent = summaryMode ? '' : t('ntfyLimitOff');
 
-  const list = el('ntfyMessages');
-  list.innerHTML = '';
-  if (!state.messages.length) {
-    const empty = document.createElement('li');
-    empty.className = 'ntfy-empty';
-    empty.textContent = t('ntfyNoMessages');
-    list.appendChild(empty);
-  }
-  for (const message of state.messages.slice(-30).reverse()) {
-    const item = document.createElement('li');
-    item.className = 'ntfy-msg';
-    const head = document.createElement('div');
-    head.className = 'ntfy-msg-head';
-    if (message.title) {
-      const title = document.createElement('span');
-      title.className = 'ntfy-msg-title';
-      title.textContent = message.title;
-      head.appendChild(title);
-    }
-    const time = document.createElement('span');
-    time.className = 'ntfy-msg-time';
-    time.textContent = new Date(message.time || Date.now()).toLocaleTimeString();
-    head.appendChild(time);
-    const body = document.createElement('p');
-    body.className = 'ntfy-msg-body';
-    body.textContent = FPProvider.ntfySummary(message.message, {
-      mode: summaryMode ? 'summary' : 'full',
-      limit: state.summary.limit,
-    });
-    item.append(head, body);
-    list.appendChild(item);
-  }
-
+  paintPower('ntfyCommands', ntfyCommandsOn());
   el('ntfyServer').value = state.server || '';
-  el('ntfyCommands').checked = ntfyCommandsOn();
-  el('ntfyRemoveRoom').disabled = !state.activeTopic;
-  el('ntfyCopyTopic').disabled = !state.activeTopic;
 }
 
 /** Every call returns a fresh state; one place applies it and repaints. */
 async function ntfyCall(fn, { note } = {}) {
   try {
     const res = await fn();
-    if (res?.state) ntfyState = res.state;
+    if (res?.state) {
+      ntfyState = res.state;
+      ntfyRememberRooms(res.state);
+    }
     paintNtfy();
     if (!res || res.ok === false) return res;
     if (note && res.ok) showNotice(note);
@@ -4848,21 +4800,9 @@ el('ntfyChip')?.addEventListener('click', (event) => {
   ntfyPanelOpen(el('ntfyPanel').hidden);
 });
 
-// Pointing at the chip opens the panel and leaving closes it, the same gesture the
-// thinking and approval controls in that row use. Click and Escape still work.
-let ntfyHideTimer = 0;
-el('ntfyWrap')?.addEventListener('pointerenter', () => {
-  clearTimeout(ntfyHideTimer);
-  if (el('ntfyPanel').hidden) ntfyPanelOpen(true);
-});
-el('ntfyWrap')?.addEventListener('pointerleave', () => {
-  clearTimeout(ntfyHideTimer);
-  ntfyHideTimer = setTimeout(() => {
-    if (!el('ntfyWrap').contains(document.activeElement)) ntfyPanelOpen(false);
-  }, 220);
-});
+// A click opens the panel, a click outside closes it. Pointing at the chip used
+// to open it too, which made the panel appear while the pointer crossed the row.
 el('ntfyWrap')?.addEventListener('focusin', (event) => {
-  clearTimeout(ntfyHideTimer);
   // Focus moving onto the chip itself is how Escape puts the panel away; opening
   // it again here would make Escape do nothing at all.
   if (event.target === el('ntfyChip')) return;
@@ -4908,17 +4848,6 @@ el('ntfyLogout')?.addEventListener('click', async () => {
   ntfyNote('ntfyAccountNote', res?.ok ? t('ntfyLoggedOut') : '', res?.ok ? 'ok' : '');
 });
 
-el('ntfyAddRoom')?.addEventListener('click', async () => {
-  const typed = el('ntfyRoomName').value.trim();
-  const res = await ntfyCall(() => api.ntfyAddTopic(typed, typed));
-  el('ntfyRoomName').value = '';
-  if (res?.topic?.name) {
-    // The name is the only thing standing between this room and anyone who
-    // guesses it, so it is handed over ready to paste into the phone app.
-    await copyNtfyTopic(res.topic.name);
-  }
-});
-
 for (const option of el('ntfySlide')?.querySelectorAll('.ntfy-slide-opt') || []) {
   option.addEventListener('click', () =>
     ntfyCall(() => api.ntfySetSummary(option.dataset.mode === 'summary', el('ntfyLimit').value))
@@ -4929,25 +4858,31 @@ el('ntfyLimit')?.addEventListener('change', () =>
   ntfyCall(() => api.ntfySetSummary(true, el('ntfyLimit').value))
 );
 
-el('ntfyClear')?.addEventListener('click', () => ntfyCall(() => api.ntfyClearMessages()));
+/** The panel follows the session on screen: its room, its switch, its status. */
+async function ntfyFollowActiveView() {
+  try {
+    const state = await api.ntfyState();
+    if (!state) return;
+    ntfyState = state;
+    ntfyRememberRooms(state);
+    paintNtfy();
+  } catch {}
+}
 
-async function copyNtfyTopic(name) {
-  const topic = name || ntfyState?.activeTopic;
-  if (!topic) return;
-  const link = `${ntfyState.server}/${topic}`;
+async function copyNtfyTopic() {
+  const link = ntfyState?.link;
+  if (!link) return;
   try {
     await api.copyText(link);
-    ntfyNote('ntfyAccountNote', t('ntfyCopied'), 'ok');
+    ntfyNote('ntfyRoomNote', t('ntfyCopied'), 'ok');
   } catch {
-    ntfyNote('ntfyAccountNote', link);
+    ntfyNote('ntfyRoomNote', link);
   }
 }
 
-el('ntfyCopyTopic')?.addEventListener('click', () => copyNtfyTopic(null));
+el('ntfyCopyTopic')?.addEventListener('click', () => copyNtfyTopic());
 
-el('ntfyRemoveRoom')?.addEventListener('click', () =>
-  ntfyCall(() => api.ntfyRemoveTopic(ntfyState?.activeTopic))
-);
+el('ntfyRemoveRoom')?.addEventListener('click', () => ntfyCall(() => api.ntfyRemoveTopic()));
 
 /*
  * The room is the chat.
@@ -4974,18 +4909,16 @@ function ntfyCommandsOn() {
   }
 }
 
-function paintNtfyCommands() {
-  const box = el('ntfyCommands');
-  if (!box) return;
-  box.checked = ntfyCommandsOn();
-  el('ntfyCommandNote').hidden = true;
+function setNtfyCommands(on) {
+  try {
+    localStorage.setItem(NTFY_COMMANDS_KEY, on ? '1' : '0');
+  } catch {}
+  paintNtfy();
 }
 
-el('ntfyCommands')?.addEventListener('change', () => {
-  try {
-    localStorage.setItem(NTFY_COMMANDS_KEY, el('ntfyCommands').checked ? '1' : '0');
-  } catch {}
-});
+for (const option of el('ntfyCommands')?.querySelectorAll('.ntfy-slide-opt') || []) {
+  option.addEventListener('click', () => setNtfyCommands(option.dataset.on === '1'));
+}
 
 /** Is this message one of our own answers coming back down the stream? */
 function ntfyIsOwnReply(message) {
@@ -5000,21 +4933,61 @@ function ntfyIsOwnReply(message) {
  * The composer does the sending, so a command gets everything a typed message
  * gets: slash commands, the hold countdown, the queue when a turn is running.
  */
-async function ntfyRunCommand(message) {
-  const view = activeView();
+/** The session key the main process knows a view by. */
+function ntfyKeyOfView(view) {
+  if (!view) return null;
+  return view.sessionFile ? `file:${view.sessionFile}` : `tab:${view.tabId}`;
+}
+
+/** The tab a room belongs to, so a command lands in its own chat. */
+function ntfyTabForKey(sessionKey) {
+  if (!sessionKey) return null;
+  const want = String(sessionKey).toLowerCase();
+  for (const [tabId, view] of views) {
+    const key = ntfyKeyOfView(view);
+    if (key && key.toLowerCase() === want) return tabId;
+  }
+  return null;
+}
+
+/**
+ * Room key -> switched on, as the main process last reported it. A command from
+ * a session that is off must not be run, and a turn in one must not be sent.
+ */
+let ntfyRoomsOn = new Map();
+function ntfyRememberRooms(state) {
+  if (!state?.rooms) return;
+  ntfyRoomsOn = new Map(Object.entries(state.rooms).map(([key, room]) => [key.toLowerCase(), Boolean(room?.enabled)]));
+}
+
+async function ntfyRunCommand(tabId, message) {
+  const view = views.get(tabId);
   if (!view || !message?.message) return;
   const text = message.message.trim();
   if (!text) return;
 
   ntfyNote('ntfyCommandNote', t('ntfyCommandRunning'), 'ok');
-  ntfyPending.set(view.tabId, { at: Date.now() });
-  input.value = text;
-  autoGrow();
-  updateSendState();
+  ntfyPending.set(tabId, { at: Date.now() });
+  if (tabId === activeTabId) {
+    input.value = text;
+    autoGrow();
+    updateSendState();
+    try {
+      await submit();
+    } catch (err) {
+      ntfyPending.delete(tabId);
+      ntfyNote('ntfyCommandNote', errorText(err), 'error');
+    }
+    return;
+  }
+  // A command for a chat that is not on screen goes straight to its tab: there
+  // is no composer to stage it in, and bringing that chat to the front would
+  // take the window away from what the reader is doing.
   try {
-    await submit();
+    const res = await api.sendPrompt(tabId, text);
+    if (res && res.ok === false) throw new Error(res.error || t('ntfyFailed'));
   } catch (err) {
-    ntfyPending.delete(view.tabId);
+    ntfyPending.delete(tabId);
     ntfyNote('ntfyCommandNote', errorText(err), 'error');
   }
 }
@@ -5081,10 +5054,6 @@ async function ntfyComposeBody(text, tabId) {
 
 async function ntfyReplyWithAnswer(tabId) {
   ntfyPending.delete(tabId);
-  if (!ntfyState?.activeTopic) {
-    api.uiLog?.('[ntfy] reply skipped: no active room');
-    return;
-  }
 
   const text = await ntfyReadAnswer(tabId);
   if (!text) {
@@ -5100,7 +5069,7 @@ async function ntfyReplyWithAnswer(tabId) {
   // says so, so a truncated answer is never mistaken for a summary.
   const { body, via } = await ntfyComposeBody(text, tabId);
   const res = await ntfyCall(() =>
-    api.ntfyPublish({ message: body, title: t('ntfyReplyTitle'), priority: 3, tags: ['ntapi-reply'] })
+    api.ntfyPublish({ message: body, title: t('ntfyReplyTitle'), priority: 3, tags: ['ntapi-reply'], tabId })
   );
   api.uiLog?.(`[ntfy] reply ${res?.ok ? 'sent' : 'failed'} (${body.length} chars, ${via})${res?.ok ? '' : ' — ' + (res?.error || 'unknown')}`);
   if (res?.id) ntfySentIds.add(res.id);
@@ -5122,23 +5091,15 @@ async function ntfyReplyWithAnswer(tabId) {
  * why a job typed in the window never reached the phone: the switch is what makes
  * it work for every turn, without anyone having to ask for it each session.
  */
-const ntfyTurnStart = new Map();
-const NTFY_LONG_TURN_MS = 60 * 1000;
-
-api.onTurnStart?.((payload = {}) => {
-  if (payload.tabId) ntfyTurnStart.set(payload.tabId, Date.now());
-});
-
 async function ntfyNotifySettled(tabId, payload = {}) {
   const cfg = ntfyState?.notify;
-  const startedAt = ntfyTurnStart.get(tabId) || 0;
-  ntfyTurnStart.delete(tabId);
-  if (!cfg?.onSettle || ntfyState?.enabled === false) return;
-  if (!ntfyState?.activeTopic || ntfyPending.has(tabId)) return;
-  // 'long' is the default: a two-second answer does not deserve a push.
-  if (cfg.mode === 'long' && startedAt && Date.now() - startedAt < NTFY_LONG_TURN_MS) return;
-  // 'away' means the window really is not in front of anyone.
-  if (cfg.mode === 'away' && document.visibilityState === 'visible' && document.hasFocus()) return;
+  if (!cfg?.onSettle || ntfyPending.has(tabId)) return;
+  const key = ntfyKeyOfView(views.get(tabId)) || '';
+  if (!ntfyRoomsOn.get(key.toLowerCase())) return;
+  // 'away' means this chat is not the one in front of the reader — another tab
+  // or another window is.
+  const inFront = tabId === activeTabId && document.visibilityState === 'visible' && document.hasFocus();
+  if (cfg.mode === 'away' && inFront) return;
 
   const text = await ntfyReadAnswer(tabId);
   if (!text) return;
@@ -5149,6 +5110,7 @@ async function ntfyNotifySettled(tabId, payload = {}) {
       title: payload.failed ? t('ntfyNotifyFailed') : t('ntfyNotifyDone'),
       priority: 3,
       tags: ['ntapi-done'],
+      tabId,
     })
   );
   if (res?.id) ntfySentIds.add(res.id);
@@ -5164,13 +5126,19 @@ api.onSettled?.((payload = {}) => {
   void ntfyNotifySettled(payload.tabId, payload);
 });
 
-el('ntfyEnabled')?.addEventListener('change', () =>
-  ntfyCall(() => api.ntfySetEnabled(el('ntfyEnabled').checked))
-);
+for (const option of el('ntfyPower')?.querySelectorAll('.ntfy-slide-opt') || []) {
+  option.addEventListener('click', async () => {
+    const on = option.dataset.on === '1';
+    const res = await ntfyCall(() => api.ntfySetEnabled(on));
+    // Switching a session on makes its room; the link is handed over ready to
+    // paste into the phone app, which is the only way that name is ever used.
+    if (on && res?.ok) await copyNtfyTopic();
+  });
+}
 
-el('ntfyNotify')?.addEventListener('change', () =>
-  ntfyCall(() => api.ntfySetNotify({ onSettle: el('ntfyNotify').checked }))
-);
+for (const option of el('ntfyNotify')?.querySelectorAll('.ntfy-slide-opt') || []) {
+  option.addEventListener('click', () => ntfyCall(() => api.ntfySetNotify({ onSettle: option.dataset.on === '1' })));
+}
 
 for (const option of el('ntfyNotifyWhen')?.querySelectorAll('.ntfy-slide-opt') || []) {
   option.addEventListener('click', () => ntfyCall(() => api.ntfySetNotify({ mode: option.dataset.mode })));
@@ -5191,15 +5159,24 @@ el('ntfySaveServer')?.addEventListener('click', async () => {
 // up or down, the account, what the server offers.
 api.onNtfyEvent?.(({ type, payload } = {}) => {
   if (type === 'message') {
-    ntfyState = payload?.state || ntfyState;
-    paintNtfy();
-    // A message from the room is a message to the agent, unless it is the answer
-    // this app just sent coming back down the same stream.
+    if (payload?.state) {
+      ntfyState = payload.state;
+      ntfyRememberRooms(payload.state);
+      paintNtfy();
+    }
+    // Every switched-on session has a stream, so a message names the room it
+    // arrived in and is run in that chat.
     const message = payload?.message || null;
-    if (message && !ntfyIsOwnReply(message) && ntfyCommandsOn()) void ntfyRunCommand(message);
+    const tabId = ntfyTabForKey(payload?.sessionKey);
+    if (message && tabId && !ntfyIsOwnReply(message) && ntfyCommandsOn()) void ntfyRunCommand(tabId, message);
     return;
   }
-  if (type === 'status' && ntfyState) ntfyState = { ...ntfyState, status: payload };
+  if (type === 'status' && ntfyState) {
+    // A status for another session's room is not what this panel is showing.
+    if (!payload?.sessionKey || payload.sessionKey === ntfyState.sessionKey) {
+      ntfyState = { ...ntfyState, status: payload };
+    }
+  }
   if (type === 'account' && ntfyState) ntfyState = { ...ntfyState, account: payload?.account || null };
   if (type === 'config' && ntfyState) ntfyState = { ...ntfyState, config: payload };
   paintNtfy();
@@ -5210,10 +5187,12 @@ api.onNtfyEvent?.(({ type, payload } = {}) => {
 (async () => {
   try {
     ntfyState = (await api.ntfyState()) || null;
+    ntfyRememberRooms(ntfyState);
     paintNtfy();
     const started = await api.ntfyInit();
     if (started?.state) {
       ntfyState = started.state;
+      ntfyRememberRooms(started.state);
       paintNtfy();
     }
   } catch {}
@@ -5615,6 +5594,7 @@ function applyTabState(state, options = {}) {  if (!state) return;
   }
   renderActiveTab();
   rememberActiveTab(view);
+  void ntfyFollowActiveView();
   // A turn may still be running in this tab: after a window reload the renderer
   // is new but the agent in the main process never stopped. Without this the
   // Send button comes back looking idle, and pressing it would start a second
@@ -12853,7 +12833,7 @@ Object.assign(STRINGS.en, {
   modelRefreshBusy: 'Reading the latest lists…',
   modelRefreshFailed: 'could not be read',
   modelRefreshNone: 'No provider with a saved key to update.',
-  ntfyTitle: 'ntfy',
+  ntfyTitle: 'Notifications and commands by link',
   ntfyStateLive: 'listening',
   ntfyStateOff: 'off',
   ntfyStateError: 'stopped',
@@ -12878,11 +12858,16 @@ Object.assign(STRINGS.en, {
   ntfyNoRooms: 'No room yet — create one and the name is copied for your phone.',
   ntfyRoomName: 'Room name',
   ntfyAddRoom: 'New room',
-  ntfyRoomHint: 'A room name must be unguessable: leave it empty and the name is generated, then copied.',
+  ntfyRoomHint:
+    'The room belongs to this session — switched on, it gets an unguessable name and the link is copied for you · received messages are on the room link',
   ntfyCopy: 'Copy room link',
   ntfyCopied: 'Room link copied — paste it into the ntfy app on your phone.',
   ntfyRemoveRoom: 'Remove this room',
-  ntfyIncoming: 'Arriving',
+  ntfyRoomTitle: 'This session’s room',
+  ntfyNoRoom: 'No room yet — switch it on and one is made and copied for you.',
+  ntfyFormat: 'What gets sent',
+  ntfyCommandsState: 'State',
+  ntfyNotifyState: 'State',
   ntfyModeSummary: 'Summary',
   ntfyModeFull: 'Everything',
   ntfyLimit: 'Characters used per summary',
@@ -12898,11 +12883,13 @@ Object.assign(STRINGS.en, {
   ntfyNotifyWhenLabel: 'Send when',
   ntfyNotifyAlways: 'Every turn',
   ntfyNotifyLong: 'Over a minute',
-  ntfyNotifyAway: 'Only when away',
+  ntfyNotifyAway: 'Only when away from the app',
   ntfyNotifyHint: 'Uses the summary route above · a turn that came from the room already answers back, so it is not sent twice',
   ntfyNotifyDone: 'NTAPI finished',
   ntfyNotifyFailed: 'NTAPI stopped with an error',
-  ntfyEnabledLabel: 'Turn ntfy on',
+  ntfyEnabledLabel: 'This session',
+  ntfyOn: 'On',
+  ntfyOffLabel: 'Off',
   ntfyRepliedCut: 'Answer sent to the room — shortened by cutting it (no summarizer answered).',
   ntfyCommands: 'Commands',
   ntfyCommandsLabel: 'Treat room messages as commands, and answer back',
@@ -13028,7 +13015,7 @@ Object.assign(STRINGS.th, {
   modelRefreshBusy: 'กำลังดึงรายการล่าสุด…',
   modelRefreshFailed: 'ดึงไม่ได้',
   modelRefreshNone: 'ยังไม่มีค่ายที่บันทึกคีย์ไว้ให้อัปเดต',
-  ntfyTitle: 'ntfy',
+  ntfyTitle: 'แจ้งเตือน/สั่งงานผ่านลิงก์',
   ntfyStateLive: 'กำลังฟังอยู่',
   ntfyStateOff: 'ปิดอยู่',
   ntfyStateError: 'หยุดชั่วคราว',
@@ -13053,11 +13040,16 @@ Object.assign(STRINGS.th, {
   ntfyNoRooms: 'ยังไม่มีห้อง — สร้างห้องแล้วระบบจะคัดลอกชื่อให้เอาไปใส่ในมือถือ',
   ntfyRoomName: 'ชื่อห้อง',
   ntfyAddRoom: 'สร้างห้อง',
-  ntfyRoomHint: 'ชื่อห้องต้องเดาไม่ได้ — เว้นว่างไว้แล้วระบบจะตั้งชื่อยาว ๆ ให้ แล้วคัดลอกให้ทันที',
+  ntfyRoomHint:
+    'ห้องผูกกับเซสชันนี้ — เปิดใช้งานแล้วระบบตั้งชื่อยาว ๆ ให้เองและคัดลอกให้ · ข้อความที่รับดูได้จากลิงก์ห้อง',
   ntfyCopy: 'คัดลอกลิงก์ห้อง',
   ntfyCopied: 'คัดลอกลิงก์ห้องแล้ว — เอาไปวางในแอป ntfy บนมือถือ',
   ntfyRemoveRoom: 'ลบห้องนี้',
-  ntfyIncoming: 'ข้อความที่รับ',
+  ntfyRoomTitle: 'ห้องของเซสชันนี้',
+  ntfyNoRoom: 'ยังไม่มีห้อง — เปิดใช้งานแล้วระบบจะสร้างและคัดลอกลิงก์ให้',
+  ntfyFormat: 'รูปแบบข้อความที่ส่ง',
+  ntfyCommandsState: 'สถานะ',
+  ntfyNotifyState: 'สถานะ',
   ntfyModeSummary: 'สรุป',
   ntfyModeFull: 'ทั้งหมด',
   ntfyLimit: 'จำนวนตัวอักษรที่ใช้สรุป',
@@ -13073,11 +13065,13 @@ Object.assign(STRINGS.th, {
   ntfyNotifyWhenLabel: 'ส่งเมื่อไหร่',
   ntfyNotifyAlways: 'ทุกเทิร์น',
   ntfyNotifyLong: 'เกิน 1 นาที',
-  ntfyNotifyAway: 'ตอนไม่อยู่',
+  ntfyNotifyAway: 'ตอนไม่อยู่หน้าโปรแกรม',
   ntfyNotifyHint: 'ใช้เส้นทางสรุปด้านบน · เทิร์นที่มาจากห้องตอบกลับอยู่แล้วจึงไม่ส่งซ้ำ',
   ntfyNotifyDone: 'NTAPI ทำงานเสร็จแล้ว',
   ntfyNotifyFailed: 'NTAPI หยุดพร้อมข้อผิดพลาด',
-  ntfyEnabledLabel: 'เปิดใช้งาน ntfy',
+  ntfyEnabledLabel: 'เซสชันนี้',
+  ntfyOn: 'เปิด',
+  ntfyOffLabel: 'ปิด',
   ntfyRepliedCut: 'ส่งคำตอบกลับไปที่ห้องแล้ว — ย่อด้วยการตัดข้อความ (ไม่มีตัวสรุปตอบ)',
   ntfyCommands: 'รับคำสั่ง',
   ntfyCommandsLabel: 'ถือว่าข้อความในห้องเป็นคำสั่ง แล้วตอบกลับให้',

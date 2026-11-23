@@ -1,5 +1,28 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-24 (Linux) — งานรอบล่าสุด (ยังไม่คอมมิต): ntfy = 1 session 1 ห้อง · สไลด์เปิด/ปิด · ตัดกลุ่มประวัติ:** อ่านบล็อกนี้ก่อนบล็อกอื่น
+>
+> **สั่งโดยผู้ใช้ (9 ข้อ) และทำครบแล้ว — working tree เท่านั้น ยังไม่ commit**
+> 1. **ผูกห้องกับเซสชัน**: คีย์ห้อง = `file:<sessionFile>` ของแท็บ (ก่อนมีไฟล์ใช้ `tab:<tabId>`) · `rekey()` ย้ายห้องให้เมื่อแชทใหม่ได้ไฟล์ · ปิดแท็บ = `stopSession()` (หยุดฟัง เก็บห้องไว้)
+> 2. **1 session = 1 ห้อง**: เก็บใน `ntfy.json` → `sessions:{key:{topic,enabled,since,at}}` · **เซสชันใหม่ = ปิด** · เปิดครั้งแรกสร้างห้อง `ntapi-<สุ่ม>` + คัดลอกลิงก์ให้ทันที · แต่ละเซสชันที่เปิดอยู่ฟังสตรีมของตัวเองพร้อมกัน (คำสั่งเข้าห้องแชทของเซสชันนั้น ไม่ดึงหน้าต่างไปหา) · ไฟล์ตั้งค่าเก่า (`topics/activeTopic/enabled`) ถูกยกห้องเดิมให้เซสชันแรกที่เปิด
+> 3. **เปิด/ปิดเป็นสไลด์ เปิด–ปิด** แบบ "สรุปด้วย": สวิตช์หลัก (`#ntfyPower`), รับคำสั่ง (`#ntfyCommands`), เมื่อเทิร์นจบ (`#ntfyNotify`) — ไม่ใช่ติ๊กถูกแล้ว · `.ntfy-slide-opt` มี `min-width:64px`
+> 4. **เมนูเปิดด้วยคลิกเท่านั้น** — ลบ `pointerenter/pointerleave` ออก (focusin/Escape/คลิกนอก ยังอยู่)
+> 5. **เอาหัวข้อ/กลุ่มประวัติออก** ทั้งก้อน (`ข้อความที่รับ`, ล้างประวัติ, `ntfy-messages.json` ไม่ถูกเขียนแล้ว) — ดูย้อนหลังผ่านลิงก์ห้อง · แผงเหลือ 5 กลุ่ม: บัญชี · ห้องของเซสชันนี้ · รูปแบบข้อความที่ส่ง · รับคำสั่ง · เมื่อเทิร์นจบ
+> 6. **ตัด "เกิน 1 นาที"** (โหมดเหลือ `always`/`away`) · **"ตอนไม่อยู่" → "ตอนไม่อยู่หน้าโปรแกรม"** · `away` = แท็บนั้นไม่ใช่แท็บหน้า หรือหน้าต่างไม่ focus (ค่า `long` เก่า → `always`)
+> 7. **หัวข้อ ntfy → "แจ้งเตือน/สั่งงานผ่านลิงก์"** (ทั้งชิป aria/title และหัวแผง, EN = "Notifications and commands by link")
+> 8. **ระยะ "บัญชี" กับชื่อบัญชี**: เพิ่ม `.ntfy-account{margin:0;font-size:12px}` (เดิมเป็น `<p>` กิน margin ตั้งต้น)
+> 9. **ค่าเริ่มต้น**: `notify.onSettle = true`, `mode='always'`; รับคำสั่งเปิด (localStorage เดิม '1')
+>
+> **ไฟล์ที่แก้**: `app/src/ntfy-service.js` (เขียนใหม่ทั้งไฟล์, v2 schema) · `app/src/main.js` (`ntfyKeys`/`ntfyKeyFor`/`ntfyFollowActive`, hook ใน `tab:open|resumeRecent|activate|close`, `ntfy:publish` รับ `tabId`, ลบ `ntfy:setActiveTopic|clearMessages`) · `app/src/preload.js` · `app/src/renderer/{index.html,app.js,styles.css}` · เทสต์ `app/scripts/{selftest-ntfy.js,check-ntfy-panel.js}` · ภาพ `shots/ntfy-panel-*.png`
+>
+> **หลักฐาน/ตัวเลข**: `node app/scripts/selftest-ntfy.js` ผ่านหมด · `npx electron scripts/check-ntfy-panel.js --no-sandbox` ผ่านหมด · `node scripts/run-unit-tests.js` **108/108** · ภาพแผง dark/light/commands ใหม่แล้ว (วัดกล่อง: ไม่ทับ/ไม่ล้น ที่ 1280px และ 460px)
+>
+> **ค้าง/ควรรู้**
+> - **ยังไม่คอมมิต** — งานทั้งหมดอยู่ใน working tree (`.AGENT/LOG.md`, PROVENANCE ไม่ได้แตะ)
+> - `ntfy-messages.json` ใบเก่ายังอยู่บนดิสก์ แต่โค้ดไม่อ่าน/ไม่เขียนแล้ว
+> - tool `ntfy_send` ของเอเจนต์ยังส่งเข้าห้องของเซสชัน **ที่ active** (ไม่ได้ระบุแท็บต้นทาง) — ถ้าต้องการผูกตามแท็บของ tool ต้องส่ง `tabId` เข้า `freepi-bridge.js` เพิ่ม
+> - ยังไม่ทดสอบกับมือถือ/เซิร์ฟเวอร์ ntfy จริงในรอบนี้ (เทสต์ใช้ stub) — ต้องปิด-เปิดแอปใหม่จึงเห็นผล
+
 > **📌 2026-11-24 (Linux) — งานรอบใหม่ (ยังไม่คอมมิต): สวิตช์สไลด์ · แจ้งเตือนเมื่อเทิร์นจบ · ผู้ให้บริการ A-Z:** อ่านบล็อกนี้ก่อน
 >
 > - **สวิตช์เปิด/ปิดทุกตัวเป็นสไลด์สีม่วง** (เดิมติ๊กถูก + บางอันเขียว) — `appearance:none` + knob + `var(--accent)` ใน CSS ที่เดียว คุม `.slide-switch`/`.ntfy-switch`/`.settings-toggle`

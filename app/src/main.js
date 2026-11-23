@@ -3612,13 +3612,37 @@ ipcMain.handle('models:refresh', async () => {
  */
 ntfyService.setEmitter((type, payload) => send('ntfy:event', { type, payload }));
 
+/** The key a tab's session goes by: its file once it has one, else the tab. */
+const ntfyKeys = new Map();
+function ntfyKeyFor(tabId) {
+  const id = tabId || activeTabId;
+  if (!id) return null;
+  const file = tabs.get(id)?.handle?.session?.sessionFile;
+  const key = file ? `file:${path.resolve(file)}` : `tab:${id}`;
+  const previous = ntfyKeys.get(id);
+  if (previous && previous !== key) ntfyService.rekey(previous, key);
+  ntfyKeys.set(id, key);
+  return key;
+}
+
+/** The panel shows, and the agent publishes to, the session on screen. */
+function ntfyFollowActive() {
+  const key = ntfyKeyFor(activeTabId);
+  ntfyService.setActiveSession(key);
+  return key;
+}
+
 function ntfyBoot() {
-  return ntfyService.load();
+  ntfyService.load();
+  ntfyFollowActive();
+  return ntfyService.state();
 }
 
 ipcMain.handle('ntfy:state', async () => ntfyBoot());
 
 ipcMain.handle('ntfy:init', async () => {
+  ntfyService.load();
+  ntfyFollowActive();
   const state = await ntfyService.init();
   return { ok: true, state };
 });
@@ -3633,22 +3657,12 @@ ipcMain.handle('ntfy:setSummary', async (_e, { enabled, limit, source } = {}) =>
   return { ok: true, state: res.state };
 });
 
-ipcMain.handle('ntfy:addTopic', async (_e, { name, label } = {}) => {
-  const res = ntfyService.addTopic(name, label);
+ipcMain.handle('ntfy:addTopic', async (_e, { name } = {}) => {
+  const res = ntfyService.addTopic(name);
   return { ok: true, topic: res.topic, state: res.state };
 });
 
-ipcMain.handle('ntfy:removeTopic', async (_e, { name } = {}) => ({
-  ok: true,
-  state: ntfyService.removeTopic(name).state,
-}));
-
-ipcMain.handle('ntfy:setActiveTopic', async (_e, { name } = {}) => {
-  const res = ntfyService.setActiveTopic(name);
-  return res.ok ? { ok: true, state: res.state } : res;
-});
-
-ipcMain.handle('ntfy:clearMessages', async () => ({ ok: true, state: ntfyService.clearMessages().state }));
+ipcMain.handle('ntfy:removeTopic', async () => ({ ok: true, state: ntfyService.removeTopic().state }));
 
 ipcMain.handle('ntfy:signup', async (_e, { username, password, email } = {}) => {
   const res = await ntfyService.signUp({ username, password, email });
@@ -3666,6 +3680,11 @@ ipcMain.handle('ntfy:setEnabled', async (_e, { enabled } = {}) => ({
   ok: true,
   state: ntfyService.setEnabled(enabled !== false).state,
 }));
+
+/** A tab id in a publish payload names the room it belongs to. */
+function ntfySessionForPayload(payload = {}) {
+  return payload.sessionKey || ntfyKeyFor(payload.tabId || activeTabId);
+}
 
 /**
  * Which provider/model a tab is on, and how to reach it with a one-shot call.
@@ -3762,14 +3781,16 @@ ipcMain.handle('ntfy:summarize', async (_e, { text, limit, source, tabId } = {})
 
 ipcMain.handle('ntfy:setNotify', async (_e, { onSettle, mode } = {}) => ntfyService.setNotify({ onSettle, mode }));
 
-ipcMain.handle('ntfy:publish', async (_e, payload = {}) => ntfyService.publish(payload));
+ipcMain.handle('ntfy:publish', async (_e, payload = {}) =>
+  ntfyService.publish({ ...payload, sessionKey: ntfySessionForPayload(payload) })
+);
 
 /**
  * Push a copy to the phone. The agent calls this through the same service, so a
  * long turn that finally finishes can say so without the user watching.
  */
-ipcMain.handle('ntfy:notify', async (_e, { title, message, priority, tags } = {}) =>
-  ntfyService.publish({ title, message, priority, tags })
+ipcMain.handle('ntfy:notify', async (_e, { title, message, priority, tags, tabId } = {}) =>
+  ntfyService.publish({ title, message, priority, tags, sessionKey: ntfySessionForPayload({ tabId }) })
 );
 
 /**
@@ -4803,6 +4824,7 @@ ipcMain.handle('tab:open', async (_e, opts = {}) => {
   bootTrace(`tab:open attachTab done in ${Date.now() - openStarted}ms`);
   activeTabId = tabId;
   persistTabs();
+  ntfyFollowActive();
   return { tabId, state };
 });
 
@@ -4816,6 +4838,7 @@ ipcMain.handle('tab:resumeRecent', async (_e, cwd) => {
   const state = await attachTab(tabId, manager, target);
   activeTabId = tabId;
   persistTabs();
+  ntfyFollowActive();
   return { tabId, state };
 });
 
@@ -4823,6 +4846,7 @@ ipcMain.handle('tab:activate', async (_e, tabId) => {
   const tab = tabs.get(tabId);
   if (!tab) throw new Error('unknown tab');
   activeTabId = tabId;
+  ntfyFollowActive();
   if (!tabIsFreePi(tab)) {
     // Coarena has no ads; clearing the slot also clears whatever the previous
     // tab left there.
@@ -4844,6 +4868,9 @@ ipcMain.handle('tab:activate', async (_e, tabId) => {
 });
 
 ipcMain.handle('tab:close', async (_e, tabId) => {
+  const ntfyKey = ntfyKeys.get(tabId);
+  ntfyKeys.delete(tabId);
+  if (ntfyKey) ntfyService.stopSession(ntfyKey);
   const tab = tabs.get(tabId);
   if (tab) {
     try {
@@ -4856,6 +4883,7 @@ ipcMain.handle('tab:close', async (_e, tabId) => {
   }
   if (activeTabId === tabId) activeTabId = tabs.keys().next().value || null;
   persistTabs();
+  ntfyFollowActive();
   return { activeTabId };
 });
 

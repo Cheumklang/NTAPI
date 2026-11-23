@@ -332,28 +332,38 @@ async function main() {
 
   const service = createNtfyService({ dir, safeStorage: fakeSafeStorage, client: fakeClient, log: () => {} });
   service.load();
-  const added = service.addTopic('', '');
-  check('a room created without a name gets a generated one', added.topic.name.startsWith('ntapi-'), added.topic);
-  check('the new room becomes the active one', service.state().activeTopic === added.topic.name, service.state().activeTopic);
+  service.setActiveSession('file:/sessions/one.jsonl');
+  check('a session starts switched off', service.state().enabled === false, service.state().enabled);
+  check('and has no room until it is switched on', service.state().topic === null, service.state().topic);
 
   const summary = service.setSummary({ enabled: true, limit: 99999 });
   check('the summary length is capped', summary.state.summary.limit <= 4000, summary.state.summary.limit);
   service.setSummary({ enabled: false, limit: 120 });
-  service.addTopic('second-room', 'Second');
-  check('a second room is kept', service.state().topics.length === 2, service.state().topics);
-  service.setActiveTopic(added.topic.name);
-  service.removeTopic('second-room');
-  check('a room can be removed', service.state().topics.length === 1, service.state().topics);
 
+  const enabled = service.setEnabled(true);
+  check('switching it on makes a room', /^ntapi-/.test(enabled.state.topic || ''), enabled.state.topic);
+  check('the new room is switched on and has a link', enabled.state.enabled === true && enabled.state.link.endsWith(enabled.state.topic), enabled.state.link);
+
+  check('the notify default is on and every turn', service.state().notify.onSettle === true && service.state().notify.mode === 'always', service.state().notify);
+
+  // One session, one room: another session gets a room of its own, off by default.
+  service.setActiveSession('file:/sessions/two.jsonl');
+  check('a second session starts off with no room', service.state().enabled === false && service.state().topic === null, service.state());
+  check("and does not see the first session's room", service.state().rooms['file:/sessions/one.jsonl'].enabled === true, service.state().rooms);
+
+  service.setActiveSession('file:/sessions/one.jsonl');
   const published = await service.publish({ message: 'hi' });
-  check('a message goes to the active room', published.ok === true, published);
+  check('a message goes to the session room', published.ok === true, published);
 
   await service.logIn({ username: 'phil', password: 'secret' });
   check('the login token comes from the client', service.state().signedIn === true, service.state().signedIn);
 
+  const firstRoom = service.state().topic;
   // Reload from the same folder: rooms, summary and credential must survive.
-  const reloaded = createNtfyService({ dir, safeStorage: fakeSafeStorage, client: fakeClient, log: () => {} }).load();
-  check('rooms survive a restart', reloaded.topics.length === 1 && reloaded.topics[0].name === added.topic.name, reloaded.topics);
+  const reloadedService = createNtfyService({ dir, safeStorage: fakeSafeStorage, client: fakeClient, log: () => {} });
+  reloadedService.load();
+  const reloaded = reloadedService.setActiveSession('file:/sessions/one.jsonl');
+  check('the session room survives a restart', reloaded.enabled === true && reloaded.topic === firstRoom, reloaded.topic);
   check('the summary setting survives', reloaded.summary.enabled === false && reloaded.summary.limit === 120, reloaded.summary);
   check('the signed-in state survives', reloaded.signedIn === true, reloaded.signedIn);
 
@@ -363,11 +373,6 @@ async function main() {
     'the credential is stored as a ciphertext, not the token itself',
     storedToken.encrypted === true && storedToken.value !== 'tk_minted_here',
     storedToken
-  );
-  check(
-    'the messages file is written beside it',
-    fs.existsSync(path.join(dir, 'ntfy-messages.json')) || true,
-    fs.readdirSync(dir)
   );
 
   // A copied folder cannot be decrypted here: the panel asks again instead of
@@ -379,8 +384,10 @@ async function main() {
       throw new Error('cannot decrypt here');
     },
   };
-  const blind = createNtfyService({ dir, safeStorage: blindSafeStorage, client: fakeClient, log: () => {} }).load();
-  check('an unreadable credential leaves the user signed out, not broken', blind.signedIn === false && blind.topics.length === 1, blind.signedIn);
+  const blindService = createNtfyService({ dir, safeStorage: blindSafeStorage, client: fakeClient, log: () => {} });
+  blindService.load();
+  const blind = blindService.setActiveSession('file:/sessions/one.jsonl');
+  check('an unreadable credential leaves the user signed out, not broken', blind.signedIn === false && blind.topic === firstRoom, blind.signedIn);
 
   /* The agent's side of it: the tool exists, and it sends through the room the
    * panel already holds rather than asking for a server or a token. */
@@ -409,6 +416,7 @@ async function main() {
   };
   const retry = createNtfyService({ dir: retryDir, safeStorage: fakeSafeStorage, client: retryClient, log: () => {} });
   retry.load();
+  retry.setActiveSession('file:/sessions/retry.jsonl');
   retry.addTopic('ntapi-retry');
   retry._internal.settings.token = 'tk_stale';
   const retried = await retry.publish({ message: 'does it arrive?' });
@@ -462,7 +470,9 @@ async function main() {
   };
   const offService = createNtfyService({ dir: offDir, safeStorage: fakeSafeStorage, client: offSwitchClient, log: () => {} });
   offService.load();
-  offService.addTopic('ntapi-off');
+  offService.setActiveSession('file:/sessions/off.jsonl');
+  check('nothing listens before it is switched on', openedStreams === 0, openedStreams);
+  offService.setEnabled(true);
   await new Promise((r) => setTimeout(r, 120));
   const beforeOff = openedStreams;
   const turnedOff = offService.setEnabled(false);
@@ -471,9 +481,11 @@ async function main() {
   offService.addTopic('ntapi-off-second');
   await new Promise((r) => setTimeout(r, 120));
   check('nothing opens a stream while it is off', openedStreams === beforeOff, { beforeOff, after: openedStreams });
-  const offReloaded = createNtfyService({ dir: offDir, safeStorage: fakeSafeStorage, client: offSwitchClient, log: () => {} }).load();
+  const offReload = createNtfyService({ dir: offDir, safeStorage: fakeSafeStorage, client: offSwitchClient, log: () => {} });
+  offReload.load();
+  const offReloaded = offReload.setActiveSession('file:/sessions/off.jsonl');
   check('the switch survives a restart', offReloaded.enabled === false, offReloaded.enabled);
-  check('and the room is still there', offReloaded.topics.length === 2, offReloaded.topics.length);
+  check('and the room is still there', offReloaded.topic === 'ntapi-off-second', offReloaded.topic);
   fs.rmSync(offDir, { recursive: true, force: true });
 
   fs.rmSync(dir, { recursive: true, force: true });
