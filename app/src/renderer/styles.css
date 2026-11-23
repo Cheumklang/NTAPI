@@ -3106,14 +3106,16 @@ button { font-family: inherit; }
 /* ---------------- browser control chip ---------------- */
 
 #browserBtn { position: relative; }
+/* Icon first, then the 7px dot to its right — the same in all three status
+   chips (browser, desktop, ntfy), so the row reads as one system. */
+.chip-btn.sys-chip, #browserBtn, .ntfy-chip { gap: 3px; }
+/* Same dot as the ntfy chip's. */
 #browserBtn .dot {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #6b7280;
+  background: var(--line-2);
+  flex: 0 0 auto;
 }
 #browserBtn .dot.waiting { background: #d9a441; }
 #browserBtn .dot.on { background: #3fb26b; }
@@ -5349,26 +5351,20 @@ html[lang="th"] .about-name-th {
  */
 .sys-wrap { position: relative; display: inline-flex; }
 .chip-btn.sys-chip { width: 30px; padding: 0; position: relative; }
+/* Same dot as the ntfy chip's (see .ntfy-dot): 7px, grey until on. */
 .sys-dot {
-  position: absolute;
-  right: 5px;
-  bottom: 4px;
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: currentColor;
-  opacity: .35;
-  transition: opacity .18s ease, box-shadow .18s ease;
+  background: var(--line-2);
+  flex: 0 0 auto;
 }
 .chip-btn.sys-chip[data-state='on'] {
   color: #f5b544;
   border-color: rgba(245, 181, 68, .5);
   background: rgba(245, 181, 68, .08);
 }
-.chip-btn.sys-chip[data-state='on'] .sys-dot {
-  opacity: 1;
-  box-shadow: 0 0 0 3px rgba(245, 181, 68, .16);
-}
+.chip-btn.sys-chip[data-state='on'] .sys-dot { background: #f5b544; }
 
 /*
  * The panel is wide enough for the warning to be a sentence, not a column.

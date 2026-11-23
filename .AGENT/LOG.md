@@ -3831,3 +3831,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **FreePi เปลี่ยนจาก "การ์ดเด่นบนสุด" เป็นไทล์ปกติ** (`data-provider="freepi"`) เหมือนเจ้าอื่น · การ์ดของมันย้ายเข้า `#providerDetail` จึงเปิดเมื่อคลิกไทล์เท่านั้น · tick ของ FreePi = **ลงชื่อเข้าใช้แล้ว** (`accountData.hasToken`) และ `renderAccount()` เรียก `paintProviderGrid()` ใหม่เมื่อได้สถานะ
 - เทสต์: `check:ntfy` เพิ่ม (สวิตช์เป็นสไลด์จริง appearance:none + สีตอนเปิดเป็นตระกูลม่วง + แจ้งเตือนเอง 1 ครั้งเมื่อเทิร์นจบ + ปิดสวิตช์แล้วเงียบ) · `check:grid` เพิ่ม (13 ไทล์ เรียง A-Z · FreePi เป็นไทล์มีโลโก้+ชื่อ · ไม่มีการ์ดลอยเหนือกริด · tick เมื่อลงชื่อแล้ว · คลิกไทล์เปิดการ์ด) · `check:vision` เพิ่ม (สวิตช์ llama.cpp เป็นสไลด์) · แก้เทสต์ที่พังเพราะสวิตช์ที่ 2 ไม่ merge (stub ต้องรวมค่าเหมือน service)
 - ผล: `npm test` **108/108** · `check:grid`/`check:vision`/`check:ntfy` ผ่าน · `check:sara` ok · ภาพ: `shots/provider-grid-*.png`, `shots/ntfy-panel-*.png`
+
+## 2026-11-24 (Linux) — รวมจุดสถานะ 3 ชิป (browser / desktop / ntfy)
+- ผู้ใช้: จุดบอกสถานะของ 3 ปุ่มอยู่คนละที่ ดูไม่มืออาชีพ · ต้นแบบคือชิป ntfy (ไม่ต้องแก้)
+- `index.html`: `sys-dot` ย้ายมาก่อน svg · `styles.css`: `.sys-dot` (7px inline, `var(--line-2)`, on = `#f5b544`), `#browserBtn .dot` (7px inline, `var(--line-2)`) — เลิกใช้ absolute ทั้งคู่
+- เทสต์ 108/108 · `check:sara` ok · ยังไม่ commit/ไม่ bump
