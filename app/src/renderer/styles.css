@@ -5998,3 +5998,545 @@ textarea.ntfy-input { resize: vertical; min-height: 44px; line-height: 1.4; }
 
 /* A mode choice that cannot matter yet reads as unavailable, not as broken. */
 .ntfy-slide.disabled { opacity: .5; }
+
+/* ---------------------------------------------------------------------------
+   Visual polish — paint only.
+
+   Everything below changes how the window looks, never what it does: no new
+   element, no moved control, nothing read by app.js. It sits in one block at the
+   end so the whole layer can be removed and the previous look comes back.
+   --------------------------------------------------------------------------- */
+
+/* Smoother glyph edges on the dark surface. */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Selection belongs to the app's accent, not the platform's blue. */
+::selection {
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+  color: var(--text);
+}
+
+/* Slim scrollbars drawn from the palette instead of the platform's slab. */
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted-2); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* One motion language for every control that answers the pointer. */
+.ghost, .attach, .send, .stop, .chip-btn, .path-btn, .session-item,
+.status-pill, .tb-btn, .primary-btn, .provider-tile {
+  transition: background-color .16s ease, border-color .16s ease,
+    color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .send:hover:not(:disabled) { transform: none; }
+}
+
+/* ---- window chrome -------------------------------------------------------- */
+
+#titlebar {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-2) 88%, #ffffff 5%), var(--bg-2));
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .28);
+  position: relative;
+  z-index: 2;
+}
+.tb-brand {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+.tb-btn { border-radius: 7px; }
+
+#topbar {
+  background: linear-gradient(180deg, var(--bg-2), var(--bg));
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .14);
+}
+
+/* ---- sidebar -------------------------------------------------------------- */
+
+#sidebar {
+  background:
+    radial-gradient(120% 44% at 0% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 72%),
+    var(--bg-2);
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0, .18);
+}
+.brand .brand-icon {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .1),
+    0 3px 10px rgba(0, 0, 0, .45),
+    0 0 20px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.brand-count { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.session-item { border-radius: 9px; padding: 8px 10px; }
+.session-item:hover { background: var(--surface-3); }
+/* An uncoloured row. A row the user has given a colour keeps its 4px stripe
+   and its own frame instead — see "pins and colours" above. */
+.session-item.active:not([data-color]) {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 22%, transparent),
+    color-mix(in srgb, var(--accent) 5%, transparent)
+  );
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.session-search { background: var(--surface-2); border-radius: 9px; }
+
+/* ---- transcript ----------------------------------------------------------- */
+
+.msg .role {
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: .1em;
+}
+.msg.assistant .body { line-height: 1.62; }
+.msg.user .bubble {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 15%, var(--bg-3)),
+    color-mix(in srgb, var(--accent) 5%, var(--bg-3))
+  );
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--line));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .16);
+}
+.empty h1 { letter-spacing: -.01em; }
+.jump-bottom {
+  background: color-mix(in srgb, var(--bg-2) 86%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+/* ---- composer ------------------------------------------------------------- */
+
+.composer-box {
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-2) 95%, #ffffff 3%), var(--bg-2));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .26), inset 0 1px 0 rgba(255, 255, 255, .03);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.composer-box:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent), 0 14px 34px rgba(0, 0, 0, .32);
+}
+.attach { border-radius: 9px; }
+.attach:hover { border-color: var(--line-2); }
+.send {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-fill) 82%, #ffffff 18%), var(--accent-fill));
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--accent-fill) 40%, transparent);
+}
+.send:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent-fill) 50%, transparent);
+}
+.send:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-fill) 34%, transparent);
+}
+.send:disabled {
+  background: var(--surface-4);
+  box-shadow: none;
+  transform: none;
+}
+
+/* ---- cards and dialogs ---------------------------------------------------- */
+
+/* The filled buttons share one treatment: a shallow gradient so the face is not
+   one flat colour, and a coloured shadow that seats it on the page. */
+.primary-btn {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-fill) 84%, #ffffff 16%),
+    var(--accent-fill)
+  );
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--accent-fill) 32%, transparent);
+}
+.primary-btn:hover {
+  filter: none;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent-fill) 42%, transparent);
+}
+.primary-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-fill) 30%, transparent);
+}
+
+/* Code and shell cards read as paper on the page: one hairline of light on the
+   top edge, one soft shadow underneath. */
+.md-code,
+.shell-card {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .18), inset 0 1px 0 rgba(255, 255, 255, .035);
+}
+
+.dialog {
+  border-color: var(--line-2);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+
+/* ---- light theme: the same depth, told with soft grey instead of black ---- */
+
+html[data-theme='light'] #titlebar {
+  background: linear-gradient(180deg, #ffffff, var(--bg-2));
+  box-shadow: 0 1px 0 rgba(24, 30, 54, .07);
+}
+html[data-theme='light'] #topbar { box-shadow: 0 1px 0 rgba(24, 30, 54, .05); }
+html[data-theme='light'] #sidebar { box-shadow: inset -1px 0 0 rgba(24, 30, 54, .05); }
+html[data-theme='light'] .brand .brand-icon {
+  box-shadow: 0 0 0 1px rgba(24, 30, 54, .08), 0 3px 10px rgba(24, 30, 54, .14);
+}
+html[data-theme='light'] .brand-count { background: color-mix(in srgb, var(--text) 6%, transparent); }
+html[data-theme='light'] .msg.user .bubble { box-shadow: 0 2px 10px rgba(24, 30, 54, .06); }
+html[data-theme='light'] .composer-box {
+  box-shadow: 0 8px 22px rgba(24, 30, 54, .08), inset 0 1px 0 #ffffff;
+}
+html[data-theme='light'] .composer-box:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 10px 26px rgba(24, 30, 54, .1);
+}
+html[data-theme='light'] .send:disabled { box-shadow: none; }
+html[data-theme='light'] .md-code,
+html[data-theme='light'] .shell-card {
+  box-shadow: 0 4px 14px rgba(24, 30, 54, .06), inset 0 1px 0 #ffffff;
+}
+html[data-theme='light'] .dialog {
+  box-shadow: 0 24px 64px rgba(24, 30, 54, .18), inset 0 1px 0 #ffffff;
+}
+html[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: #c8cfdd;
+  background-clip: padding-box;
+}
+html[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: #aeb7c9;
+  background-clip: padding-box;
+}
+
+/* ---------------------------------------------------------------------------
+   Visual polish, part two — paint only.
+
+   A second pass over the surfaces the first one did not reach: menus, the
+   settings sheet, cards in the transcript, the queue, the usage meters and the
+   empty state. Same rule as above: appearance only, one removable block.
+   --------------------------------------------------------------------------- */
+
+/* Figures that sit in columns (tokens, timers, model ids) keep their width as
+   the digits change, so the row stops shivering. */
+.mono,
+.tok-value,
+.status-num,
+.usage-row .mono,
+.model-option-id,
+.model-group-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- floating menus ------------------------------------------------------- */
+
+/* Every menu that hangs off the window shares one frame: a slightly darker
+   edge, a deep seated shadow, and one hairline of light along the top. */
+.model-menu,
+.slash-menu,
+.status-popover,
+.ctx-menu,
+.think-menu,
+.model-tip,
+.sys-popover {
+  border-radius: 12px;
+  border-color: var(--line-2);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, .52),
+    0 2px 8px rgba(0, 0, 0, .28),
+    inset 0 1px 0 rgba(255, 255, 255, .045);
+}
+
+/* The rows inside a menu get the same rounded hover the sidebar uses. */
+.model-option,
+.slash-item,
+.model-group-head,
+.think-menu button,
+.ctx-menu button {
+  border-radius: 8px;
+}
+.model-option[aria-selected='true'] {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.model-group-head:hover,
+.model-option:not([aria-selected='true']):hover {
+  background: var(--surface-3);
+}
+.model-search,
+.model-menu-search {
+  border-radius: 9px;
+}
+.model-tip {
+  backdrop-filter: blur(10px);
+}
+
+/* ---- settings sheet ------------------------------------------------------- */
+
+.settings-row {
+  border-radius: 11px;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.settings-row:hover {
+  border-color: var(--line-2);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .14);
+}
+.settings-head { letter-spacing: .09em; }
+.settings-input,
+.ntfy-input,
+.session-search {
+  border-radius: 9px;
+}
+.settings-input:focus,
+.ntfy-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* A provider card is a card: it answers the pointer with its edge and its
+   shadow, never with its type. */
+.provider-card {
+  border-radius: 11px;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.provider-card:hover {
+  border-color: var(--line-2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .16);
+}
+
+/* ---- transcript cards ----------------------------------------------------- */
+
+.tool,
+.notice,
+.error-banner,
+.attachment,
+.md-code,
+.dialog-code {
+  border-radius: 10px;
+}
+.tool { transition: border-color .16s ease, background-color .16s ease; }
+.tool:hover { border-color: var(--line-2); }
+.tools-toggle,
+.narration-toggle,
+.tools-latest,
+.queue-hold-send {
+  border-radius: 9px;
+}
+.notice,
+.error-banner {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
+}
+
+/* ---- toasts, meters ------------------------------------------------------- */
+
+/* The queue bar and its rows are deliberately flat — see selftest-queue-chrome:
+   no frame, no fill, no pill. Nothing here may draw on them. */
+.toast {
+  border-radius: 11px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+}
+.usage-bar-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-fill) 74%, #ffffff 26%), var(--accent-fill));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent-fill) 30%, transparent);
+}
+
+/* ---- empty state, image viewer -------------------------------------------- */
+
+.empty h1 { text-wrap: balance; }
+.empty p, .empty-note { text-wrap: pretty; }
+.image-viewer-stage img {
+  border-radius: 10px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, .6);
+}
+.image-viewer-caption {
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+/* ---- keyboard focus ------------------------------------------------------- */
+
+/* One ring, in the brand colour, on every control that can take the keyboard
+   and had no ring of its own. */
+.chip-btn:focus-visible,
+.attach:focus-visible,
+.path-btn:focus-visible,
+.tb-btn:focus-visible,
+.primary-btn:focus-visible,
+.send:focus-visible,
+.stop:focus-visible,
+.session-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 74%, transparent);
+  outline-offset: 2px;
+}
+.session-search:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* ---- light theme: the same depth in soft grey ----------------------------- */
+
+html[data-theme='light'] .model-menu,
+html[data-theme='light'] .slash-menu,
+html[data-theme='light'] .status-popover,
+html[data-theme='light'] .ctx-menu,
+html[data-theme='light'] .think-menu,
+html[data-theme='light'] .model-tip,
+html[data-theme='light'] .sys-popover {
+  box-shadow:
+    0 16px 40px rgba(24, 30, 54, .16),
+    0 2px 6px rgba(24, 30, 54, .08),
+    inset 0 1px 0 #ffffff;
+}
+html[data-theme='light'] .settings-row:hover { box-shadow: 0 2px 10px rgba(24, 30, 54, .06); }
+html[data-theme='light'] .provider-card:hover { box-shadow: 0 8px 20px rgba(24, 30, 54, .08); }
+html[data-theme='light'] .notice,
+html[data-theme='light'] .error-banner { box-shadow: 0 6px 18px rgba(24, 30, 54, .08); }
+html[data-theme='light'] .toast { box-shadow: 0 14px 34px rgba(24, 30, 54, .16); }
+html[data-theme='light'] .image-viewer-stage img { box-shadow: 0 20px 54px rgba(24, 30, 54, .22); }
+
+@media (prefers-reduced-motion: reduce) {
+  .provider-card,
+  .settings-row,
+  .tool { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Visual polish, part three — paint only.
+
+   The third pass works on what is read rather than what is clicked: markdown
+   rhythm, lists, quotes, tables, code blocks and the empty state. Same rule as
+   the two blocks above: appearance only, and the whole block comes off cleanly.
+   --------------------------------------------------------------------------- */
+
+/* ---- markdown rhythm ------------------------------------------------------ */
+
+/* A touch more air after a paragraph, and headings that lean slightly tight so a
+   short answer reads as one composed block instead of stacked lines. */
+.md p { margin: 0 0 .78em; }
+.md h2, .md h3, .md h4, .md h5, .md h6 { letter-spacing: -.005em; }
+.md h2 { font-size: 16.5px; }
+.md > h2:first-child, .md > h3:first-child, .md > h4:first-child { margin-top: 0; }
+
+.md ul, .md ol { margin: .3em 0 .8em; padding-left: 1.4em; }
+.md li { margin: .26em 0; }
+.md li::marker { color: var(--muted-2); }
+/* Numbers are read in order far more often than bullets, so they take the brand
+   colour and keep their column width as a list re-renders while streaming. */
+.md ol > li::marker {
+  color: color-mix(in srgb, var(--accent) 62%, var(--muted));
+  font-variant-numeric: tabular-nums;
+}
+.md li > ul, .md li > ol { margin: .2em 0 .25em; }
+
+.md strong { font-weight: 660; }
+
+/* A quote is a side note: the brand edge and a soft plate say that without a
+   full frame around it. */
+.md blockquote {
+  border-left: 3px solid color-mix(in srgb, var(--accent) 52%, var(--line));
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  padding: .55em .9em;
+}
+
+/* The rule between sections fades out at both ends instead of drawing a hard
+   line the full width of the answer. */
+.md hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line-2), transparent);
+  margin: 1.2em 0;
+}
+
+.md .md-link { transition: background-color .16s ease, border-color .16s ease; }
+.md .md-link:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-bottom-color: var(--accent);
+}
+
+/* Inline code reads one step above the page, not as a filled box. */
+.md .md-code-inline {
+  background: color-mix(in srgb, var(--surface-3) 78%, var(--bg-3));
+  border-color: var(--line-2);
+  border-radius: 6px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .14);
+}
+
+/* ---- tables --------------------------------------------------------------- */
+
+/* The plate belongs to the wrapper, so the corners stay rounded while a wide
+   table still scrolls inside it. */
+.md-table-wrap {
+  margin: .8em 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-2) 55%, transparent);
+}
+.md table { width: 100%; }
+.md th, .md td { border: none; border-bottom: 1px solid var(--line); }
+.md th {
+  background: color-mix(in srgb, var(--bg-3) 86%, transparent);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 640;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.md td { font-variant-numeric: tabular-nums; }
+.md tbody tr:last-child td { border-bottom: none; }
+.md tbody tr:nth-child(even) { background: rgba(255, 255, 255, .014); }
+.md tbody tr:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+
+/* ---- fenced code ---------------------------------------------------------- */
+
+.md-code { border-color: var(--line-2); border-radius: 11px; }
+.md-code-head {
+  background: color-mix(in srgb, var(--bg-2) 68%, var(--surface-1));
+  padding: 6px 8px 6px 12px;
+}
+/* The language tag is a label on the block, not a sentence: small caps shape. */
+.md-lang {
+  font-size: 11px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.md-copy { border-radius: 7px; padding: 3.5px 10px; font-size: 11.5px; }
+.md-copy:hover { background: var(--surface-3); border-color: var(--line-2); }
+.md-code pre { padding: 12px 14px; }
+.md-code code { line-height: 1.62; }
+
+/* ---- empty state ---------------------------------------------------------- */
+
+.empty h1 { font-size: 24px; letter-spacing: -.015em; }
+.empty p { font-size: 14px; color: color-mix(in srgb, var(--muted) 86%, var(--text)); }
+.empty-actions { gap: 10px; margin: 18px 0 12px; }
+.empty-note { margin-top: 4px; }
+
+/* ---- light theme: the same read in soft grey ------------------------------ */
+
+html[data-theme='light'] .md blockquote { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+html[data-theme='light'] .md .md-code-inline {
+  background: #eef1f8;
+  border-color: #d9dfea;
+  box-shadow: none;
+}
+html[data-theme='light'] .md-table-wrap { background: rgba(255, 255, 255, .6); }
+html[data-theme='light'] .md th { background: #f0f3f9; }
+html[data-theme='light'] .md tbody tr:nth-child(even) { background: rgba(24, 30, 54, .018); }
+html[data-theme='light'] .md tbody tr:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .md .md-link { transition: none; }
+}
