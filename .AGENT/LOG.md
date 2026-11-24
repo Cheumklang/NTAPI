@@ -3889,3 +3889,13 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **สาเหตุที่ push ไม่ได้:** session ก่อนรัน git ด้วย root → `~/.git-credentials` เป็นของ root mode 600 · แก้ด้วย `sudo chown nt:nt ~/.git-credentials` (ผู้ใช้ทำ) แล้ว push ผ่าน
 - **ปล่อยเสร็จ:** `master`+`v0.9.2` ขึ้น GitHub · CI ออก Setup 0.9.2 (181,876,577 B) + `latest.yml` (339 B) + blockmap · prune ลบ v0.9.1 แล้ว (เหลือรุ่นเดียว) · `record-release` = PROVENANCE 327
 - เทสต์ก่อนปล่อย: `npm test` 109/109 · `check:search` 9/9 · `check:grid` ผ่าน · `check:sara` ok
+
+## 2026-11-24 (Linux) — v0.9.3: บทสนทนาเร็วขึ้น ~20 เท่า + ขัดหน้าตารอบสาม + ทางลัด Linux
+- **ต้นเหตุที่โปรแกรมช้าทั้งหมด:** `renderUserMessage()` เรียก `scrollToBottom(true)` ทุกข้อความ และ `addMessage()` เรียก `scrollToBottom()` ทุกข้อความ → replay 402 ข้อความบังคับ layout ทั้งหน้า (`pinScrollTop` 215 ครั้ง = 12.08s จาก 12.5s ทั้งหมด)
+- `app.js`: เพิ่ม `replayingTranscript` ครอบ `drawRange` ทั้ง tail และ chunk (กัน `scrollToBottom`/`holdBottom`/`syncFollow` ระหว่าง replay) และ `heightBefore = wasAtBottom ? 0 : scrollHeight`
+- `app.js`: streaming รวม delta เป็นเฟรมเดียว — `streamBodiesAwaitingPaint` + `streamPaintFrame` + `paintStreamBody()` (`requestAnimationFrame`, `try/catch`, ข้าม node ที่หลุด, `followStream()` ท้ายเฟรม)
+- `markdown.js`: เลิกใช้ `codeBlocks.indexOf(b)` ใน `.map()` (O(n²)) → ตัวนับ `codeIndex` รอบเดียว
+- **ผลวัด (`npm run check:speed`, 402 ข้อความ):** fill 27,458 → ~1,300 ms · firstPaint 143 → 50–87 ms · interruptFirstPaint 26,925 → ~1,300 ms
+- `styles.css`: "Visual polish" 3 ก้อนท้ายไฟล์ (window chrome, sidebar, transcript, composer, เมนู, settings, toast/meter, ตาราง/โค้ด/อ้างอิง/ลิสต์/หน้าว่าง, light theme) — ถอดออกได้ทั้งก้อน
+- Linux: `ntapi-launch.sh` เปิดโหมด normal ทันที (ตัดกล่อง zenity) + `ntapi.desktop` + ทางลัด `~/Desktop/ntapi.desktop` (ตั้ง trusted แล้ว)
+- เทสต์ก่อนปล่อย: `npm test` 109/109 · `selftest-ui-render` ผ่าน · `check:sara` ok

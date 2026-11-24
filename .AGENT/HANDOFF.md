@@ -1,5 +1,20 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-24 (Linux) — ✅ ปล่อย `v0.9.3` (บทสนทนาเร็วขึ้น ~20 เท่า + ขัดหน้าตารอบสาม + ทางลัด Linux):** อ่านกล่องนี้ก่อน
+>
+> **ผู้ใช้สั่งในรอบนี้:** "โปรแกรมช้ามาก ปรับให้เร็วขึ้น" → "ทำให้สวยขึ้นอีก" → "สร้างทางลัดบนหน้าจอ" → "ไม่ต้องถามสิทธิ์ root" → "ปล่อย update + บันทึกงาน"
+>
+> **ปล่อยเสร็จ:** คอมมิต `release: v0.9.3` · bump `0.9.2 → 0.9.3` · แท็ก `v0.9.3` · push `master` + แท็กขึ้น GitHub · CI (`release.yml`) สร้าง Setup 0.9.3 + `latest.yml` + blockmap ไปที่ `Cheumklang/NTAPI-releases`
+>
+> **งานที่ทำ (รายละเอียดใน `.AGENT/LOG.md`):**
+> - **perf** — forced layout จาก `scrollToBottom()` ต่อข้อความคือต้นเหตุที่ช้าทั้งโปรแกรม: เพิ่ม `replayingTranscript` ครอบ `drawRange` ใน `app.js` + รวม streaming delta เป็นเฟรมเดียว (`paintStreamBody`) + เลิก `indexOf` ใน `markdown.js` · วัดด้วย `check:speed` (402 ข้อความ): fill 27,458 → ~1,300 ms, firstPaint 143 → 50–87 ms
+> - **ui** — "Visual polish" 3 ก้อนท้าย `styles.css` (ถอดออกได้ทั้งก้อน) · ตรวจด้วย `selftest-ui-render` + เปิดภาพเทียบ
+> - **linux** — `ntapi-launch.sh` เปิดโหมด normal ทันที ไม่ถามสิทธิ์ (ตัด zenity; `NTAPI_MODE=root` ยังใช้ได้) + `ntapi.desktop` + ทางลัด `~/Desktop/ntapi.desktop` (trusted แล้ว)
+>
+> **ไม่ถูกรวมในคอมมิตชุดนี้ (ของ session อื่น ยังค้างใน working tree):** `app/src/main.js`, `app/src/preload.js`, `check-local-vision.js`, `check-model-refresh.js`, `check-provider-grid.js`, `check-skill-menu.js`, `selftest-skill-scan.js`, `shots/{model-refresh,provider-grid,vision-menu}-*.png`, `atspi.cpython-314.pyc`, draft ใน `docs/superpowers/`, `linux-share-keys.js`, สคริปต์ชั่วคราว `_dbg2.js`/`_t1.js`/`_t2.js`/`_t3.js`/`_head-check.js`
+>
+> **ข้อควรระวัง:** แอปบนเครื่องนี้รันจากซอร์ส (`/home/nt/NT-ALL/NTAPI/app`) — `npm start` ตรง ๆ ไม่ได้เพราะ chrome-sandbox ตั้งสิทธิ์ไม่ถูก ต้องใช้ `./ntapi-launch.sh` หรือ `electron --no-sandbox .` · ตัวโปรแกรมตอนนี้เปิดค้างอยู่ (เปิดผ่าน launcher)
+
 > **📌 2026-11-24 (Linux) — ✅ ปล่อย `v0.9.2` ขึ้น GitHub แล้ว (ค้นหาแชทในแถบข้าง + export .md + คลิกขวาคัดลอก/วาง):** อ่านก่อน
 >
 > **ปล่อยเสร็จ:** คอมมิต `5484f3a` · bump `0.9.1 → 0.9.2` · แท็ก `v0.9.2` (ชี้ `d95d6f1`) · push `master` + แท็กผ่าน · CI ออก **Setup 0.9.2 (181,876,577 B) + `latest.yml` (339 B) + blockmap** แล้ว · `prune-releases` ลบ v0.9.1 เอง (เหลือรุ่นเดียว) · PROVENANCE `release 327`
