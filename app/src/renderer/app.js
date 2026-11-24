@@ -1690,6 +1690,17 @@ let bottomHoldTimer = 0;
 let lastScrollSet = -1;
 
 /**
+ * True while a repaint draws a conversation in bulk.
+ *
+ * Every message used to ask for the bottom, and each of those writes forces the
+ * window to lay the growing transcript out again. A 400-message history therefore
+ * cost 400 layouts of a page that kept getting bigger, and the history took tens
+ * of seconds to arrive. While this flag is set the repaint owns the scroll: it
+ * settles the position once for the tail and once per chunk instead.
+ */
+let replayingTranscript = false;
+
+/**
  * Put the view at the newest message and remember where that was.
  *
  * The remembered offset is how the hold below tells its own scrolling apart from
@@ -1703,6 +1714,9 @@ function pinScrollTop() {
 
 /** Keep the newest message in view while a repaint is still adding to the chat. */
 function holdBottom() {
+  // During a replay the chunk loop settles the position itself; a 50ms timer on
+  // top of that would force a layout of the whole transcript twenty times a second.
+  if (replayingTranscript) return;
   bottomHoldUntil = Date.now() + BOTTOM_HOLD_MS;
   pinnedToBottom = true;
   if (bottomHoldTimer) return;
@@ -1752,6 +1766,10 @@ function syncFollow() {
   // A scroll event during our own smooth scroll can report an intermediate
   // position. Treating that as "the reader left" would unpin them mid-jump.
   if (jumpingToBottom) return;
+  // The replay is inserting nodes above the viewport and writing the offset
+  // itself; every scroll event it causes would ask the page to lay itself out
+  // again for an answer it already knows.
+  if (replayingTranscript) return;
   // Our own pin, recognised by the offset this code last wrote. During a stream
   // the transcript grows under the viewport (a thinking box expanding, an image
   // finishing, a markdown block re-rendering), so the scroll event that follows
@@ -1805,6 +1823,9 @@ function isReadingUp() {
  * they read.
  */
 function scrollToBottom(force = false) {
+  // A replay settles its own position per chunk; nudging it per message would
+  // force a layout for every node it adds.
+  if (replayingTranscript && !force) return;
   if (!force && !pinnedToBottom) {
     syncJumpToBottom();
     return;
@@ -2582,7 +2603,7 @@ function addMessage(kind) {
 
   transcript.appendChild(wrap);
   // A new answer must not pull someone back down who is re-reading an older one.
-  scrollToBottom();
+  if (!replayingTranscript) scrollToBottom();
   return wrap;
 }
 
@@ -2634,7 +2655,10 @@ function renderUserMessage(text, attachments, extra = {}) {
   // to find a bubble that is already at the bottom. The normal "am I near the
   // bottom" test cannot be reused here either, because it reads false exactly in
   // the case that matters: they had scrolled up to read, then typed.
-  scrollToBottom(true);
+  // A replay draws the whole history at once and settles the position when it is
+  // done; forcing the bottom here for each replayed message cost one full layout
+  // per message, which is what made opening a long chat take seconds.
+  if (!replayingTranscript) scrollToBottom(true);
 
   return wrap;
 }
@@ -3871,7 +3895,12 @@ function renderActiveTab() {
   // end of the chat first, because that is the part the reader is looking at, and
   // fill the history in above it once the window is already answering.
   const tailFrom = total > RENDER_TAIL_MESSAGES * 2 ? alignChunk(messages, total - RENDER_TAIL_MESSAGES) : 0;
-  drawRange(tailFrom, total);
+  replayingTranscript = true;
+  try {
+    drawRange(tailFrom, total);
+  } finally {
+    replayingTranscript = false;
+  }
 
   setBusy(Boolean(view.busy));
   scrollToBottom(true);
@@ -3901,10 +3930,18 @@ function renderActiveTab() {
     if (generation !== renderGeneration) return;
     const [from, to] = pending.shift();
     const wasAtBottom = pinnedToBottom;
-    const heightBefore = transcript.scrollHeight;
+    // Only a reader who stayed put needs the old height to hold their place; the
+    // other branch jumps to the bottom anyway, so asking for it there is a whole
+    // page layout spent on a number nobody reads.
+    const heightBefore = wasAtBottom ? 0 : transcript.scrollHeight;
     const before = new Set(transcript.childNodes);
 
-    drawRange(from, to);
+    replayingTranscript = true;
+    try {
+      drawRange(from, to);
+    } finally {
+      replayingTranscript = false;
+    }
 
     const added = [...transcript.childNodes].filter((node) => !before.has(node));
     const anchor = topAnchor || emptyState.nextSibling;
@@ -8956,6 +8993,23 @@ const SLASH_COMMANDS = [
     run: () => el('refreshUsage').click(),
   },
   {
+    name: '/reload',
+    en: 'Restart the app — picks up skills installed and code updated since launch',
+    th: 'รีสตาร์ทโปรแกรม — ให้เห็นสกิลที่ติดตั้งใหม่และโค้ดที่อัปเดต',
+    run: () => {
+      // A turn lives in the main process and dies with it, so stopping first is
+      // the user's call — no silent loss of an answer that is still streaming.
+      if ([...views.values()].some((v) => v.busy)) {
+        showToast({
+          title: lang === 'th' ? 'ยังทำงานอยู่' : 'Still working',
+          body: lang === 'th' ? 'กด /stop ก่อนแล้วค่อย /reload' : 'Press /stop first, then /reload',
+        });
+        return;
+      }
+      api.relaunch();
+    },
+  },
+  {
     name: '/help',
     en: 'Show this command list',
     th: 'แสดงรายการคำสั่งนี้',
@@ -11793,6 +11847,40 @@ function liveEntry(view) {
   return made;
 }
 
+/**
+ * Streaming text is drawn once a frame, not once a delta.
+ *
+ * A provider can send dozens of deltas a second, and every one of them used to
+ * re-parse the whole answer so far and rebuild its HTML. The cost therefore grew
+ * with the length of the reply, and a long turn spent its time in the markdown
+ * renderer instead of responding to the window. The arriving text is still kept on
+ * the element immediately; only the drawing is coalesced into the next frame.
+ */
+const streamBodiesAwaitingPaint = new Set();
+let streamPaintFrame = 0;
+
+function paintStreamBody(body) {
+  streamBodiesAwaitingPaint.add(body);
+  if (streamPaintFrame) return;
+  streamPaintFrame = requestAnimationFrame(() => {
+    streamPaintFrame = 0;
+    const bodies = [...streamBodiesAwaitingPaint];
+    streamBodiesAwaitingPaint.clear();
+    for (const node of bodies) {
+      // A repaint can replace the bubble while the frame is pending; drawing into
+      // the detached one would throw the work away and keep the new one empty.
+      if (!node.isConnected) continue;
+      try {
+        MD.renderInto(node, node.__fpText || '', { streaming: true, copiedLabel: t('copied') });
+      } catch (err) {
+        // One unrenderable block must not take the rest of the frame with it.
+        console.error('[stream] render failed', err);
+      }
+    }
+    followStream();
+  });
+}
+
 api.onDelta((p) => {
   const view = viewFor(p);
   if (!view) return;
@@ -11827,7 +11915,7 @@ api.onDelta((p) => {
     const body = currentBody(wrap);
     if (body) {
       body.__fpText = (body.__fpText || '') + p.delta;
-      MD.renderInto(body, body.__fpText, { streaming: true, copiedLabel: t('copied') });
+      paintStreamBody(body);
     }
   }
   followStream();
@@ -11850,6 +11938,8 @@ api.onTextEnd((p) => {
     // currentBody() starts a new bubble once the last one was sealed at a tool
     // call, which is exactly the boundary between two blocks.
     const body = currentBody(wrap);
+    // The final text supersedes anything a pending frame was going to draw.
+    streamBodiesAwaitingPaint.delete(body);
     body.__fpText = p.text;
     body.__fpDone = true;
     MD.renderInto(body, p.text, { copiedLabel: t('copied') });

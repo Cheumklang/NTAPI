@@ -413,9 +413,12 @@
     const blocks = parsed.blocks;
     const codeBlocks = blocks.filter((b) => b.type === 'code');
 
-    // Build the full HTML; the transcript is small enough for this to be cheap.
+    // Build the full HTML. The block's own index is counted in one pass: the old
+    // `codeBlocks.indexOf(b)` searched the array again for every block, which is
+    // quadratic on a reply that is mostly code.
+    let codeIndex = 0;
     const html = blocks
-      .map((b) => (b.type === 'html' ? b.html : codeBlockHtml(b, codeBlocks.indexOf(b))))
+      .map((b) => (b.type === 'html' ? b.html : codeBlockHtml(b, codeIndex++)))
       .join('');
 
     if (el.__fpHtml !== html) {
