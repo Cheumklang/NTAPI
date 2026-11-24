@@ -1,0 +1,6 @@
+date 2026-11-24T06:53:34.823Z
+entries 338
+head_seq 338
+head_hash 39b6b08455a2f6eb296f5d3eee5e00efc8dbc429bef5a6ea7d1052df07cc8af0
+git_head 3aae6a18153ae232541bb68d882ea60a633ac57a
+verify must print this head_hash
