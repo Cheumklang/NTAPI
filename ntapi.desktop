@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=NTAPI
+GenericName=Free AI Hub
+Comment=รวม AI ที่มีโควตาฟรีไว้ในที่เดียว (รันจากซอร์สบน Linux)
+Exec=/home/nt/NT-ALL/NTAPI/ntapi-launch.sh
+TryExec=/home/nt/NT-ALL/NTAPI/ntapi-launch.sh
+Path=/home/nt/NT-ALL/NTAPI
+Icon=/home/nt/NT-ALL/NTAPI/app/build/icon.png
+Terminal=false
+StartupNotify=true
+StartupWMClass=FreePi
+Categories=Network;Chat;
+Keywords=AI;Chat;NTAPI;FreePi;
