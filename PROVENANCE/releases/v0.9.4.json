@@ -1,0 +1,22 @@
+{
+  "version": "0.9.4",
+  "tag": "v0.9.4",
+  "recordedAt": "2026-11-24T22:54:36.872Z",
+  "git": {
+    "head": "e900cc021785d891eb94ccb5b9a14a9a54e808eb",
+    "branch": "master",
+    "tree": "72f0cbb997d43f96df44437e1257d59af8cf1e4e",
+    "subject": "PROVENANCE: บันทึกคอมมิต 74a2b15",
+    "authorDate": "2026-11-25T05:46:53+07:00",
+    "commitCount": 558
+  },
+  "ci": "https://github.com/Cheumklang/NTAPI/actions/runs",
+  "assets": [
+    {
+      "name": "NTAPI-Setup-0.9.4.exe",
+      "size": 181949897,
+      "sha256": "4e1714909809fa060f49c51f968a515e05990903794053cf526335c4d0a8cf40"
+    }
+  ],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.9.4"
+}

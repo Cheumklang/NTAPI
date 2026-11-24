@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-24T21:13:19.387Z
-entries 346
-head_hash f801ac5b58d30bab06b46ff8777031d0d71440db42064fc1e4191e749eace4bc
-git 9c282596651fbbbfd4cc7a3b099c7d63375894e1
+updated 2026-11-24T22:54:37.032Z
+entries 349
+head_hash 678b36a9be492a960ebaa17bc894f9c8acee138ff430077f2a0cd0ea7ae979c7
+git e900cc021785d891eb94ccb5b9a14a9a54e808eb
 
 latest entries:
-  #339 2026-11-24T06:53:40.238Z commit — PROVENANCE: anchor 2026-11-24 (หัว chain seq 338)
-  #340 2026-11-24T07:44:21.461Z session — /skill เห็นสกิลที่ติดตั้งใหม่ (Windows) + light mode ผ่าน AA ทุกจุด + ช่อง mcp.json อ่านออก
-  #341 2026-11-24T19:33:23.852Z session — Working session light-polish-round-four
   #342 2026-11-24T19:50:37.633Z session — Working session transcript-document-polish
   #343 2026-11-24T20:21:29.578Z session — ปุ่ม Retry เมื่อเครดิต/quota หมด (prompt:retry + banner ที่ไม่จางเอง) และแถบสีเต็มบรรทัดของ diff ในบทสนทนา (part six) + แก้ meta ของ ---/+++
   #344 2026-11-24T20:27:54.781Z session — ปุ่ม Retry รอดการ repaint: entry kind:error แนบ limit มาจาก main และ renderer ให้ปุ่มเฉพาะ entry ท้ายสุดตอน idle
   #345 2026-11-24T20:47:51.646Z session — แคช highlight รายบรรทัด + แคช HTML ต่อข้อความใน markdown.js และเพิ่ม bench:markdown; วัดก่อน/หลังแล้ว (วาดใหม่ 90 ข้อความ 67 to 28 ms)
   #346 2026-11-24T21:13:19.230Z session — boot ไม่รอรายการแชท + session-index อ่านเฉพาะไบต์ที่เพิ่ม; วัด 60 แชท: 80 to 29 ms cold, 0.7 ms warm, 1 ms หลังจบเทิร์น
+  #347 2026-11-24T22:46:37.780Z commit — perf: เปิดโปรแกรม/โหลดแชทเร็วขึ้น + แคช markdown + Retry เมื่อเครดิตหมด + ขัดหน้าตา + skill scan + model picker
+  #348 2026-11-24T22:46:53.390Z commit — meta: บันทึกงานลง PROVENANCE + HANDOFF/LOG + docs + shots + linux-share-keys
+  #349 2026-11-24T22:54:36.880Z release — Released version 0.9.4
