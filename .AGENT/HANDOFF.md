@@ -1,5 +1,21 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-24 (Linux) — 🚀 ปล่อย `v0.9.2` (คอมมิตแล้ว · แท็กแล้ว · **push ไม่ได้จากฝั่งนี้**):** อ่านก่อน
+>
+> **ทำแล้ว:** คอมมิต `5484f3a` (`search: ค้นหาแชทในแถบข้าง ส่งออกเป็น Markdown และเมนูคลิกขวาคัดลอก/วาง`) · bump `0.9.1 → 0.9.2` · แท็ก `v0.9.2` ชี้ `d95d6f1` (PROVENANCE ของ 5484f3a) — ทั้งหมดอยู่ฝั่ง Ubuntu
+>
+> **⚠️ ค้างที่ push:** `git push` จาก session นี้ล้มด้วย `could not read Username for 'https://github.com'` (ไม่มี gh CLI, ไม่มีคีย์ SSH, `~/.git-credentials` เป็นของ root และไม่มี entry github) · HEAD เหนือ origin **6 คอมมิต**
+>
+> **ผู้ใช้ต้องรันเอง (ฝั่งที่มี credential เช่นหน้า Windows ที่เห็น `Z:\NT-ALL\NTAPI`):**
+> ```
+> git push origin HEAD v0.9.2
+> ```
+> หลัง CI เขียว: ตรวจหน้า Releases ว่ามี `Setup 0.9.2` + `latest.yml` · prune จะลบ v0.9.1 เอง (workflow `prune-releases`, เหลือรุ่นเดียว) · แล้วสั่ง `node app/scripts/provenance.js record-release 0.9.2 --asset … --ci …`
+>
+> **เทสต์ก่อนปล่อย:** `npm test` 109/109 · `npm run check:search` 9/9 · `npm run check:grid` ผ่าน · `check:sara` ok
+>
+> **ไม่ถูกรวมในคอมมิตนี้ (ของ session อื่น):** `check-local-vision.js`, `check-model-refresh.js`, `check-provider-grid.js`, `shots/{model-refresh,provider-grid,vision-menu}-*.png`, `atspi.cpython-314.pyc`, draft ใน `docs/superpowers/`, `ntapi-launch.sh`, `ntapi.desktop`, `linux-share-keys.js`
+
 > **📌 2026-11-24 (Linux) — 🔎 ค้นหาแชทในแถบข้าง + ส่งออกเป็นไฟล์ + คลิกขวาคัดลอก/วาง (ยังไม่ commit):** อ่านบล็อกนี้ก่อน
 >
 > **ผู้ใช้สั่ง:** (ข้อ 3 จากที่เสนอ) ค้นหาในบทสนทนา + ค้นข้าม session + export + คลิกขวา copy/paste และให้ธีมตรงกับแอป

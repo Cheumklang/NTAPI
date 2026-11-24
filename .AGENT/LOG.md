@@ -3882,3 +3882,9 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - `index.html`+`app.js`+`styles.css`: ช่องค้นหาเหนือ session list, กรองชื่อทันที + ค้นเนื้อหา debounce, `.s-snippet`, Escape ล้าง, เมนู "ส่งออกเป็น Markdown…"
 - เทสต์: `scripts/check-chat-search.js` (9 เช็ค + `shots/chat-search-dark.png`) + `package.json` → `check:search`; `npm test` 109/109, check:grid ผ่าน, check:sara ok
 - บั๊กที่เจอระหว่างทางและแก้: ใช้ `state.cwd` (ไม่มีจริง — ตัวแปรคือ `lastWorkspace`), ชื่อ `runFind` ชนของเดิม, IPC `session:export` ชนของเดิม
+
+## 2026-11-24 (Linux) — ปล่อย v0.9.2 (ค้นหาแชท/export/คลิกขวา)
+- คอมมิต `5484f3a` · bump `0.9.1 → 0.9.2` · แท็ก `v0.9.2` → `d95d6f1` (PROVENANCE)
+- **push ไม่ได้จาก session นี้**: `could not read Username for 'https://github.com'` (ไม่มี gh CLI/คีย์ SSH/credential ของ github) ⇒ HEAD เหนือ origin 6 คอมมิต
+- ผู้ใช้ต้องรันฝั่งที่มี credential: `git push origin HEAD v0.9.2` แล้วตรวจ `Setup 0.9.2` + `latest.yml` และ `record-release`
+- เทสต์ก่อนปล่อย: `npm test` 109/109 · `check:search` 9/9 · `check:grid` ผ่าน · `check:sara` ok
