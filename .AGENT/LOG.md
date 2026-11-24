@@ -4016,3 +4016,14 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **เทสต์:** `npm test` **110/110** (เพิ่ม `selftest-session-index.js` 19 เช็ค: row ตรงกับ SDK, append อ่านแค่ท้าย, partial line, ไฟล์ถูกย่อ, ไฟล์ที่ไม่ใช่แชท, ลบแล้วไม่ค้าง และตรวจว่า `app:boot` ไม่เรียก `listSessions`) · ปรับ `selftest-session-paths.js` ให้ตรวจกลไกใหม่ (`readSessionInfos`) แทน `SessionManager.listAll` · `check:sara` ok · `check-restore-active-tab` + `check-activity-chips` ผ่าน
 - **รันไม่ได้ในเครื่องนี้:** `check-first-run-guide.js` ค้าง (harness ไม่ได้ลง IPC handler ของ main เลย — ปัญหาเดิม ไม่เกี่ยวกับรอบนี้)
 - **ยังไม่ commit** — ไฟล์รอบนี้: `app/src/main.js`, `app/src/session-index.js` (ใหม่), `app/scripts/selftest-session-index.js` (ใหม่), `app/scripts/selftest-session-paths.js`, `app/scripts/run-unit-tests.js`
+
+## 2026-11-25 (Linux) — ✅ ปล่อย v0.9.4 (รวมงานค้างทั้งหมด + ลบรุ่นเก่า)
+- **ผู้ใช้สั่ง:** "1 ทั้งหมด 2 ถ้าไม่ได้ใช้ลบคับ 3 อัปคับ 4 ปล่อยได้เลย และลบอันเก่าออกด้วยนะคับ"
+- **ลบสคริปต์ชั่วคราว:** `_dbg2.js` `_head-check.js` `_t1.js` `_t2.js` `_t3.js`
+- **รวม commits:** `d0a36f0` (โค้ดทั้งหมด: session-index + markdown cache + retry + polish + skill + model-picker) + `74a2b15` (meta: PROVENANCE + HANDOFF/LOG + docs + shots + linux-share-keys)
+- **bump:** `0.9.3` → `0.9.4`
+- **tag + push:** `v0.9.4` push `master` + แท็ก
+- **CI:** `NTAPI-Setup-0.9.4.exe` (181,949,897 B) + `latest.yml` (339 B) + blockmap ที่ `Cheumklang/NTAPI-releases`
+- **ลบรุ่นเก่า:** v0.6.22–v0.9.3 ทั้ง release + tag ใน `NTAPI-releases` และ tag ใน repo นี้ ⇒ เหลือแค่ `v0.9.4`
+- **PROVENANCE:** `record-release 0.9.4` + `anchor` + `verify` OK 350 entries, 136 record files
+- **เทสต์ที่ผ่าน:** `npm test` 110/110 · `check:sara` ok · `check-model-refresh` ผ่าน · `check-provider-grid` ผ่าน · `check-local-vision` ผ่าน · `selftest-skill-scan` ผ่าน · `selftest-skill-menu` ผ่าน · `check-skill-menu` ผ่าน
