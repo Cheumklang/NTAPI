@@ -3839,3 +3839,46 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 ## 2026-11-24 (Linux) — ปล่อย v0.9.1 (จุดสถานะ 3 ชิป)
 - commit `ee6fd44` · bump 0.9.0 → 0.9.1 · tag `v0.9.1` push · CI ออก Setup + latest.yml ครบ
 - prune อัตโนมัติ: v0.9.0 หายทั้ง release + แท็ก (ทั้ง NTAPI และ NTAPI-releases) ⇒ เหลือ v0.9.1 รุ่นเดียว
+
+## 2026-11-24 (Linux) — FCC เฟส 1: การ์ดตรวจ free-claude-code ในเครื่อง (ยังไม่ commit)
+- ผู้ใช้เลือกทาง A (ต่อ FCC ผ่าน HTTP) และให้ทำเฉพาะในเครื่องก่อน + ต้องการวิธีย้อนกลับ
+- ใหม่: `app/src/fcc.js`, `app/scripts/selftest-fcc.js`, `app/src/renderer/assets/providers/fcc.svg`, `docs/fcc-local.md`
+- แก้: `main.js` (IPC `fcc:status`/`fcc:setUrl`, `settings:get`), `preload.js`, `renderer/index.html` (`#fccRow` เหนือกริด), `renderer/app.js` (i18n EN/TH + paint), `renderer/styles.css`, `scripts/run-unit-tests.js`, `scripts/check-provider-grid.js`
+- ขอบเขต: อ่านอย่างเดียว — probe `/v1/models` timeout 1.5 วิ ไม่มี cache · ไม่ส่งเทิร์นผ่าน FCC · ไม่แตะคีย์/provider เดิม · ไม่มี dependency ใหม่ · ไม่ bump เวอร์ชัน
+- เทสต์: `npm test` 109/109 · `selftest-fcc` ผ่าน · `check-provider-grid` 32/32 (ภาพเขียนใหม่) · `check:sara` ok · probe จริง = `reason:"off"` เมื่อไม่ได้เปิด FCC
+- ย้อนกลับ: `docs/fcc-local.md` (git revert / ซ่อนการ์ด / ลบมือ)
+
+## 2026-11-25 (Linux) — ปุ่มย่อโมเดลทั้งหมด + llama.cpp เป็นการ์ดบนเครื่อง (ยังไม่ commit)
+- ผู้ใช้ขอ: ปุ่ม “ย่อทั้งหมด” ในตัวเลือกโมเดล และแยกการ์ด llama.cpp ขึ้นบนสุดของหน้าผู้ให้บริการ โลโก้ซ้าย/รายละเอียดขวา ให้เห็นว่าทำงานบนเครื่องตัวเอง
+- แก้: `renderer/index.html` (ปุ่ม `modelCollapseAll`, ย้าย `#llamacppRow` เหนือกริด, ลบไทล์ llama.cpp ซ้ำ, ข้อความ local) · `renderer/app.js` (handler ย่อทุกกลุ่ม + save, i18n EN/TH, เอา llamacpp จาก `PROVIDER_TILE_ORDER`) · `renderer/styles.css` (`.model-collapse-all`, `.provider-card-local` แบบ logo ซ้าย/เนื้อหาขวา + จอแคบ)
+- เทสต์: ปรับ `check-model-refresh.js`, `check-provider-grid.js`, `check-local-vision.js` ให้ตรงพฤติกรรมใหม่
+- ผล: `npm test` 109/109 · check-model-refresh ผ่าน · check-provider-grid ผ่าน · check-local-vision 30/30 · `check:sara` ok · `prove:verify` OK 317
+- สถานะ git: ระหว่างทำงานมี session อื่นคอมมิต `e7eeaa3` + `36cf2ae` โดย `e7eeaa3` รวม UI ของงานนี้ไว้แล้ว (ยังไม่ push) · ที่ยังไม่ commit = เทสต์ 3 ไฟล์, เอา `llamacpp` ออกจาก `PROVIDER_TILE_ORDER`, HANDOFF/LOG, PROVENANCE session 318
+- ไม่ bump เวอร์ชัน · ภาพ shots ที่เกี่ยวข้องเขียนใหม่จากเทสต์
+
+## 2026-11-25 (Linux) — ปิด session: บันทึกงานย่อโมเดล + llama.cpp
+- บันทึก HANDOFF/LOG ตามกฎก่อนเปลี่ยน session
+- งาน UI หลักอยู่ในคอมมิต `e7eeaa3` แล้ว (คอมมิตจาก session อื่นระหว่างทำงาน) · HEAD = `9b9fbfb` · ยังไม่ push
+- ค้างใน working tree: เทสต์ `check-model-refresh.js`/`check-provider-grid.js`/`check-local-vision.js`, การเอา `llamacpp` ออกจาก `PROVIDER_TILE_ORDER`, HANDOFF/LOG, PROVENANCE session, ภาพ `shots/*` จากเทสต์, งาน FCC เดิม
+- ผลตรวจล่าสุด: `npm test` 109/109 · UI checks ผ่าน · `check:sara` ok · `prove:verify` OK 318
+- ไม่ bump เวอร์ชัน · ไม่ commit/push เอง
+## 2026-11-24 (Linux) — ติดตั้ง FCC (free-claude-code) บนเครื่องนี้
+- `fcc-server: command not found` เพราะ `scripts/install.sh` บน master เป็น **template** (มี `<release-python>` ฯลฯ) — release มีแค่วงล้อ wheel
+- ติดตั้งด้วย `uv tool install --python 3.14.10 <release wheel v6.19.47>` (uv ดึง Python 3.14.10 managed; ระบบมี 3.14.4) → 16 คำสั่ง `fcc-*` ใน `~/.local/bin`
+- รัน `fcc-server` (พื้นหลัง, log `/tmp/fcc-server.log`) → Admin UI `http://127.0.0.1:8082/admin` · probe ของ NTAPI = `ok:true, count:1` (ค่าเริ่มต้น `nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b`, ยังไม่มีคีย์)
+- ยังไม่แตะโค้ด NTAPI ในเทิร์นนี้ · ถอน: `uv tool uninstall free-claude-code`
+
+## 2026-11-24 (Linux) — ถอด FCC ออกทั้งหมด (ตามคำสั่งผู้ใช้ "ไม่เอาคับ")
+- ผู้ใช้เห็นว่า FCC ต้องใช้คีย์ของตัวเองซ้ำกับ NTAPI และต้องลง Python ⇒ ไม่เอา
+- ถอนโปรแกรม: หยุด `fcc-server` · `uv tool uninstall free-claude-code` (16 คำสั่ง `fcc-*` หายจาก `~/.local/bin`) · ลบ Python managed `cpython-3.14.10` (114 MB) ที่ uv ดึงมาให้ FCC · ไม่มี config dir ค้าง (ไม่เคยบันทึกคีย์)
+- ถอดโค้ด: ลบ `app/src/fcc.js`, `app/scripts/selftest-fcc.js`, `assets/providers/fcc.svg`, `docs/fcc-local.md` · คืน `main.js`/`preload.js`/`index.html`/`app.js`/`styles.css`/`run-unit-tests.js`/`check-provider-grid.js` กลับเป็นก่อนงานนี้ · ลบไฟล์ที่โหลดไว้ใน workspace (`fcc-README.md`, `install-fcc.sh`, `fcc-pyproject.toml`)
+- ตรวจ: ไม่มีคำว่า fcc เหลือใน `app/src`/`scripts`/`docs` · `npm test` **108/108** · `check:sara` ok · `check-provider-grid` 29/29 · ภาพ `shots/provider-grid-*.png` เขียนใหม่ (ไม่มีการ์ด FCC)
+- หมายเหตุ: `PROVENANCE/` เป็น hash chain — บันทึก session ที่ 317/320 ยังอยู่ (ห้ามลบ จะทำให้ chain ขาด) และไม่ bump/ไม่ commit
+
+## 2026-11-24 (Linux) — ค้นหาแชทในแถบข้าง + export .md + เมนูคลิกขวา
+- ตรวจ HEAD ก่อน: find-in-chat, command palette, แผง diff/revert มีอยู่แล้ว → **ถอนโค้ดซ้ำที่เขียนไป** (find bar, CSS, find-text.js, selftest-find.js) เก็บเฉพาะที่ขาด
+- เพิ่ม `src/session-export.js` (parse JSONL/​toMarkdown/snippet) + `scripts/selftest-session-export.js`
+- `main.js`: `session:search`, `session:exportFile` (เลี่ยงชนชื่อกับ `session:export` เดิม = exportHtml), เมนูคลิกขวา Cut/Copy/Paste/Select all
+- `index.html`+`app.js`+`styles.css`: ช่องค้นหาเหนือ session list, กรองชื่อทันที + ค้นเนื้อหา debounce, `.s-snippet`, Escape ล้าง, เมนู "ส่งออกเป็น Markdown…"
+- เทสต์: `scripts/check-chat-search.js` (9 เช็ค + `shots/chat-search-dark.png`) + `package.json` → `check:search`; `npm test` 109/109, check:grid ผ่าน, check:sara ok
+- บั๊กที่เจอระหว่างทางและแก้: ใช้ `state.cwd` (ไม่มีจริง — ตัวแปรคือ `lastWorkspace`), ชื่อ `runFind` ชนของเดิม, IPC `session:export` ชนของเดิม

@@ -98,6 +98,7 @@ const TESTS = [
   'selftest-notice-countdown.js',
   'selftest-llm7.js',
   'selftest-markdown.js',
+  'selftest-session-export.js',
   'selftest-mcp-config.js',
   'selftest-mcp-guard.js',
   'selftest-model-filter.js',

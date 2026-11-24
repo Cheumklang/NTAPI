@@ -154,6 +154,9 @@ contextBridge.exposeInMainWorld('freepi', {
 
   listSessions: (cwd) => ipcRenderer.invoke('session:list', cwd),
   listOtherSessions: (cwd) => ipcRenderer.invoke('session:listOther', cwd),
+  // Words inside saved chats, for the sidebar search box.
+  searchSessions: (cwd, q) => ipcRenderer.invoke('session:search', { cwd, q }),
+  exportSessionFile: (opts) => ipcRenderer.invoke('session:exportFile', opts),
   deleteSession: (cwd, sessionPath) => ipcRenderer.invoke('session:delete', { cwd, sessionPath }),
   clearSession: (tabId) => ipcRenderer.invoke('session:clear', tabId),
   renameSession: (tabId, name) => ipcRenderer.invoke('session:rename', { tabId, name }),

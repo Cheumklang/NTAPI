@@ -1,5 +1,42 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-24 (Linux) — 🔎 ค้นหาแชทในแถบข้าง + ส่งออกเป็นไฟล์ + คลิกขวาคัดลอก/วาง (ยังไม่ commit):** อ่านบล็อกนี้ก่อน
+>
+> **ผู้ใช้สั่ง:** (ข้อ 3 จากที่เสนอ) ค้นหาในบทสนทนา + ค้นข้าม session + export + คลิกขวา copy/paste และให้ธีมตรงกับแอป
+>
+> **ของที่มีอยู่แล้ว (ไม่ต้องทำซ้ำ — ตรวจ HEAD ก่อนลงมือ):** find-in-chat (`findState` + `CSS.highlights`), command palette (`openPalette`), แผง diff + revert all (`changesRevertAll`), export HTML ต่อแท็บ (`session:export(tabId)` → `exportHtml()`)
+>
+> **ที่ทำรอบนี้**
+> - `app/src/session-export.js` (ใหม่): `parseSession` (JSONL → `[{role,text}]`, ทิ้งบรรทัด bookkeeping/เสีย), `toMarkdown`, `snippet`
+> - `main.js`: IPC `session:search` (ค้นในไฟล์แชท, cap 8 MB/ไฟล์, 50 ผล) · `session:exportFile` (เลือกที่บันทึก → เขียน .md; **ชื่อใหม่ ไม่ชนกับ `session:export` เดิมที่เป็น HTML**) · เมนูคลิกขวา (`context-menu` → Cut/Copy/Paste/Select all ตามภาษาที่ตั้งไว้)
+> - `preload.js`: `searchSessions`, `exportSessionFile`
+> - `index.html`: ช่อง `#sessionSearch` เหนือ `#sessionList`
+> - `renderer/app.js`: i18n EN/TH (`searchChats`, `noSessionMatches`, `exportChat`, `exportSaved`) · กรองรายการตามชื่อทันที + ค้นในเนื้อหาแบบ debounce 220 ms (มี `sessionSearchSeq` กันผลเก่าทับ) · แสดงบรรทัดที่ตรงใต้แถว (`.s-snippet`) · Escape ล้างคำค้น · เพิ่ม "ส่งออกเป็น Markdown…" ในเมนูคลิกขวาของแชท
+> - `styles.css`: `.session-search`, `.s-snippet` (ใช้ token `--bg-2/--line/--muted/--accent` ⇒ เข้าทั้ง dark/light)
+> - เทสต์: `scripts/selftest-session-export.js` (เข้า `npm test`) · `scripts/check-chat-search.js` (Electron, 9 เช็ค + ภาพ `shots/chat-search-dark.png`) · `package.json` เพิ่ม `check:search`
+>
+> **ผลเทสต์:** `npm test` **109/109** · `npm run check:search` 9/9 · `npm run check:grid` ผ่าน · `check:sara` ok · ตรวจภาพจริงแล้ว (ช่องค้นหา+บรรทัด snippet เข้าธีม)
+>
+> **ข้อควรรู้:** `npm run check:sidebar` พังเพราะ harness โหลด index.html เป็น main เอง (ไม่มี IPC handler) — เป็นของเดิม ไม่เกี่ยวกับงานนี้
+>
+> **ค้าง:** ยังไม่ commit · ข้อ 1 (อนุมัติ/ปฏิเสธจากมือถือผ่าน ntfy) ยังไม่เริ่ม
+
+> **📌 2026-11-25 (Linux) — ✅ ปุ่ม “ย่อทั้งหมด” + การ์ด llama.cpp อยู่บนสุด:** อ่านบล็อกนี้ก่อนบล็อกอื่น
+>
+> **ผู้ใช้สั่ง:** (1) ในปุ่มเลือกโมเดล ขอปุ่มย่อทุกกลุ่ม เพราะเผลอเปิดหลายอันแล้วต้องพับทีละอัน (2) ในตั้งค่า → ผู้ให้บริการ ให้แยก llama.cpp ขึ้นมาข้างบน โลโก้ซ้าย รายละเอียดขวา เพื่อให้เห็นว่าทำงานบนเครื่องของผู้ใช้เอง
+>
+> **ที่แก้**
+> - `app/src/renderer/index.html`: เพิ่ม `<button id="modelCollapseAll">` ในแถบค้นหาโมเดล · ย้ายการ์ด `#llamacppRow` ขึ้นก่อนกริดผู้ให้บริการ (คง id/ฟังก์ชันเดิม) · **ลบไทล์ `data-provider="llamacpp"` ออกจากกริด** ไม่ให้มีจุดซ้ำ · เพิ่มข้อความ `llamacppLocalNote`
+> - `app/src/renderer/app.js`: handler ปุ่มย่อทั้งหมด — เพิ่มทุกกลุ่มลง `collapsedProviders`, เรียก `setGroupOpen(group,false)`, บันทึกด้วย `saveCollapsedProviders()` · i18n EN/TH `modelCollapseAll` + `llamacppLocalNote` · ลบ `llamacpp` ออกจาก `PROVIDER_TILE_ORDER`
+> - `app/src/renderer/styles.css`: `.model-collapse-all` · `.provider-card-local` (โลโก้ซ้าย/รายละเอียดขวา, responsive ≤520px)
+> - เทสต์: `check-model-refresh.js` เพิ่มเช็กปุ่มย่อทุกกลุ่ม · `check-provider-grid.js` คาด 12 ไทล์และเช็กการ์ด local อยู่เหนือกริด · `check-local-vision.js` เปลี่ยนจากไทล์ llama เป็นการ์ดเฉพาะด้านบน
+>
+> **ผลเทสต์:** `npm test` **109/109** · `check-model-refresh` ผ่านทั้งหมด · `check-provider-grid` ผ่านทั้งหมด · `check-local-vision` 30/30 · `check:sara` ok · `prove:verify` OK 318
+>
+> **ปิด session 2026-11-25:** บันทึกครบแล้ว — งาน UI อยู่ใน `e7eeaa3` · ที่ยังไม่ commit คือเทสต์ 3 ไฟล์, `PROVIDER_TILE_ORDER`, HANDOFF/LOG, PROVENANCE session, ภาพ `shots/*` ที่เทสต์เขียนใหม่ · ยังไม่ bump เวอร์ชัน/ไม่ push
+>
+> **สถานะ git/หมายเหตุ:** ระหว่างทำงานมี session อื่นคอมมิต `e7eeaa3` (segmented control + AT-SPI) ซึ่ง**รวม UI ของงานนี้เข้าไปแล้ว** และต่อด้วย `36cf2ae` — ไม่ได้ push (HEAD เหนือ origin) · ส่วนที่ยังไม่ commit: เทสต์ 3 ไฟล์, การเอา `llamacpp` ออกจาก `PROVIDER_TILE_ORDER`, HANDOFF/LOG, PROVENANCE session 318 · ภาพ `shots/model-refresh-*.png`, `shots/provider-grid-*.png`, `shots/vision-menu-*.png` ถูกเขียนใหม่จากเทสต์ · งาน FCC เฟส 1 **ถูกถอดออกทั้งหมดแล้ว** ตามคำสั่งผู้ใช้ 2026-11-24 (โปรแกรม FCC ก็ถอนออกจากเครื่องแล้ว) · ไม่ bump เวอร์ชัน
+
 > **📌 2026-11-24 (Linux) — ✅ ปล่อย `v0.9.1` แล้ว (จุดสถานะ 3 ชิปอยู่ขวาไอคอนแบบเดียวกัน):** อ่านบล็อกนี้ก่อนบล็อกอื่น
 >
 > **ผู้ใช้สั่ง:** ปุ่ม `ควบคุมเบราว์เซอร์` · `ควบคุมเครื่อง` · `แจ้งเตือน/สั่งงานผ่านลิงก์` — จุดบอกสถานะของทั้ง 3 ปุ่มอยู่คนละที่ ดูไม่มืออาชีพ · **ต้นแบบ = ปุ่ม ntfy (ห้ามแก้)**

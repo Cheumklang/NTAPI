@@ -169,6 +169,10 @@ const STRINGS = {
     untitled: 'Untitled session',
     rename: 'Rename',
     noSessions: 'No saved sessions yet.',
+    searchChats: 'Search chats',
+    noSessionMatches: 'No chat matches that search.',
+    exportChat: 'Export as Markdown…',
+    exportSaved: 'Saved to {path}',
     otherWorkspaces: 'Saved in another folder',
     otherWorkspaceHint: 'Open this chat in “{folder}”',
     currentBadge: 'current',
@@ -820,6 +824,10 @@ const STRINGS = {
     untitled: 'แชทไม่มีชื่อ',
     rename: 'เปลี่ยนชื่อ',
     noSessions: 'ยังไม่มีแชทที่บันทึกไว้',
+    searchChats: 'ค้นหาแชท',
+    noSessionMatches: 'ไม่พบแชทที่ตรงกับคำค้น',
+    exportChat: 'ส่งออกเป็น Markdown…',
+    exportSaved: 'บันทึกไว้ที่ {path}',
     otherWorkspaces: 'แชทที่บันทึกไว้ในโฟลเดอร์อื่น',
     otherWorkspaceHint: 'เปิดแชทนี้ใน “{folder}”',
     currentBadge: 'ปัจจุบัน',
@@ -5243,9 +5251,10 @@ api.onNtfyEvent?.(({ type, payload } = {}) => {
  * the picker cannot use it either.
  */
 // A-Z by the name each tile shows — Claude, Cloudflare, Coarena, DeepSeek,
-// FreePi, Gemini, llama.cpp, LLM7.io, NVIDIA, OpenRouter, Token Harbor, z.ai, Zro.
-// The order is the same in the grid markup; this list is what picks the first
-// configured tile to open.
+// FreePi, Gemini, LLM7.io, NVIDIA, OpenRouter, Token Harbor, z.ai, Zro.
+// llama.cpp is the local card above the grid, not a key tile. The order is the
+// same in the grid markup; this list is what picks the first configured tile to
+// open.
 const PROVIDER_TILE_ORDER = [
   'anthropic',
   'cloudflare',
@@ -5253,7 +5262,6 @@ const PROVIDER_TILE_ORDER = [
   'deepseek',
   'freepi',
   'google',
-  'llamacpp',
   'llm7',
   'nvidia',
   'openrouter',
@@ -5635,7 +5643,7 @@ function applyTabState(state, options = {}) {  if (!state) return;
   // Send button comes back looking idle, and pressing it would start a second
   // turn on the same conversation.
   if (typeof setBusy === 'function') setBusy(Boolean(state.busy));
-  renderSessions(state.cwd);
+  renderSessions(lastWorkspace);
   paintContext(state.stats || null, { clear: tabChanged });
   renderTodos(state.todos || []);
   paintThinking(state.thinking || null);
@@ -5824,6 +5832,35 @@ async function renderSessions(cwd) {
   const openSessionIds = new Set([...views.values()].map((v) => v.sessionId));
   otherSessions = otherSessions.filter((s) => !openSessionIds.has(s.id));
 
+  /*
+   * The search box above the list. The title is enough for most finds and costs
+   * nothing; anything longer also looks inside the saved files, which the main
+   * process does because the files are on its side. A chat whose body matched
+   * shows the line that matched — two chats can share a title prefix, and the
+   * snippet is what tells them apart.
+   */
+  const sessionSnippets = new Map();
+  const query = sessionQuery.trim().toLowerCase();
+  if (query) {
+    if (query.length >= 2) {
+      const token = ++sessionSearchSeq;
+      let hits = [];
+      try {
+        hits = (await api.searchSessions(cwd, query)) || [];
+      } catch {
+        hits = [];
+      }
+      // A newer keystroke started another render while this one read files.
+      if (token !== sessionSearchSeq) return;
+      for (const hit of hits) sessionSnippets.set(hit.id, hit.snippet);
+    }
+    const keep = (s) =>
+      sessionSnippets.has(s.id) ||
+      String(s.name || s.firstMessage || '').toLowerCase().includes(query);
+    sessions = sessions.filter(keep);
+    otherSessions = otherSessions.filter(keep);
+  }
+
   list.innerHTML = '';
   if (!sessions.length && !otherSessions.length) {
     const p = document.createElement('div');
@@ -5831,7 +5868,7 @@ async function renderSessions(cwd) {
     // A literal grey here ignored the theme: in light mode this empty-state line
     // was pale on pale. The token follows whichever palette is in force.
     p.style.color = 'var(--muted)';
-    p.textContent = t('noSessions');
+    p.textContent = query ? t('noSessionMatches') : t('noSessions');
     list.appendChild(p);
     return;
   }
@@ -5860,6 +5897,7 @@ async function renderSessions(cwd) {
         ${isActive ? `<span class="s-current">${t('currentBadge')}</span>` : ''}
       </span>
       <span class="s-meta">${escapeHtml(formatSessionDate(new Date(s.created || s.modified)))}</span>
+      ${sessionSnippets.has(s.id) ? `<span class="s-snippet">${escapeHtml(sessionSnippets.get(s.id))}</span>` : ''}
     `;
     btn.title = isActive
       ? `${title} \u2014 ${t('currentBadge')}`
@@ -5911,6 +5949,33 @@ async function renderSessions(cwd) {
     }
   }
 }
+
+/* ------------------------- search saved chats ------------------------- */
+
+/** The words in the box above the list, and a counter that out-runs `renderSessions`. */
+let sessionQuery = '';
+let sessionSearchSeq = 0;
+let sessionSearchTimer = 0;
+
+/*
+ * Titles immediately, chat bodies after a pause.
+ * Waiting for the pause keeps a five-letter word from reading every saved file
+ * five times.
+ */
+const sessionSearchInput = el('sessionSearch');
+sessionSearchInput?.addEventListener('input', () => {
+  sessionQuery = sessionSearchInput.value;
+  clearTimeout(sessionSearchTimer);
+  sessionSearchTimer = setTimeout(() => renderSessions(lastWorkspace), 220);
+});
+
+sessionSearchInput?.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  e.preventDefault();
+  sessionSearchInput.value = '';
+  sessionQuery = '';
+  renderSessions(lastWorkspace);
+});
 
 /* --------------------------- context menu --------------------------- */
 
@@ -5989,6 +6054,25 @@ function openSessionMenu(x, y, cwd, session, itemEl) {
   });
   colorRow.appendChild(clearColors);
   menu.appendChild(colorRow);
+
+  // Export the chat as a file the user owns. It reads the stored session, so a
+  // chat that is not open exports the same way the one on screen does.
+  const exportItem = document.createElement('button');
+  exportItem.textContent = t('exportChat');
+  exportItem.addEventListener('click', async () => {
+    closeSessionMenu();
+    try {
+      const res = await api.exportSessionFile({
+        cwd,
+        sessionPath: session.path,
+        title: session.name || session.firstMessage || '',
+      });
+      if (res?.ok) showNotice(t('exportSaved', { path: res.path }));
+    } catch (err) {
+      showNotice(errorText(err));
+    }
+  });
+  menu.appendChild(exportItem);
 
   const renameItem = document.createElement('button');
   renameItem.textContent = t('rename');

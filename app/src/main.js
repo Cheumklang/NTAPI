@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage, Notification, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage, Notification, globalShortcut, Menu } = require('electron');
 
 /*
  * A window the agent cannot read is a window it cannot press buttons in, and
@@ -119,6 +119,7 @@ app.on('render-process-gone', (_event, _contents, details) =>
 );
 const { diffLines } = require('./diff');
 const { sessionDirName, sameWorkspace } = require('./session-paths');
+const sessionExport = require('./session-export');
 const {
   COLORS: SESSION_COLORS,
   applyMark,
@@ -3277,6 +3278,33 @@ function createWindow() {
     },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  /*
+   * Right-click menu.
+   *
+   * Electron ships none, so selecting text and pressing the right button did
+   * nothing — there was no way to copy a paragraph without Ctrl+C. The roles are
+   * the platform's own, and the labels follow the app's language rather than the
+   * OS one, because the rest of the window does.
+   */
+  win.webContents.on('context-menu', (_event, params) => {
+    const thai = initialLang(readPrefs()) === 'th';
+    const items = [];
+    if (params.isEditable) {
+      items.push(
+        { label: thai ? 'ตัด' : 'Cut', role: 'cut', enabled: params.editFlags.canCut },
+        { label: thai ? 'คัดลอก' : 'Copy', role: 'copy', enabled: params.editFlags.canCopy },
+        { label: thai ? 'วาง' : 'Paste', role: 'paste', enabled: params.editFlags.canPaste },
+        { type: 'separator' },
+        { label: thai ? 'เลือกทั้งหมด' : 'Select all', role: 'selectAll' }
+      );
+    } else if (params.selectionText.trim()) {
+      items.push({ label: thai ? 'คัดลอก' : 'Copy', role: 'copy' });
+      items.push({ label: thai ? 'เลือกทั้งหมด' : 'Select all', role: 'selectAll' });
+    }
+    if (!items.length) return;
+    Menu.buildFromTemplate(items).popup({ window: win });
+  });
   // Resolves once the UI has painted, so the update splash stays up until there is
   // something to look at behind it. `did-finish-load` is too early — the document
   // is loaded but the window is still empty while boot() talks to this process, so
@@ -4896,6 +4924,79 @@ ipcMain.handle('session:list', async (_e, cwd) => listSessions(cwd || savedWorks
 ipcMain.handle('session:listOther', async (_e, cwd) =>
   listOtherSessions(cwd || savedWorkspace() || process.cwd())
 );
+
+/**
+ * Search inside saved chats.
+ *
+ * The sidebar filters titles on its own; this answers the other half — "which
+ * conversation talked about X" — by reading the files and returning the line
+ * that matched. Each file is parsed to plain text first, so a hit is a sentence
+ * rather than a JSON fragment.
+ */
+ipcMain.handle('session:search', async (_e, { cwd, q } = {}) => {
+  const query = String(q || '').trim();
+  if (query.length < 2) return [];
+  const needle = query.toLowerCase();
+  let rows = [];
+  try {
+    rows = await listSessions(cwd || savedWorkspace() || process.cwd());
+  } catch {
+    return [];
+  }
+  const hits = [];
+  for (const row of rows) {
+    let raw = '';
+    try {
+      // A chat is a few hundred kilobytes at most. Anything past the cap is a
+      // runaway log, and reading it would stall the sidebar for no gain.
+      if (fs.statSync(row.path).size > 8 * 1024 * 1024) continue;
+      raw = fs.readFileSync(row.path, 'utf8');
+    } catch {
+      continue;
+    }
+    const text = sessionExport
+      .parseSession(raw)
+      .map((m) => m.text)
+      .join('\n');
+    const at = text.toLowerCase().indexOf(needle);
+    if (at < 0) continue;
+    hits.push({ id: row.id, snippet: sessionExport.snippet(text, at, needle.length) });
+    if (hits.length >= 50) break;
+  }
+  return hits;
+});
+
+/**
+ * Write one saved chat out as Markdown.
+ *
+ * It reads the file rather than the open tab, so a chat closed an hour ago
+ * exports the same way as the one on screen.
+ */
+ipcMain.handle('session:exportFile', async (e, { cwd, sessionPath, title } = {}) => {
+  const file = resolveSessionFile(cwd || savedWorkspace() || process.cwd(), sessionPath);
+  if (!file) throw new Error('session file not found');
+  const messages = sessionExport.parseSession(fs.readFileSync(file, 'utf8'));
+  const base =
+    String(title || path.basename(file, '.jsonl'))
+      .replace(/[\\/:*?"<>|]/g, ' ')
+      .trim()
+      .slice(0, 80) || 'chat';
+  const pick = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender) || win, {
+    defaultPath: path.join(app.getPath('downloads'), `${base}.md`),
+    filters: [{ name: 'Markdown', extensions: ['md'] }],
+  });
+  if (pick.canceled || !pick.filePath) return { ok: false, canceled: true };
+  fs.writeFileSync(
+    pick.filePath,
+    sessionExport.toMarkdown({
+      title: base,
+      created: new Date().toISOString().slice(0, 10),
+      messages,
+    }),
+    'utf8'
+  );
+  return { ok: true, path: pick.filePath };
+});
 
 /** The colours the user may choose, in display order. */
 ipcMain.handle('session:colors', async () => SESSION_COLORS);
