@@ -3899,3 +3899,120 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - `styles.css`: "Visual polish" 3 ก้อนท้ายไฟล์ (window chrome, sidebar, transcript, composer, เมนู, settings, toast/meter, ตาราง/โค้ด/อ้างอิง/ลิสต์/หน้าว่าง, light theme) — ถอดออกได้ทั้งก้อน
 - Linux: `ntapi-launch.sh` เปิดโหมด normal ทันที (ตัดกล่อง zenity) + `ntapi.desktop` + ทางลัด `~/Desktop/ntapi.desktop` (ตั้ง trusted แล้ว)
 - เทสต์ก่อนปล่อย: `npm test` 109/109 · `selftest-ui-render` ผ่าน · `check:sara` ok
+
+## 2026-11-24 (Linux) — `/skill` เห็นสกิลที่ติดตั้งใหม่บน Windows + light mode อ่านออก + ช่อง mcp.json
+- **ผู้ใช้แจ้ง 3 เรื่องตามลำดับ:** (1) พิมพ์ `/skill` แล้วหา "สกิลที่เพิ่งติดตั้ง" ไม่เจอในระบบ Windows (2) light mode บางข้อความกลืนกับพื้นหลังจนอ่านไม่ได้ ในแชท/เลือกโมเดล/ตั้งค่า (3) ตั้งค่า → MCP → `mcp.json` ตัวหนังสือดำมองไม่เห็น
+- **`/skill` (Windows)** — ต้นเหตุจริง 2 ชั้น:
+  - เมนูอ่านแคชครั้งเดียวตอนบูต: `updateSlashMenu()` เรียก `loadSkills()` เฉพาะเมื่อแคชว่าง ⇒ สกิลที่ติดตั้งระหว่างเปิดแอปไม่เคยขึ้นจนกว่าจะรีสตาร์ต · แก้: `loadSkills({ force: true })` เมื่อแคชเก่ากว่า `SKILLS_MENU_REFRESH_MS` (2 วิ) แล้ววาดใหม่เมื่อโหลดเสร็จ (ทางอื่นยังใช้ TTL 60 วิ)
+  - ตัวสแกนไม่ครอบที่ติดตั้งจริง: เพิ่ม `~/.codex/skills`, โฟลเดอร์ปลั๊กอิน Claude (`~/.claude/plugins/**` ที่มี `skills/`), และ `<DATA_ROOT>/npm/node_modules/<pkg>` + `<DATA_ROOT>/git/<host>/<owner>/<repo>` (แอปส่ง DATA_ROOT เป็น agentDir ของ SDK ⇒ `pi install` ในแอปไปลงที่นั่น ไม่ใช่ home) · `isDirEntry()` ใช้ `statSync` ตัดสินโฟลเดอร์ ⇒ ตาม symlink **และ junction ของ Windows** ได้ (เดิมเชื่อ `Dirent` อย่างเดียว)
+  - เปิดแท็บที่ค้างอยู่ให้เห็นสกิลใหม่: `skills:list` เทียบรายชื่อที่เคยเห็น → `syncSkillsToTabs()` → `handle.refreshSkills(paths)` (`freepi-bridge.js` เรียก `session.resourceLoader.extendResources`) เพื่อให้ `/skill:name` ขยายได้ในเทิร์นถัดไป ไม่ใช่ส่งเป็นข้อความดิบ
+- **light mode** — วัดด้วยสคริปต์ Electron ชั่วคราว (โหลด renderer จริง + stub IPC, วัดคู่สีของทุก text node เทียบพื้นหลังจริง) พบ **23 จุดต่ำกว่า AA** แล้วแก้ด้วยการ์ดท้าย `styles.css` (`html[data-theme='light'] …`) ที่ re-point เป็น token หรือสีเข้มที่วัดแล้ว:
+  - แชท: หัวข้อ markdown (`#f2f4f9` = 1.02:1), ลิงก์ (`#b3a4ff` 2.0), inline code (1.17), ชุด syntax `.hl-*` (1.3–3.3), `.latest-name`, `.act-chip`, ป้าย diff, `Reasoning: Off` ตอน disabled
+  - เลือกโมเดล: ป้าย `Free` เขียวอ่อน (1.56–1.9), เครื่องหมายถูกที่เลือก, หัวข้อ Free/Paid
+  - ตั้งค่า: แบนเนอร์ error (`#f3b0b0` 1.45), โฟลเดอร์ข้อมูล (`#d6d0ff` 1.25), copyright, หมายเหตุหวงห้าม, ลิงก์ผู้ให้บริการ
+  - หลังแก้: สคริปต์เดิมรายงาน **0 จุด** (ลบสคริปต์ทิ้งแล้ว ไม่เข้า repo)
+- **mcp.json** — `.mcp-config` เขียนพื้นหลังตายตัว `#0e131c` แต่ตัวอักษรใช้ `var(--text)` (โหมดสว่าง = เกือบดำ) ⇒ ตัวดำบนพื้นดำ · เปลี่ยนเป็น `var(--surface-1)` (มืดเท่าเดิมในโหมดมืด) · เจอโรคเดียวกันอีก: `.model-group-head:hover` และ `.palette-item.active` ที่พื้นยังดำตายตัว → ใช้ `var(--surface-3)` + คงค่าเดิมไว้ใน `html[data-theme='dark']` · วัดจริง: โหมดสว่าง **16.07:1**, โหมดมืด **15.88:1**
+- **เทสต์ที่เพิ่ม:** `selftest-skill-scan.js` (+6: `.codex`, plugin, npm/git ใน DATA_ROOT), `selftest-skill-menu.js` (+1 และอัปเดต regex ของ force refresh), `selftest-theme.js` (+39: override ของ light mode, สีที่วัดบนพื้นขาว, ช่อง mcp.json ต้องใช้ token, hover/active สองธีม)
+- **ผลเทสต์:** `npm test` **109/109** · `npm run check:sara` ok · `selftest-theme` ผ่านทั้งหมด
+- **ยังไม่ commit** (ผู้ใช้ยังไม่สั่ง) — ไฟล์ของงานนี้: `app/src/main.js` (เฉพาะส่วน skill), `app/src/freepi-bridge.js`, `app/src/renderer/app.js` (เฉพาะส่วน skill), `app/src/renderer/styles.css`, `scripts/selftest-skill-scan.js`, `scripts/selftest-skill-menu.js`, `scripts/selftest-theme.js`
+- **ระวัง:** `app/src/main.js`, `preload.js`, `check-model-refresh.js`, `check-provider-grid.js`, `check-local-vision.js` และ `shots/*` มีงานของ session อื่นปนอยู่ (ปุ่มย่อโมเดล + การ์ด llama.cpp) — อย่าเหมารวมว่าเป็นของรอบนี้
+- **บันทึกหลักฐาน:** `PROVENANCE` session seq **340** (`PROVENANCE/sessions/2026-11/2026-11-24-074421-skill-light-mcp.md`, model label `codebuff`) · `anchor` seq 340 → `PROVENANCE/anchors/2026-11-24.txt` · `verify` → `OK 340 entries, 129 record file(s) verified`
+
+## 2026-11-25 (Linux) — ขัดหน้าตารอบสี่: โหมดสว่างเป็น "กระดาษ" ไม่ใช่ธีมมืดที่กลับสี
+- **ผู้ใช้สั่ง:** "ทำให้สวยขึ้นอีก" ต่อจากรอบที่แก้ให้อ่านออก (PROVENANCE 340) — รอบนี้เป็นเรื่องความสวย ไม่ใช่คอนทราสต์
+- `app/src/renderer/styles.css`: ก้อน **"Visual polish, part four"** ท้ายไฟล์ (paint only · เฉพาะ `html[data-theme='light']` · ถอดออกได้ทั้งก้อน)
+  - **โครง:** `#sidebar` ไล่เฉด `#fcfdff → #f2f5fb` ให้คอลัมน์ซ้ายเป็น chrome และการ์ดขาวมีที่ยืน · `#topbar` ขาว 82% · ช่องค้นหาแชทขาว + เงาบาง
+  - **`.chip-btn`** (แถบเครื่องมือ EN/เบราว์เซอร์/มือถือ/ntfy/ธีม/ตั้งค่า) เดิมเป็นแผ่นลาเวนเดอร์ทั้งแถบ อ่านเหมือน "กดค้างอยู่" → ขาว + เส้นขอบ `#dde2ec` + เงา, hover เป็น tint, สถานะเปิด (`[aria-pressed='true']`, `.sys-chip[data-state='on']`) เป็น tint แบรนด์
+  - **`.session-item.active`** เดิมเป็นแถบม่วงทึบ + เรืองแสงม่วง (weight หนักกว่าทุกอย่างในหน้าต่าง) → tint 12% + เส้นแบรนด์ซ้าย + เงาเบา · คงกฎเดิมไว้: ใช้ `:not([data-color])` เพื่อไม่ทับแถบสีที่ผู้ใช้เลือก และเพิ่ม `.session-item[data-color].active` ให้ tint ตามสีที่เลือก
+  - **ปุ่ม/การ์ด:** `.ghost` ขาวมีขอบ (เดิมเทากลืนพื้น) · `.provider-tile` ขาว + เงา + ยก 1px ตอน hover · active มีวงแหวน accent · `.settings-nav-item[aria-selected]` tint + แถบซ้าย · `.settings-row` ขาว · `.model-option[aria-selected]` tint · ช่องค้นหาโมเดล · `.msg.user .bubble` อ่อนลง · scrollbar มน
+- **ดักได้ตอนเทสต์:** ใส่ `.session-item.active` ตรง ๆ ทำให้ `selftest-session-marks-ui` FAIL — *"the user colour wins over the active row border"* (กฎท้ายไฟล์ไปทับ `border-left` ของสีที่ผู้ใช้เลือก) ⇒ เปลี่ยนเป็น `.session-item.active:not([data-color])` ตามแบบเดิมของ repo
+- **ผลเทสต์:** `npm test` **109/109** · `npm run check:sara` ok · `selftest-theme` ผ่าน · `check-provider-grid` (Electron จริง) ผ่าน · `check-model-refresh` ผ่าน
+- **ตรวจด้วยตา:** เปิดหน้าต่างจริง (`electron --no-sandbox`) ตั้ง light แล้วรอ 700 ms ให้ transition จบ capture → วัด computed ได้ `.chip-btn #ffffff`, `.provider-tile #ffffff`, `.settings-nav-item[aria-selected]` เป็น tint, `.session-search` ขาว (สคริปต์ชั่วคราวลบแล้ว ไม่เข้า repo)
+- **ยังไม่ commit** — ไฟล์ของรอบนี้: `app/src/renderer/styles.css`
+- **ระวัง:** `shots/{provider-grid,model-refresh}-*.png` ถูกสคริปต์เช็คจับภาพใหม่ระหว่างรอบนี้ (เดิมก็ค้าง dirty จาก session อื่นอยู่แล้ว) — ไม่ใช่ "รูปที่ตั้งใจแก้"
+- **บันทึกหลักฐาน:** `PROVENANCE` session seq **341** (`PROVENANCE/sessions/2026-11/2026-11-24-193323-light-polish-round-four.md`, model label `codebuff`) · `anchor` seq 341 → `PROVENANCE/anchors/` · `verify` OK
+
+## 2026-11-25 (Linux) — ขัดหน้าตารอบห้า: บทสนทนาอ่านเป็น "เอกสาร" + หน้าว่างมีแสง
+- **ผู้ใช้สั่ง:** "ทำให้สวยกว่านี้ได้อีกไหมคับ" ต่อจากรอบสี่ (seq 341) — รอบนั้นจบที่โครงหน้าต่าง/การ์ด รอบนี้ลงไปที่ **เนื้อบทสนทนา** ซึ่งยังแบนที่สุด
+- `app/src/renderer/styles.css`: ก้อน **"Visual polish, part five"** ท้ายไฟล์ (paint only · ครบทั้งสองธีม · ถอดได้ทั้งก้อน)
+  - **จังหวะอ่าน:** `.msg.assistant .body` line-height 1.68 · `.md p` เว้น .72em · หัวข้อ tracking ติดลบเล็กน้อย · `.md li` หายใจขึ้น
+  - **ป้ายผู้พูด:** `.msg.assistant .role::before` เป็นจุดแบรนด์ 5px + วงเรืองบาง (เฉพาะฝั่งผู้ช่วย) ⇒ เลื่อนตาหาได้ว่าท่อนไหนเป็นคำตอบ
+  - **ตาราง:** `th` ชิดซ้าย + 11px + letter-spacing .07em + แถบหัวตาราง `--bg-3` + เส้นล่าง `--line-2` · `td` padding 8/12 · ไม่มีเส้นตั้ง · wrapper radius 12 + เงา + พื้นขาว (สว่าง) — เดิมหัวตารางสีกลืนแคนวาสและข้อความจัดกลาง
+  - **บล็อกโค้ด:** ภาษาเป็น **pill** (`JS`, `DIFF`) · หัวบล็อกเป็นแถบ label · ตัวโค้ด 12.5px/1.66 + `tab-size: 2` · พื้นโค้ดยกขึ้นเล็กน้อย (`color-mix(bg-3, surface-1)`) · ปุ่ม Copy เป็น ghost (โปร่งจน hover)
+  - **การ์ดเครื่องมือ:** `.tool` ได้รางสถานะซ้าย 3px (`ok` เขียว, `error` แดง, ปกติเทา) + radius 10 + เงาในโหมดสว่าง · `.tool-name` หนาขึ้น · เลขสถานะ tabular
+  - **การ์ด shell:** หัวการ์ดเป็นแถบ · `$` ใช้สี code · `exit 0` เป็น pill เขียว
+  - **หน้าว่าง:** `.empty` ได้ wash แบรนด์จาง ๆ ด้านบน (radial 620×230, 9% มืด / 7% สว่าง) + radius 20 + h1 tracking -.02em
+- **ตรวจด้วยตา (สำคัญ):** ทำสคริปต์ชั่วคราวจาก fixture ของ `selftest-ui-render` ให้จับภาพ **ทั้ง dark และ light** (พิกัดเดียวกัน เทียบกันได้) + อีกตัวจับหน้าต่างจริงโหมดสว่าง/มืด → เห็นหัวตารางมีแถบจริง, ภาษาเป็น pill, `exit 0` เป็น pill, จุดหน้า ASSISTANT ขึ้น, หน้าว่างมีแสงจาง (สคริปต์ลบแล้ว ไม่เข้า repo)
+- **ผลเทสต์:** `npm test` **109/109** · `selftest-theme` ผ่าน (ไม่มี literal ขาว/พื้นดำหลุด) · `check:sara` ok · `selftest-ui-render` ผ่าน (ฟอนต์ย่อหน้า 14px, ไม่มี overflow แนวนอน)
+- **ยังไม่ commit** — ไฟล์ของรอบนี้: `app/src/renderer/styles.css`
+
+## 2026-11-25 (Linux) — ปุ่ม Retry เมื่อเครดิต/quota หมด + แถบสี diff เต็มบรรทัด (ยังไม่ commit)
+- **ผู้ใช้สั่ง:** อยากได้แบบ Amp — พอเครดิต/token หมด ให้ AI หยุดชั่วคราวแล้วมีปุ่ม retry ทำงานต่อได้เลยโดยไม่ต้องพิมพ์อะไรใหม่ (แนบภาพหน้าจอ Amp มาด้วย) · งานค้างของรอบก่อน (ก้อน part six ของ diff) ทำต่อให้จบในรอบเดียวกัน
+- **Retry เมื่อ allowance หมด (ฟีเจอร์หลัก):**
+  - `app/src/main.js` — `reportTabError()` คำนวณ `isLimitError({ text: raw, code })` แล้วแนบ `limit` ไปกับ `agent:error` ⇒ renderer ไม่ต้องเดาข้อความผู้ให้บริการเอง
+  - `app/src/main.js` — handler ใหม่ `prompt:retry` (`RETRY_TURN_CUSTOM_TYPE = 'ntapi.retry-turn'`): ตรวจว่า session ว่าง (`isStreaming` → `{ok:false,reason:'busy'}`), เริ่มเลข prompt ใหม่, ล้าง `limitFailure`/`lastError`, สร้าง `turnDraft` เปล่า (ถ้าถูกตัดอีกจะเก็บเฉพาะคำตอบที่มาแล้ว) แล้ว `session.sendCustomMessage({..., display: false}, { triggerTurn: true })` ⇒ **เทิร์นใหม่เริ่มได้โดยไม่มีข้อความผู้ใช้ซ้ำ** (ตรวจกับ SDK `core/agent-session.js` แล้วว่า `triggerTurn` เรียก `_startRun` จริง)
+  - `app/src/preload.js` — `retryPrompt(tabId)` → `prompt:retry`
+  - `app/src/renderer/app.js` — error banner มี `options.onRetry`: กล่องที่ retry ได้จะ **ไม่จางหายเอง** (ไม่มี `setTimeout(dismiss, ERROR_BANNER_MS)`), เป็นคอลัมน์ข้อความ + ปุ่ม `ลองอีกครั้ง` (ปุ่ม `stopPropagation()` เพื่อไม่ให้คลิกแล้วปิด banner ตัวเอง), กดแล้วเรียก `retryTurn(view)` → สำเร็จจะลบ banner ออกเพราะเทิร์นวิ่งต่อแล้ว, ไม่สำเร็จขึ้น notice (`errorRetryBusy` / `errorRetryFailed`) · เพิ่มคีย์ i18n 4 ตัวทั้ง EN/TH
+  - `app/src/renderer/styles.css` — `.error-banner-retry` (คอลัมน์, `cursor: default`), `.error-banner-actions`, `.error-retry` (ตัวอักษร/ขอบแดง + tint, disabled จาง)
+  - `app/scripts/selftest-error-ux.js` — เพิ่ม 14 เช็ค: ปุ่มมีเฉพาะ error ที่ `p.limit`, banner ที่ retry ได้ไม่จางเอง, ปุ่มไม่ bubble, IPC ใหม่มีจริง, `sendCustomMessage` ต้อง `display:false` + `triggerTurn:true`, ต้องกัน session ที่ยังสตรีมอยู่, preload ต่อถึง, CSS เป็นคอลัมน์
+- **ข้อจำกัดที่รู้ตัว:** ทดสอบ end-to-end จริงกับผู้ให้บริการที่เครดิตหมดไม่ได้ (ต้องมีคีย์/โควตาจริง) — ที่ยืนยันแล้วคือเส้นทาง IPC/เงื่อนไข/สัญญาของ SDK + เทสต์เชิงโครงสร้าง
+- **Visual polish part six (ต่อจาก seq 342):** `styles.css` — บล็อก ```diff ในบทสนทนาเดิมเป็นแค่ตัวอักษรเปลี่ยนสี ตอนนี้แต่ละบรรทัดเป็นบล็อกของตัวเอง (`:has(> span[class^='hl-diff-'])` + `white-space: normal` ที่ container, `pre` ที่ span) และมีแถบสีเต็มความกว้างการ์ดด้วย `background` + box-shadow ±16px ที่เติม padding ของ `pre` (ไม่ใช้ margin ติดลบ จึงไม่เกิด scrollbar แนวนอน) · hunk มีแถบจาง + เว้น 3px · โหมดสว่างใช้ tint คนละชุด
+- **แก้บั๊กเชิงความหมายที่เจอระหว่างทำ:** `markdown.js` เช็ค `+`/`-` ก่อน meta ทำให้ `--- a/x` / `+++ b/x` ถูก painted เป็น "ลบ/เพิ่ม" → ย้ายเช็ค meta (`diff `, `index `, `--- `, `+++ `) ขึ้นก่อน · เทสต์ `selftest-ui-render` จึงรายงาน diffAdd/diffDel = 1/1 (เดิม 2/2) อย่างถูกต้อง
+- **ผลเทสต์:** `npm test` **109/109** · `npm run check:sara` ok · `selftest-error-ux` ผ่าน · `selftest-ui-render` ผ่าน (ไม่มี overflow แนวนอน)
+- **ตรวจด้วยตา:** จับภาพ fixture `ui-render` (dark) + สคริปต์ชั่วคราวของ banner ทั้ง dark/light → แถบ diff วิ่งถึงขอบการ์ด, `---`/`+++` เป็นสีเทา, banner มีปุ่มใต้ข้อความ (สคริปต์/ภาพชั่วคราวลบหมดแล้ว)
+- **ยังไม่ commit** — ไฟล์ของรอบนี้: `app/src/main.js`, `app/src/preload.js`, `app/src/renderer/app.js`, `app/src/renderer/markdown.js`, `app/src/renderer/styles.css`, `app/scripts/selftest-error-ux.js`
+
+## 2026-11-25 (Linux) — ต่อจาก seq 343: ปุ่ม Retry ต้องรอดการ repaint (ยังไม่ commit)
+- **บริบท:** ปุ่ม Retry เดิมเกิดเฉพาะใน error banner สด — พอสลับแท็บ/กลับมา หน้าต่าง repaint จาก session แล้ว banner ที่มีปุ่มหายไป เหลือแต่ข้อความ error ธรรมดา
+- `app/src/main.js` — `messagesForUi()` และ error entry ที่ `tabState()` ต่อท้าย (กรณี settle-time) แนบ `limit: isLimitError({ text: ... })` ไปกับ entry `kind:'error'` ⇒ ข้อมูล "กลับมาทำต่อได้" ติดไปกับประวัติ ไม่ได้อยู่แค่ event สด
+- `app/src/renderer/app.js` — ตอน replay: `resumable = Boolean(m.limit) && messages[messages.length-1] === m && !view.busy` แล้วส่ง `onRetry` ให้ banner · เฉพาะ entry **ท้ายสุด** เท่านั้นที่ได้ปุ่ม (error เก่าที่มีคำตอบตามหลังไม่ควรย้อนไปรันซ้ำ) และไม่ให้ปุ่มตอนเทิร์นกำลังวิ่ง
+- `app/scripts/selftest-error-ux.js` — เพิ่ม 3 เช็ค: entry ประวัติพก `limit`, synthetic failure พกด้วย, renderer ให้ปุ่มเฉพาะ entry ท้ายและตอน idle
+- **ผลเทสต์:** `npm test` **109/109** · `check:sara` ok · `selftest-error-ux` ผ่าน · `node --check` ผ่าน
+- **ยังไม่ commit** — ไฟล์เพิ่มจากรอบก่อน: `app/src/main.js`, `app/src/renderer/app.js`, `app/scripts/selftest-error-ux.js`
+
+## 2026-11-25 (Linux) — เร่งความเร็วเส้นทางวาดบทสนทนา: แคช highlight รายบรรทัด + แคช HTML ต่อข้อความ (ยังไม่ commit)
+- **ผู้ใช้สั่ง:** "โปรแกรมยังทำงานช้า ทำให้ทำงานเร็วขึ้นอีก เทียบเป็นตารางให้ดูด้วย" ⇒ วัดก่อนแก้ แล้ววัดซ้ำด้วยชุดวัดเดียวกัน
+- **วัด baseline ก่อนแตะโค้ด** (สคริปต์ชั่วคราว Electron + Node, ลบแล้ว): `MD.renderInto` 24KB = 4.2 ms/เฟรม, repaint 90 ข้อความ = 66-67 ms, สตรีม 24KB (24 เฟรม) = 53-58 ms, parse+highlight 24KB (Node) = 5.78 ms
+- **จุดที่กินเวลา:** ทุกเฟรมของการสตรีม re-parse + re-highlight *ทั้งคำตอบ* และการกลับมาเปิดแชทเดิมวาดข้อความที่**ไม่เปลี่ยนเลย**ซ้ำทั้งหมด — highlight คือส่วนแพงสุด (ไล่ token ทีละตัวด้วย regex)
+- **แก้ใน `app/src/renderer/markdown.js` (ทำงานเดิมทุกอย่าง ไม่เปลี่ยนผลลัพธ์):**
+  - **แคช highlight รายบรรทัด** (`lineCache`, key = family + บรรทัด, เพดาน 8000 แล้ว clear) — บรรทัดโค้ดส่วนใหญ่ซ้ำกันทุกเฟรม/ทุกข้อความ
+  - **แคช HTML ต่อข้อความ** (`htmlCache`, key = streaming flag + ข้อความเต็ม, เก็บ `{html, codes}` เพื่อให้ปุ่ม Copy ยังได้ raw text) — เพดาน 64 entry / 6 MB ตัวอักษร, evict แบบ newest-last; เปิดแชทเดิมจึงเหลือแค่ DOM work
+- **ตารางผลวัด (ชุดวัดเดียวกัน, best-of, เครื่องนี้):**
+
+  | จุดที่วัด | ก่อน | หลัง | ผล |
+  |---|---|---|---|
+  | 1 เฟรมสตรีม (คำตอบ 24 KB) | 4.3 ms | 2.8 ms | เร็วขึ้น ~35% |
+  | กลับเข้าแชทเดิม (24 KB เดิม) | 2.2 ms | ~0.0 ms | ~ทั้งหมด |
+  | วาดแชทใหม่ 90 ข้อความ | 67 ms | 28 ms | เร็วขึ้น ~58% |
+  | สตรีม 24 KB รวม 24 เฟรม | 53 ms | 38 ms | เร็วขึ้น ~28% |
+  | parse+highlight 4 KB | 1.11 ms | 0.11 ms | ~10 เท่า |
+  | parse+highlight 24 KB | 5.78 ms | 1.49 ms | ~3.9 เท่า |
+  | parse+highlight 64 KB | 14.63 ms | 5.21 ms | ~2.8 เท่า |
+  | บล็อกโค้ด 300 บรรทัด | 3.97 ms | 0.34 ms | ~11.7 เท่า |
+
+- **เพิ่มเครื่องมือวัดถาวร:** `app/scripts/bench-markdown.js` + `npm run bench:markdown` (Electron, รายงาน 4 ตัวเลข) รองรับ `MD_FILE=…` เพื่อ A/B กับ markdown.js เวอร์ชันอื่น — ใช้ไฟล์เดียวกันวัดก่อน/หลังจริงในรอบนี้
+- **ผลเทสต์:** `npm test` **109/109** · `check:sara` ok · `node --check` ผ่าน
+- **ยังไม่วัด:** เวลาบูตแอป, latency ของผู้ให้บริการ, และเครื่องจริงของผู้ใช้ (ตัวเลขทั้งหมดจาก fixture สังเคราะห์บน Chromium ของเครื่องนี้)
+- **ยังไม่ commit** — ไฟล์รอบนี้: `app/src/renderer/markdown.js`, `app/scripts/bench-markdown.js` (ใหม่), `app/package.json` (เพิ่ม script)
+
+## 2026-11-25 (Linux) — เปิดโปรแกรม/โหลดแชทเร็วขึ้น: boot ไม่รอรายการแชท + ดัชนีแชทแบบอ่านเฉพาะส่วนที่เพิ่ม (ยังไม่ commit)
+- **ผู้ใช้สั่ง:** "รู้สึกต่างกันมาแล้ว ทำให้เร็วกว่านี้ได้อีกไหม แต่ที่แน่ๆ เวลาเปิดโปรแกรมโหลดแชทยังช้ามาก"
+- **หาต้นเหตุได้ 2 จุด:**
+  1. `app:boot` (main) `await listSessions(lastCwd)` — สแกน **ทุกไฟล์แชท** ทั้งก้อนก่อนคืนค่า ⇒ หน้าต่างต้องรอการ์ดข้างๆ ก่อนจะเริ่มกู้แท็บ
+  2. `listSessions` ใช้ `sdk.SessionManager.listAll(dir)` ที่อ่านไฟล์แชท **จนจบทุกไฟล์** เพื่อนับข้อความ + เก็บข้อความทั้งหมด และแคชเดิมอิง mtime ของโฟลเดอร์ ⇒ เขียนแชทหนึ่งครั้ง = parse ใหม่ทั้งโฟลเดอร์ (เรียกทุกครั้งที่สลับแท็บ/จบเทิร์น)
+- **แก้:**
+  - `app/src/main.js` — `app:boot` **ไม่แตะรายการแชทเลย** (renderer ไม่เคยอ่าน `sessions` จาก boot อยู่แล้ว — `renderSessions()` ขอ `session:list` เองหลังหน้าต่างขึ้น)
+  - `app/src/session-index.js` (ใหม่) — ดัชนีรายแชท: เก็บ header/ชื่อ/จำนวนข้อความ/first message/last activity ไว้ต่อไฟล์ keyed ด้วย size+mtime แล้วอ่าน **เฉพาะไบต์ที่งอก** (ไฟล์แชทเป็น append-only JSONL) · ไฟล์ที่ถูกเขียนทับให้เล็กกว่าหรือไม่ใช่แชท → อ่านใหม่ทั้งไฟล์/ข้าม เหมือน SDK · รับ partial line (เขียนค้างกลางบรรทัด) ได้โดยไม่นับผิด
+  - `main.js` — `listSessions` และ `listOtherSessions` ใช้ `readSessionInfos(dir)` แทน `SessionManager.listAll`
+- **ตารางผลวัด (คลังสังเคราะห์ 60 แชท / 2.5 MB, Node, เครื่องนี้):**
+
+  | จุดที่วัด | ก่อน | หลัง | ผล |
+  |---|---|---|---|
+  | ตอนบูต: ต้องอ่านรายการแชทก่อนคืนค่า | อ่านทั้งคลัง (~80 ms) | 0 ms (ไม่ทำแล้ว) | ตัดออกจากเส้นทางบูต |
+  | โหลดรายการแชทครั้งแรก | 80 ms | **29 ms** | เร็วขึ้น ~2.8 เท่า |
+  | โหลดซ้ำตอนไม่มีอะไรเปลี่ยน | 48-80 ms | **0.7 ms** | เร็วขึ้น ~70-110 เท่า |
+  | หลังจบเทิร์น (ไฟล์แชทโตขึ้น) | 48 ms | **1 ms** | เร็วขึ้น ~48 เท่า |
+
+- **เทสต์:** `npm test` **110/110** (เพิ่ม `selftest-session-index.js` 19 เช็ค: row ตรงกับ SDK, append อ่านแค่ท้าย, partial line, ไฟล์ถูกย่อ, ไฟล์ที่ไม่ใช่แชท, ลบแล้วไม่ค้าง และตรวจว่า `app:boot` ไม่เรียก `listSessions`) · ปรับ `selftest-session-paths.js` ให้ตรวจกลไกใหม่ (`readSessionInfos`) แทน `SessionManager.listAll` · `check:sara` ok · `check-restore-active-tab` + `check-activity-chips` ผ่าน
+- **รันไม่ได้ในเครื่องนี้:** `check-first-run-guide.js` ค้าง (harness ไม่ได้ลง IPC handler ของ main เลย — ปัญหาเดิม ไม่เกี่ยวกับรอบนี้)
+- **ยังไม่ commit** — ไฟล์รอบนี้: `app/src/main.js`, `app/src/session-index.js` (ใหม่), `app/scripts/selftest-session-index.js` (ใหม่), `app/scripts/selftest-session-paths.js`, `app/scripts/run-unit-tests.js`
