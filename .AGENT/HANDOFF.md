@@ -1,20 +1,16 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 2026-11-24 (Linux) — 🚀 ปล่อย `v0.9.2` (คอมมิตแล้ว · แท็กแล้ว · **push ไม่ได้จากฝั่งนี้**):** อ่านก่อน
+> **📌 2026-11-24 (Linux) — ✅ ปล่อย `v0.9.2` ขึ้น GitHub แล้ว (ค้นหาแชทในแถบข้าง + export .md + คลิกขวาคัดลอก/วาง):** อ่านก่อน
 >
-> **ทำแล้ว:** คอมมิต `5484f3a` (`search: ค้นหาแชทในแถบข้าง ส่งออกเป็น Markdown และเมนูคลิกขวาคัดลอก/วาง`) · bump `0.9.1 → 0.9.2` · แท็ก `v0.9.2` ชี้ `d95d6f1` (PROVENANCE ของ 5484f3a) — ทั้งหมดอยู่ฝั่ง Ubuntu
+> **ปล่อยเสร็จ:** คอมมิต `5484f3a` · bump `0.9.1 → 0.9.2` · แท็ก `v0.9.2` (ชี้ `d95d6f1`) · push `master` + แท็กผ่าน · CI ออก **Setup 0.9.2 (181,876,577 B) + `latest.yml` (339 B) + blockmap** แล้ว · `prune-releases` ลบ v0.9.1 เอง (เหลือรุ่นเดียว) · PROVENANCE `release 327`
 >
-> **⚠️ ค้างที่ push:** `git push` จาก session นี้ล้มด้วย `could not read Username for 'https://github.com'` (ไม่มี gh CLI, ไม่มีคีย์ SSH, `~/.git-credentials` เป็นของ root และไม่มี entry github) · HEAD เหนือ origin **6 คอมมิต**
+> **บทเรียนสำคัญ (อย่าลืม):** รอบก่อน session รัน git ด้วย **root** → `~/.git-credentials` กลายเป็นของ root mode 600 ทำให้ session ฝั่ง `nt` push ไม่ได้ (`could not read Username`) · แก้ด้วย `sudo chown nt:nt ~/.git-credentials && chmod 600 ~/.git-credentials` แล้ว push ผ่านทันที · **ห้ามรัน git ด้วย sudo อีก** (จะสร้างปัญหาเดิมซ้ำ) — ถ้าต้องรันคำสั่งที่ต้องสิทธิ์ root ให้แยกเป็นคำสั่งเดียว ไม่ใช่ทั้ง session
 >
-> **ผู้ใช้ต้องรันเอง (ฝั่งที่มี credential เช่นหน้า Windows ที่เห็น `Z:\NT-ALL\NTAPI`):**
-> ```
-> git push origin HEAD v0.9.2
-> ```
-> หลัง CI เขียว: ตรวจหน้า Releases ว่ามี `Setup 0.9.2` + `latest.yml` · prune จะลบ v0.9.1 เอง (workflow `prune-releases`, เหลือรุ่นเดียว) · แล้วสั่ง `node app/scripts/provenance.js record-release 0.9.2 --asset … --ci …`
+> **สถานะ repo:** `master` = origin · ไม่มีงานค้างในมือ session นี้ · ไม่มีงานค้างฝั่งโค้ด
 >
-> **เทสต์ก่อนปล่อย:** `npm test` 109/109 · `npm run check:search` 9/9 · `npm run check:grid` ผ่าน · `check:sara` ok
+> **ต่อไป (ยังไม่เริ่ม):** ข้อ 1 ที่ผู้ใช้ขอไว้ — อนุมัติ/ปฏิเสธคำสั่งจากมือถือผ่าน ntfy (ต้องแยกสิทธิ์ "อนุมัติ" ออกจาก "สั่งงาน" ก่อนลงโค้ด) · ถ้าจะทำ ต้องอ่าน `ntfy-service.js` + `approval-policy.js` ก่อน
 >
-> **ไม่ถูกรวมในคอมมิตนี้ (ของ session อื่น):** `check-local-vision.js`, `check-model-refresh.js`, `check-provider-grid.js`, `shots/{model-refresh,provider-grid,vision-menu}-*.png`, `atspi.cpython-314.pyc`, draft ใน `docs/superpowers/`, `ntapi-launch.sh`, `ntapi.desktop`, `linux-share-keys.js`
+> **ไม่ถูกรวมในคอมมิตชุดนี้ (ของ session อื่น ยังค้างใน working tree):** `check-local-vision.js`, `check-model-refresh.js`, `check-provider-grid.js`, `shots/{model-refresh,provider-grid,vision-menu}-*.png`, `atspi.cpython-314.pyc`, draft ใน `docs/superpowers/`, `ntapi-launch.sh`, `ntapi.desktop`, `linux-share-keys.js`
 
 > **📌 2026-11-24 (Linux) — 🔎 ค้นหาแชทในแถบข้าง + ส่งออกเป็นไฟล์ + คลิกขวาคัดลอก/วาง (ยังไม่ commit):** อ่านบล็อกนี้ก่อน
 >

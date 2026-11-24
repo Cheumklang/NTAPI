@@ -3886,5 +3886,6 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 ## 2026-11-24 (Linux) — ปล่อย v0.9.2 (ค้นหาแชท/export/คลิกขวา)
 - คอมมิต `5484f3a` · bump `0.9.1 → 0.9.2` · แท็ก `v0.9.2` → `d95d6f1` (PROVENANCE)
 - **push ไม่ได้จาก session นี้**: `could not read Username for 'https://github.com'` (ไม่มี gh CLI/คีย์ SSH/credential ของ github) ⇒ HEAD เหนือ origin 6 คอมมิต
-- ผู้ใช้ต้องรันฝั่งที่มี credential: `git push origin HEAD v0.9.2` แล้วตรวจ `Setup 0.9.2` + `latest.yml` และ `record-release`
+- **สาเหตุที่ push ไม่ได้:** session ก่อนรัน git ด้วย root → `~/.git-credentials` เป็นของ root mode 600 · แก้ด้วย `sudo chown nt:nt ~/.git-credentials` (ผู้ใช้ทำ) แล้ว push ผ่าน
+- **ปล่อยเสร็จ:** `master`+`v0.9.2` ขึ้น GitHub · CI ออก Setup 0.9.2 (181,876,577 B) + `latest.yml` (339 B) + blockmap · prune ลบ v0.9.1 แล้ว (เหลือรุ่นเดียว) · `record-release` = PROVENANCE 327
 - เทสต์ก่อนปล่อย: `npm test` 109/109 · `check:search` 9/9 · `check:grid` ผ่าน · `check:sara` ok
