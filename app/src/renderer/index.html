@@ -142,9 +142,10 @@
               <p class="sys-warn" id="sysWarn" data-i18n="sysWarn">
                 AI จะเห็นหน้าต่างที่เปิดอยู่ และกดปุ่มในนั้นได้เท่ากับที่คุณทำได้
               </p>
-              <button type="button" class="sys-toggle" id="sysToggle" aria-pressed="false">
-                <span id="sysToggleText" data-i18n="sysEnable">เปิดใช้งาน</span>
-              </button>
+              <div class="ntfy-slide sys-slide" id="sysToggle" role="group" aria-labelledby="sysLabel">
+                <button type="button" class="ntfy-slide-opt" data-on="1" data-i18n="sysEnable">เปิดใช้งาน</button>
+                <button type="button" class="ntfy-slide-opt" data-on="0" data-i18n="sysDisable">ปิด</button>
+              </div>
               <p class="sys-hint">
                 <span data-i18n="sysHotkeyHint">หยุดทันทีด้วย</span>
                 <span class="sys-kbd"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Esc</kbd></span>
@@ -723,6 +724,12 @@
                     per provider, and no key ever leaves the machine.
                   -->
                   <button
+                    id="modelCollapseAll"
+                    class="model-collapse-all"
+                    type="button"
+                    data-i18n="modelCollapseAll"
+                  >Collapse all</button>
+                  <button
                     id="modelRefresh"
                     class="model-refresh"
                     type="button"
@@ -947,33 +954,48 @@
         <h2 id="browserTitle" data-i18n="browserTitle">Browser control</h2>
         <p id="browserStatusLine" class="dialog-sub">—</p>
 
-        <p class="dialog-sub" data-i18n="browserTabsTitle">Work in one of your tabs</p>
-        <p class="dialog-sub small" data-i18n="browserTabsHint">Hand the agent a tab you are already signed into. It only ever touches that one.</p>
-        <div id="browserTabsList" class="tab-list" role="list"></div>
-        <div class="dialog-actions handover">
-          <button id="browserRelease" class="ghost danger" data-i18n="browserRelease" hidden>Release the tab</button>
-          <button id="browserAutopilot" class="ghost" data-i18n="browserAutopilotOn" hidden>Let it work without asking</button>
-        </div>
-        <p id="browserAutopilotNote" class="dialog-sub small" hidden></p>
-        <p class="dialog-sub small" data-i18n="browserDebugBarNote">Chrome shows a yellow "started debugging this browser" bar while the agent works. Leave it alone — dismissing it disconnects the agent.</p>
+        <ol class="browser-steps">
+          <li>
+            <h3 class="step-title" data-i18n="stepEnable">Turn it on</h3>
+            <div class="ntfy-slide browser-slide" id="browserPower" role="group" aria-label="browser control">
+              <button type="button" class="ntfy-slide-opt" data-on="1" data-i18n="browserConnect">On</button>
+              <button type="button" class="ntfy-slide-opt" data-on="0" data-i18n="browserDisconnect">Off</button>
+            </div>
+          </li>
 
-        <p class="dialog-sub" data-i18n="browserInstallTitle">One-time setup</p>
-        <pre id="browserSteps" class="dialog-code" data-i18n="browserInstallSteps">1. Open the extension folder
-2. In Chrome: chrome://extensions -> Developer mode -> Load unpacked -> pick that folder
-3. Open the extension's popup and paste the code below</pre>
+          <li>
+            <h3 class="step-title" data-i18n="browserInstallTitle">One-time setup</h3>
+            <p class="step-hint" data-i18n="browserInstallSteps">1. Open the extension folder</p>
+            <div class="dialog-actions wrap">
+              <button id="browserOpenFolder" class="ghost" data-i18n="browserOpenFolder">Open folder</button>
+              <button id="browserCopyUrl" class="ghost" data-i18n="browserCopyExtensions">Copy chrome://extensions</button>
+            </div>
+          </li>
 
-        <p class="dialog-sub">
-          <span data-i18n="browserPairCode">Pairing code</span>
-          <span id="browserCode" class="tool-chip">------</span>
-        </p>
+          <li>
+            <h3 class="step-title" data-i18n="stepPair">Paste the pairing code</h3>
+            <p class="step-hint" data-i18n="stepPairHint">Open the extension popup and paste this code there.</p>
+            <p class="step-row">
+              <span class="tool-chip" id="browserCode">------</span>
+            </p>
+          </li>
 
-        <div class="dialog-actions wrap">
-          <button id="browserOpenFolder" class="ghost" data-i18n="browserOpenFolder">Open folder</button>
-          <button id="browserCopyUrl" class="ghost" data-i18n="browserCopyExtensions">Copy chrome://extensions</button>
-          <button id="browserWatch" class="ghost" data-i18n="browserWatch">Watch what the agent does</button>
-        </div>
+          <li>
+            <h3 class="step-title" data-i18n="browserTabsTitle">Work in one of your tabs</h3>
+            <p class="step-hint" data-i18n="browserTabsHint">Hand the agent a tab you are already signed into. It only ever touches that one.</p>
+            <div id="browserTabsList" class="tab-list" role="list"></div>
+            <div class="dialog-actions handover">
+              <button id="browserRelease" class="ghost danger" data-i18n="browserRelease" hidden>Release the tab</button>
+              <button id="browserAutopilot" class="ghost" data-i18n="browserAutopilotOn" hidden>Let it work without asking</button>
+              <button id="browserWatch" class="ghost" data-i18n="browserWatch" hidden>Watch what the agent does</button>
+            </div>
+            <p id="browserAutopilotNote" class="step-hint" hidden></p>
+          </li>
+        </ol>
+
+        <p class="step-hint note" data-i18n="browserDebugBarNote">Chrome shows a yellow "started debugging this browser" bar while the agent works. Leave it alone — dismissing it disconnects the agent.</p>
+
         <div class="dialog-actions footer">
-          <button id="browserToggle" class="ghost danger" data-i18n="browserDisconnect">Turn off</button>
           <button id="browserClose" class="send" data-i18n="close">Close</button>
         </div>
       </div>
@@ -1117,6 +1139,30 @@
                 </p>
 
                 <div class="provider-cards">
+                  <div class="provider-card provider-card-local" id="llamacppRow" data-provider="llamacpp">
+                    <img class="provider-logo" src="assets/providers/llamacpp.svg" alt="" aria-hidden="true" />
+                    <div class="provider-local-details">
+                      <div class="provider-card-head">
+                        <div class="provider-info">
+                          <span class="provider-name" data-i18n="llamacppSection">llama.cpp</span>
+                          <p id="llamacppStatus" class="settings-hint">&mdash;</p>
+                        </div>
+                      </div>
+                      <p class="settings-hint provider-local-note" data-i18n="llamacppLocalNote">Runs the model on your own computer; your pictures stay here.</p>
+                      <label class="slide-switch" id="llamacppSwitchRow">
+                        <input id="llamacppEnabled" type="checkbox" />
+                        <span data-i18n="llamacppEnabledLabel">Use the model on this machine</span>
+                      </label>
+                      <div class="provider-actions">
+                        <button id="llamacppInstall" class="ghost small" data-i18n="llamacppInstall">Install</button>
+                        <button id="llamacppCancel" class="ghost small" data-i18n="llamacppCancel" hidden>Cancel</button>
+                      </div>
+                      <div class="provider-card-foot">
+                        <span class="settings-hint" data-i18n="llamacppCost">A free way to look at pictures</span>
+                      </div>
+                      <p class="settings-hint" data-i18n="llamacppInstallNote">One 5.8 GB download.</p>
+                    </div>
+                  </div>
                 <!--
                      One tile per company, five to a row: the list outgrew a column of
                      cards, and a grid keeps room for the next company without pushing
@@ -1166,13 +1212,6 @@
                       <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
                     </span>
                     <span class="provider-tile-name" data-i18n="googleSection">Gemini</span>
-                  </button>
-                  <button type="button" class="provider-tile" data-provider="llamacpp" aria-pressed="false">
-                    <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/llamacpp.svg" alt="" aria-hidden="true" />
-                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
-                    </span>
-                    <span class="provider-tile-name" data-i18n="llamacppSection">llama.cpp</span>
                   </button>
                   <button type="button" class="provider-tile" data-provider="llm7" aria-pressed="false">
                     <span class="provider-tile-logo-wrap">
@@ -1463,36 +1502,6 @@
                     </div>
                   </div>
 
-                  <!--
-                    The local model is the one provider with no key: it installs
-                    files. Everything it says is about those files — not
-                    installed, downloading with a percentage, ready, or running.
-                  -->
-                  <div class="provider-card" id="llamacppRow" data-provider="llamacpp">
-                    <div class="provider-card-head">
-                      <img class="provider-logo" src="assets/providers/llamacpp.svg" alt="" aria-hidden="true" />
-                      <div class="provider-info">
-                        <span class="provider-name" data-i18n="llamacppSection">llama.cpp</span>
-                        <p id="llamacppStatus" class="settings-hint">&mdash;</p>
-                      </div>
-                    </div>
-                    <!--
-                      One switch, not a start button: it stays where the user put
-                      it, so "is it on?" is answered by looking at it.
-                    -->
-                    <label class="slide-switch" id="llamacppSwitchRow">
-                      <input id="llamacppEnabled" type="checkbox" />
-                      <span data-i18n="llamacppEnabledLabel">Use the model on this machine</span>
-                    </label>
-                    <div class="provider-actions">
-                      <button id="llamacppInstall" class="ghost small" data-i18n="llamacppInstall">Install</button>
-                      <button id="llamacppCancel" class="ghost small" data-i18n="llamacppCancel" hidden>Cancel</button>
-                    </div>
-                    <div class="provider-card-foot">
-                      <span class="settings-hint" data-i18n="llamacppCost">A free way to look at pictures</span>
-                    </div>
-                    <p class="settings-hint" data-i18n="llamacppInstallNote">One 5.8 GB download.</p>
-                  </div>
                 </div>
                 </div>
               </div>

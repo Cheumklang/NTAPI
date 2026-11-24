@@ -87,23 +87,26 @@ const STRINGS = {
     browserWaiting: 'Waiting for the Chrome extension to connect…',
     browserConnected: 'Connected. The agent can drive your Chrome.',
     browserExtensionVersion: 'extension',
-    browserInstallTitle: 'One-time setup',
-    browserInstallSteps: '1. Open the extension folder\n2. In Chrome: chrome://extensions -> Developer mode -> Load unpacked -> pick that folder\n3. Open the extension popup and paste the pairing code below',
+    browserInstallTitle: 'Install the extension (once)',
+    browserInstallSteps: 'Open the extension folder, then in Chrome: chrome://extensions -> Developer mode -> Load unpacked -> pick that folder',
+    stepEnable: 'Turn it on',
+    stepPair: 'Paste the pairing code',
+    stepPairHint: 'Open the extension popup and paste this code there.',
     browserOpenFolder: 'Open folder',
     browserCopyExtensions: 'Copy chrome://extensions',
     browserWatch: 'Watch what the agent does',
-    browserDisconnect: 'Turn off',
-    browserConnect: 'Turn on',
+    browserDisconnect: 'Off',
+    browserConnect: 'On',
     browserChipOff: 'Browser control: off',
     browserChipWaiting: 'Browser control: waiting for the extension',
     browserChipOn: 'Browser control: connected',
     browserCopied: 'Copied',
     browserInstalled: 'Extension folder is ready.',
     browserNotInstalled: 'Extension folder is missing from this build.',
-    browserTabsTitle: 'Work in one of your tabs',
+    browserTabsTitle: 'Hand it a tab',
     browserTabsHint: 'Hand the agent a tab you are already signed into. It only ever touches that one.',
     browserNoTabs: 'No tabs found. Is Chrome running?',
-    browserTabAgent: 'agent window',
+    browserTabAgent: 'agent tab',
     browserClaimTab: 'Use this tab',
     browserClaimed: 'Handed over',
     browserReleaseTab: 'Release this tab',
@@ -367,6 +370,8 @@ const STRINGS = {
     cloudflareRemoved: 'Cloudflare credential removed.',
     providerTileHasKey: 'key saved',
     llamacppSection: 'llama.cpp',
+    llamacppLocalNote: 'Runs on your own computer; pictures stay on this machine.',
+    modelCollapseAll: 'Collapse all',
     llamacppInstall: 'Install',
     llamacppCancel: 'Cancel',
     llamacppEnabledLabel: 'Use the model on this machine',
@@ -589,7 +594,7 @@ const STRINGS = {
     sysOff: 'Off',
     sysOn: 'On',
     sysEnable: 'Turn on control',
-    sysDisable: 'Stop now',
+    sysDisable: 'Off',
     sysWarn:
       'The agent can see your open windows and press buttons in them — the same reach you have. Turn it off when you are done.',
     sysHotkeyHint: 'Stops instantly:',
@@ -733,23 +738,26 @@ const STRINGS = {
     browserWaiting: 'รอส่วนขยาย Chrome เชื่อมต่อ…',
     browserConnected: 'เชื่อมต่อแล้ว — AI ขับ Chrome ของคุณได้',
     browserExtensionVersion: 'ส่วนขยาย',
-    browserInstallTitle: 'ติดตั้งครั้งเดียว',
-    browserInstallSteps: '1. เปิดโฟลเดอร์ส่วนขยาย\n2. ใน Chrome ไปที่ chrome://extensions -> เปิด Developer mode -> Load unpacked -> เลือกโฟลเดอร์นั้น\n3. เปิด popup ของส่วนขยาย แล้ววางรหัสจับคู่ด้านล่าง',
+    browserInstallTitle: 'ติดตั้งส่วนขยาย (ครั้งเดียว)',
+    browserInstallSteps: 'เปิดโฟลเดอร์ส่วนขยาย แล้วใน Chrome: chrome://extensions -> เปิด Developer mode -> Load unpacked -> เลือกโฟลเดอร์นั้น',
+    stepEnable: 'เปิดการทำงาน',
+    stepPair: 'วางรหัสจับคู่',
+    stepPairHint: 'เปิด popup ของส่วนขยาย แล้ววางรหัสนี้ลงไป',
     browserOpenFolder: 'เปิดโฟลเดอร์',
     browserCopyExtensions: 'คัดลอก chrome://extensions',
     browserWatch: 'ดูว่า AI ทำอะไรอยู่',
-    browserDisconnect: 'ปิดการใช้งาน',
-    browserConnect: 'เปิดการใช้งาน',
+    browserDisconnect: 'ปิด',
+    browserConnect: 'เปิด',
     browserChipOff: 'ควบคุมเบราว์เซอร์: ปิด',
     browserChipWaiting: 'ควบคุมเบราว์เซอร์: รอส่วนขยาย',
     browserChipOn: 'ควบคุมเบราว์เซอร์: เชื่อมต่อแล้ว',
     browserCopied: 'คัดลอกแล้ว',
     browserInstalled: 'โฟลเดอร์ส่วนขยายพร้อมใช้งาน',
     browserNotInstalled: 'ไม่พบโฟลเดอร์ส่วนขยายในบิลด์นี้',
-    browserTabsTitle: 'ทำงานในแท็บของคุณ',
+    browserTabsTitle: 'มอบแท็บให้ AI',
     browserTabsHint: 'มอบแท็บที่คุณล็อกอินอยู่ให้ AI — มันจะแตะเฉพาะแท็บนั้นเท่านั้น',
     browserNoTabs: 'ไม่พบแท็บ — Chrome เปิดอยู่ไหมครับ',
-    browserTabAgent: 'หน้าต่างของ AI',
+    browserTabAgent: 'แท็บของ AI',
     browserClaimTab: 'ใช้แท็บนี้',
     browserClaimed: 'มอบแล้ว',
     browserReleaseTab: 'คืนแท็บนี้',
@@ -1008,6 +1016,8 @@ const STRINGS = {
     cloudflareRemoved: 'ลบข้อมูล Cloudflare แล้ว',
     providerTileHasKey: 'มีคีย์แล้ว',
     llamacppSection: 'llama.cpp',
+    llamacppLocalNote: 'ทำงานบนคอมพิวเตอร์ของคุณเอง และภาพอยู่ในเครื่องนี้',
+    modelCollapseAll: 'ย่อทั้งหมด',
     llamacppInstall: 'ติดตั้ง',
     llamacppCancel: 'ยกเลิก',
     llamacppEnabledLabel: 'ใช้โมเดลบนเครื่องนี้',
@@ -1230,7 +1240,7 @@ const STRINGS = {
     sysOff: 'ปิดอยู่',
     sysOn: 'เปิดอยู่',
     sysEnable: 'เปิดใช้งาน',
-    sysDisable: 'หยุดทันที',
+    sysDisable: 'ปิด',
     sysWarn: 'AI จะเห็นหน้าต่างที่เปิดอยู่ และกดปุ่มในนั้นได้เท่ากับที่คุณทำได้ — ใช้เสร็จแล้วปิดด้วย',
     sysHotkeyHint: 'หยุดทันทีด้วย:',
     sysConfirmTitle: 'เปิดให้ AI ควบคุมเครื่อง?',
@@ -3250,6 +3260,14 @@ function loadCollapsedProviders() {
 function saveCollapsedProviders() {
   api.setPrefs({ collapsedProviders: [...collapsedProviders].filter(Boolean).slice(0, 30) }).catch(() => {});
 }
+
+el('modelCollapseAll').addEventListener('click', () => {
+  for (const group of modelList.querySelectorAll('.model-group')) {
+    collapsedProviders.add(group.dataset.provider);
+    setGroupOpen(group, false);
+  }
+  saveCollapsedProviders();
+});
 
 /** Open or close one provider folder, keeping the header's state in sync. */
 function setGroupOpen(section, open) {
@@ -11233,8 +11251,12 @@ function renderBrowserDialog() {
   }
   const code = el('browserCode');
   if (code) code.textContent = browserState.code || '------';
-  const toggle = el('browserToggle');
-  if (toggle) toggle.textContent = t(browserState.enabled ? 'browserDisconnect' : 'browserConnect');
+  const power = el('browserPower');
+  if (power) {
+    for (const option of power.querySelectorAll('.ntfy-slide-opt')) {
+      option.setAttribute('aria-pressed', String((option.dataset.on === '1') === Boolean(browserState.enabled)));
+    }
+  }
   const watch = el('browserWatch');
   if (watch) watch.hidden = !browserState.connected;
   renderTabList();
@@ -11338,22 +11360,15 @@ async function openBrowserDialog() {
   } catch {}
   el('browserOverlay').hidden = false;
   renderBrowserDialog();
-  el('browserToggle').focus();
+  // Focus follows the state, so Enter acts on what is already chosen.
+  el('browserPower').querySelector('.ntfy-slide-opt[aria-pressed="true"]')?.focus();
   await refreshBrowserTabs();
 }
 
 el('browserBtn').addEventListener('click', async () => {
-  // Turning it off is immediate; turning it on opens the setup dialog.
-  if (browserState.enabled) {
-    const next = await api.browserToggle(false).catch(() => null);
-    if (next) browserState = { ...browserState, ...next };
-    renderBrowserChip();
-    renderBrowserDialog();
-    return;
-  }
-  const next = await api.browserToggle(true).catch(() => null);
-  if (next) browserState = { ...browserState, ...next };
-  renderBrowserChip();
+  // The chip only opens the dialog. Turning control on (and off) is the on/off
+  // pill's job: a chip click used to enable it outright, and to disable it just
+  // as fast, which is not a decision a status dot should make.
   await openBrowserDialog();
 });
 
@@ -11374,12 +11389,16 @@ el('browserWatch').addEventListener('click', async () => {
   if (res && !res.ok) showToast({ title: t('browserTitle'), body: String(res.error || '') });
 });
 
-el('browserToggle').addEventListener('click', async () => {
-  const next = await api.browserToggle(!browserState.enabled).catch(() => null);
-  if (next) browserState = { ...browserState, ...next };
-  renderBrowserChip();
-  renderBrowserDialog();
-});
+for (const option of el('browserPower').querySelectorAll('.ntfy-slide-opt')) {
+  option.addEventListener('click', async () => {
+    const on = option.dataset.on === '1';
+    if (on === Boolean(browserState.enabled)) return;
+    const next = await api.browserToggle(on).catch(() => null);
+    if (next) browserState = { ...browserState, ...next };
+    renderBrowserChip();
+    renderBrowserDialog();
+  });
+}
 
 el('browserClose').addEventListener('click', () => {
   el('browserOverlay').hidden = true;
@@ -12450,8 +12469,11 @@ function applySystemState(state = {}) {
   chip.setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
   paintSysTitle();
   el('sysState').textContent = sysControl.enabled ? t('sysOn') : t('sysOff');
-  el('sysToggleText').textContent = sysControl.enabled ? t('sysDisable') : t('sysEnable');
-  el('sysToggle').setAttribute('aria-pressed', sysControl.enabled ? 'true' : 'false');
+  // Same segmented pill as the ntfy panel: the chosen side is filled, the other
+  // is plain, so the state is readable without a colour frame anywhere.
+  for (const option of el('sysToggle').querySelectorAll('.ntfy-slide-opt')) {
+    option.setAttribute('aria-pressed', String((option.dataset.on === '1') === sysControl.enabled));
+  }
   if (sysControl.enabled && sysControl.hotkeyActive === false) {
     // No global grab: say so, because the remedy is the button in this panel.
     el('sysNote').textContent = t('sysHotkeyDown');
@@ -12506,20 +12528,23 @@ el('sysChip').addEventListener('click', () => {
     .catch(() => {});
 });
 
-el('sysToggle').addEventListener('click', async () => {
-  if (sysControl.enabled) {
-    await setSystemControl(false);
-    return;
-  }
-  // The one click in the app that hands over the whole machine: ask in the
-  // dialog that already exists for irreversible things instead of acting here.
-  showConfirmDialog({
-    kind: 'system',
-    title: t('sysConfirmTitle'),
-    sub: t('sysConfirmBody'),
-    action: t('sysEnable'),
+for (const option of el('sysToggle').querySelectorAll('.ntfy-slide-opt')) {
+  option.addEventListener('click', async () => {
+    if (option.dataset.on !== '1') {
+      await setSystemControl(false);
+      return;
+    }
+    if (sysControl.enabled) return;
+    // The one click in the app that hands over the whole machine: ask in the
+    // dialog that already exists for irreversible things instead of acting here.
+    showConfirmDialog({
+      kind: 'system',
+      title: t('sysConfirmTitle'),
+      sub: t('sysConfirmBody'),
+      action: t('sysEnable'),
+    });
   });
-});
+}
 
 // The hotkey's in-window twin: it works even when the desktop refuses a global
 // grab, which is the common answer under Wayland.

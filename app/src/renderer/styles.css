@@ -1176,6 +1176,9 @@ button { font-family: inherit; }
   font-size: 12.5px;
 }
 .model-search::placeholder { color: #6c7488; }
+.model-collapse-all { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 7px; padding: 4px 7px; background: transparent; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
+.model-collapse-all:hover { color: var(--text); border-color: var(--accent); }
+.model-collapse-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .model-search:focus {
   outline: none;
   border-color: #4b556f;
@@ -2394,6 +2397,57 @@ button { font-family: inherit; }
 
 /* The browser dialog is the tallest one: a 600px window used to cut its footer
    off with no way to reach it. Scroll inside the dialog instead. */
+/* The browser dialog is a checklist, not an essay: each numbered step carries
+ * its own controls, so the reader never has to look elsewhere for the button
+ * that belongs to the instruction they just read. */
+.browser-steps {
+  counter-reset: step;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.browser-steps > li {
+  counter-increment: step;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.step-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.step-title::before {
+  content: counter(step);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .08);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+/* One sentence per step, so the list stays a list and does not turn into a manual. */
+.step-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.step-hint.note { margin-top: 12px; }
+.step-row { margin: 0; display: flex; align-items: center; gap: 8px; }
+.browser-slide { align-self: flex-start; }
+.browser-slide .ntfy-slide-opt { min-width: 58px; }
 .browser-dialog {
   max-height: calc(100vh - 48px);
   overflow-y: auto;
@@ -3118,8 +3172,8 @@ button { font-family: inherit; }
   flex: 0 0 auto;
 }
 #browserBtn .dot.waiting { background: #d9a441; }
-#browserBtn .dot.on { background: #3fb26b; }
-#browserBtn .dot.claimed { background: #3fb26b; box-shadow: 0 0 0 2px rgba(63, 178, 107, .35); }
+#browserBtn .dot.on { background: #46d39a; }
+#browserBtn .dot.claimed { background: #46d39a; box-shadow: 0 0 0 2px rgba(70, 211, 154, .35); }
 #browserBtn .dot.autopilot { background: #5aa9ff; animation: autopilot-pulse 1.6s ease-in-out infinite; }
 @keyframes autopilot-pulse {
   0%, 100% { opacity: 1; }
@@ -3201,11 +3255,6 @@ button { font-family: inherit; }
 .tab-title { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tab-host { font-size: 12px; color: #8a91a1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dialog-sub.small { font-size: 12px; }
-#browserBtn[aria-pressed="true"] {
-  background: rgba(90, 169, 255, .2);
-  border-color: rgba(90, 169, 255, .45);
-  color: #cfe4ff;
-}
 #browserOverlay .dialog-code { white-space: pre-wrap; }
 
 /* ---------------- usage progress bar ---------------- */
@@ -3686,6 +3735,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .provider-card:hover { border-color: rgba(124, 92, 255, .28); }
 .provider-card-head { display: flex; align-items: center; gap: 10px; }
+.provider-card-local { display: flex; align-items: flex-start; gap: 14px; }
+.provider-card-local > .provider-logo { width: 44px; height: 44px; flex-basis: 44px; }
+.provider-local-details { flex: 1; min-width: 0; }
+.provider-local-note { margin: 8px 0; }
+.provider-card-local .provider-card-head { align-items: flex-start; }
+@media (max-width: 520px) { .provider-card-local { gap: 9px; } .provider-card-local > .provider-logo { width: 36px; height: 36px; flex-basis: 36px; } }
 .provider-logo {
   width: 28px;
   height: 28px;
@@ -5345,9 +5400,10 @@ html[lang="th"] .about-name-th {
 /* --------------------------- desktop control ---------------------------
  *
  * One chip on the workspace row, one panel behind it, and a strip at the foot
- * of the window while it is on. Amber throughout: this is a state to notice and
+ * of the window while it is on. Green throughout: this is a state to notice and
  * to be able to leave, not an error, so it never uses the red of the failure
- * banner and never needs dismissing.
+ * banner. It used to be amber, which read as a warning rather than a switch that
+ * is simply on.
  */
 .sys-wrap { position: relative; display: inline-flex; }
 .chip-btn.sys-chip { width: 30px; padding: 0; position: relative; }
@@ -5359,12 +5415,7 @@ html[lang="th"] .about-name-th {
   background: var(--line-2);
   flex: 0 0 auto;
 }
-.chip-btn.sys-chip[data-state='on'] {
-  color: #f5b544;
-  border-color: rgba(245, 181, 68, .5);
-  background: rgba(245, 181, 68, .08);
-}
-.chip-btn.sys-chip[data-state='on'] .sys-dot { background: #f5b544; }
+.chip-btn.sys-chip[data-state='on'] .sys-dot { background: #46d39a; }
 
 /*
  * The panel is wide enough for the warning to be a sentence, not a column.
@@ -5397,6 +5448,7 @@ html[lang="th"] .about-name-th {
   text-transform: uppercase;
   color: var(--muted);
 }
+/* The same pill as .ntfy-state, state shown by tint and not by an outline. */
 .sys-state {
   font-size: 10.5px;
   font-weight: 600;
@@ -5404,43 +5456,31 @@ html[lang="th"] .about-name-th {
   padding: 2px 8px;
   border-radius: 999px;
   color: var(--muted);
-  background: rgba(255, 255, 255, .06);
-  border: 1px solid var(--line-2);
+  background: rgba(255, 255, 255, .05);
 }
-.sys-popover:has(.sys-toggle[aria-pressed='true']) .sys-state {
-  color: #ffd88a;
-  border-color: rgba(245, 181, 68, .45);
-  background: rgba(245, 181, 68, .12);
+.sys-popover:has(.ntfy-slide-opt[data-on='1'][aria-pressed='true']) .sys-state {
+  color: #7ee0b4;
+  background: rgba(70, 211, 154, .14);
 }
+/* Plain sentence, no box: the panel is short and a frame around this one line
+ * made it read as a separate notice that arrives with the panel. */
 .sys-warn {
   margin: 0;
   font-size: 11.5px;
   line-height: 1.5;
-  color: #e8d3a8;
-  background: rgba(245, 181, 68, .07);
-  border-left: 2px solid rgba(245, 181, 68, .55);
-  border-radius: 0 8px 8px 0;
-  padding: 7px 9px;
-}
-.sys-toggle {
-  width: 100%;
-  padding: 9px 12px;
-  font-size: 12.5px;
-  font-weight: 600;
-  border-radius: 9px;
-  cursor: pointer;
   color: var(--text);
-  background: rgba(255, 255, 255, .05);
-  border: 1px solid var(--line-2);
-  transition: background .16s ease, border-color .16s ease, color .16s ease;
 }
-.sys-toggle:hover { background: rgba(255, 255, 255, .09); }
-.sys-toggle[aria-pressed='true'] {
-  color: #ffd88a;
-  background: rgba(245, 181, 68, .16);
-  border-color: rgba(245, 181, 68, .5);
+/* The same segmented pill the ntfy panel uses for its on/off row (`.ntfy-slide`),
+ * but here it spans the panel edge to edge and the two halves share the width
+ * evenly, so the control is centred against the panel's margins. The selector
+ * carries the panel because `.ntfy-slide { align-self: flex-start }` is defined
+ * further down the file and would otherwise win. */
+.sys-popover .sys-slide { align-self: stretch; }
+.sys-popover .sys-slide .ntfy-slide-opt {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
 }
-.sys-toggle[aria-pressed='true']:hover { background: rgba(245, 181, 68, .24); }
 .sys-hint {
   margin: 0;
   display: flex;

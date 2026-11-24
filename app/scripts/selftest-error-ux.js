@@ -126,15 +126,26 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'inde
 const wrapRow = html.match(/<div class="dialog-actions wrap">[\s\S]*?<\/div>/);
 check('the helper buttons share one row', Boolean(wrapRow));
 check(
-  'that row holds all three helpers',
-  Boolean(wrapRow) && ['browserOpenFolder', 'browserCopyUrl', 'browserWatch'].every((id) => wrapRow[0].includes(id))
+  'that row holds the two install helpers',
+  Boolean(wrapRow) && ['browserOpenFolder', 'browserCopyUrl'].every((id) => wrapRow[0].includes(id))
 );
 check('the helper row no longer ends the dialog', Boolean(wrapRow) && !wrapRow[0].includes('browserClose'));
 
-const footerRow = html.match(/<div class="dialog-actions footer">[\s\S]*?<\/div>/);
+// The footer now nests the on/off pill's own <div>, so the slice runs to the
+// next closing tag pair rather than the pill's inner one.
+const footerRow = html.match(/<div class="dialog-actions footer">[\s\S]*?<\/div>\s*<\/div>/);
 check(
-  'the footer holds the toggle and close',
-  Boolean(footerRow) && footerRow[0].includes('browserToggle') && footerRow[0].includes('browserClose')
+  'the footer holds only the way out',
+  Boolean(footerRow) && footerRow[0].includes('browserClose') && !footerRow[0].includes('browserPower')
+);
+// The on/off pill sits in step 1, next to the instruction it belongs to.
+const stepsRow = html.match(/<ol class="browser-steps">[\s\S]*?<\/ol>/);
+check(
+  'step 1 carries the on/off pill and every step carries its own controls',
+  Boolean(stepsRow) &&
+    stepsRow[0].includes('browserPower') &&
+    stepsRow[0].includes('browserOpenFolder') &&
+    stepsRow[0].includes('browserTabsList')
 );
 
 const wrapCss = css.match(/\n\.dialog-actions\.wrap \{[\s\S]*?\n\}/);

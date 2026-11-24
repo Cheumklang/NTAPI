@@ -22,7 +22,9 @@ caller always snapshots again after acting.
 Run by hand to debug:  python3 atspi.py probe
 """
 import argparse
+import glob
 import json
+import os
 import sys
 import threading
 import time
@@ -63,6 +65,24 @@ def emit(payload):
 def fail(message, code='ERROR'):
     emit({'ok': False, 'code': code, 'error': str(message)})
     sys.exit(1)
+
+
+def ensure_bus_env():
+    """Point the helper at the session bus when nobody else did.
+
+    A program started from a .desktop file or a unit without DBUS_SESSION_BUS_ADDRESS
+    gets no bus, and dbind answers with "Couldn't connect to accessibility bus" and
+    aborts before any of our code sees it. The sockets are still under the user's
+    runtime dir, so their paths are filled in here.
+    """
+    runtime = os.environ.get('XDG_RUNTIME_DIR') or '/run/user/%d' % os.getuid()
+    session = os.environ.get('DBUS_SESSION_BUS_ADDRESS', '')
+    if (not session or session.startswith('disabled')) and os.path.exists(os.path.join(runtime, 'bus')):
+        os.environ['DBUS_SESSION_BUS_ADDRESS'] = 'unix:path=' + os.path.join(runtime, 'bus')
+    if not os.environ.get('AT_SPI_BUS_ADDRESS'):
+        for candidate in sorted(glob.glob(os.path.join(runtime, 'at-spi', 'bus*'))):
+            os.environ['AT_SPI_BUS_ADDRESS'] = 'unix:path=' + candidate
+            break
 
 
 def load_atspi():
@@ -279,6 +299,7 @@ def main():
     parser.add_argument('--text', default=None)
     args = parser.parse_args()
 
+    ensure_bus_env()
     Atspi = load_atspi()
     try:
         if args.command == 'probe':
