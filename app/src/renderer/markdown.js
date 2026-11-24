@@ -131,22 +131,50 @@
     return 'c';
   }
 
+  /*
+   * Highlighting is the most repeated work in the app.
+   *
+   * A streamed reply is re-rendered on every animation frame, and each frame walks
+   * the whole answer again — including every line of every code block, which is
+   * the expensive part (token by token, with a regex per token). The lines are
+   * almost always the same ones as the frame before, and a repaint of an old chat
+   * draws byte-identical text, so the result for a line is cached by family.
+   *
+   * The cache is a plain Map with a ceiling: a session that pastes thousands of
+   * unique lines must not grow it without bound, and clearing wholesale is cheap
+   * and simpler than an LRU bookkeeping on a hot path.
+   */
+  const LINE_CACHE_MAX = 8000;
+  const lineCache = new Map();
+
+  function highlightLineCached(line, lang, family) {
+    const key = `${family}\u0000${line}`;
+    const hit = lineCache.get(key);
+    if (hit !== undefined) return hit;
+    const html = highlightLine(line, lang, family);
+    if (lineCache.size >= LINE_CACHE_MAX) lineCache.clear();
+    lineCache.set(key, html);
+    return html;
+  }
+
   function highlight(code, lang) {
     const family = familyOf(lang);
     const lines = String(code).replace(/\n$/, '').split('\n');
     if (family === 'diff') {
       return lines
         .map((line) => {
+          // Meta first: `--- a/x` and `+++ b/x` are file headers, not a removed
+          // and an added line, and testing for `+`/`-` first stole them.
           let cls = 'hl-diff-ctx';
           if (/^@@/.test(line)) cls = 'hl-diff-hunk';
+          else if (/^(diff\s|index\s|---(\s|$)|\+\+\+(\s|$))/.test(line)) cls = 'hl-diff-meta';
           else if (/^\+/.test(line)) cls = 'hl-diff-add';
           else if (/^-/.test(line)) cls = 'hl-diff-del';
-          else if (/^(diff|index|---|\+\+\+)/.test(line)) cls = 'hl-diff-meta';
           return `<span class="${cls}">${esc(line) || ' '}</span>`;
         })
         .join('\n');
     }
-    return lines.map((line) => highlightLine(line, lang, family)).join('\n');
+    return lines.map((line) => highlightLineCached(line, lang, family)).join('\n');
   }
 
   /* -------------------------------- inline -------------------------------- */
@@ -405,21 +433,57 @@
    * Render markdown into `el`. Only the parts that changed are rebuilt, so a
    * long streaming reply does not reset scroll position or copy buttons.
    */
+  /*
+   * The finished HTML of a message, kept between renders.
+   *
+   * Coming back to a chat re-renders every bubble from the session, and the text
+   * has not changed since the last visit — the parse and the highlighting of that
+   * whole conversation are repeated for nothing. Storing the html string (with the
+   * code blocks' raw text, which the copy buttons need) makes a revisit cost the
+   * DOM work only. Streaming misses on every frame, as it must, but the memory is
+   * bounded: entries and characters both have a ceiling.
+   */
+  const HTML_CACHE_ENTRIES = 64;
+  const HTML_CACHE_CHARS = 6 * 1024 * 1024;
+  const htmlCache = new Map();
+  let htmlCacheChars = 0;
+
   function renderInto(el, text, options) {
     const opts = options || {};
     // The stylesheet scopes every markdown rule under `.md`.
     if (el.classList && !el.classList.contains('md')) el.classList.add('md');
-    const parsed = parse(text || '', Boolean(opts.streaming));
-    const blocks = parsed.blocks;
-    const codeBlocks = blocks.filter((b) => b.type === 'code');
-
-    // Build the full HTML. The block's own index is counted in one pass: the old
-    // `codeBlocks.indexOf(b)` searched the array again for every block, which is
-    // quadratic on a reply that is mostly code.
-    let codeIndex = 0;
-    const html = blocks
-      .map((b) => (b.type === 'html' ? b.html : codeBlockHtml(b, codeIndex++)))
-      .join('');
+    const source = String(text || '');
+    const streaming = Boolean(opts.streaming);
+    const key = `${streaming ? 's' : 'f'}\u0000${source}`;
+    let built = htmlCache.get(key);
+    if (built) {
+      // Re-inserted so the newest entries survive the eviction below.
+      htmlCache.delete(key);
+      htmlCache.set(key, built);
+    } else {
+      const parsed = parse(source, streaming);
+      const blocks = parsed.blocks;
+      const codes = blocks.filter((b) => b.type === 'code').map((b) => b.code);
+      // Build the full HTML. The block's own index is counted in one pass: the old
+      // `codeBlocks.indexOf(b)` searched the array again for every block, which is
+      // quadratic on a reply that is mostly code.
+      let codeIndex = 0;
+      const html = blocks
+        .map((b) => (b.type === 'html' ? b.html : codeBlockHtml(b, codeIndex++)))
+        .join('');
+      built = { html, codes, chars: source.length + html.length };
+      htmlCache.set(key, built);
+      htmlCacheChars += built.chars;
+      while (htmlCache.size > HTML_CACHE_ENTRIES || htmlCacheChars > HTML_CACHE_CHARS) {
+        const oldest = htmlCache.keys().next().value;
+        if (oldest === key && htmlCache.size === 1) break;
+        const gone = htmlCache.get(oldest);
+        htmlCache.delete(oldest);
+        htmlCacheChars -= gone ? gone.chars : 0;
+      }
+    }
+    const html = built.html;
+    const codeBlocks = built.codes;
 
     if (el.__fpHtml !== html) {
       el.innerHTML = html;
@@ -431,7 +495,7 @@
       const wrap = codeEl.closest('.md-code');
       if (!wrap) return;
       const idx = Number(wrap.dataset.block);
-      if (Number.isFinite(idx) && codeBlocks[idx]) rawByCodeEl.set(codeEl, codeBlocks[idx].code);
+      if (Number.isFinite(idx) && codeBlocks[idx] !== undefined) rawByCodeEl.set(codeEl, codeBlocks[idx]);
     });
     el.querySelectorAll('[data-copy-block]').forEach((btn) => {
       if (btn.__fpWired) return;

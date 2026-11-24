@@ -100,14 +100,15 @@ app.whenReady().then(async () => {
         height: Math.round(r.getBoundingClientRect().height),
         hintSize: parseFloat(getComputedStyle(r.querySelector('.vision-item-hint')).fontSize),
       }));
-      const tile = document.querySelector('.provider-tile[data-provider="llamacpp"]');
+      const localCard = document.querySelector('#llamacppRow');
       return {
         value: el('visionValue')?.textContent.trim() || '',
         expanded: btn.getAttribute('aria-expanded'),
         rows,
         menuRect: (() => { const r = menu.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; })(),
-        tileTick: tile ? getComputedStyle(tile.querySelector('.provider-tile-tick')).display !== 'none' : null,
-        tileName: tile ? tile.querySelector('.provider-tile-name').textContent.trim() : null,
+        localCardExists: Boolean(localCard),
+        localCardAboveGrid: Boolean(localCard && localCard.compareDocumentPosition(document.querySelector('#providerGrid')) & Node.DOCUMENT_POSITION_FOLLOWING),
+        localTileExists: Boolean(document.querySelector('.provider-tile[data-provider="llamacpp"]')),
       };
     })()`);
 
@@ -124,8 +125,8 @@ app.whenReady().then(async () => {
   check('the current route is marked chosen', fresh.rows.filter((r) => r.checked === 'true').length === 1, fresh.rows.map((r) => r.checked));
   check('the menu is wide enough for the hints', fresh.menuRect.w >= 240, fresh.menuRect);
   check('hint text stays small but legible', fresh.rows[0].hintSize >= 10.5, fresh.rows[0].hintSize);
-  check('the local tile is named', fresh.tileName === 'llama.cpp', fresh.tileName);
-  check('an uninstalled local model has no tick', fresh.tileTick === false, fresh.tileTick);
+  check('the local model has a dedicated card above the grid', fresh.localCardExists && fresh.localCardAboveGrid, fresh);
+  check('an uninstalled local model is not shown as a provider tile', !fresh.localTileExists, fresh.localTileExists);
 
   // Choosing a route persists it.
   await win.webContents.executeJavaScript(`document.querySelector('.vision-item[data-mode="off"]').click(); true`);
@@ -151,7 +152,6 @@ app.whenReady().then(async () => {
   const liveLocal = live.rows.find((r) => r.mode === 'local');
   check('an installed model can be chosen', liveLocal.disabled === false, liveLocal);
   check('its hint says what it costs', /GPU|machine/i.test(liveLocal.hint), liveLocal.hint);
-  check('a running local model carries the tile tick', live.tileTick === true, live.tileTick);
 
   const card = await win.webContents.executeJavaScript(`(async () => {
     const overlay = el('settingsOverlay');
@@ -163,6 +163,8 @@ app.whenReady().then(async () => {
     paintLlamaCppSettings();
     await new Promise((r) => setTimeout(r, 200));
     return {
+      localCardAboveGrid: Boolean(el('llamacppRow') && el('llamacppRow').compareDocumentPosition(el('providerGrid')) & Node.DOCUMENT_POSITION_FOLLOWING),
+      localCardOutsideDetails: !el('providerDetail').contains(el('llamacppRow')),
       open: [...document.querySelectorAll('#providerDetail .provider-card')].filter((c) => !c.hidden).map((c) => c.dataset.provider),
       status: el('llamacppStatus')?.textContent.trim() || '',
       installHidden: el('llamacppInstall')?.hidden,
@@ -176,7 +178,7 @@ app.whenReady().then(async () => {
       switchHeight: Math.round(el("llamacppEnabled").getBoundingClientRect().height),
     };
   })()`);
-  check('the tile opens the local model card', JSON.stringify(card.open) === JSON.stringify(['llamacpp']), card.open);
+  check('the dedicated local card remains above the grid and outside provider detail', card.localCardAboveGrid && card.localCardOutsideDetails, card.localCardAboveGrid);
   check('the card says it is running, with the port', /44815/.test(card.status), card.status);
   check('install is gone once installed', card.installHidden === true, card.installHidden);
   check('there is one switch, not a start and a stop button', card.startButton === false && card.stopButton === false, card);
@@ -196,7 +198,7 @@ app.whenReady().then(async () => {
   const offLocal = offState.rows.find((r) => r.mode === 'local');
   check('a switched-off machine route is refused too', offLocal.disabled === true, offLocal);
   check('and says the switch is off, not that it is missing', /switch|switched off|off/i.test(offLocal.hint) && !/install/i.test(offLocal.hint), offLocal.hint);
-  check('a switched-off local model has no tick, even installed', offState.tileTick === false, offState.tileTick);
+
 
   const offCard = await win.webContents.executeJavaScript(`(async () => {
     const canInstall = el('llamacppInstall').hidden;

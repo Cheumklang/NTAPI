@@ -152,6 +152,8 @@ const { friendlyProviderError } = require('./provider-errors');
 const { isUpgradeRequired: isUpgradeRequiredText, resolveClientVersionFloor } = require('./client-version');
 const { normalize: normalizeSponsor } = require('./sponsor');
 const sponsorFeed = require('./sponsor-feed');
+// Sidebar rows from the chat files, read incrementally: see session-index.js.
+const { readSessionInfos } = require('./session-index');
 
 /*
  * Creatives are read from disk through their own scheme.
@@ -1827,7 +1829,7 @@ async function listSessions(cwd) {
        * workspace lands on the same history folder keeps the intent — one
        * folder per workspace — without depending on how the path is spelled.
        */
-      const all = await sdk.SessionManager.listAll(dir);
+      const all = readSessionInfos(dir);
       infos = all.filter((i) => !i.cwd || sameWorkspace(i.cwd, cwd));
     } catch {
       return [];
@@ -1900,7 +1902,7 @@ async function listOtherSessions(cwd, limit = 30) {
     let infos = cached && cached.stamp === stamp ? cached.infos : null;
     if (!infos) {
       try {
-        const all = await sdk.SessionManager.listAll(dir);
+        const all = readSessionInfos(dir);
         infos = all.filter((i) => !i.cwd || sessionDirName(i.cwd) === entry.name);
       } catch {
         continue;
@@ -2010,7 +2012,11 @@ function reportTabError(tabId, raw) {
   // `key` is the translatable version of `text`: the renderer shows the message
   // in the language the user picked, and falls back to `text` when it has no
   // translation for a raw provider sentence.
-  sendTab(tabId, 'agent:error', { text, code, key: messageKey || null, status: status || null });
+  // `limit` tells the window this failure can be resumed once the allowance is
+  // back: it is the only case where a Retry button makes sense, and the renderer
+  // should not have to re-guess provider wording to find out.
+  const limit = isLimitError({ text: raw, code });
+  sendTab(tabId, 'agent:error', { text, code, key: messageKey || null, status: status || null, limit });
   // Coarena's 402 for a model outside the free tier names the ones inside it.
   // Keep that sentence: it is the only free/paid signal its catalog lacks, and
   // it lets the picker stop advertising Claude to a free key.
@@ -2346,6 +2352,10 @@ function messagesForUi(messages) {
         out.push({
           kind: 'error',
           text: friendlyProviderError(m.errorMessage, { provider: m.provider }).text,
+          // Survives the repaint that the live banner does not: a spent allowance
+          // keeps its Retry button when the chat is switched away and back, so the
+          // way to continue is still there after looking at something else.
+          limit: isLimitError({ text: m.errorMessage }),
           ts: m.timestamp,
         });
       }
@@ -2436,6 +2446,7 @@ function tabState(tabId) {
     messages.push({
       kind: 'error',
       text: friendlyProviderError(failure.text, { provider: failure.provider }).text,
+      limit: isLimitError({ text: failure.text }),
       ts: Date.now(),
     });
   }
@@ -2965,6 +2976,7 @@ function skillRoots(cwd) {
     ['.free-pi', 'agent', 'skills'],
     ['.agents', 'skills'],
     ['.claude', 'skills'],
+    ['.codex', 'skills'],
     ['.cursor', 'skills'],
     ['.copilot', 'skills'],
     ['.gemini', 'skills'],
@@ -2992,20 +3004,31 @@ function skillRoots(cwd) {
   ];
   const roots = [path.join(DATA_ROOT, 'skills')];
   for (const parts of HOME_DIRS) roots.push(path.join(home, ...parts));
+  // A Claude Code plugin keeps its skills under `<plugin>/skills`, never in a
+  // `skills/` folder of its own. Adding the plugin folder as a root is what lets
+  // the walk below reach them, and on Windows clicking Install in a plugin
+  // marketplace is how plenty of people get a skill at all.
+  for (const dir of claudePluginDirs(home)) roots.push(dir);
   // Skills that arrived as a package do not sit in a skills folder: `pi install
   // github.com/obra/superpowers` clones the repo into
   // <agent dir>/git/<host>/<owner>/<repo>, and the skills are inside it. Without
   // these the user installs a collection and `/skill` still shows nothing.
+  const envAgentDir = process.env.PI_CODING_AGENT_DIR;
+  // DATA_ROOT is the agent dir this app hands the SDK, so `pi install` inside
+  // the app lands in `<DATA_ROOT>/npm` or `<DATA_ROOT>/git` — not in the CLI's
+  // home folder. Leaving it out meant a skill installed by the app itself was
+  // the one skill `/skill` could not see.
   const AGENT_DIRS = [
+    DATA_ROOT,
     path.join(home, '.pi', 'agent'),
     path.join(home, '.free-pi', 'agent'),
-  ];
+    envAgentDir,
+  ].filter(Boolean);
   for (const agentDir of AGENT_DIRS) {
     for (const dir of packagedSkillDirs(agentDir)) roots.push(dir);
   }
   // Someone who moved the agent dir with the documented env var keeps their
   // skills next to it, not in the default home path.
-  const envAgentDir = process.env.PI_CODING_AGENT_DIR;
   if (envAgentDir) roots.push(path.join(envAgentDir, 'skills'));
   if (cwd) {
     // The working directory first, then its parents up to the repository root:
@@ -3044,36 +3067,91 @@ function skillRoots(cwd) {
  */
 function packagedSkillDirs(agentDir) {
   const found = [];
-  const readDirs = (dir) => {
-    try {
-      return fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return [];
-    }
-  };
-  const isDir = (entry) => entry.isDirectory() || entry.isSymbolicLink();
   // git/<host>/<owner>/<repo>
   const gitDir = path.join(agentDir, 'git');
-  for (const host of readDirs(gitDir).filter(isDir)) {
-    const hostDir = path.join(gitDir, host.name);
-    for (const owner of readDirs(hostDir).filter(isDir)) {
-      const ownerDir = path.join(hostDir, owner.name);
-      for (const repo of readDirs(ownerDir).filter(isDir)) {
-        found.push(path.join(ownerDir, repo.name));
-      }
+  for (const host of dirsIn(gitDir)) {
+    const hostDir = path.join(gitDir, host);
+    for (const owner of dirsIn(hostDir)) {
+      const ownerDir = path.join(hostDir, owner);
+      for (const repo of dirsIn(ownerDir)) found.push(path.join(ownerDir, repo));
     }
   }
   // npm/node_modules/<pkg> and npm/node_modules/@scope/<pkg>
   const modulesDir = path.join(agentDir, 'npm', 'node_modules');
-  for (const entry of readDirs(modulesDir).filter(isDir)) {
-    if (entry.name.startsWith('@')) {
-      const scopeDir = path.join(modulesDir, entry.name);
-      for (const pkg of readDirs(scopeDir).filter(isDir)) found.push(path.join(scopeDir, pkg.name));
+  for (const entry of dirsIn(modulesDir)) {
+    if (entry.startsWith('@')) {
+      const scopeDir = path.join(modulesDir, entry);
+      for (const pkg of dirsIn(scopeDir)) found.push(path.join(scopeDir, pkg));
       continue;
     }
-    found.push(path.join(modulesDir, entry.name));
+    found.push(path.join(modulesDir, entry));
   }
   return found;
+}
+
+/**
+ * The plugin folders Claude Code installs into, the ones that ship skills.
+ *
+ * A plugin is never a `skills/` folder of its own: it is
+ * `~/.claude/plugins/cache/<marketplace>/<plugin>` (or `repos/<owner>/<repo>`,
+ * or `marketplaces/<name>/plugins/<plugin>`) and the skills sit in a `skills/`
+ * folder inside it. Only folders that really have one are returned, so the
+ * scan does not walk the plugin cache for nothing.
+ */
+function claudePluginDirs(home) {
+  const found = [];
+  const walk = (dir, depth) => {
+    if (depth < 0) return;
+    let hasSkills = false;
+    try {
+      hasSkills = fs.statSync(path.join(dir, 'skills')).isDirectory();
+    } catch {
+      hasSkills = false;
+    }
+    if (hasSkills) {
+      found.push(dir);
+      return;
+    }
+    for (const entry of readDirEntries(dir)) {
+      const child = path.join(dir, entry.name);
+      if (isDirEntry(entry, child)) walk(child, depth - 1);
+    }
+  };
+  walk(path.join(home, '.claude', 'plugins'), 4);
+  return found;
+}
+
+/** Entries of a folder, or none when it is missing or unreadable. */
+function readDirEntries(dir) {
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Is this entry a directory?
+ *
+ * `isDirectory()` answers false for a symlink, and on Windows it can also be
+ * false for a junction — which is how plenty of people install a skill. One
+ * `statSync` follows every kind of link and settles it; a broken one is not a
+ * folder, so the walk simply skips it.
+ */
+function isDirEntry(entry, fullPath) {
+  if (entry.isDirectory()) return true;
+  try {
+    return fs.statSync(fullPath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** Names of the subfolders of `dir`, symlinks and junctions included. */
+function dirsIn(dir) {
+  return readDirEntries(dir)
+    .filter((entry) => isDirEntry(entry, path.join(dir, entry.name)))
+    .map((entry) => entry.name);
 }
 
 /** Read `name:` and `description:` out of a SKILL.md frontmatter block. */
@@ -3126,8 +3204,11 @@ function scanSkills(roots) {
     return true;
   };
 
-  const walk = (dir, root, depth) => {
-    if (claim(dir, root)) return;
+  const walk = (dir, root, depth, isRoot = false) => {
+    // A root is a folder of skills, but it may ship a SKILL.md of its own (the
+    // reverse-skill collection does, at ~/.pi/agent/skills). Claiming it and
+    // stopping there hid every skill installed inside it.
+    if (claim(dir, root) && !isRoot) return;
     if (depth <= 0) return;
     let entries = [];
     try {
@@ -3138,15 +3219,9 @@ function scanSkills(roots) {
     for (const entry of entries) {
       if (SKILL_SKIP_DIRS.has(entry.name)) continue;
       const child = path.join(dir, entry.name);
-      let isDir = entry.isDirectory();
-      if (!isDir && entry.isSymbolicLink()) {
-        try {
-          isDir = fs.statSync(child).isDirectory();
-        } catch {
-          isDir = false;
-        }
-      }
-      if (isDir) walk(child, root, depth - 1);
+      // A junction on Windows and a symlink anywhere both report
+      // `isDirectory() === false`; statSync is the one check that follows them.
+      if (isDirEntry(entry, child)) walk(child, root, depth - 1);
     }
   };
 
@@ -3157,16 +3232,51 @@ function scanSkills(roots) {
       continue;
     }
     scanned.push(root);
-    walk(root, root, SKILL_SCAN_DEPTH);
+    walk(root, root, SKILL_SCAN_DEPTH, true);
   }
 
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Every skill file name the palette has seen this run, so a skill that appears
+// while the app is open can be handed to the sessions already running.
+const seenSkillKeys = new Set();
+let skillsScanBefore = false;
+
 ipcMain.handle('skills:list', async (_event, opts) => {
   const cwd = typeof opts?.cwd === 'string' ? opts.cwd : '';
-  return scanSkills(skillRoots(cwd));
+  const roots = skillRoots(cwd);
+  const found = scanSkills(roots);
+  const keys = found.map((skill) => `${skill.name}\u0000${skill.path}`);
+  const isNew = keys.some((key) => !seenSkillKeys.has(key));
+  for (const key of keys) seenSkillKeys.add(key);
+  // First scan of the run is the baseline: every open tab already read these
+  // folders when it started. Only a later addition is worth reloading for.
+  if (skillsScanBefore && isNew) syncSkillsToTabs(found, roots);
+  skillsScanBefore = true;
+  return found;
 });
+
+/**
+ * Teach open sessions about skills that appeared on disk after they started.
+ *
+ * The palette rescans every time `/skill` opens, but `/skill:name` expands
+ * against the list the session loaded when the tab was created — an unknown
+ * name is passed through to the model as plain text. Handing over the folders
+ * the scan just found is what makes a skill installed a minute ago usable in
+ * the chat that is already open, on the next message.
+ */
+function syncSkillsToTabs(found, roots) {
+  const paths = new Set(roots);
+  for (const skill of found) paths.add(path.dirname(path.dirname(skill.path)));
+  for (const [, openTab] of tabs) {
+    safeCall(() => {
+      const done = openTab.handle?.refreshSkills?.([...paths]);
+      if (done && typeof done.catch === 'function') done.catch(() => {});
+      return null;
+    }, null);
+  }
+}
 
 
 function deriveName(messages, cwd) {
@@ -3454,6 +3564,19 @@ ipcMain.handle('app:quit', async () => {
   return { ok: true };
 });
 
+/*
+ * `/reload` — restart the program instead of asking the user to close and open it
+ * again. The skill list and every line of this file are read at launch, so a skill
+ * installed (or a fix pulled) while the window was open needs a fresh process.
+ */
+ipcMain.handle('app:relaunch', async () => {
+  app.relaunch();
+  // Answered first, then quit: the renderer must not be left waiting on a window
+  // that is already closing.
+  setTimeout(() => app.quit(), 200);
+  return { ok: true };
+});
+
 /**
  * The theme, answered synchronously.
  *
@@ -3470,12 +3593,20 @@ ipcMain.handle('app:boot', async () => {
   migrateLegacyPrefs();
   const prefs = readPrefs();
   const lastCwd = prefs.lastCwd && fs.existsSync(prefs.lastCwd) ? prefs.lastCwd : null;
-  const sessions = lastCwd ? await listSessions(lastCwd) : [];
-  bootTrace(`app:boot served in ${Date.now() - startedAt}ms (${sessions.length} sessions listed)`);
+  /*
+   * The chat list is deliberately not read here.
+   *
+   * It used to be: `listSessions()` parsed every file in the history folder
+   * before this reply could go out, which put the whole store in front of the
+   * first tab being restored — the window sat on its skeleton while nothing but a
+   * sidebar was being paid for. The renderer never read `sessions` off this reply
+   * anyway; `renderSessions()` asks `session:list` for it once the window is up.
+   */
+  bootTrace(`app:boot served in ${Date.now() - startedAt}ms`);
   return {
     lastCwd,
     version: app.getVersion(),
-    sessions,
+    sessions: [],
     openTabs: Array.isArray(prefs.openTabs) ? prefs.openTabs : [],
     lang: initialLang(prefs),
     theme: readTheme(),
@@ -5463,6 +5594,63 @@ ipcMain.handle('prompt:takeBack', async (_e, tabId) => {
   }));
   if (res?.ok) afterHistoryChange(id);
   return { ok: Boolean(res?.ok), reason: res?.ok ? null : res?.reason || 'busy' };
+});
+
+/**
+ * Retry the turn that just stopped, without asking the user to type anything.
+ *
+ * An out-of-credits turn ends with the question already on screen and nowhere to
+ * put it: pressing Send again would file the same message a second time, and
+ * retyping it is the tax this removes. So a retry starts a turn from a *custom*
+ * message — it reaches the model as the continuation instruction, and
+ * `display: false` keeps it out of the transcript, so the answer simply arrives
+ * under the question the reader already asked.
+ *
+ * The session must be idle: a retry pressed while something runs would queue a
+ * second turn at the wrong place. It is refused rather than queued, and the
+ * window says so.
+ */
+const RETRY_TURN_CUSTOM_TYPE = 'ntapi.retry-turn';
+
+ipcMain.handle('prompt:retry', async (_e, tabId) => {
+  const { tabId: id, tab } = tabFor(tabId);
+  const session = tab?.handle?.session;
+  if (!session) return { ok: false, reason: 'no-session' };
+  if (session.isStreaming) return { ok: false, reason: 'busy' };
+  if (typeof session.sendCustomMessage !== 'function') return { ok: false, reason: 'unsupported' };
+
+  // A retry is a new attempt at this turn, so the limit written down for the
+  // failed one is forgotten: it must not be reported again as this attempt's
+  // own failure, and the queue hold belongs to the attempt that ended.
+  tab.promptSeq = (tab.promptSeq || 0) + 1;
+  tab.limitFailure = null;
+  tab.lastError = null;
+  // A draft with no prompts: if this attempt is also cut short, only the part of
+  // the answer that arrived exists to put back — the question is already stored.
+  tab.turnDraft = { prompts: [], assistant: '', thinking: '', tools: [], done: false };
+  tab.busy = true;
+  sendTab(id, 'agent:busy', { busy: true });
+
+  const text =
+    'The previous turn stopped before it finished — the provider ran out of allowance or quota. ' +
+    'Retry that request now from the beginning, using the conversation above as the task. ' +
+    'Do not ask the user to repeat anything, and do not start a different task.';
+
+  try {
+    await session.sendCustomMessage(
+      {
+        customType: RETRY_TURN_CUSTOM_TYPE,
+        content: [{ type: 'text', text }],
+        display: false,
+      },
+      { triggerTurn: true }
+    );
+  } catch (err) {
+    tab.busy = false;
+    sendTab(id, 'agent:busy', { busy: false });
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+  return { ok: true };
 });
 
 /** Tokens/context for the meter. Cheap: no network, reads the session in memory. */

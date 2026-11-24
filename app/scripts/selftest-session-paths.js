@@ -85,7 +85,9 @@ expect((mainSrc.match(/savedWorkspace\(\)/g) || []).length >= 5, 'every workspac
  * written on another machine. The app has to read the folder and match by
  * history-folder name instead.
  */
-expect(/SessionManager\.listAll\(dir\)/.test(mainSrc), 'the sidebar reads the whole history folder');
+// The folder is still read whole (not an exact-cwd SDK listing), but through
+// the incremental index, so each chat is parsed once instead of on every open.
+expect(/readSessionInfos\(dir\)/.test(mainSrc), 'the sidebar reads the whole history folder');
 expect(/sameWorkspace\(i\.cwd, cwd\)/.test(mainSrc), 'a listed chat is matched by history folder, not by path spelling');
 expect(!/SessionManager\.list\(path\.resolve\(cwd\), dir\)/.test(mainSrc), 'no exact-cwd listing is left behind');
 expect(!/sdk\.SessionManager\.continueRecent/.test(mainSrc), 'resuming does not rely on an exact-cwd match');

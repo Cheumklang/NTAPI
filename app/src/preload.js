@@ -171,6 +171,8 @@ contextBridge.exposeInMainWorld('freepi', {
     ipcRenderer.invoke('prompt:send', { tabId, text, images, mode }),
   abort: (tabId) => ipcRenderer.invoke('prompt:abort', tabId),
   takeBackPrompt: (tabId) => ipcRenderer.invoke('prompt:takeBack', tabId),
+  // Resume the turn that just stopped on a spent allowance, from the window.
+  retryPrompt: (tabId) => ipcRenderer.invoke('prompt:retry', tabId),
   setModel: (tabId, provider, id) => ipcRenderer.invoke('model:set', { tabId, provider, id }),
   fetchUsage: () => ipcRenderer.invoke('usage:fetch'),
   // USD → THB for the token panel's cost line (memoised for six hours).
@@ -265,6 +267,8 @@ contextBridge.exposeInMainWorld('freepi', {
   authOpenBrowser: () => ipcRenderer.invoke('auth:openBrowser'),
   authCopyCode: () => ipcRenderer.invoke('auth:copyCode'),
   copyText: (text) => ipcRenderer.invoke('app:copyText', String(text ?? '')),
+  // `/reload`: a fresh process, so new skills and pulled code are read.
+  relaunch: () => ipcRenderer.invoke('app:relaunch'),
   onAuthStatus: on('auth:status'),
 
   // Custom frameless window controls.

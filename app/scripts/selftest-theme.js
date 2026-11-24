@@ -265,5 +265,73 @@ check('the white used on filled controls is a token', /--on-accent:\s*#ffffff/.t
 // theme and made the empty-state line pale on pale.
 check('app.js sets no literal text colour', !/color:\s*#[0-9a-f]{6}/i.test(app));
 
+/* ------- 8. light-theme overrides for colours written for a dark surface ---- */
+
+// These rules kept their pale dark-theme literals after the light palette was
+// introduced: headings, links, inline code and the syntax palette were readable
+// on #0f1115 and invisible on #f5f6fa. A real window measured 1.0–2.4:1 for
+// them, so each one is pinned here — both that the override exists and that the
+// colour it uses clears AA on white.
+const lightOverrides = [
+  ['.md h2', '.md h2'],
+  ['.md .md-link', '.md .md-link'],
+  ['.md .md-code-inline', '.md .md-code-inline'],
+  ['.hl-kw', '.hl-kw'],
+  ['.hl-str', '.hl-str'],
+  ['.hl-num', '.hl-num'],
+  ['.hl-com', '.hl-com'],
+  ['.hl-fn', '.hl-fn'],
+  ['.hl-tag', '.hl-tag'],
+  ['.act-chip', '.act-chip'],
+  ['.tools-latest .latest-name', '.tools-latest .latest-name'],
+  ['.file-icon', '.file-icon'],
+  ['.activity-line.bad', '.activity-line.bad'],
+  ['.model-plan.free', '.model-plan.free'],
+  ['.model-option-check', '.model-option-check'],
+  ['.crash-notice', '.crash-notice'],
+  ['.settings-datadir .mono', '.settings-datadir .mono'],
+  ['.about-copyright', '.about-copyright'],
+  ['.chip-btn.approval-chip[data-policy=allow]', "[data-policy='allow']"],
+  ['.ntfy-note.error', '.ntfy-note.error'],
+];
+const lateRules = css.slice(css.lastIndexOf("html[data-theme='light'] .md h2"));
+for (const [name, needle] of lightOverrides) {
+  check(`light mode re-points ${name}`, lateRules.includes(needle));
+}
+// The sixth one that mattered: a filled control still has to read when disabled.
+check('light mode keeps a disabled control readable', /html\[data-theme='light'\] \.think-btn:disabled \{ opacity: \.9/.test(css));
+
+// A field is the other half of the same bug: `color: var(--text)` on a literal
+// #0e131c stayed near-black in light mode, so the mcp.json editor was a black
+// box you could type into but not read. A surface that holds theme text must be
+// a token; only the dark theme may hard-code its own shade.
+const mcpField = /\.mcp-config \{([^}]*)\}/.exec(css)?.[1] || '';
+check('the mcp.json editor paints a themed surface', /background:\s*var\(--surface-1\)/.test(mcpField));
+check('and no literal dark surface', !/background:\s*#[0-9a-f]{3,6}/i.test(mcpField));
+check('the model group hover is themed', /\.model-group-head:hover \{ background: var\(--surface-3\); \}/.test(css));
+check('the dark theme keeps its own hover shade', /html\[data-theme='dark'\] \.model-group-head:hover \{ background: #1c2231; \}/.test(css));
+check('the active palette row is themed', /\.palette-item\.active \{ background: var\(--surface-3\);/.test(css));
+check('the dark theme keeps its own active row', /html\[data-theme='dark'\] \.palette-item\.active \{ background: #262b3d; \}/.test(css));
+check(
+  'the light overrides come after the rules they replace',
+  css.lastIndexOf("html[data-theme='light'] .md h2") > css.indexOf('.hl-kw {'),
+);
+
+// The literals used in those overrides, measured on white and on the tinted card
+// they sit on. A value picked by eye is how #b3a4ff got there in the first place.
+for (const [hex, on, label] of [
+  ['#6d28d9', '#ffffff', 'a keyword'],
+  ['#0f7a52', '#ffffff', 'a string'],
+  ['#9a4b00', '#ffffff', 'a number'],
+  ['#1b4fa8', '#ffffff', 'a function name'],
+  ['#b3203f', '#ffffff', 'a tag or a removed line'],
+  ['#0b6444', '#dbeced', 'the free badge'],
+]) {
+  const fg = parseHex(hex);
+  const bg = parseHex(on);
+  const ratio = fg && bg ? contrast(fg, bg) : 0;
+  check(`${label} in light mode is ${ratio.toFixed(2)}:1 on ${on} (needs 4.5)`, ratio >= 4.5);
+}
+
 console.log(failures === 0 ? '\nAll theme checks passed.' : `\n${failures} theme check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

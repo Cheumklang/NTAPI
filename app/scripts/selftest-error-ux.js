@@ -192,6 +192,85 @@ check(
   /\n\.error-banner \{[^}]*cursor:\s*pointer/.test(css) && /\n\.error-banner\.out \{[^}]*opacity:\s*0/.test(css)
 );
 
+// 9. A spent allowance is a pause, not a dead end.
+//
+// The turn stops with the question already on screen. Asking the user to retype
+// it (or to press Send, which files it a second time) is the tax this removes:
+// the red line for a limit failure stays put and carries one Retry button that
+// resumes the same request in place.
+const onErrorBody = bodyOf('api.onError') || source.slice(source.indexOf('api.onError(('));
+check(
+  'a limit failure is the only one that offers a retry',
+  /p\.limit \? \{ onRetry: \(\) => retryTurn\(view\) \} : \{\}/.test(source)
+);
+check(
+  'the resumable line does not fade away before the reader acts',
+  Boolean(errorBanner) && /if \(!onRetry\) setTimeout\(dismiss, ERROR_BANNER_MS\)/.test(errorBanner)
+);
+check(
+  'the retry button does not bubble up and dismiss its own banner',
+  Boolean(errorBanner) && /e\.stopPropagation\(\)/.test(errorBanner) && /error-retry/.test(errorBanner)
+);
+const retryTurn = bodyOf('retryTurn');
+check('the retry runs through its own IPC call', Boolean(retryTurn) && /api\.retryPrompt\(view\.tabId\)/.test(retryTurn));
+check(
+  'a refused retry says why instead of going silent',
+  Boolean(retryTurn) && /errorRetryBusy/.test(retryTurn) && /errorRetryFailed/.test(retryTurn)
+);
+const retryCss = css.match(/\n\.error-banner-retry \{[\s\S]*?\n\}/);
+check('the resumable banner is laid out as a column', Boolean(retryCss) && /flex-direction:\s*column/.test(retryCss[0]));
+check(
+  'the banner itself is no longer an invitation to click it away',
+  Boolean(retryCss) && /cursor:\s*default/.test(retryCss[0])
+);
+check(
+  'the retry button reads as the failure\'s own action',
+  /\n\.error-banner-actions \.error-retry \{[^}]*color:\s*var\(--danger\)/.test(css)
+);
+
+// The main process is the half that can actually resume: it starts a turn from a
+// hidden continuation message, so the same prompt is not stored twice.
+const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
+const preloadSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
+check(
+  'the error event says whether the failure is a spent allowance',
+  /sendTab\(tabId, 'agent:error', \{[\s\S]{0,220}?limit\s*[,}]/.test(mainSource) &&
+    /const limit = isLimitError\(\{ text: raw, code \}\)/.test(mainSource)
+);
+const retryHandler = mainSource.slice(mainSource.indexOf("ipcMain.handle('prompt:retry'"));
+check('the main process can retry a turn', retryHandler.length > 0);
+check(
+  'the retry continues without a second visible message',
+  /sendCustomMessage\([\s\S]{0,320}?display: false[\s\S]{0,80}?\{ triggerTurn: true \}/.test(retryHandler)
+);
+check(
+  'an idle session is required, so two turns never overlap',
+  /if \(session\.isStreaming\) return \{ ok: false, reason: 'busy' \}/.test(retryHandler)
+);
+check(
+  'the window can reach it',
+  /retryPrompt: \(tabId\) => ipcRenderer\.invoke\('prompt:retry', tabId\)/.test(preloadSource)
+);
+check('the retry banner is wired from the error handler', Boolean(onErrorBody));
+
+// The live banner is not the only place the failure appears: switching chats
+// repaints the transcript from the session, so the retry has to survive that
+// round trip. Only the newest entry may offer it — an older failure sits under an
+// answer that already went through.
+check(
+  'a replayed limit failure keeps its retry',
+  /const resumable = Boolean\(m\.limit\) && messages\[messages\.length - 1\] === m && !view\.busy/.test(source) &&
+    /appendErrorBanner\(m\.text, false, resumable \? \{ onRetry: \(\) => retryTurn\(view\) \} : \{\}\)/.test(source)
+);
+check(
+  'history entries carry the limit flag from the session message',
+  /limit: isLimitError\(\{ text: m\.errorMessage \}\)/.test(mainSource)
+);
+check(
+  'the synthetic settle-time failure carries it too',
+  /limit: isLimitError\(\{ text: failure\.text \}\)/.test(mainSource)
+);
+
 const crashNotice = bodyOf('showCrashNotice');
 check('the crash banner can be read out of the renderer', Boolean(crashNotice));
 check(

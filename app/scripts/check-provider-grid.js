@@ -29,7 +29,7 @@ function check(name, ok, detail) {
 }
 
 // A-Z by the name on the tile, which is what the grid has to show.
-const TILE_ORDER = ['anthropic', 'cloudflare', 'coarena', 'deepseek', 'freepi', 'google', 'llamacpp', 'llm7', 'nvidia', 'openrouter', 'tokenharbor', 'zai', 'zro'];
+const TILE_ORDER = ['anthropic', 'cloudflare', 'coarena', 'deepseek', 'freepi', 'google', 'llm7', 'nvidia', 'openrouter', 'tokenharbor', 'zai', 'zro'];
 
 /** Statuses the stubbed main process reports: two keys saved, the rest empty. */
 function status(configured) {
@@ -91,6 +91,9 @@ app.whenReady().then(async () => {
 
     const grid = el('providerGrid');
     const tiles = [...grid.querySelectorAll('.provider-tile')];
+    const localCard = document.querySelector('#llamacppRow');
+    const localCardAboveGrid = Boolean(localCard && localCard.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const localCardLayout = localCard ? getComputedStyle(localCard).display : '';
     const detail = el('providerDetail');
     const visibleCards = () => [...document.querySelectorAll('#providerDetail .provider-card')].filter((c) => !c.hidden);
     const rect = (node) => {
@@ -214,6 +217,8 @@ app.whenReady().then(async () => {
 
     return {
       tiles: tiles.length,
+      localCardAboveGrid,
+      localCardLayout,
       columns: firstRow,
       gridWidth: Math.round(grid.getBoundingClientRect().width),
       marksOk: marks.every((m) => /^assets\\/providers\\/.+\\.(svg|png)$/.test(m)),
@@ -238,7 +243,9 @@ app.whenReady().then(async () => {
     };
   })()`);
 
-  check('thirteen provider tiles', result.tiles === 13, result.tiles);
+  check('twelve provider tiles without a duplicate llama.cpp tile', result.tiles === 12 && !result.order.includes('llamacpp'), { count: result.tiles, order: result.order });
+  check('llama.cpp details sit above the provider grid', result.localCardAboveGrid, result.localCardAboveGrid);
+  check('llama.cpp uses a visible dedicated-card layout', result.localCardLayout !== 'none', result.localCardLayout);
   check('tiles run A-Z by the name they show', JSON.stringify(result.order) === JSON.stringify(TILE_ORDER), result.order);
   check('FreePi is a tile like the others', result.freepiTile && result.freepiTile.logo && result.freepiTile.name === 'FreePi', result.freepiTile);
   check('FreePi has no card above the grid', result.freepiAboveGrid === false, result.freepiAboveGrid);

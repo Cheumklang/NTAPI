@@ -204,8 +204,12 @@ check('/skill is offered in the command palette',
   /name: '\/skill',/.test(SOURCE));
 check('the list is warmed at boot so the first /skill is instant',
   /setTimeout\(\(\) => loadSkills\(\), 0\);/.test(SOURCE));
+// `force` matters: the menu used to keep whatever the boot scan found for the
+// whole run, so a skill installed with the app already open never appeared.
 check('a skill installed later is picked up without a restart',
-  /loadSkills\(\)\.then\(\(\) => \{/.test(SOURCE));
+  /loadSkills\(\{ force: true \}\)\.then\(\(\) => \{/.test(SOURCE));
+check('the menu rescans a list older than a couple of seconds',
+  /Date\.now\(\) - skillsAt > SKILLS_MENU_REFRESH_MS/.test(SOURCE));
 // Rebuilt on every keystroke, so comparing entries by identity would drop the
 // highlight back to the first row each time the query grew.
 check('the highlight survives the entries being rebuilt',

@@ -65,6 +65,10 @@ const STRINGS = {
     // Browser control (chip next to the language button).
     errorPrefix: 'Error',
     errorBannerClose: 'Click to dismiss this error',
+    errorRetry: 'Retry',
+    errorRetryHint: 'Run the last request again — no need to retype it',
+    errorRetryBusy: 'Still working — press Retry when this turn finishes.',
+    errorRetryFailed: 'Could not restart that turn.',
     compactTitle: 'Conversation compaction',
     compactEnabled: 'Summarize long conversations automatically',
     compactKeepLabel: 'Recent tokens kept word for word',
@@ -719,6 +723,10 @@ const STRINGS = {
     // Browser control (chip next to the language button).
     errorPrefix: 'ข้อผิดพลาด',
     errorBannerClose: 'กดเพื่อปิดข้อความนี้',
+    errorRetry: 'ลองอีกครั้ง',
+    errorRetryHint: 'ส่งคำขอล่าสุดซ้ำให้ ไม่ต้องพิมพ์ใหม่',
+    errorRetryBusy: 'ยังทำงานอยู่ — กดลองอีกครั้งเมื่อเทิร์นนี้จบ',
+    errorRetryFailed: 'เริ่มเทิร์นเดิมซ้ำไม่สำเร็จ',
     compactTitle: 'การย่อบทสนทนา',
     compactEnabled: 'ย่อบทสนทนายาวให้เองอัตโนมัติ',
     compactKeepLabel: 'จำนวน token ท้ายบทสนทนาที่เก็บไว้ตามเดิม',
@@ -3846,7 +3854,11 @@ function renderActiveTab() {
       }
     } else if (m.kind === 'error') {
       // Replayed from history: keep the failure visible instead of a blank turn.
-      appendErrorBanner(m.text, false);
+      // Only the last entry is the turn that just stopped — an older failure has
+      // an answer under it that already went through, so offering Retry there
+      // would re-run a request the reader has moved past.
+      const resumable = Boolean(m.limit) && messages[messages.length - 1] === m && !view.busy;
+      appendErrorBanner(m.text, false, resumable ? { onRetry: () => retryTurn(view) } : {});
       currentAssistant = null;
     } else if (m.kind === 'tool') {
       const target = currentAssistant?.querySelector('.tools');
@@ -9188,6 +9200,7 @@ function skillSearchHint() {
     '~/.claude/skills',
     '~/.agents/skills',
     '~/.cursor/skills',
+    '~/.codex/skills',
     '~/.copilot/skills',
     '~/.gemini/skills',
     '~/.continue/skills',
@@ -9263,10 +9276,13 @@ function updateSlashMenu() {
   const text = input.value;
   const skillMatch = SKILL_SLASH_RE.exec(text);
   if (skillMatch) {
-    if (!skillsCache) {
-      // First time in this run the scan crosses IPC, so paint the list as soon
-      // as it lands rather than leaving the menu empty under the cursor.
-      loadSkills().then(() => {
+    // Rescan when the list is empty or older than a couple of seconds: the menu
+    // is where a skill installed a moment ago has to show up, and holding the
+    // boot-time list for the life of the window is what hid it. The second pass
+    // re-renders once the fresh rows are in hand; `skillsAt` then keeps the next
+    // keystroke from scanning again.
+    if (!skillsCache || Date.now() - skillsAt > SKILLS_MENU_REFRESH_MS) {
+      loadSkills({ force: true }).then(() => {
         if (SKILL_SLASH_RE.test(input.value)) updateSlashMenu();
       });
     }
@@ -12292,11 +12308,42 @@ api.onCompaction?.((p) => {
 /** How long a red line in the transcript stays before it goes away by itself. */
 const ERROR_BANNER_MS = 15_000;
 
-/** A failed turn is invisible otherwise: the assistant message has no text. */
-function appendErrorBanner(text, scroll = true) {
+/**
+ * A failed turn is invisible otherwise: the assistant message has no text.
+ *
+ * `options.onRetry` makes the line resumable instead of merely dismissible: a
+ * spent allowance or a daily cap is a wait, not a dead end, so the banner stays
+ * put and offers the one action that continues the work — running the same
+ * request again once the credits are back, without the user retyping anything.
+ */
+function appendErrorBanner(text, scroll = true, options) {
+  const onRetry = typeof options?.onRetry === 'function' ? options.onRetry : null;
   const div = document.createElement('div');
-  div.className = 'error-banner';
-  div.textContent = `${t('errorPrefix')}: ${text}`;
+  div.className = `error-banner${onRetry ? ' error-banner-retry' : ''}`;
+  const body = document.createElement('span');
+  body.className = 'error-banner-text';
+  body.textContent = `${t('errorPrefix')}: ${text}`;
+  div.appendChild(body);
+  if (onRetry) {
+    const actions = document.createElement('div');
+    actions.className = 'error-banner-actions';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'ghost small error-retry';
+    retry.textContent = t('errorRetry');
+    retry.title = t('errorRetryHint');
+    // The button sits inside a banner that dismisses when clicked, so its own
+    // click must not bubble out and remove the line before it can run.
+    retry.addEventListener('click', (e) => {
+      e.stopPropagation();
+      retry.disabled = true;
+      Promise.resolve(onRetry()).finally(() => {
+        retry.disabled = false;
+      });
+    });
+    actions.appendChild(retry);
+    div.appendChild(actions);
+  }
   // A red line is only useful while it is news. A flaky provider can produce one
   // per attempt, and a stack of them buries the conversation it was meant to
   // explain — so one click removes one at once, and fifteen seconds removes it
@@ -12315,12 +12362,33 @@ function appendErrorBanner(text, scroll = true) {
     e.preventDefault();
     dismiss();
   });
-  setTimeout(dismiss, ERROR_BANNER_MS);
+  // A resumable line is news the reader acts on, so it waits for them: only a
+  // plain failure fades on its own.
+  if (!onRetry) setTimeout(dismiss, ERROR_BANNER_MS);
   transcript.appendChild(div);
   // Only follow a reader who is already at the bottom; someone scrolled up to
   // read is never yanked away by an error.
   if (scroll) scrollToBottom();
   return div;
+}
+
+/**
+ * Resume the turn that just stopped on a spent allowance.
+ *
+ * Nothing is retyped and nothing is filed twice: the main process starts the
+ * turn from a hidden continuation message, so the answer lands under the
+ * question that is already on screen.
+ */
+async function retryTurn(view) {
+  if (!view) return;
+  const res = await api.retryPrompt(view.tabId).catch((err) => ({ ok: false, reason: errorText(err) }));
+  if (!res?.ok) {
+    showNotice(res?.reason === 'busy' ? t('errorRetryBusy') : t('errorRetryFailed'));
+    return;
+  }
+  // The line has done its job; the turn is running again. A repaint would drop
+  // it anyway, and leaving it here would read as "still failing".
+  for (const node of transcript.querySelectorAll('.error-banner-retry')) node.remove();
 }
 
 api.onError((p) => {
@@ -12342,7 +12410,14 @@ api.onError((p) => {
   // failure has no translated sentence. Appending it again printed it twice:
   // "... service_busy) (HTTP 503 · service_busy)".
   const suffix = p.key && p.status ? ` (HTTP ${p.status}${p.code ? ` · ${p.code}` : ''})` : '';
-  appendErrorBanner(`${body}${suffix}`);
+  // A spent allowance or a cap is the one failure the app can resume on the
+  // user's behalf, so it carries a Retry button; everything else stays a plain
+  // red line that fades.
+  appendErrorBanner(
+    `${body}${suffix}`,
+    true,
+    p.limit ? { onRetry: () => retryTurn(view) } : {}
+  );
 });
 
 
@@ -14549,11 +14624,19 @@ setTimeout(() => loadSkills(), 0);
 let skillsAt = 0;
 let skillsPromise = null;
 const SKILLS_TTL_MS = 60_000;
+// How stale the list may be before `/skill` rescans it. The scan crosses IPC and
+// walks a couple of dozen folders, so it is not run on every keystroke — but a
+// minute of "I just installed it and it is not there" is exactly the report this
+// fixes. Warmer paths (`@`, sending) keep the longer TTL; the menu itself is the
+// one place a person looks right after installing something.
+const SKILLS_MENU_REFRESH_MS = 2_000;
 
-async function loadSkills() {
+async function loadSkills(options) {
   // A skill installed while the app is open should appear without a restart;
-  // 60 s keeps the IPC scan off every keystroke.
-  if (skillsCache && Date.now() - skillsAt < SKILLS_TTL_MS) return skillsCache;
+  // 60 s keeps the IPC scan off every keystroke. `force` skips that window for
+  // the caller that has a reason to believe the disk changed.
+  const force = options === true || Boolean(options?.force);
+  if (!force && skillsCache && Date.now() - skillsAt < SKILLS_TTL_MS) return skillsCache;
   if (skillsPromise) return skillsPromise;
   skillsPromise = (async () => {
     try {

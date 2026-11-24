@@ -92,6 +92,13 @@ function scanSkills() {
 const skills = scanSkills();
 ipcMain.handle('skills:list', () => skills);
 
+// `/reload` restarts the program. Counted here instead of really restarting it.
+let relaunchCalls = 0;
+ipcMain.handle('app:relaunch', () => {
+  relaunchCalls += 1;
+  return { ok: true };
+});
+
 app.whenReady().then(async () => {
   const win = new BrowserWindow({
     show: false,
@@ -203,9 +210,24 @@ app.whenReady().then(async () => {
     await wait(200);
     const afterReset = { note: skillNotesMap()[first] && skillNotesMap()[first].note, pinned: Boolean(skillNotesMap()[first] && skillNotesMap()[first].pinned) };
 
+    // `/reload` restarts the program, and refuses while a turn is running so the
+    // answer being streamed is not lost with the process.
+    await type('/reload');
+    const reloadRow = read();
+    await choose();
+    await wait(150);
+    const idleReload = input.value;
+    views.set('probe-busy', { busy: true });
+    await type('/reload');
+    await choose();
+    await wait(150);
+    const busyToast = [...document.querySelectorAll('.toast-body')].map((n) => n.textContent);
+    views.delete('probe-busy');
+
     return { roster: skillsCache ? skillsCache.length : -1, palette, all, filtered, none,
              colonAll, colonFiltered, picked, box: boxAfterPick, menuAfterPick,
              prose, pinned, byNote, stored, firstName: first,
+             reload: { rows: reloadRow.names, box: idleReload, busyToast },
              editor: { visible: editorVisible, afterSave, afterReset } };
   } catch (err) { return { error: String(err), stack: String(err && err.stack) }; }
   })()`);
@@ -275,6 +297,15 @@ app.whenReady().then(async () => {
     out.editor.afterReset.note === undefined && out.editor.afterReset.pinned === true,
     out.editor.afterReset);
   check('pinning and describing never touches a skill file', changed.length === 0, changed);
+
+  check('/reload is in the palette', out.reload.rows.includes('/reload'), out.reload.rows);
+  check('/reload restarts once when nothing is running', relaunchCalls === 1 && out.reload.box === '', {
+    relaunchCalls,
+    box: out.reload.box,
+  });
+  check('a running turn is never restarted out from under the user',
+    relaunchCalls === 1 && out.reload.busyToast.some((t) => /\/stop/.test(t)),
+    out.reload.busyToast);
 
   fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true });
   console.log(failures ? `\n${failures} check(s) failed` : '\nAll skill menu checks passed');

@@ -2676,6 +2676,30 @@ async function createFreePiSession(options) {
       return { ...settings, contextWindow: Number(session.model?.contextWindow) || 0 };
     },
 
+    /**
+     * Let a session that is already open see skills that appeared after it
+     * started. `/skill` rescans on every open, but `/skill:name` expands against
+     * this session's own list — without this, a skill installed a minute ago
+     * would be listed by the menu and then sent to the model as literal text.
+     *
+     * `extendResources` merges the folders and re-reads them; it does not touch
+     * extensions, so a running turn is not disturbed. Returns how many skills
+     * the session can see now, which nothing depends on but is useful in a log.
+     */
+    refreshSkills(paths) {
+      const skillPaths = (Array.isArray(paths) ? paths : [])
+        .filter((dir) => typeof dir === 'string' && dir.trim())
+        .map((dir) => ({ path: dir, metadata: { source: 'app', scope: 'user', origin: 'top-level' } }));
+      if (!skillPaths.length) return 0;
+      try {
+        session.resourceLoader.extendResources({ skillPaths });
+        return session.resourceLoader.getSkills().skills.length;
+      } catch (err) {
+        log(`skill reload failed: ${err instanceof Error ? err.message : String(err)}`);
+        return 0;
+      }
+    },
+
     todoItems: () => todoState.items,
 
     async setModel(provider, modelId) {

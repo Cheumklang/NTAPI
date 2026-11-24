@@ -99,7 +99,7 @@ app.whenReady().then(async () => {
   await new Promise((r) => setTimeout(r, 800));
 
   // Paint the picker the way the tab state would, and time it.
-  const painted = await win.webContents.executeJavaScript(`(() => {
+  const painted = await win.webContents.executeJavaScript(`(async () => {
     el('termsOverlay').hidden = true;
     const models = ${JSON.stringify(MODELS)};
     const t0 = performance.now();
@@ -108,7 +108,15 @@ app.whenReady().then(async () => {
     openModelMenu();
     const rows = document.querySelectorAll('#modelList .model-option').length;
     const groups = document.querySelectorAll('#modelList .model-group').length;
-    return { renderMs: Math.round(renderMs), rows, groups };
+    const collapseAll = el('modelCollapseAll');
+    const collapseAllExists = Boolean(collapseAll);
+    if (collapseAll) {
+      collapseAll.click();
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    const allCollapsed = [...document.querySelectorAll('#modelList .model-group')]
+      .every((group) => group.classList.contains('collapsed') && group.querySelector('.model-group-body').hidden);
+    return { renderMs: Math.round(renderMs), rows, groups, collapseAllExists, allCollapsed };
   })()`).catch((err) => ({ error: err.message }));
 
   if (painted.error) {
@@ -118,6 +126,7 @@ app.whenReady().then(async () => {
     check('a whole catalog renders as rows', painted.rows === MODELS.length, painted);
     check('it renders fast enough to open a menu', painted.renderMs < 1200, painted.renderMs);
     check('the providers stay grouped', painted.groups === 3, painted.groups);
+    check('collapse-all button folds every provider', painted.collapseAllExists && painted.allCollapsed, painted);
   }
 
   // Search and the free-only tick must still narrow 514 rows.

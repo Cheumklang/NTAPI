@@ -1230,7 +1230,8 @@ button { font-family: inherit; }
   text-align: left;
   cursor: pointer;
 }
-.model-group-head:hover { background: #1c2231; }
+.model-group-head:hover { background: var(--surface-3); }
+html[data-theme='dark'] .model-group-head:hover { background: #1c2231; }
 .model-group-head:focus-visible { outline: 2px solid #7c5cff; outline-offset: -2px; }
 .model-group-chev {
   flex: 0 0 10px;
@@ -1997,6 +1998,34 @@ mark.tx-hit.is-current {
 .error-banner:hover { border-color: rgba(255,95,109,.55); }
 .error-banner:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .error-banner.out { opacity: 0; }
+
+/*
+ * A failure the app can resume: an empty allowance is a wait, not a dead end.
+ *
+ * The line stays instead of fading (the reader may be off topping up credits),
+ * and it carries the one action that continues the work, so the question already
+ * on screen never has to be typed a second time. It is a column so a long
+ * provider sentence keeps the full width and the button sits below it.
+ */
+.error-banner-retry {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  cursor: default;
+}
+.error-banner-retry .error-banner-text { display: block; }
+.error-banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.error-banner-actions .error-retry {
+  color: var(--danger);
+  border-color: rgba(255, 95, 109, .45);
+  background: rgba(255, 95, 109, .12);
+  font-weight: 600;
+}
+.error-banner-actions .error-retry:hover {
+  border-color: rgba(255, 95, 109, .7);
+  background: rgba(255, 95, 109, .2);
+}
+.error-banner-actions .error-retry:disabled { opacity: .55; cursor: default; }
 
 /* The transcript insets every block by 22px, but a block with its own padding
    loses that inset (`padding: 0 22px` is replaced, not added). The banner sets
@@ -4170,7 +4199,9 @@ html[data-theme='light'] .provider-tile[data-provider='openrouter'] .provider-ti
   box-sizing: border-box;
   min-height: 150px;
   resize: vertical;
-  background: #0e131c;
+  /* The token, not a literal: #0e131c stayed night-coloured in the light theme
+     while --text turned near-black, which is a field you cannot read. */
+  background: var(--surface-1);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -4992,7 +5023,8 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
   text-align: left;
   cursor: pointer;
 }
-.palette-item.active { background: #262b3d; border-color: var(--line-2); }
+.palette-item.active { background: var(--surface-3); border-color: var(--line-2); }
+html[data-theme='dark'] .palette-item.active { background: #262b3d; }
 .palette-hint { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 
 /* ask_user dialog */
@@ -6540,3 +6572,519 @@ html[data-theme='light'] .md tbody tr:hover { background: color-mix(in srgb, var
 @media (prefers-reduced-motion: reduce) {
   .md .md-link { transition: none; }
 }
+
+/* ---- light theme: the text that was written for a dark surface -------------
+ *
+ * A literal pale colour is invisible the moment the page turns white, and these
+ * rules predate the token pass: headings, links, inline code, the syntax
+ * palette, the model picker's badges and a handful of small status labels kept
+ * their dark-theme values. Each override below either re-points the literal to
+ * the token that already exists for that job, or picks a dark-enough colour on
+ * white (measured, not guessed: 4.5:1 at these sizes).
+ *
+ * They are grouped by where a person sees them, so the next colour report is a
+ * short walk rather than another hunt through the file.
+ */
+
+/* Chat: markdown headings, links, inline code and the fenced-code palette. */
+html[data-theme='light'] .md h2,
+html[data-theme='light'] .md h3,
+html[data-theme='light'] .md h4,
+html[data-theme='light'] .md h5,
+html[data-theme='light'] .md h6 { color: var(--text); }
+
+html[data-theme='light'] .md .md-link { color: var(--accent); }
+html[data-theme='light'] .md .md-link:hover {
+  color: color-mix(in srgb, var(--accent) 78%, var(--text));
+  border-bottom-color: currentColor;
+}
+
+html[data-theme='light'] .md .md-code-inline { color: var(--text); }
+
+html[data-theme='light'] .hl-kw { color: #6d28d9; }
+html[data-theme='light'] .hl-str { color: #0f7a52; }
+html[data-theme='light'] .hl-num { color: #9a4b00; }
+html[data-theme='light'] .hl-com { color: var(--muted-2); }
+html[data-theme='light'] .hl-fn { color: #1b4fa8; }
+html[data-theme='light'] .hl-tag { color: #b3203f; }
+html[data-theme='light'] .hl-diff-add { color: #0f7a52; }
+html[data-theme='light'] .hl-diff-del { color: #b3203f; }
+html[data-theme='light'] .hl-diff-hunk { color: var(--accent); }
+
+/* Chat: the turn's own small labels — tool names, status, activity chips. */
+html[data-theme='light'] .act-chip { color: var(--accent); }
+html[data-theme='light'] .tools-toggle .tools-names { opacity: 1; }
+html[data-theme='light'] .tools-latest .latest-name { color: var(--code-accent); }
+html[data-theme='light'] .tools-latest .latest-status { opacity: 1; }
+html[data-theme='light'] .tools-latest .latest-arg { opacity: 1; }
+html[data-theme='light'] .tool-body,
+html[data-theme='light'] .dialog-code { color: var(--text); }
+html[data-theme='light'] .file-icon { color: var(--accent); }
+html[data-theme='light'] .activity-line { color: var(--muted); }
+html[data-theme='light'] .activity-line.bad { color: var(--warn); }
+/* A disabled control still has to be readable: "Reasoning: Off" is information,
+   not decoration, and .55 opacity left it at 2.4:1 on white. */
+html[data-theme='light'] .think-btn:disabled { opacity: .9; }
+
+/* Chat: diffs. */
+html[data-theme='light'] .diff-counts .d-add,
+html[data-theme='light'] .diff-row.ins .diff-sign,
+html[data-theme='light'] .diff-row.ins .diff-text { color: #0f7a52; }
+html[data-theme='light'] .diff-counts .d-del,
+html[data-theme='light'] .diff-row.del .diff-sign,
+html[data-theme='light'] .diff-row.del .diff-text { color: #b3203f; }
+
+/* Model picker: the free/paid badges, the tick and the selected id. */
+html[data-theme='light'] .model-plan.free,
+html[data-theme='light'] .model-picker-plan.free,
+html[data-theme='light'] .model-section-head.free { color: #0b6444; }
+html[data-theme='light'] .model-section-head.paid { color: var(--warn); }
+html[data-theme='light'] .model-option-check,
+html[data-theme='light'] .model-option[aria-selected='true'] .model-option-id { color: var(--accent); }
+html[data-theme='light'] .model-group.collapsed .model-group-name { color: var(--muted); }
+html[data-theme='light'] .model-search::placeholder { color: var(--muted-2); }
+html[data-theme='light'] .model-refresh-note.error { color: var(--danger); }
+
+/* Settings: the crash banner, the data folder, locked notes, the copyright. */
+html[data-theme='light'] .crash-notice {
+  color: var(--danger);
+  background: rgba(201, 42, 58, .07);
+  border-color: rgba(201, 42, 58, .3);
+}
+html[data-theme='light'] .settings-datadir .mono { color: var(--code-accent); }
+html[data-theme='light'] .settings-locked { color: var(--warn); }
+html[data-theme='light'] .dialog-wait { color: var(--warn); }
+html[data-theme='light'] .about-name-th { color: var(--muted); }
+html[data-theme='light'] .about-copyright { opacity: 1; }
+
+/* Chrome and the phone panel: the online dot, approval chips, error notes. */
+html[data-theme='light'] .brand-count.online { color: var(--accent-2); }
+html[data-theme='light'] .chip-btn.approval-chip[data-policy='allow'] { color: var(--accent-2); }
+html[data-theme='light'] .chip-btn.approval-chip[data-policy='deny'] { color: var(--danger); }
+html[data-theme='light'] .sys-note,
+html[data-theme='light'] .ntfy-note.error,
+html[data-theme='light'] .ntfy-panel[data-state='error'] .ntfy-state { color: var(--danger); }
+html[data-theme='light'] .ntfy-note.ok { color: var(--accent-2); }
+html[data-theme='light']
+  .sys-popover:has(.ntfy-slide-opt[data-on='1'][aria-pressed='true'])
+  .sys-state { color: var(--accent-2); }
+
+/* ---------------------------------------------------------------------------
+   Visual polish, part four — the light window, drawn as paper, not as a turned
+   up dark window.
+
+   Parts two and three gave the light theme depth and reading rhythm, but the
+   chrome still mixed the dark window's lavender: pale lilac chips, a saturated
+   lilac block for the open chat, grey controls and a sidebar that was the same
+   plate as the page. This pass keeps the depth and re-points the colour: the
+   canvas keeps a cool cast, cards and controls are white, and a selected thing
+   is tinted rather than flooded.
+
+   Paint only, light theme only, and the whole block comes off in one piece.
+   --------------------------------------------------------------------------- */
+
+/* ---- the canvas, the chrome, the search box ------------------------------- */
+
+/* A quiet wash down the sidebar, so the column reads as chrome and every white
+   card in it has something to stand on. */
+html[data-theme='light'] #sidebar {
+  background: linear-gradient(180deg, #fcfdff 0%, #f2f5fb 100%);
+}
+html[data-theme='light'] #topbar {
+  background: color-mix(in srgb, #ffffff 82%, var(--bg));
+}
+html[data-theme='light'] .session-search {
+  background: #ffffff;
+  border-color: #dfe4ee;
+  box-shadow: 0 1px 2px rgba(24, 30, 54, .04);
+}
+
+/* The toolbar's glyph buttons were lavender tiles with a lavender edge, which
+   read as "already pressed". Off is paper; on is tinted. */
+html[data-theme='light'] .chip-btn {
+  background: #ffffff;
+  border-color: #dde2ec;
+  box-shadow: 0 1px 2px rgba(24, 30, 54, .06);
+  transition: background-color .14s ease, border-color .14s ease, box-shadow .14s ease;
+}
+html[data-theme='light'] .chip-btn:hover {
+  background: #f4f6fd;
+  border-color: color-mix(in srgb, var(--accent) 32%, #dde2ec);
+}
+html[data-theme='light'] .chip-btn.sys-chip[data-state='on'],
+html[data-theme='light'] .chip-btn[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 11%, #ffffff);
+  border-color: color-mix(in srgb, var(--accent) 34%, #dde2ec);
+}
+/* The window buttons are glyphs on the titlebar, not filled controls. */
+html[data-theme='light'] .tb-btn:hover { background: rgba(24, 30, 54, .06); }
+html[data-theme='light'] .tb-btn:active { background: rgba(24, 30, 54, .1); }
+
+/* ---- the saved-chat rows -------------------------------------------------- */
+
+/* The open chat used to be a solid lilac slab with a lilac halo. It is one tint
+   and one brand line now, which is enough to say "you are here" beside the
+   "current" badge that says it in words. */
+html[data-theme='light'] .session-item {
+  border-radius: 10px;
+  transition: background-color .14s ease, box-shadow .14s ease;
+}
+html[data-theme='light'] .session-item:hover {
+  background: #edf0f9;
+  box-shadow: inset 0 0 0 1px rgba(24, 30, 54, .05);
+}
+/* `:not([data-color])` is deliberate: a row the user coloured keeps its 4px
+   stripe and its own frame (see "pins and colours"), and a later `.active`
+   rule without the guard would paint purple over that stripe. */
+html[data-theme='light'] .session-item.active:not([data-color]) {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 12%, #ffffff),
+    color-mix(in srgb, var(--accent) 3%, #ffffff)
+  );
+  border-color: color-mix(in srgb, var(--accent) 26%, #e2e7f1);
+  box-shadow: inset 2px 0 0 var(--accent), 0 1px 2px rgba(24, 30, 54, .05);
+}
+html[data-theme='light'] .session-item.active:not([data-color]):hover {
+  box-shadow: inset 2px 0 0 var(--accent), 0 2px 8px rgba(24, 30, 54, .08);
+}
+/* A coloured row that is also the open chat used to run the lavender gradient
+   under its stripe; in the light window that is two colours fighting. The open
+   chat tints with the colour the user picked instead. */
+html[data-theme='light'] .session-item[data-color].active {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--swatch) 14%, #ffffff),
+    #ffffff
+  );
+  box-shadow: 0 1px 3px rgba(24, 30, 54, .06);
+}
+
+/* ---- buttons -------------------------------------------------------------- */
+
+/* An outlined button is a sheet of paper with an edge. Grey blocks lost their
+   edge against the canvas and read as disabled. */
+html[data-theme='light'] .ghost {
+  background: #ffffff;
+  border-color: #dde2ec;
+  box-shadow: 0 1px 2px rgba(24, 30, 54, .06);
+}
+html[data-theme='light'] .ghost:hover {
+  background: #f6f7fd;
+  border-color: var(--line-2);
+}
+html[data-theme='light'] .ghost:active {
+  background: #eef1f9;
+  box-shadow: none;
+}
+
+/* ---- provider cards ------------------------------------------------------- */
+
+/* Same card language as the rest of the sheet: white face, hairline edge, a
+   shadow only as deep as the card is off the page. */
+html[data-theme='light'] .provider-tile {
+  background: #ffffff;
+  border-color: #e0e5ef;
+  box-shadow: 0 1px 2px rgba(24, 30, 54, .05);
+  transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease;
+}
+html[data-theme='light'] .provider-tile:hover {
+  border-color: color-mix(in srgb, var(--accent) 34%, #dde2ec);
+  box-shadow: 0 6px 16px -10px rgba(24, 30, 54, .45);
+  transform: translateY(-1px);
+}
+html[data-theme='light'] .provider-tile.active {
+  border-color: var(--accent);
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--accent), 0 6px 16px -10px rgba(24, 30, 54, .4);
+}
+html[data-theme='light'] .provider-tile.active:hover { transform: none; }
+
+/* ---- the settings sheet --------------------------------------------------- */
+
+/* The selected tab is a tinted row with a brand line, not a filled lilac pill:
+   it lines up with the session list, which says "selected" the same way. */
+html[data-theme='light'] .settings-nav-item {
+  border-radius: 9px;
+  transition: background-color .14s ease, border-color .14s ease;
+}
+html[data-theme='light'] .settings-nav-item:hover { background: #f1f4fb; }
+html[data-theme='light'] .settings-nav-item[aria-selected='true'] {
+  background: color-mix(in srgb, var(--accent) 9%, #ffffff);
+  border-color: color-mix(in srgb, var(--accent) 26%, #e0e5ef);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+html[data-theme='light'] .settings-row {
+  background: #ffffff;
+  border-color: #e3e8f1;
+}
+
+/* ---- the model picker ----------------------------------------------------- */
+
+/* The selected model was a translucent lavender row inside a white menu, which
+   turned grey where it met the menu's edge. It is a tint with a brand edge now,
+   the same as every other selected row in the app. */
+html[data-theme='light'] .model-option[aria-selected='true'] {
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  border-color: color-mix(in srgb, var(--accent) 30%, #e0e5ef);
+}
+html[data-theme='light'] .model-option:not([aria-selected='true']):hover,
+html[data-theme='light'] .model-group-head:hover {
+  background: #f3f5fc;
+}
+html[data-theme='light'] .model-search,
+html[data-theme='light'] .model-menu-search {
+  background: #f7f8fd;
+  border-color: #e0e5ef;
+}
+html[data-theme='light'] .model-search:focus,
+html[data-theme='light'] .model-menu-search:focus {
+  background: #ffffff;
+  border-color: color-mix(in srgb, var(--accent) 50%, #e0e5ef);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+  outline: none;
+}
+
+/* ---- transcript ---------------------------------------------------------- */
+
+/* The user's own words: a soft brand plate, one step lighter than before. */
+html[data-theme='light'] .msg.user .bubble {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 9%, #ffffff),
+    color-mix(in srgb, var(--accent) 4%, #f7f8fd)
+  );
+  border-color: color-mix(in srgb, var(--accent) 20%, #e0e5ef);
+  box-shadow: 0 1px 2px rgba(24, 30, 54, .05);
+}
+
+/* ---- scrollbars ---------------------------------------------------------- */
+
+html[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: #ccd3e0;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+html[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: #b3bccd;
+  background-clip: padding-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='light'] .provider-tile,
+  html[data-theme='light'] .session-item,
+  html[data-theme='light'] .settings-nav-item,
+  html[data-theme='light'] .chip-btn {
+    transition: none;
+  }
+  html[data-theme='light'] .provider-tile:hover { transform: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Visual polish, part five — the answer reads as a document.
+
+   The transcript is the screen the app is, and until now it was the least
+   finished part: a plain 14px paragraph, a table whose header sat at the same
+   weight as the page, a code block that was a border and nothing else, and a
+   tool card that looked like the code block. This pass gives each block its own
+   voice — a label strip on code, a real header on tables, an edge on a tool card
+   — and leaves the words alone. Paint only, both themes, removable as one block.
+   --------------------------------------------------------------------------- */
+
+/* ---- rhythm and the role line -------------------------------------------- */
+
+/* A little more air per line: the widest text in the app is read fastest at
+   ~1.68, and paragraphs get the same step between them so a long answer has a
+   cadence instead of a wall. */
+.msg.assistant .body { line-height: 1.68; }
+.md p { margin-bottom: .72em; }
+.md h2, .md h3, .md h4, .md h5, .md h6 { letter-spacing: -.008em; }
+.md h2 { margin-top: 1.15em; }
+.md li { margin: .28em 0; }
+
+/* The assistant's name gets a brand dot; the user's own label stays plain, so
+   "who is talking" is visible at a glance down a long transcript. */
+.msg.assistant .role {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.msg.assistant .role::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* ---- tables --------------------------------------------------------------- */
+
+/* A table is a plate with a header, not a spreadsheet: no vertical rules, a
+   tinted header band, rows that alternate by a hair, and a wrapper that carries
+   the corners so a wide table still scrolls inside a rounded frame. */
+.md-table-wrap {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-1) 92%, var(--bg-2));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .16);
+}
+.md table { font-size: 13px; }
+.md th {
+  text-align: start;
+  padding: 8px 12px;
+  font-size: 11px;
+  letter-spacing: .07em;
+  border-bottom: 1px solid var(--line-2);
+  background: color-mix(in srgb, var(--bg-3) 88%, var(--surface-1));
+}
+.md td { padding: 8px 12px; }
+.md tbody td { border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent); }
+.md tbody tr:last-child td { border-bottom: none; }
+.md td:first-child { color: color-mix(in srgb, var(--text) 88%, var(--muted)); }
+
+/* ---- fenced code ---------------------------------------------------------- */
+
+/* The header is a label strip, the body is paper: one card with the language in
+   a pill on the left and the copy button on the right. */
+.md-code { border-radius: 12px; }
+.md-code-head {
+  padding: 5px 6px 5px 10px;
+  background: color-mix(in srgb, var(--bg-3) 58%, var(--surface-1));
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+}
+.md-lang {
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  padding: 1px 7px 1.5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--muted);
+}
+.md-copy {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.md-copy:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: transparent;
+  color: var(--text);
+}
+.md-code pre {
+  padding: 13px 16px;
+  tab-size: 2;
+  background: color-mix(in srgb, var(--bg-3) 26%, var(--surface-1));
+}
+.md-code code { font-size: 12.5px; line-height: 1.66; }
+
+/* ---- tool cards ----------------------------------------------------------- */
+
+/* A tool card is not a code block: it carries a status rail down its left edge,
+   so a column of them can be scanned for the one that failed without reading
+   every header. The rail is 3px, and the head keeps its padding aligned. */
+.tool {
+  border-left: 3px solid color-mix(in srgb, var(--line-2) 70%, transparent);
+  border-radius: 10px;
+}
+.tool.ok { border-left-color: color-mix(in srgb, var(--accent-2) 78%, transparent); }
+.tool.error { border-left-color: color-mix(in srgb, var(--danger) 82%, transparent); }
+.tool-head { padding: 8px 11px; }
+.tool-name { font-weight: 620; }
+.tool-status { font-variant-numeric: tabular-nums; }
+
+/* ---- shell card ----------------------------------------------------------- */
+
+.shell-head {
+  background: color-mix(in srgb, var(--bg-3) 58%, var(--surface-1));
+}
+.shell-cmd { color: var(--code-accent); }
+.shell-status {
+  padding: 1px 8px 1.5px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+  color: var(--accent-2);
+}
+
+/* ---- light theme: the same document on paper ------------------------------ */
+
+html[data-theme='light'] .md-table-wrap {
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(24, 30, 54, .06), 0 6px 16px -14px rgba(24, 30, 54, .5);
+}
+html[data-theme='light'] .md th { background: #f1f4fa; }
+html[data-theme='light'] .md-code-head { background: #f4f6fb; }
+html[data-theme='light'] .md-lang { background: rgba(24, 30, 54, .06); }
+html[data-theme='light'] .md-code pre { background: #fbfcff; }
+html[data-theme='light'] .shell-head { background: #f2f5fb; }
+html[data-theme='light'] .tool { box-shadow: 0 1px 2px rgba(24, 30, 54, .05); }
+
+/* ---- empty state: a little light behind the first screen ------------------ */
+
+/* The first screen is a heading and three buttons on flat canvas. A soft brand
+   wash at the top gives it a centre without drawing anything the user has to
+   read, and the heading leans a touch tighter than body text. */
+.empty {
+  padding: 30px 18px 20px;
+  border-radius: 20px;
+  background: radial-gradient(
+    620px 230px at 50% 0%,
+    color-mix(in srgb, var(--accent) 9%, transparent),
+    transparent 72%
+  );
+}
+.empty h1 { letter-spacing: -.02em; }
+.empty p { text-wrap: pretty; }
+html[data-theme='light'] .empty {
+  background: radial-gradient(
+    620px 230px at 50% 0%,
+    color-mix(in srgb, var(--accent) 7%, transparent),
+    transparent 72%
+  );
+}
+
+/* ============================================================================
+   Visual polish, part six — a diff reads as a band, not as coloured text.
+
+   `markdown.js` already tags every line of a ```diff fence with
+   `hl-diff-add` / `hl-diff-del` and keeps a real newline between the lines (so
+   copying the block still copies a diff). Here each of those spans becomes a
+   block of its own, and the newlines between them collapse out of the layout
+   because the container's `white-space` is switched back to normal while the
+   spans keep `pre` for their own indentation.
+
+   The band itself is drawn with a background plus two horizontal box-shadows
+   that fill the `pre`'s 16px side padding: the colour then runs to the card's
+   edge like a patch in a diff viewer, without negative margins that would make
+   the code block scroll sideways.
+   ========================================================================== */
+
+.md-code code:has(> span[class^='hl-diff-']) { white-space: normal; }
+
+.md-code code > .hl-diff-ctx,
+.md-code code > .hl-diff-add,
+.md-code code > .hl-diff-del,
+.md-code code > .hl-diff-hunk {
+  /* Context lines need their own block too, even with no colour: the newlines
+     between the spans collapse now, so two plain lines would otherwise end up
+     on one. */
+  display: block;
+  white-space: pre;
+  --diff-band: transparent;
+  background: var(--diff-band);
+  box-shadow: -16px 0 0 var(--diff-band), 16px 0 0 var(--diff-band);
+}
+.md-code code > .hl-diff-add { --diff-band: rgba(69, 212, 131, .11); }
+.md-code code > .hl-diff-del { --diff-band: rgba(255, 95, 109, .11); }
+.md-code code > .hl-diff-hunk { --diff-band: color-mix(in srgb, #8ab4ff 12%, transparent); }
+.md-code code > .hl-diff-meta { display: block; white-space: pre; }
+
+/* The hunk header is a divider, not a line of the patch: a hair of space above
+   it separates one section of the diff from the next. */
+.md-code code > .hl-diff-hunk:not(:first-child) { margin-top: 3px; }
+
+/* Paper: the same two bands, mixed for a white card instead of a dark one. */
+html[data-theme='light'] .md-code code > .hl-diff-add { --diff-band: rgba(15, 122, 82, .085); }
+html[data-theme='light'] .md-code code > .hl-diff-del { --diff-band: rgba(179, 32, 63, .075); }
+html[data-theme='light'] .md-code code > .hl-diff-hunk { --diff-band: rgba(90, 63, 240, .07); }

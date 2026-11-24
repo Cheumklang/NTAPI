@@ -54,6 +54,9 @@ writeSkill(path.join(dataRoot, 'skills', 'pack', 'beta'), 'beta', 'skill inside 
 writeSkill(path.join(dataRoot, 'skills', 'a', 'b', 'c'), 'deep', 'three levels down');
 writeSkill(path.join(dataRoot, 'skills', 'a', 'b', 'c', 'd'), 'too-deep', 'four levels down');
 writeSkill(path.join(dataRoot, 'skills', 'node_modules', 'dep'), 'dep', 'a dependency, not a skill');
+// The skills root itself holds a SKILL.md in the wild (~/.pi/agent/skills ships the
+// reverse-skill router there). Claiming it stopped the walk and hid all its children.
+writeSkill(path.join(dataRoot, 'skills'), 'root-pack', 'a pack that also has a SKILL.md at the top');
 writeSkill(path.join(elsewhere, 'gamma'), 'gamma', 'a skill reached through a symlink');
 fs.symlinkSync(path.join(elsewhere, 'gamma'), path.join(dataRoot, 'skills', 'linked'), 'dir');
 
@@ -65,6 +68,14 @@ writeSkill(
   'a skill from an installed package',
 );
 writeSkill(path.join(fakeHome, '.pi', 'agent', 'npm', 'node_modules', 'pkg-skills', 'skills', 'npm-skill'), 'npm-skill', 'from npm');
+// The app hands the SDK its own data root as the agent dir, so `pi install` run
+// from the app lands here — not in the CLI's home folder.
+writeSkill(path.join(dataRoot, 'npm', 'node_modules', 'app-pack', 'skills', 'app-pack-skill'), 'app-pack-skill', 'installed into the app data root');
+writeSkill(path.join(dataRoot, 'git', 'github.com', 'someone', 'app-repo', 'skills', 'app-git-skill'), 'app-git-skill', 'a git package beside the app data root');
+// Clicking Install on a Claude Code plugin puts the skills inside the plugin
+// folder in the cache, which is never a `skills/` folder of its own.
+writeSkill(path.join(fakeHome, '.claude', 'plugins', 'cache', 'market', 'plug', 'skills', 'plug-skill'), 'plug-skill', 'shipped by a claude plugin');
+writeSkill(path.join(fakeHome, '.codex', 'skills', 'codex-skill'), 'codex-skill', 'the Codex CLI layout');
 
 
 // `process` is in the sandbox because the roots honour PI_CODING_AGENT_DIR.
@@ -86,6 +97,7 @@ check(
 const homeDir = fakeHome;
 const brandDirs = [
   ['.claude'],
+  ['.codex'],
   ['.cursor'],
   ['.copilot'],
   ['.gemini'],
@@ -130,6 +142,27 @@ check(
   'the skills inside an installed package are in the roster',
   sandbox.__scan(roots).some((s) => s.name === 'brainstorming'),
 );
+check(
+  'a package installed into the app data root is in the roster',
+  sandbox.__scan(roots).some((s) => s.name === 'app-pack-skill'),
+  sandbox.__scan(roots).map((s) => s.name).join(','),
+);
+check(
+  'a git package beside the app data root is in the roster',
+  sandbox.__scan(roots).some((s) => s.name === 'app-git-skill'),
+  sandbox.__scan(roots).map((s) => s.name).join(','),
+);
+check(
+  'a skill shipped by a Claude plugin is in the roster',
+  roots.includes(path.join(fakeHome, '.claude', 'plugins', 'cache', 'market', 'plug')) &&
+    sandbox.__scan(roots).some((s) => s.name === 'plug-skill'),
+  sandbox.__scan(roots).map((s) => s.name).join(','),
+);
+check(
+  'the Codex CLI layout is in the roster',
+  sandbox.__scan(roots).some((s) => s.name === 'codex-skill'),
+  sandbox.__scan(roots).map((s) => s.name).join(','),
+);
 
 // A repository root one level up must still be searched, and nothing above it:
 // walking all the way to C:\ would let an unrelated folder decide what the
@@ -149,6 +182,12 @@ const skills = sandbox.__scan(roots);
 const names = skills.map((s) => s.name);
 
 check('a plain skill is found', names.includes('alpha'), names.join(','));
+check('a skills root that ships its own SKILL.md is still listed', names.includes('root-pack'), names.join(','));
+check(
+  'the skills inside such a root are found too',
+  names.includes('alpha') && names.includes('beta') && names.includes('deep'),
+  names.join(','),
+);
 check('a skill inside a pack folder is found', names.includes('beta'), names.join(','));
 check('a skill three levels down is found', names.includes('deep'), names.join(','));
 check('a skill four levels down is not walked', !names.includes('too-deep'), names.join(','));
