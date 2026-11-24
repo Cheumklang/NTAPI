@@ -1280,6 +1280,7 @@ async function createFreePiSession(options) {
             `- If a ref is rejected as stale, take a snapshot again — the page moved under you.\n` +
             `- When a page will not cooperate, call ask_user saying what you expected and what you see, then snapshot again before continuing.\n` +
             `- Work only in tabs the user handed over, or tabs you opened yourself. Every other tab is off limits, and naming one is refused.\n` +
+            `- With more than one tab in hand, name the tab you mean with \`tab\` (browser_tabs lists the ids). A call that names none is refused instead of guessed.\n` +
             `- Doing the work without a dialog per step never covers browser_eval, and never an action that pays, purchases or deletes — those still ask.`,
         };
       });
@@ -1352,7 +1353,8 @@ async function createFreePiSession(options) {
             text += dialogNotice(result);
             // The model should not have to ask what changed. `close` is the one
             // command whose tab is gone, so there is nothing left to look at.
-            if (spec.write && spec.cmd !== 'close') text += await snapshotAfterAction(result.tabId);
+            const nothingLeft = spec.cmd === 'close' && result && !result.tabId;
+            if (spec.write && spec.cmd !== 'close' && !nothingLeft) text += await snapshotAfterAction(result.tabId);
             return { content: [{ type: 'text', text }], details: { ok: true } };
           },
         });
@@ -3155,13 +3157,12 @@ const BROWSER_TOOL_DOCS = {
   },
   browser_open: {
     description:
-      "Open a URL in a tab of the user's own Google Chrome, which they are already signed in to. This is how a site the user has not opened gets reached: the tab it returns is the agent's own, usable straight away without a hand-over. Use `window: 'user'` to open it in the window the user is looking at instead of the agent's own window.",
+      "Open a URL in a tab of the user's own Google Chrome, which they are already signed in to. When a tab has been handed over it is navigated in place; otherwise a scratch tab is opened in the user's window, inside the collapsed NTAPI tab group, usable straight away without a hand-over. It never opens a second window.",
     snippet: 'Open a URL in the user\'s Chrome',
     required: ['url'],
     props: {
       url: { type: 'string' },
       foreground: { type: 'boolean', description: 'Bring the tab to the front' },
-      window: { type: 'string', enum: ['agent', 'user'], description: "Where to open it (default 'agent')" },
     },
   },
   browser_upload: {
@@ -3255,9 +3256,17 @@ const BROWSER_TOOL_DOCS = {
     props: { tab: { type: 'integer' }, expression: { type: 'string' } },
   },
   browser_close: {
-    description: 'Close a tab the agent opened. Asks for approval.',
+    description:
+      "Close a tab the agent opened, or several at once when tidying up after a job. Only tabs the agent opened itself can be closed — a tab the user handed over is refused, because closing it is the user's decision. Asks for approval.",
     snippet: 'Close an agent tab',
-    props: { tab: { type: 'integer' } },
+    props: {
+      tab: { type: 'integer' },
+      tabs: {
+        type: 'array',
+        items: { type: 'integer' },
+        description: 'Agent-opened tab ids to close together (at most 8)',
+      },
+    },
   },
 };
 

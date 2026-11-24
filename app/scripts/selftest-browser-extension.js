@@ -109,7 +109,27 @@ function makeChrome() {
       getLastFocused: async () => ({ id: (state.allWindows && state.allWindows[0] && state.allWindows[0].id) || 1 }),
       onRemoved: { addListener: (fn) => windowRemovedListeners.push(fn) },
     },
+    // Chrome's tab grouping: the agent's own pages live in one collapsed group
+    // in the user's window, so the fake has to remember which tab went in.
+    tabGroups: {
+      get: async (id) => {
+        record('tabGroups.get', id);
+        if ((state.groups || []).includes(id)) return { id };
+        throw new Error('No tab group with that id.');
+      },
+      update: async (id, opts) => record('tabGroups.update', { id, ...opts }),
+      move: async (id, opts) => record('tabGroups.move', { id, ...opts }),
+    },
     tabs: {
+      group: async ({ tabIds, groupId }) => {
+        const id = Number.isInteger(groupId) ? groupId : 5;
+        record('tabs.group', { tabIds, groupId: id });
+        state.groups = [...new Set([...(state.groups || []), id])];
+        for (const tid of tabIds) {
+          for (const tab of state.allTabs || state.tabs) if (tab.id === tid) tab.groupId = id;
+        }
+        return id;
+      },
       query: async (info) => (info && Number.isInteger(info.windowId) ? state.tabs : state.allTabs || state.tabs),
       get: async (id) => (state.allTabs || state.tabs).find((t) => t.id === id) || null,
       create: async (opts) => {
@@ -229,7 +249,7 @@ async function main() {
 
   // --- tabs ---
   const tabs = await handle('tabs', {});
-  check('tabs lists the agent window', tabs.tabs.length === 1 && tabs.tabs[0].url === 'https://example.com');
+  check('tabs lists the window the user is looking at', tabs.tabs.length === 1 && tabs.tabs[0].url === 'https://example.com');
 
   // --- no stray about:blank windows ---
   // The MV3 worker is torn down after a few idle seconds, so a listing that
@@ -245,13 +265,27 @@ async function main() {
 
   const saver = loadWorker();
   await saver.handle('open', { url: 'https://a.example' });
-  check('opening a page saves the window id', (saver.state.sessionStore || {}).agentWindowId === 3);
+  check('opening a page puts the tab in the agent group', (saver.state.sessionStore || {}).agentGroupId === 5);
+  check(
+    'the group is collapsed with a name the user can find',
+    saver.calls.some((c) => c.name === 'tabGroups.update' && c.payload.collapsed === true && c.payload.title === 'NTAPI')
+  );
   await saver.handle('open', { url: 'https://b.example' });
   check(
-    'a second open reuses that window',
-    saver.calls.filter((c) => c.name === 'windows.create').length === 1,
+    'no window is ever created for the agent',
+    saver.calls.filter((c) => c.name === 'windows.create').length === 0,
     `windows.create=${saver.calls.filter((c) => c.name === 'windows.create').length}`
   );
+  check(
+    'the second tab joins the same group',
+    saver.calls.filter((c) => c.name === 'tabs.group' && c.payload.groupId === 5).length === 2
+  );
+  check(
+    'the group is taken to the far left, after any pinned tabs',
+    saver.calls.some((c) => c.name === 'tabGroups.move' && c.payload.index === 0),
+    JSON.stringify(saver.calls.filter((c) => c.name === 'tabGroups.move'))
+  );
+
 
   // --- read ---
   state.innerText = 'A'.repeat(100);
@@ -265,8 +299,31 @@ async function main() {
 
   // --- open ---
   const opened = await handle('open', { url: 'https://example.org' });
-  check('open creates a tab in the agent window', calls.some((c) => c.name === 'tabs.create' && c.payload.url === 'https://example.org'));
+  check('open creates a tab in the user window', calls.some((c) => c.name === 'tabs.create' && c.payload.url === 'https://example.org'));
+  check('open files that tab under the agent group', calls.some((c) => c.name === 'tabs.group' && c.payload.tabIds.includes(7)));
   check('open reports the tab', opened.tabId === 7);
+
+  // The bug this replaced: a handed-over tab was ignored and a new window built.
+  const handed = await handle('open', { url: 'https://example.org/next', tab: 7 });
+  check(
+    'open with a tab in hand navigates it instead of opening another',
+    calls.filter((c) => c.name === 'tabs.create').length === 1 &&
+      calls.some((c) => c.name === 'tabs.update' && c.payload.id === 7 && c.payload.url === 'https://example.org/next')
+  );
+  check('and reports that tab', handed.tabId === 7);
+  // --- closing several agent tabs, and refusing the user's ---
+  const batch = await handle('close', { tabs: [7] });
+  check('close accepts a list of agent tabs', Array.isArray(batch.closed) && batch.closed.length === 1);
+  check('closing a list removes the tab', calls.some((c) => c.name === 'tabs.remove' && c.payload === 7));
+  state.allTabs = [
+    { id: 3, windowId: 1, active: true, url: 'https://user.example', title: 'Mine' },
+    { id: 8, windowId: 1, active: false, groupId: 5, url: 'https://a.example', title: 'Agent A' },
+  ];
+  const mixed = await handle('close', { tabs: [3, 8] });
+  check('a user tab in the list is refused, the agent tab still closes',
+    mixed.closed.length === 1 && mixed.closed[0].tabId === 8 && mixed.refused.join(',') === '3');
+  const onlyUser = await expectError(() => handle('close', { tabs: [3] }));
+  check('closing only user tabs is NOT_OWNED', onlyUser === 'NOT_OWNED', onlyUser);
 
   // --- click by text ---
   await handle('click', { text: 'Send' });
@@ -374,12 +431,13 @@ async function main() {
   // --- the app is shown every real tab, and may claim one ---
   state.allTabs = [
     { id: 3, windowId: 1, active: true, pinned: false, audible: false, url: 'https://ads.google.com/aw', title: 'Google Ads' },
-    { id: 7, windowId: 3, active: true, pinned: false, audible: false, url: 'https://example.com', title: 'Example' },
+    // groupId 5: the agent's own group from the open calls above.
+    { id: 7, windowId: 3, active: true, pinned: false, audible: false, groupId: 5, url: 'https://example.com', title: 'Example' },
   ];
   const real = await handle('tabs-real', {});
   check('real tabs include the user window', real.tabs.some((t) => t.id === 3 && t.title === 'Google Ads'));
   check('real tabs carry no page content', !('text' in real.tabs[0]) && !('html' in real.tabs[0]) && !('nodes' in real.tabs[0]));
-  check('the agent window tabs are flagged', real.tabs.find((t) => t.id === 7).agent === true);
+  check('tabs in the agent group are flagged', real.tabs.find((t) => t.id === 7).agent === true);
   check('the user window tabs are not flagged', real.tabs.find((t) => t.id === 3).agent === false);
 
   await handle('tabs-real', { focus: true, tab: 3 });

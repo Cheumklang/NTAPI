@@ -99,10 +99,8 @@ check('every bridge tool still has a unique command', new Set(specs.map((s) => s
 check('upload takes file paths', uploadSpec.parameters?.properties?.files?.type === 'array');
 check('upload takes the ref of the input', uploadSpec.parameters?.properties?.ref?.type === 'string');
 check('upload says it reads from disk and asks', /approval/i.test(uploadSpec.description || ''));
-check(
-  'open can target the window the user is looking at',
-  (openSpec.parameters?.properties?.window?.enum || []).join(',') === 'agent,user'
-);
+check('open lands in the tab already in hand', /handed over it is navigated in place/.test(openSpec.description || ''));
+check('open never asks for a second window', !openSpec.parameters?.properties?.window);
 
 /* ------------------------------------------------------------- file checks */
 
@@ -135,7 +133,10 @@ check('the file goes in through the debugger', /DOM\.setFileInputFiles/.test(ext
 check('a non-file input is refused, not guessed at', /NO_FILE_INPUT/.test(ext));
 check('upload waits for the page to react', /await settleAfterAction\(tabId\)/.test(ext));
 check('tab listing can be narrowed by text', /args\.match/.test(ext) && /matched: rows\.length/.test(ext));
-check('open can adopt the user window', /wantsUserWindow/.test(ext) && /userWindowId\(\)/.test(ext));
+check(
+  'open works in the user window, in a collapsed group',
+  /userWindowId\(\)/.test(ext) && /placeInGroup/.test(ext) && /collapsed: true/.test(ext)
+);
 
 const mainSrc = read('src/main.js');
 check('the app pushes the whole hand-over list', /claims: browserClaims\.list\(\)/.test(mainSrc));
@@ -177,7 +178,10 @@ const prompt = read('src/freepi-bridge.js');
 check('the prompt says a site with no tab is reachable', /call browser_open with the URL/.test(prompt));
 check('the prompt no longer forbids opening its own tabs', !/Do not guess URLs or open your own tabs/.test(prompt));
 check('the prompt names the two kinds of usable tab', /tabs the user handed over, or tabs you opened yourself/.test(prompt));
-check('browser_open no longer claims it needs a hand-over', !/Requires a tab handed over first/.test(prompt) && /tab it returns is the agent's own/.test(prompt));
+check(
+  'browser_open no longer claims it needs a hand-over',
+  !/Requires a tab handed over first/.test(prompt) && /collapsed NTAPI tab group/.test(prompt)
+);
 
 const preload = read('src/preload.js');
 check('the window can release one tab', /browserRelease: \(tabId\) => ipcRenderer\.invoke\('browser:release', \{ tabId \}\)/.test(preload));

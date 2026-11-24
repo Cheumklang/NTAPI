@@ -195,6 +195,24 @@ async function main() {
   check('activity is emitted for reads too', activity.length === 2 && activity[1].cmd === 'read');
   check('activity is stamped', Number.isFinite(Date.parse(activity[0].ts)));
 
+  // Two tabs in hand: "the current tab" would be a guess, so it must be named.
+  claims.claim({ tabId: 11, url: 'https://a.example', title: 'A' });
+  check('with two tabs held, a call naming none is refused', (await expectCode(() => claimBridge.call('read', {}))) === 'AMBIGUOUS_TAB');
+  check('naming one of them works', (await claimBridge.call('read', { tab: 11 })).tabId === 11);
+  check('listing is never refused for ambiguity', (await claimBridge.call('tabs-real', {})).done === true);
+  check(
+    'and the refusal lists what can be named',
+    /11|7/.test(await (async () => {
+      try {
+        await claimBridge.call('click', { ref: 'e1' });
+        return '';
+      } catch (err) {
+        return err.message;
+      }
+    })())
+  );
+  check('with one tab left, a call naming none works again', (claims.release(11), (await claimBridge.call('read', {})).tabId === 7));
+
   claims.release();
   check('releasing the claim stops explicit tabs', (await expectCode(() => claimBridge.call('read', { tab: 7 }))) === 'NOT_CLAIMED');
   check('and releases the automatic target', (await claimBridge.call('read', {})).tabId === undefined);

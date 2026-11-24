@@ -243,6 +243,27 @@ function createBrowserBridge(options = {}) {
    * a site the user had not handed over left it with a tab it could not read
    * back (`NOT_CLAIMED` on the very snapshot that followed the `open`).
    */
+  /**
+   * With more than one tab in hand, "the current tab" is a guess, and a guess
+   * lands on the wrong page. Those calls must name the tab: the error lists
+   * what is available so the next call can name one straight away.
+   */
+  function ambiguityFor(argsTab, input) {
+    if (Number.isInteger(argsTab) || Array.isArray(input.tabs)) return null;
+    const held = claims && typeof claims.list === 'function' ? claims.list() : [];
+    const owned = claims && typeof claims.ownedList === 'function' ? claims.ownedList() : [];
+    const known = new Set(held.map((entry) => entry.tabId));
+    const candidates = [
+      ...held.map((entry) => ({ id: entry.tabId, title: entry.title || entry.url || '' })),
+      ...owned
+        .filter((entry) => !known.has(entry.tabId))
+        .map((entry) => ({ id: entry.tabId, title: entry.title || entry.url || '' })),
+    ];
+    if (candidates.length < 2) return null;
+    const names = candidates.map((entry) => `${entry.id}${entry.title ? ` (${entry.title})` : ''}`).join(', ');
+    return `The agent is holding ${candidates.length} tabs, so it must say which one: pass \`tab\`. Available: ${names}.`;
+  }
+
   function targetFor(argsTab) {
     const held = claims && typeof claims.list === 'function' ? claims.list() : [];
     const isOwned = (id) => Boolean(claims && typeof claims.isOwned === 'function' && claims.isOwned(id));
@@ -277,6 +298,11 @@ function createBrowserBridge(options = {}) {
         return;
       }
       if (cmd === 'close' && typeof claims.disown === 'function') {
+        const batch = result && Array.isArray(result.closed) ? result.closed : null;
+        if (batch) {
+          for (const entry of batch) if (Number.isInteger(entry && entry.tabId)) claims.disown(entry.tabId);
+          return;
+        }
         const id = result && Number.isInteger(result.tabId) ? result.tabId : args && args.tab;
         if (Number.isInteger(id)) claims.disown(id);
       }
@@ -446,6 +472,12 @@ function createBrowserBridge(options = {}) {
     }
 
     const input = args && typeof args === 'object' ? { ...args } : {};
+    // Listing tabs is how the agent finds out what it may name, so it must never
+    // be the command that is refused for not naming one.
+    if (cmd !== 'tabs' && cmd !== 'tabs-real') {
+      const ambiguous = ambiguityFor(input.tab, input);
+      if (ambiguous) return Promise.reject(bridgeError('AMBIGUOUS_TAB', ambiguous));
+    }
     const target = targetFor(input.tab);
     if (!target.ok) return Promise.reject(bridgeError(target.code, target.message));
     if (cmd === 'upload') {

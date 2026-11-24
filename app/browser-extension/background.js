@@ -20,33 +20,34 @@ const attached = new Set();
 let socket = null;
 let connecting = false;
 let wantConnection = true;
-/** Tabs the agent created in the NTAPI window (kept so `close` can tidy up). */
-let agentWindowId = null;
+/** The tab group the agent's own pages live in (kept so they stay one collapsed
+ *  chip in the user's tab strip instead of a second window). */
+let agentGroupId = null;
 
 /**
  * The id above lives in memory, and the MV3 service worker is torn down after a
- * few idle seconds. Without a saved copy every restart looked like "no agent
- * window yet" and quietly opened a fresh about:blank window. Session storage is
- * wiped when the browser closes, which is exactly the lifetime we want.
+ * few idle seconds. Without a saved copy every restart would create a second
+ * NTAPI group. Session storage is wiped when the browser closes, which is
+ * exactly the lifetime we want.
  */
-const AGENT_WINDOW_KEY = 'agentWindowId';
+const AGENT_GROUP_KEY = 'agentGroupId';
 
-async function readSavedWindowId() {
+async function readSavedGroupId() {
   try {
     const area = chrome.storage.session || chrome.storage.local;
-    const found = await area.get(AGENT_WINDOW_KEY);
-    const id = found ? found[AGENT_WINDOW_KEY] : null;
+    const found = await area.get(AGENT_GROUP_KEY);
+    const id = found ? found[AGENT_GROUP_KEY] : null;
     return Number.isInteger(id) ? id : null;
   } catch {
     return null;
   }
 }
 
-async function saveWindowId(id) {
-  agentWindowId = Number.isInteger(id) ? id : null;
+async function saveGroupId(id) {
+  agentGroupId = Number.isInteger(id) ? id : null;
   try {
     const area = chrome.storage.session || chrome.storage.local;
-    await area.set({ [AGENT_WINDOW_KEY]: agentWindowId });
+    await area.set({ [AGENT_GROUP_KEY]: agentGroupId });
   } catch {}
 }
 
@@ -236,36 +237,10 @@ async function handle(cmd, args) {
 
 /* -------------------------------------------------------------- cdp layer */
 
-const WINDOW_TITLE = 'NTAPI · Browser';
+/** The name on the group's chip in the user's tab strip. */
+const GROUP_TITLE = 'NTAPI';
 
-/**
- * The agent window, if one is still alive — never creates one.
- * Read-only commands use this so asking what tabs exist cannot spawn a window.
- */
-async function findWindow() {
-  if (agentWindowId !== null) {
-    try {
-      await chrome.windows.get(agentWindowId);
-      return agentWindowId;
-    } catch {
-      await saveWindowId(null);
-    }
-  }
-  const saved = await readSavedWindowId();
-  if (saved !== null) {
-    try {
-      await chrome.windows.get(saved);
-      agentWindowId = saved;
-      return saved;
-    } catch {
-      await saveWindowId(null);
-    }
-  }
-  return null;
-}
-
-/** The window the user is looking at — where a new agent tab belongs when we
- *  have no agent window of our own. Adopting it beats opening a second window. */
+/** The window the user is looking at — where every agent tab belongs. */
 async function userWindowId() {
   try {
     const last = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
@@ -278,37 +253,57 @@ async function userWindowId() {
   return null;
 }
 
-/** The dedicated window the agent drives, created only when a page must open. */
-async function ensureWindow(url) {
-  const existing = await findWindow();
-  if (existing !== null) return existing;
-  const win = await chrome.windows.create({
-    url: typeof url === 'string' && url ? url : 'about:blank',
-    focused: false,
-    width: 1280,
-    height: 860,
-  });
-  await saveWindowId(win.id);
-  return win.id;
+/**
+ * Put one tab in the agent's group, collapsed.
+ *
+ * This is the whole of "the agent works in its own tabs": Chrome cannot make a
+ * tab that appears nowhere, so the next best thing is one collapsed chip beside
+ * the user's own tabs, which they can expand to watch or collapse to ignore.
+ */
+async function placeInGroup(tabId) {
+  let gid = agentGroupId ?? (await readSavedGroupId());
+  if (Number.isInteger(gid)) {
+    try {
+      await chrome.tabGroups.get(gid);
+    } catch {
+      gid = null;
+    }
+  }
+  gid = Number.isInteger(gid)
+    ? await chrome.tabs.group({ tabIds: [tabId], groupId: gid })
+    : await chrome.tabs.group({ tabIds: [tabId] });
+  await saveGroupId(gid);
+  await chrome.tabGroups
+    .update(gid, { title: GROUP_TITLE, color: 'grey', collapsed: true })
+    .catch(() => {});
+  // Take it to the far left, so the agent's tabs never sit between the user's
+  // own tabs. Pinned tabs are pinned first by Chrome, so start after them.
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    const siblings = await chrome.tabs.query({ windowId: tab.windowId });
+    const pinned = siblings.filter((t) => t.pinned).length;
+    await chrome.tabGroups.move(gid, { index: pinned });
+  } catch {}
+  return gid;
 }
 
-/** The tab a command targets: explicit id, else the agent's last active tab. */
+/** The tab a command targets: explicit id, else whatever the user has in front. */
 async function resolveTab(tabId) {
   if (Number.isInteger(tabId)) return tabId;
-  const winId = await findWindow();
+  const winId = await userWindowId();
   if (winId !== null) {
-    const tabs = await chrome.tabs.query({ windowId: winId });
-    const active = tabs.find((t) => t.active) || tabs[0];
-    if (active) return active.id;
-  }
-  // No agent window: fall back to whatever the user has in front, rather than
-  // opening a blank window just to have something to point at.
-  const fallback = await userWindowId();
-  if (fallback !== null) {
-    const tabs = await chrome.tabs.query({ windowId: fallback, active: true });
+    const tabs = await chrome.tabs.query({ windowId: winId, active: true });
     if (tabs[0]) return tabs[0].id;
   }
-  throw Object.assign(new Error('No agent tab is open.'), { code: 'NO_TAB' });
+  const anywhere = await chrome.tabs.query({ active: true });
+  if (anywhere[0]) return anywhere[0].id;
+  throw Object.assign(new Error('No tab is open.'), { code: 'NO_TAB' });
+}
+
+/** True when this tab is one the agent opened for itself. */
+function isAgentTab(tab) {
+  const gid = tab && tab.groupId;
+  return Number.isInteger(gid) && gid >= 0 && gid === agentGroupId;
 }
 
 /** Page events (dialogs) only arrive once the domain is enabled. */
@@ -494,8 +489,8 @@ async function settleAfterAction(tabId) {
 /* ------------------------------------------------------------ read commands */
 
 async function listTabs(args) {
-  // Listing is read-only: never create a window to answer it.
-  const winId = (await findWindow()) ?? (await userWindowId());
+  // Listing is read-only: never create a tab or a group to answer it.
+  const winId = await userWindowId();
   if (args.focus && Number.isInteger(args.tab)) {
     await chrome.tabs.update(args.tab, { active: true }).catch(() => {});
     if (winId !== null) await chrome.windows.update(winId, { focused: true }).catch(() => {});
@@ -510,28 +505,23 @@ async function openUrl(args) {
   if (typeof args.url !== 'string' || !args.url) {
     throw Object.assign(new Error('`url` is required.'), { code: 'BAD_ARGS' });
   }
-  // `window: 'user'` opens next to what the user is already looking at, so the
-  // page they asked for lands where they can see it instead of in the agent's
-  // own window. Without a user window to adopt, fall back to creating one.
-  const wantsUserWindow = args.window === 'user';
-  let winId = wantsUserWindow ? await userWindowId() : await ensureWindow(args.url);
-  if (winId === null || winId === undefined) winId = await ensureWindow(args.url);
-  // When the window was just created it already holds this URL; reuse that tab
-  // instead of opening a second copy next to an about:blank leftover.
-  const existing = await chrome.tabs.query({ windowId: winId });
-  const reusable = existing.find((t) => !t.url || t.url === 'about:blank');
-  if (reusable) {
-    const tab = await chrome.tabs.update(reusable.id, { url: args.url, active: Boolean(args.foreground) });
+  /*
+   * A tab already in hand is navigated in place. That is the case the user hit:
+   * a page was opened for the agent while a tab had been handed over, and the
+   * agent built itself a whole new window instead of using it.
+   */
+  if (Number.isInteger(args.tab)) {
+    const tab = await chrome.tabs.update(args.tab, { url: args.url, active: Boolean(args.foreground) });
     await waitForLoad(tab.id);
     return tabSummary(tab.id);
   }
-  // A freshly created window already holds the URL — hand back that tab.
-  const opened = existing.find((t) => t.url === args.url);
-  if (opened) {
-    await waitForLoad(opened.id);
-    return tabSummary(opened.id);
-  }
-  const tab = await chrome.tabs.create({ url: args.url, windowId: winId, active: Boolean(args.foreground) });
+  // Otherwise a scratch tab of its own: in the user's window, in the collapsed
+  // NTAPI group, never stealing the tab they are reading.
+  const winId = await userWindowId();
+  const where = { url: args.url, active: Boolean(args.foreground) };
+  if (winId !== null) where.windowId = winId;
+  const tab = await chrome.tabs.create(where);
+  await placeInGroup(tab.id);
   await waitForLoad(tab.id);
   return tabSummary(tab.id);
 }
@@ -770,11 +760,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'ntapi-reconnect') connect();
 });
 
-/** A tab the agent was working in can vanish without the app ever asking. */
-chrome.windows.onRemoved.addListener((windowId) => {
-  if (windowId === agentWindowId) saveWindowId(null);
-});
-
 chrome.tabs.onRemoved.addListener((tabId) => {
   attached.delete(tabId);
   inflight.delete(tabId);
@@ -797,6 +782,9 @@ if (typeof module !== 'undefined') {
  * pick one to hand over; nothing here reads a page.
  */
 async function listRealTabs(args = {}) {
+  // The group id lives in session storage; after a service-worker restart this
+  // is what puts it back, so `agent: true` keeps meaning the same tab.
+  if (agentGroupId === null) agentGroupId = await readSavedGroupId();
   const tabs = await chrome.tabs.query({});
   // Handing a tab over is the moment to bring it to the front, so the user can
   // see what the agent is about to work on.
@@ -807,7 +795,6 @@ async function listRealTabs(args = {}) {
       if (target) await chrome.windows.update(target.windowId, { focused: true });
     } catch {}
   }
-  const agentWin = await findWindow();
   // `match` narrows the list to the tabs whose url or title contains it, so the
   // agent can ask "which tab is the TikTok upload?" instead of guessing an id.
   const needle = typeof args.match === 'string' ? args.match.trim().toLowerCase() : '';
@@ -820,7 +807,8 @@ async function listRealTabs(args = {}) {
       active: Boolean(tab.active),
       pinned: Boolean(tab.pinned),
       audible: Boolean(tab.audible),
-      agent: agentWin !== null && tab.windowId === agentWin,
+      groupId: Number.isInteger(tab.groupId) ? tab.groupId : -1,
+      agent: isAgentTab(tab),
       // A blank tab is a convenience the agent opens for itself, never a page the
       // user chose. Offering one to hand over would be handing over nothing.
       blank: !tab.url || tab.url === 'about:blank',
@@ -830,7 +818,7 @@ async function listRealTabs(args = {}) {
       return `${tab.url} ${tab.title}`.toLowerCase().includes(needle);
     });
   const limit = Number.isInteger(args.limit) && args.limit > 0 ? args.limit : rows.length;
-  return { windowId: agentWin, tabs: rows.slice(0, limit), matched: rows.length, total: tabs.length };
+  return { windowId: await userWindowId(), tabs: rows.slice(0, limit), matched: rows.length, total: tabs.length };
 }
 
 /** Remove the refs we stamped, so a stale attribute can never be clicked later. */
@@ -1252,7 +1240,46 @@ async function evaluate(args) {
   return Object.assign({ value: typeof value === 'string' ? value.slice(0, 8000) : value }, await tabSummary(tabId));
 }
 
+/**
+ * Close several of the agent's own tabs in one go.
+ *
+ * A tab the user handed over is theirs to close, so it is refused here rather
+ * than guessed at: this is the one command that destroys something.
+ */
+async function closeTabs(ids) {
+  if (agentGroupId === null) agentGroupId = await readSavedGroupId();
+  const list = [...new Set(ids)];
+  if (!list.length || list.length > 8 || list.some((id) => !Number.isInteger(id))) {
+    throw Object.assign(new Error('`tabs` must be 1 to 8 tab ids.'), { code: 'BAD_ARGS' });
+  }
+  const closed = [];
+  const refused = [];
+  for (const id of list) {
+    const tab = await chrome.tabs.get(id).catch(() => null);
+    if (!tab) continue; // already gone is not a failure
+    if (!isAgentTab(tab)) {
+      refused.push(id);
+      continue;
+    }
+    const summary = await tabSummary(id);
+    try {
+      await chrome.debugger.detach({ tabId: id });
+    } catch {}
+    attached.delete(id);
+    await chrome.tabs.remove(id).catch(() => {});
+    closed.push(summary);
+  }
+  if (!closed.length) {
+    throw Object.assign(
+      new Error('Those tabs were not opened by the agent, so it will not close them. The user closes their own tabs.'),
+      { code: 'NOT_OWNED' }
+    );
+  }
+  return { closed, refused, tabId: closed[closed.length - 1].tabId };
+}
+
 async function closeTab(args) {
+  if (Array.isArray(args.tabs) && args.tabs.length) return closeTabs(args.tabs);
   const tabId = await resolveTab(args.tab);
   const summary = await tabSummary(tabId);
   try {
