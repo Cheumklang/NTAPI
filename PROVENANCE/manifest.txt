@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-24T22:54:37.032Z
-entries 349
-head_hash 678b36a9be492a960ebaa17bc894f9c8acee138ff430077f2a0cd0ea7ae979c7
-git e900cc021785d891eb94ccb5b9a14a9a54e808eb
+updated 2026-11-25T00:15:27.106Z
+entries 356
+head_hash fe92d598eb36adaa74cd929e51710e7d6eea1adbe132c11fac3bdd70a1028310
+git c5e408937294beae3a5cd3d040c9c61e7a78d795
 
 latest entries:
-  #342 2026-11-24T19:50:37.633Z session — Working session transcript-document-polish
-  #343 2026-11-24T20:21:29.578Z session — ปุ่ม Retry เมื่อเครดิต/quota หมด (prompt:retry + banner ที่ไม่จางเอง) และแถบสีเต็มบรรทัดของ diff ในบทสนทนา (part six) + แก้ meta ของ ---/+++
-  #344 2026-11-24T20:27:54.781Z session — ปุ่ม Retry รอดการ repaint: entry kind:error แนบ limit มาจาก main และ renderer ให้ปุ่มเฉพาะ entry ท้ายสุดตอน idle
-  #345 2026-11-24T20:47:51.646Z session — แคช highlight รายบรรทัด + แคช HTML ต่อข้อความใน markdown.js และเพิ่ม bench:markdown; วัดก่อน/หลังแล้ว (วาดใหม่ 90 ข้อความ 67 to 28 ms)
-  #346 2026-11-24T21:13:19.230Z session — boot ไม่รอรายการแชท + session-index อ่านเฉพาะไบต์ที่เพิ่ม; วัด 60 แชท: 80 to 29 ms cold, 0.7 ms warm, 1 ms หลังจบเทิร์น
-  #347 2026-11-24T22:46:37.780Z commit — perf: เปิดโปรแกรม/โหลดแชทเร็วขึ้น + แคช markdown + Retry เมื่อเครดิตหมด + ขัดหน้าตา + skill scan + model picker
-  #348 2026-11-24T22:46:53.390Z commit — meta: บันทึกงานลง PROVENANCE + HANDOFF/LOG + docs + shots + linux-share-keys
   #349 2026-11-24T22:54:36.880Z release — Released version 0.9.4
+  #350 2026-11-24T22:54:40.768Z commit — PROVENANCE: บันทึกการปล่อย v0.9.4
+  #351 2026-11-24T22:56:36.635Z commit — meta: อัปเดต HANDOFF/LOG หลังปล่อย v0.9.4
+  #352 2026-11-24T22:56:43.179Z session — ปล่อย v0.9.4: รวมงานค้างทั้งหมด (session-index + markdown cache + retry + polish + skill + model-picker) + ลบรุ่นเก่า + ลบสคริปต์ชั่วคราว
+  #353 2026-11-24T22:56:47.696Z commit — PROVENANCE: บันทึก session ปล่อย v0.9.4
+  #354 2026-11-25T00:13:40.033Z commit — feat: เพิ่มผู้ให้บริการ Kilo (OpenAI-compatible, catalog เต็ม)
+  #355 2026-11-25T00:15:03.029Z commit — release: v0.9.5 — เพิ่มผู้ให้บริการ Kilo
+  #356 2026-11-25T00:15:23.382Z release — Released version 0.9.5

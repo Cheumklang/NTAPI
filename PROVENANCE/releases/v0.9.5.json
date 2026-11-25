@@ -1,0 +1,16 @@
+{
+  "version": "0.9.5",
+  "tag": "v0.9.5",
+  "recordedAt": "2026-11-25T00:15:23.374Z",
+  "git": {
+    "head": "c5e408937294beae3a5cd3d040c9c61e7a78d795",
+    "branch": "master",
+    "tree": "a732fbc8db97a94c20035f85fd840d6902b0f4c1",
+    "subject": "PROVENANCE: บันทึกคอมมิต 9d8df21",
+    "authorDate": "2026-11-25T07:15:02+07:00",
+    "commitCount": 568
+  },
+  "ci": "",
+  "assets": [],
+  "releaseUrl": "https://github.com/Cheumklang/NTAPI-releases/releases/tag/v0.9.5"
+}
