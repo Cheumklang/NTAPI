@@ -142,11 +142,18 @@ if (typeof split === 'function') {
 }
 
 const messagesForUi = body(main, 'messagesForUi');
-check('the UI message builder strips the note', /splitAttachmentNotes\(text\)/.test(messagesForUi));
+check(
+  'the UI message builder strips the note',
+  /splitAttachmentNotes\(skill\.text\)/.test(messagesForUi)
+);
 check('the UI message builder returns the saved paths', /imagePaths: split\.imagePaths/.test(messagesForUi));
 check(
   'a message that had only a picture is still listed',
   /split\.text \|\| images\.length \|\| split\.imagePaths\.length/.test(messagesForUi)
+);
+check(
+  'the UI message builder cuts the skill expansion away first',
+  /splitSkillExpansion\(text\)/.test(messagesForUi)
 );
 
 /* ---------- 2. the picture can be read back from where it was saved ---------- */

@@ -17,7 +17,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
-const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER, ANTHROPIC_PROVIDER, GOOGLE_PROVIDER, ZAI_PROVIDER, OPENROUTER_PROVIDER, KILO_PROVIDER, CLOUDFLARE_PROVIDER } = require('./provider-plan');
+const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER, ANTHROPIC_PROVIDER, GOOGLE_PROVIDER, ZAI_PROVIDER, OPENROUTER_PROVIDER, KILO_PROVIDER, CLOUDFLARE_PROVIDER, MISTRAL_PROVIDER, POLLINATIONS_PROVIDER } = require('./provider-plan');
 const { detectClientVersion, upgradedClientVersion, FALLBACK_CLIENT_VERSION } = require('./client-version');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels, retagModels, setCoarenaFreeTier } = require('./coarena');
 const {
@@ -73,6 +73,16 @@ const {
   cloudflareProviderConfig,
   cloudflareModelEntries,
 } = require('./cloudflare');
+const {
+  resolveMistralModels,
+  mistralProviderConfig,
+  mistralModelEntries,
+} = require('./mistral');
+const {
+  resolvePollinationsModels,
+  pollinationsProviderConfig,
+  pollinationsModelEntries,
+} = require('./pollinations');
 const { providerIdleTimeoutMs } = require('./provider-timeout');
 const { tagPlans } = require('./model-filter');
 const { pruneImages } = require('./image-history');
@@ -834,6 +844,10 @@ async function createFreePiSession(options) {
     cloudflareKey = null,
     /** The Cloudflare account the token is scoped to (Workers AI needs both). */
     cloudflareAccountId = null,
+    /** Mistral AI API key, or null. OpenAI-compatible, freemium. */
+    mistralKey = null,
+    /** Pollinations.ai API key, or null. OpenAI-compatible, free. */
+    pollinationsKey = null,
     /**
      * Injectable so tests can simulate "no FreePi login" without touching the
      * real credentials file. Production uses the normal resolver.
@@ -854,6 +868,8 @@ async function createFreePiSession(options) {
   let activeKiloKey = kiloKey ? String(kiloKey).trim() : null;
   let activeCloudflareKey = cloudflareKey ? String(cloudflareKey).trim() : null;
   let activeCloudflareAccount = cloudflareAccountId ? String(cloudflareAccountId).trim() : null;
+  let activeMistralKey = mistralKey ? String(mistralKey).trim() : null;
+  let activePollinationsKey = pollinationsKey ? String(pollinationsKey).trim() : null;
 
   // Shared by the pause-gate extension and the handle's pause()/resume() below.
   const pauseGate = createPauseGate();
@@ -927,6 +943,8 @@ async function createFreePiSession(options) {
     openrouterModels,
     kiloModels,
     cloudflareModels,
+    mistralModels,
+    pollinationsModels,
   ] = await Promise.all([
       cachedCatalog('nvidia', activeNvidiaKey, () => resolveNvidiaModels(activeNvidiaKey)),
       cachedCatalog('tokenharbor', activeTokenHarborKey, () =>
@@ -950,6 +968,10 @@ async function createFreePiSession(options) {
         activeCloudflareKey ? `${activeCloudflareKey}@${activeCloudflareAccount || ''}` : null,
         () => resolveCloudflareModels(activeCloudflareKey, activeCloudflareAccount)
       ),
+      cachedCatalog('mistral', activeMistralKey, () => resolveMistralModels(activeMistralKey)),
+      cachedCatalog('pollinations', activePollinationsKey, () =>
+        resolvePollinationsModels(activePollinationsKey)
+      ),
     ]);
   const llm7Models = activeLlm7Key ? tagPlans(llm7Catalog.models) : [];
 
@@ -968,6 +990,8 @@ async function createFreePiSession(options) {
     openrouterKey: activeOpenRouterKey,
     kiloKey: activeKiloKey,
     cloudflareKey: activeCloudflareKey && activeCloudflareAccount ? activeCloudflareKey : null,
+    mistralKey: activeMistralKey,
+    pollinationsKey: activePollinationsKey,
     freePiModels: models,
     coarenaModels,
     zroModels,
@@ -981,10 +1005,12 @@ async function createFreePiSession(options) {
     openrouterModels,
     kiloModels,
     cloudflareModels,
+    mistralModels,
+    pollinationsModels,
   });
   if (!plan.available) {
     throw new Error(
-      'No AI provider available — sign in to FreePi or add a provider key in Settings (Coarena, Zro, NVIDIA, Token Harbor, LLM7, DeepSeek, Claude, Gemini, z.ai, OpenRouter, Kilo, Cloudflare).'
+      'No AI provider available — sign in to FreePi or add a provider key in Settings (Coarena, Zro, NVIDIA, Token Harbor, LLM7, DeepSeek, Claude, Gemini, z.ai, OpenRouter, Kilo, Cloudflare, Mistral, Pollinations).'
     );
   }
   log(
@@ -1000,7 +1026,9 @@ async function createFreePiSession(options) {
       `zai=${plan.zai ? zaiModels.length : 0}, ` +
       `openrouter=${plan.openrouter ? openrouterModels.length : 0}, ` +
       `kilo=${plan.kilo ? kiloModels.length : 0}, ` +
-      `cloudflare=${plan.cloudflare ? cloudflareModels.length : 0}`
+      `cloudflare=${plan.cloudflare ? cloudflareModels.length : 0}, ` +
+      `mistral=${plan.mistral ? mistralModels.length : 0}, ` +
+      `pollinations=${plan.pollinations ? pollinationsModels.length : 0}`
   );
 
   // Ads: one per user turn, tagged with the turn id the completion carries.
@@ -1113,6 +1141,18 @@ async function createFreePiSession(options) {
             accountId: activeCloudflareAccount,
             models: cloudflareModels,
           })
+        );
+      }
+      if (plan.mistral) {
+        pi.registerProvider(
+          MISTRAL_PROVIDER,
+          mistralProviderConfig({ apiKey: activeMistralKey, models: mistralModels })
+        );
+      }
+      if (plan.pollinations) {
+        pi.registerProvider(
+          POLLINATIONS_PROVIDER,
+          pollinationsProviderConfig({ apiKey: activePollinationsKey, models: pollinationsModels })
         );
       }
       // Images accumulate in history every time a model reads one. Trim before
@@ -2161,6 +2201,8 @@ async function createFreePiSession(options) {
   let openrouterEntries = plan.openrouter ? openrouterModelEntries(openrouterModels) : [];
   let kiloEntries = plan.kilo ? kiloModelEntries(kiloModels) : [];
   let cloudflareEntries = plan.cloudflare ? cloudflareModelEntries(cloudflareModels) : [];
+  let mistralEntries = plan.mistral ? mistralModelEntries(mistralModels) : [];
+  let pollinationsEntries = plan.pollinations ? pollinationsModelEntries(pollinationsModels) : [];
   let modelList = [];
 
   /**
@@ -2183,6 +2225,8 @@ async function createFreePiSession(options) {
       ...openrouterEntries,
       ...kiloEntries,
       ...cloudflareEntries,
+      ...mistralEntries,
+      ...pollinationsEntries,
     ];
     return modelList;
   }
@@ -2541,6 +2585,62 @@ async function createFreePiSession(options) {
   }
 
   /**
+   * Swap the Mistral key while the tab is open. The catalog is re-resolved so
+   * a retired id leaves the dropdown.
+   */
+  async function applyMistralKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(MISTRAL_PROVIDER);
+      } catch {}
+    }
+
+    activeMistralKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeMistralKey) {
+      mistralEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolveMistralModels(activeMistralKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        MISTRAL_PROVIDER,
+        mistralProviderConfig({ apiKey: activeMistralKey, models })
+      );
+    }
+    mistralEntries = mistralModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
+  /**
+   * Swap the Pollinations key while the tab is open. The catalog is re-resolved
+   * so a retired id leaves the dropdown.
+   */
+  async function applyPollinationsKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(POLLINATIONS_PROVIDER);
+      } catch {}
+    }
+
+    activePollinationsKey = nextKey ? String(nextKey).trim() : null;
+    if (!activePollinationsKey) {
+      pollinationsEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolvePollinationsModels(activePollinationsKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        POLLINATIONS_PROVIDER,
+        pollinationsProviderConfig({ apiKey: activePollinationsKey, models })
+      );
+    }
+    pollinationsEntries = pollinationsModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
+  /**
    * Re-register the free-pi provider after the backend says our version header
    * is too old. The header is resolved per call now (see currentClientVersion),
    * so this exists for the case where a *newer* CLI appeared on disk while the
@@ -2599,6 +2699,8 @@ async function createFreePiSession(options) {
       ['openrouter', activeOpenRouterKey, () => applyOpenRouterKey(activeOpenRouterKey)],
       ['kilo', activeKiloKey, () => applyKiloKey(activeKiloKey)],
       ['cloudflare', activeCloudflareKey, () => applyCloudflareKey(activeCloudflareKey)],
+      ['mistral', activeMistralKey, () => applyMistralKey(activeMistralKey)],
+      ['pollinations', activePollinationsKey, () => applyPollinationsKey(activePollinationsKey)],
     ];
 
     const errors = [];
@@ -2654,7 +2756,12 @@ async function createFreePiSession(options) {
     applyDeepSeekKey,
     applyAnthropicKey,
     applyGoogleKey,
+    applyZaiKey,
+    applyOpenRouterKey,
     applyKiloKey,
+    applyCloudflareKey,
+    applyMistralKey,
+    applyPollinationsKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
 

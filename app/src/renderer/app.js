@@ -393,6 +393,34 @@ const STRINGS = {
     cloudflareUnverified: 'Cloudflare could not be reached — the credential was saved unverified.',
     cloudflareSaveFailed: 'Could not save the credential:',
     cloudflareRemoved: 'Cloudflare credential removed.',
+    mistralSection: 'Mistral',
+    mistralKeyLabel: 'API key',
+    mistralSave: 'Save',
+    mistralRemove: 'Remove',
+    mistralRemoveTitle: 'Remove the Mistral key?',
+    mistralRemoveSub: 'Mistral models leave the list.',
+    mistralConfigured: 'Configured',
+    mistralUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    mistralNotConfigured: 'No key yet — Mistral models stay hidden.',
+    mistralGetKey: 'Get a key at console.mistral.ai',
+    mistralSaved: 'Mistral key saved.',
+    mistralUnverified: 'Mistral could not be reached — the key was saved unverified.',
+    mistralSaveFailed: 'Could not save the key:',
+    mistralRemoved: 'Mistral key removed.',
+    pollinationsSection: 'Pollinations',
+    pollinationsKeyLabel: 'API key',
+    pollinationsSave: 'Save',
+    pollinationsRemove: 'Remove',
+    pollinationsRemoveTitle: 'Remove the Pollinations key?',
+    pollinationsRemoveSub: 'Pollinations models leave the list.',
+    pollinationsConfigured: 'Configured',
+    pollinationsUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    pollinationsNotConfigured: 'No key yet — Pollinations models stay hidden.',
+    pollinationsGetKey: 'Get a key at pollinations.ai',
+    pollinationsSaved: 'Pollinations key saved.',
+    pollinationsUnverified: 'Pollinations could not be reached — the key was saved unverified.',
+    pollinationsSaveFailed: 'Could not save the key:',
+    pollinationsRemoved: 'Pollinations key removed.',
     providerTileHasKey: 'key saved',
     llamacppSection: 'llama.cpp',
     llamacppLocalNote: 'Runs on your own computer; pictures stay on this machine.',
@@ -439,6 +467,7 @@ const STRINGS = {
     systemInfoCopied: 'Copied',
     systemInfoFailed: 'Could not copy',
     crashNotice: 'Something went wrong. Copy the system info and include it in a bug report.',
+    crashRetry: 'Retry',
     mcpLlm7Warn:
       "On LLM7.io's free tier, function calling may be unavailable and each tool drains the daily token budget — prefer another provider for MCP work.",
     dataRootLabel: 'App data folder',
@@ -527,6 +556,10 @@ const STRINGS = {
     unknownError: 'unknown cause',
     noticeReasoningOverflow:
       'The model spent its whole output limit on reasoning and never answered. Retry, or pick a model that does not think first.',
+    noticeThinkingLoop:
+      'The model fell into a loop of repeating the same reasoning — stopped it and told it to move on.',
+    noticeThinkingLoopGaveUp:
+      'The model kept looping in its reasoning, so this turn was stopped. Send it again or pick another model.',
     noticeClearUnlink: 'Chat closed, but its history file could not be deleted: {error}',
     noticeClearOutsideStore:
       'Chat closed, but its history file is outside the app session store and was left on disk.',
@@ -1063,6 +1096,34 @@ const STRINGS = {
     cloudflareUnverified: 'ติดต่อ Cloudflare ไม่ได้ — บันทึกไว้โดยยังไม่ตรวจ',
     cloudflareSaveFailed: 'บันทึกข้อมูลไม่สำเร็จ:',
     cloudflareRemoved: 'ลบข้อมูล Cloudflare แล้ว',
+    mistralSection: 'Mistral',
+    mistralKeyLabel: 'คีย์ API',
+    mistralSave: 'บันทึก',
+    mistralRemove: 'ลบออก',
+    mistralRemoveTitle: 'ลบคีย์ Mistral?',
+    mistralRemoveSub: 'โมเดล Mistral จะหายจากรายการ',
+    mistralConfigured: 'ตั้งค่าแล้ว',
+    mistralUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    mistralNotConfigured: 'ยังไม่มีคีย์ — โมเดล Mistral จะไม่แสดง',
+    mistralGetKey: 'ขอคีย์ที่ console.mistral.ai',
+    mistralSaved: 'บันทึกคีย์ Mistral แล้ว',
+    mistralUnverified: 'ติดต่อ Mistral ไม่ได้ — บันทึกไว้โดยยังไม่ตรวจ',
+    mistralSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    mistralRemoved: 'ลบคีย์ Mistral แล้ว',
+    pollinationsSection: 'Pollinations',
+    pollinationsKeyLabel: 'คีย์ API',
+    pollinationsSave: 'บันทึก',
+    pollinationsRemove: 'ลบออก',
+    pollinationsRemoveTitle: 'ลบคีย์ Pollinations?',
+    pollinationsRemoveSub: 'โมเดล Pollinations จะหายจากรายการ',
+    pollinationsConfigured: 'ตั้งค่าแล้ว',
+    pollinationsUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    pollinationsNotConfigured: 'ยังไม่มีคีย์ — โมเดล Pollinations จะไม่แสดง',
+    pollinationsGetKey: 'ขอคีย์ที่ pollinations.ai',
+    pollinationsSaved: 'บันทึกคีย์ Pollinations แล้ว',
+    pollinationsUnverified: 'ติดต่อ Pollinations ไม่ได้ — บันทึกไว้โดยยังไม่ตรวจ',
+    pollinationsSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    pollinationsRemoved: 'ลบคีย์ Pollinations แล้ว',
     providerTileHasKey: 'มีคีย์แล้ว',
     llamacppSection: 'llama.cpp',
     llamacppLocalNote: 'ทำงานบนคอมพิวเตอร์ของคุณเอง และภาพอยู่ในเครื่องนี้',
@@ -1109,6 +1170,7 @@ const STRINGS = {
     systemInfoCopied: 'คัดลอกแล้ว',
     systemInfoFailed: 'คัดลอกไม่สำเร็จ',
     crashNotice: 'เกิดข้อผิดพลาดบางอย่าง คัดลอกข้อมูลระบบแล้วแนบไปในรายงานบั๊กได้เลย',
+    crashRetry: 'ลองอีกครั้ง',
     mcpLlm7Warn:
       'บน LLM7.io โควตาฟรีอาจเรียก tool ไม่ได้ และทุก tool จะกินโทเคนรายวัน — ควรใช้ค่ายอื่นสำหรับงาน MCP',
     dataRootLabel: 'โฟลเดอร์ข้อมูลของแอป',
@@ -1197,6 +1259,10 @@ const STRINGS = {
     unknownError: 'ไม่ทราบสาเหตุ',
     noticeReasoningOverflow:
       'model ใช้เพดานผลลัพธ์หมดไปกับการคิดแล้วไม่ได้ตอบเลย — ลองส่งอีกครั้ง หรือเปลี่ยนไปใช้ model ที่ไม่ใช่สายคิดก่อนตอบ',
+    noticeThinkingLoop:
+      'model คิดวนซ้ำประโยคเดิม — หยุดให้แล้วและสั่งให้ทำงานขั้นถัดไปต่อ',
+    noticeThinkingLoopGaveUp:
+      'model ยังคิดวนซ้ำอีกรอบ — หยุดงานนี้แล้ว ส่งอีกครั้งหรือเปลี่ยนไปใช้ model อื่น',
     noticeClearUnlink: 'ปิดแชทแล้ว แต่ลบไฟล์ประวัติไม่ได้: {error}',
     noticeClearOutsideStore:
       'ปิดแชทแล้ว แต่ไฟล์ประวัติอยู่นอกโฟลเดอร์ของแอป จึงยังค้างอยู่ในเครื่อง',
@@ -2652,6 +2718,18 @@ function addMessage(kind) {
   return wrap;
 }
 
+/**
+ * `/skill:name …` is one command to the agent and two things to the reader: the
+ * skill in use, then the words they wrote. The transcript shows the words.
+ */
+const SKILL_COMMAND = /^\/skill:([^\s]+)[ \t]*/;
+
+function displayPrompt(text) {
+  const s = String(text || '');
+  const m = SKILL_COMMAND.exec(s);
+  return m ? s.slice(m[0].length) : s;
+}
+
 function renderUserMessage(text, attachments, extra = {}) {
   const wrap = addMessage('user');
   const bubble = wrap.querySelector('.bubble');
@@ -2686,7 +2764,7 @@ function renderUserMessage(text, attachments, extra = {}) {
 
   if (text) {
     const p = document.createElement('div');
-    p.textContent = text;
+    p.textContent = displayPrompt(text) || text;
     bubble.appendChild(p);
   }
 
@@ -4358,6 +4436,8 @@ let zaiStatus = null;
 let openrouterStatus = null;
 let kiloStatus = null;
 let cloudflareStatus = null;
+let mistralStatus = null;
+let pollinationsStatus = null;
 /** The local vision model (llama.cpp) and where a picture goes when it is looked at. */
 let llamacppStatus = null;
 let visionMode = 'model';
@@ -4570,6 +4650,48 @@ function paintCloudflareSettings() {
     Boolean((s?.configured && !s.readable) || (s?.configured === false && s?.accountConfigured && !s?.accountReadable))
   );
   if (remove) remove.disabled = !s?.configured && !s?.accountConfigured;
+  paintProviderGrid();
+}
+
+function paintMistralSettings() {
+  const node = el('mistralStatus');
+  const remove = el('mistralRemove');
+  if (!node) return;
+
+  const s = mistralStatus;
+  let text = t('mistralNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('mistralConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('mistralUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
+}
+
+function paintPollinationsSettings() {
+  const node = el('pollinationsStatus');
+  const remove = el('pollinationsRemove');
+  if (!node) return;
+
+  const s = pollinationsStatus;
+  let text = t('pollinationsNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('pollinationsConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('pollinationsUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
   paintProviderGrid();
 }
 
@@ -5372,8 +5494,10 @@ const PROVIDER_TILE_ORDER = [
   'google',
   'kilo',
   'llm7',
+  'mistral',
   'nvidia',
   'openrouter',
+  'pollinations',
   'tokenharbor',
   'zai',
   'zro',
@@ -5402,6 +5526,8 @@ function providerStatusOf(id) {
       openrouter: openrouterStatus,
       kilo: kiloStatus,
       cloudflare: cloudflareStatus,
+      mistral: mistralStatus,
+      pollinations: pollinationsStatus,
       // A local model has no key: "usable" means installed and switched on — the
       // tick must not blink just because the model is idle between pictures.
       llamacpp: llamacppStatus
@@ -6436,6 +6562,8 @@ async function openSettings() {
   openrouterStatus = settingsData?.openrouter || null;
   kiloStatus = settingsData?.kilo || null;
   cloudflareStatus = settingsData?.cloudflare || null;
+  mistralStatus = settingsData?.mistral || null;
+  pollinationsStatus = settingsData?.pollinations || null;
   llamacppStatus = settingsData?.llamacpp || null;
   visionMode = settingsData?.visionMode || 'model';
   paintCoarenaSettings();
@@ -6450,6 +6578,8 @@ async function openSettings() {
   paintOpenRouterSettings();
   paintKiloSettings();
   paintCloudflareSettings();
+  paintMistralSettings();
+  paintPollinationsSettings();
   paintLlamaCppSettings();
   paintVisionControl();
   // Nothing chosen yet: open the first company that already has a key, so the
@@ -6569,8 +6699,7 @@ async function copySystemInfo(btn) {
   }
 }
 
-/** One visible banner at a time; the user can copy the info or dismiss it. */
-let crashNoticeTimer = null;
+/** One visible banner at a time; the user can copy the info, retry or dismiss it. */
 function showCrashNotice(reason) {
   const box = el('crashNotice');
   const text = el('crashText');
@@ -6578,21 +6707,17 @@ function showCrashNotice(reason) {
   const msg = reason && reason.message ? reason.message : typeof reason === 'string' ? reason : '';
   text.textContent = `${t('crashNotice')}${msg ? ` — ${msg}` : ''}`;
   box.hidden = false;
-  // Same rule as the error banner: it clears itself after fifteen seconds, so a
-  // crash loop cannot leave the composer permanently red. Copying the system
-  // info is a button press away until then, and the banner is dismissible by
-  // hand at any point.
-  clearTimeout(crashNoticeTimer);
-  crashNoticeTimer = setTimeout(() => {
-    if (box) box.hidden = true;
-  }, 15_000);
+  // It stays put: the message is the one clue a bug report gets, so it leaves
+  // only when the reader closes it or retries.
 }
 
 window.addEventListener('error', (e) => showCrashNotice(e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => showCrashNotice(e.reason));
 el('crashCopy')?.addEventListener('click', (e) => copySystemInfo(e.currentTarget));
+// A renderer-level failure has no turn to resume, so Retry starts the page over —
+// the one move that clears a wedged renderer.
+el('crashRetry')?.addEventListener('click', () => location.reload());
 el('crashClose')?.addEventListener('click', () => {
-  clearTimeout(crashNoticeTimer);
   el('crashNotice').hidden = true;
 });
 
@@ -7518,6 +7643,82 @@ el('cloudflareBuy')?.addEventListener('click', () => {
   api.openExternal('https://dash.cloudflare.com/').catch(() => {});
 });
 
+el('mistralSave')?.addEventListener('click', async () => {
+  const inputEl = el('mistralKeyInput');
+  const button = el('mistralSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.mistralSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      mistralStatus = res.status || null;
+      paintMistralSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('mistralUnverified') : t('mistralSaved'));
+    } else {
+      showNotice(`${t('mistralSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('mistralSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('mistralRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'mistralRemove',
+    title: t('mistralRemoveTitle'),
+    sub: t('mistralRemoveSub'),
+    action: t('mistralRemove'),
+  });
+});
+
+el('mistralGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://console.mistral.ai/').catch(() => {});
+});
+
+el('pollinationsSave')?.addEventListener('click', async () => {
+  const inputEl = el('pollinationsKeyInput');
+  const button = el('pollinationsSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.pollinationsSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      pollinationsStatus = res.status || null;
+      paintPollinationsSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('pollinationsUnverified') : t('pollinationsSaved'));
+    } else {
+      showNotice(`${t('pollinationsSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('pollinationsSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('pollinationsRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'pollinationsRemove',
+    title: t('pollinationsRemoveTitle'),
+    sub: t('pollinationsRemoveSub'),
+    action: t('pollinationsRemove'),
+  });
+});
+
+el('pollinationsGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://pollinations.ai/').catch(() => {});
+});
+
 el('googleSave')?.addEventListener('click', async () => {
   const inputEl = el('googleKeyInput');
   const button = el('googleSave');
@@ -8242,6 +8443,32 @@ el('confirmDelete').addEventListener('click', async () => {
       showNotice(t('cloudflareRemoved'));
     } else {
       showNotice(`${t('cloudflareSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
+  if (state.kind === 'mistralRemove') {
+    const res = await api.mistralClearKey();
+    if (res?.ok) {
+      mistralStatus = res.status || null;
+      paintMistralSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('mistralRemoved'));
+    } else {
+      showNotice(`${t('mistralSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
+  if (state.kind === 'pollinationsRemove') {
+    const res = await api.pollinationsClearKey();
+    if (res?.ok) {
+      pollinationsStatus = res.status || null;
+      paintPollinationsSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('pollinationsRemoved'));
+    } else {
+      showNotice(`${t('pollinationsSaveFailed')} ${res?.error || ''}`.trim());
     }
     return;
   }
@@ -13609,30 +13836,45 @@ if (numberFxBox) {
 
 /* ------------------------------ todo list ---------------------------- */
 
+/*
+ * A plan only earns screen space while it still lists work left: a finished step
+ * leaves the panel the moment it is marked done. The reader can also close the
+ * panel by hand — that list stays closed until the model sends a new one.
+ */
+let todosClosedKey = '';
+
 function renderTodos(items) {
   const panel = el('todoPanel');
   if (!panel) return;
-  const list = (Array.isArray(items) ? items : []).filter((it) => it && it.text);
-  const done = list.filter((it) => it.status === 'done').length;
-  // All steps done (or none): the plan has served its purpose, so it clears
-  // itself. A new list from the model brings the panel back.
-  if (!list.length || done === list.length) {
+  const all = (Array.isArray(items) ? items : []).filter((it) => it && it.text);
+  const done = all.filter((it) => it.status === 'done').length;
+  const open = all.filter((it) => it.status !== 'done');
+  const key = all.map((it) => `${it.status || 'pending'}:${it.text}`).join('\n');
+  // Nothing left to do (or none at all): the plan has served its purpose, so it
+  // clears itself. A new list from the model brings the panel back.
+  if (!open.length || key === todosClosedKey) {
     panel.hidden = true;
     panel.innerHTML = '';
     return;
   }
   panel.innerHTML =
     `<div class="todo-head"><span class="todo-title">${escapeHtml(t('todos'))}</span>` +
-    `<span class="todo-count">${done}/${list.length}</span></div>` +
-    `<ul class="todo-list">${list
+    `<span class="todo-count">${done}/${all.length}</span>` +
+    `<button type="button" class="todo-close" aria-label="${escapeHtml(t('close'))}" title="${escapeHtml(t('close'))}">✕</button></div>` +
+    `<ul class="todo-list">${open
       .map(
         (it) =>
           `<li class="todo-item ${escapeHtml(it.status || 'pending')}">` +
-          `<span class="todo-mark">${it.status === 'done' ? '✓' : it.status === 'in_progress' ? '▸' : '○'}</span>` +
+          `<span class="todo-mark">${it.status === 'in_progress' ? '▸' : '○'}</span>` +
           `<span class="todo-text">${escapeHtml(it.text)}</span></li>`
       )
       .join('')}</ul>`;
   panel.hidden = false;
+  panel.querySelector('.todo-close')?.addEventListener('click', () => {
+    todosClosedKey = key;
+    panel.hidden = true;
+    panel.innerHTML = '';
+  });
 }
 
 /* ------------------------------ shell mode -------------------------- */
@@ -14055,23 +14297,28 @@ async function undoLastMessage() {
     });
     return;
   }
+  // The session stores what the model saw: for `/skill:…` that is the whole
+  // SKILL.md ahead of the user's words. The bubble on screen holds the short
+  // form the user typed, so that is the one to put back.
+  const typed = lastUserText(view);
   const res = await api.undo(view.tabId);
   if (!res?.ok) return showNotice(res?.reason === 'busy' ? t('undoBusy') : t('undoEmpty'));
-  finishUndo(view, res.entryId, res.text);
+  finishUndo(view, res.entryId, typed || res.text);
 }
 
 /** Shared tail of both undo paths: the redo handle, the composer text, the notice. */
 function finishUndo(view, entryId, text) {
   view.undoEntryId = entryId || null;
-  if (text) {
+  const restored = composerText(text);
+  if (restored) {
     // The session no longer holds this message. Any pending copy of the same
     // text that is still floating on the renderer side (a history event that
     // never got to claim it — a send that errored midway, a rewritten prompt
     // that broke the prefix match) would be re-inserted by the incoming merge
     // on the repaint that follows the undo. The text is back in the input now,
     // so that copy is stale; drop it or the bubble never disappears.
-    dropStalePending(view, text);
-    input.value = text;
+    dropStalePending(view, restored);
+    input.value = restored;
     autoGrow();
     updateSendState();
     input.focus();
@@ -14101,9 +14348,36 @@ function lastUserText(view) {
   const msgs = view && Array.isArray(view.messages) ? view.messages : [];
   for (let i = msgs.length - 1; i >= 0; i -= 1) {
     const m = msgs[i];
-    if (m && m.kind === 'user' && typeof m.text === 'string' && m.text) return m.text;
+    if (m && m.kind === 'user' && (typeof m.text === 'string' ? m.text : m.skill)) return userEntryText(m);
   }
   return '';
+}
+
+/**
+ * The composer form of a user entry. History keeps the skill's name beside the
+ * words (the expansion itself is dropped), so the command that loads it can be
+ * rebuilt when the message is taken back.
+ */
+function userEntryText(m) {
+  const text = m && typeof m.text === 'string' ? m.text : '';
+  if (!m || !m.skill) return text;
+  if (text === `/skill:${m.skill}`) return text;
+  return text ? `/skill:${m.skill} ${text}` : `/skill:${m.skill}`;
+}
+
+/**
+ * A stored prompt put back in the composer. A raw `/skill:` expansion becomes
+ * the command again, so pressing Enter re-runs the skill instead of sending a
+ * copy of its manual as an ordinary question.
+ */
+const SKILL_EXPANSION = /^<skill name="([^"\r\n]+)"[^>]*>[\s\S]*?<\/skill>\r?\n*/;
+
+function composerText(raw) {
+  const s = String(raw || '');
+  const m = SKILL_EXPANSION.exec(s);
+  if (!m) return s;
+  const rest = s.slice(m[0].length).trim();
+  return rest ? `/skill:${m[1]} ${rest}` : `/skill:${m[1]}`;
 }
 
 /**

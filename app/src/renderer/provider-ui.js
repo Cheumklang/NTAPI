@@ -28,6 +28,8 @@
   const OPENROUTER_PROVIDER = 'openrouter';
   const KILO_PROVIDER = 'kilo';
   const CLOUDFLARE_PROVIDER = 'cloudflare';
+  const MISTRAL_PROVIDER = 'mistral';
+  const POLLINATIONS_PROVIDER = 'pollinations';
   const SEPARATOR = ' \u00b7 ';
 
   /** Bundled marks, resolved relative to the renderer page. */
@@ -41,11 +43,13 @@
     llm7: 'assets/providers/llm7.png',
     deepseek: 'assets/providers/deepseek.svg',
     anthropic: 'assets/providers/anthropic.svg',
-    google: 'assets/providers/google.svg',
+    google: 'assets/providers/gemini.webp',
     zai: 'assets/providers/zai.svg',
-    openrouter: 'assets/providers/openrouter.svg',
+    openrouter: 'assets/providers/openrouter.jpeg',
     kilo: 'assets/providers/kilo.png',
     cloudflare: 'assets/providers/cloudflare.svg',
+    mistral: 'assets/providers/mistral.webp',
+    pollinations: 'assets/providers/pollinations.png',
   };
 
   /** Human-facing provider name; unknown providers pass through unchanged. */
@@ -67,6 +71,8 @@
     if (provider === OPENROUTER_PROVIDER) return 'OpenRouter';
     if (provider === KILO_PROVIDER) return 'Kilo';
     if (provider === CLOUDFLARE_PROVIDER) return 'Cloudflare';
+    if (provider === MISTRAL_PROVIDER) return 'Mistral';
+    if (provider === POLLINATIONS_PROVIDER) return 'Pollinations';
     return String(provider || '');
   }
 
@@ -174,6 +180,8 @@
     if (provider === OPENROUTER_PROVIDER) return { showAds: false, meter: 'openrouter' };
     if (provider === KILO_PROVIDER) return { showAds: false, meter: 'kilo' };
     if (provider === CLOUDFLARE_PROVIDER) return { showAds: false, meter: 'cloudflare' };
+    if (provider === MISTRAL_PROVIDER) return { showAds: false, meter: 'mistral' };
+    if (provider === POLLINATIONS_PROVIDER) return { showAds: false, meter: 'pollinations' };
     return { showAds: false, meter: null };
   }
 

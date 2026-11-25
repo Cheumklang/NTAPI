@@ -1,6 +1,180 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
-> **📌 2026-11-25 (Linux) — 🗂️ กลุ่มแท็บของ AI ใน Chrome พับเก็บเสมอ เว้นแต่ผู้ใช้กางเอง (ยังไม่ commit):**
+> **📌 2026-11-25 (Linux) — 🔁 ตัวกันโมเดลคิดวนซ้ำ (ยังไม่ commit):**
+>
+> **ผู้ใช้ขอ:** แก้ปัญหา AI วนลูปความคิด ซ้ำประโยคเดิม ทำงานไม่ต่อ ต้องกดหยุดเอง (แย่มากถ้าไม่อยู่หน้าคอม)
+>
+> **แนวทาง A — หยุด + สั่งต่ออัตโนมัติ 1 ครั้ง:**
+> - ไฟล์ใหม่ `app/src/thinking-loop.js` — ตัวตรวจการซ้ำแบบ conservative (ท่อน 160 ตัวอักษรซ้ำ ≥3 ครั้งในหน้าต่าง 2400 ตัวอักษร, สแกนทุก 120 ตัวอักษร)
+> - `app/src/main.js` — ตรวจทุก `thinking_delta`; จับได้ → `handleThinkingLoop` → abort (ไม่ขึ้น error banner) + `agent:notice` · `agent_settled` → `continueAfterLoop` สั่งต่อด้วย `sendCustomMessage(display:false, triggerTurn:true)` (แบบเดียวกับ `prompt:retry`) · วนซ้ำอีก → หยุดจริง + ยิง ntfy (ถ้าตั้งห้องไว้)
+> - `app/src/renderer/app.js` — i18n `noticeThinkingLoop` / `noticeThinkingLoopGaveUp` (EN+TH)
+> - `app/scripts/selftest-thinking-loop.js` + เพิ่มเข้า `run-unit-tests.js`
+>
+> **เทสต์:** `npm test` **113/113** · `selftest-thinking-loop` ผ่าน · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · `app/package.json` = **0.9.6** (ถ้าปล่อย = 0.9.7) · ต้องรีสตาร์ทแอปเพื่อทดสอบจริง
+>
+> **หมายเหตุ:** ตรวจเฉพาะ thinking (ไม่ตรวจ text_delta) · จับได้เฉพาะลูปที่ข้อความซ้ำ *ตรงตัว* (ลูปแบบ paraphrase ตั้งใจไม่จับ เพื่อไม่ฆ่าเทิร์นดี) · ปรับเกณฑ์ได้ที่ `DEFAULTS` ใน `thinking-loop.js`
+
+> **📌 2026-11-25 (Linux) — 🎨 ทำหน้าตาสวยขึ้น (ยังไม่ commit):**
+>
+> **ผู้ใช้ขอ:** "ทำให้โปรแกรมสวยขึ้นโดยไม่ต้องเก็บส่วนเดิมไว้"
+>
+> **ไฟล์ที่แก้:**
+> - `app/src/renderer/index.html` — เพิ่ม `<img class="tb-logo">` โลโก้แอปข้างคำว่า NTAPI ใน titlebar
+> - `app/src/renderer/styles.css` — สไตล์ `.tb-logo` (ขนาด 15px, มุมโค้ง, เงาตามธีม), `.msg.user .role::before` (จุดสีเขียวข้างชื่อผู้ใช้ ให้จับคู่กับจุดสีม่วงของ assistant ที่มีอยู่แล้ว), `@keyframes msg-in` + `.msg` animation (ข้อความใหม่ค่อย ๆ ยกขึ้นและจางเข้ามา แทนที่จะโผล่ทันที)
+>
+> **เทสต์:** `npm test` **112/112** (offline) · `npm run check:sara` **ok**
+>
+> **ค้าง:** ยังไม่ commit · ไม่แตะเลขเวอร์ชัน (0.9.6)
+
+> **📌 2026-11-25 (Linux) — 🪟 ขอบโค้ง + โลโก้จริง + เพิ่ม Mistral/Pollinations + แก้ Pollinations API (ยังไม่ commit):**
+>
+> **ผู้ใช้ขอ:** เพิ่ม Mistral AI + Pollinations.ai · โลโก้จริง · ขอบ window โค้ง · Pollinations หาไม่เจอ
+>
+> **ไฟล์ที่สร้างใหม่:**
+> - `app/src/mistral.js` — Mistral AI provider (OpenAI-compatible, `api.mistral.ai/v1`, freemium)
+> - `app/src/pollinations.js` — Pollinations.ai provider (OpenAI-compatible, `text.pollinations.ai/openai`, free)
+> - `app/src/renderer/assets/providers/mistral.webp` — โลโก้ Mistral (จากผู้ใช้)
+> - `app/src/renderer/assets/providers/pollinations.png` — โลโก้ Pollinations (จากผู้ใช้)
+> - `app/src/renderer/assets/providers/openrouter.jpeg` — โลโก้ OpenRouter (จากผู้ใช้)
+> - `app/src/renderer/assets/providers/gemini.webp` — โลโก้ Gemini (จากผู้ใช้)
+>
+> **ไฟล์ที่แก้:**
+> - `app/src/provider-plan.js` — เพิ่ม MISTRAL_PROVIDER, POLLINATIONS_PROVIDER, mistralKey/pollinationsKey, mistralModels/pollinationsModels, default provider logic
+> - `app/src/freepi-bridge.js` — เพิ่ม import, mistralKey/pollinationsKey params, catalog resolution, provider registration, applyMistralKey/applyPollinationsKey, refreshCatalogs, model entries, rebuildModelList
+> - `app/src/main.js` — เพิ่ม import, mistralKeys/pollinationsKeys key stores, IPC handlers, applyMistralKeyToTabs/applyPollinationsKeyToTabs, keyHealth, settings data, session creation, `transparent: true` on BrowserWindow
+> - `app/src/renderer/app.js` — เพิ่ม i18n (EN+TH), status vars, paint functions, PROVIDER_TILE_ORDER, providerStatusOf, event handlers, confirm dialogs
+> - `app/src/renderer/index.html` — เพิ่ม provider tiles + cards, อัปเดต src เป็น .webp/.png/.jpeg ทั้งหมด
+> - `app/src/renderer/provider-ui.js` — เพิ่ม MISTRAL_PROVIDER/POLLINATIONS_PROVIDER, logos (webp/png/jpeg), labels, providerChrome meters
+> - `app/src/preload.js` — เพิ่ม mistralStatus/mistralSetKey/mistralClearKey/pollinationsStatus/pollinationsSetKey/pollinationsClearKey
+> - `app/src/renderer/styles.css` — `html` โปร่งใส + `body` `border-radius: 10px` + titlebar มุมบนโค้ง
+> - `app/scripts/selftest-new-providers.js` — เพิ่ม 10 ข้อเทสต์ + regex รองรับ .webp/.jpeg
+>
+> **แก้ Pollinations API:** API คืนแค่ `openai-fast` (GPT-OSS 20B) — เปลี่ยน candidates ให้ตรง + resolver แสดง model ที่ API คืนแม้ไม่อยู่ใน candidates
+>
+> **เทสต์:** `npm test` **111/111** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · `app/package.json` = **0.9.6** (รอบนี้ถ้าปล่อย = 0.9.7) · ต้องรีสตาร์ทแอป
+>
+> **▶ เริ่ม session ใหม่:** อ่านบล็อกนี้จบ → `cd app && npm test` (ต้องได้ 111/111) → ถ้าผู้ใช้สั่งปล่อย: bump `0.9.6 → 0.9.7`, commit ไฟล์ทั้งหมด, `node app/scripts/provenance.js record-release`, แล้วค่อย push หลังผู้ใช้ยืนยัน
+>
+> **📌 2026-11-25 (Linux) — 🪟 ขอบโค้ง + โลโก้จริง + เพิ่ม Mistral/Pollinations (ยังไม่ commit):**
+>
+> **ผู้ใช้ขอ:** เพิ่ม Mistral AI + Pollinations.ai · เปลี่ยนโลโก้เป็นไฟล์จริง · ขอบ window โค้ง
+>
+> **ไฟล์ที่สร้างใหม่:**
+> - `app/src/mistral.js` — Mistral AI provider (OpenAI-compatible, `api.mistral.ai/v1`, freemium)
+> - `app/src/pollinations.js` — Pollinations.ai provider (OpenAI-compatible, `text.pollinations.ai/openai`, free)
+> - `app/src/renderer/assets/providers/mistral.webp` — โลโก้ Mistral (จากผู้ใช้)
+> - `app/src/renderer/assets/providers/pollinations.png` — โลโก้ Pollinations (จากผู้ใช้)
+> - `app/src/renderer/assets/providers/openrouter.jpeg` — โลโก้ OpenRouter (จากผู้ใช้)
+> - `app/src/renderer/assets/providers/gemini.webp` — โลโก้ Gemini (จากผู้ใช้)
+>
+> **ไฟล์ที่แก้:**
+> - `app/src/provider-plan.js` — เพิ่ม MISTRAL_PROVIDER, POLLINATIONS_PROVIDER, mistralKey/pollinationsKey, mistralModels/pollinationsModels, default provider logic
+> - `app/src/freepi-bridge.js` — เพิ่ม import, mistralKey/pollinationsKey params, catalog resolution, provider registration, applyMistralKey/applyPollinationsKey, refreshCatalogs, model entries, rebuildModelList
+> - `app/src/main.js` — เพิ่ม import, mistralKeys/pollinationsKeys key stores, IPC handlers, applyMistralKeyToTabs/applyPollinationsKeyToTabs, keyHealth, settings data, session creation, `transparent: true` on BrowserWindow
+> - `app/src/renderer/app.js` — เพิ่ม i18n (EN+TH), status vars, paint functions, PROVIDER_TILE_ORDER, providerStatusOf, event handlers, confirm dialogs
+> - `app/src/renderer/index.html` — เพิ่ม provider tiles + cards, อัปเดต src เป็น .webp/.png/.jpeg ทั้งหมด
+> - `app/src/renderer/provider-ui.js` — เพิ่ม MISTRAL_PROVIDER/POLLINATIONS_PROVIDER, logos (webp/png/jpeg), labels, providerChrome meters
+> - `app/src/preload.js` — เพิ่ม mistralStatus/mistralSetKey/mistralClearKey/pollinationsStatus/pollinationsSetKey/pollinationsClearKey
+> - `app/src/renderer/styles.css` — `html` โปร่งใส + `body` `border-radius: 10px` + titlebar มุมบนโค้ง + `transparent: true` ที่ BrowserWindow
+> - `app/scripts/selftest-new-providers.js` — เพิ่ม 10 ข้อเทสต์ + regex รองรับ .webp/.jpeg
+>
+> **เทสต์:** `npm test` **111/111** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · `app/package.json` = **0.9.6** (รอบนี้ถ้าปล่อย = 0.9.7) · ต้องรีสตาร์ทแอปเพื่อเห็นผล
+>
+> **▶ เริ่ม session ใหม่:** อ่านบล็อกนี้จบ → `cd app && npm test` (ต้องได้ 111/111) → ถ้าผู้ใช้สั่งปล่อย: bump `0.9.6 → 0.9.7`, commit ไฟล์ทั้งหมด, `node app/scripts/provenance.js record-release`, แล้วค่อย push หลังผู้ใช้ยืนยัน
+>
+> **📌 2026-11-25 (Linux) — ➕ เพิ่มผู้ให้บริการ Mistral AI + Pollinations.ai (ยังไม่ commit):**
+>
+> **ผู้ใช้ขอ:** "เพิ่มผู้ให้บริการของ Mistral AI กับ pollinations.ai ให้ผมหน่อยคับ"
+>
+> **ไฟล์ที่สร้างใหม่:**
+> - `app/src/mistral.js` — Mistral AI provider (OpenAI-compatible, `https://api.mistral.ai/v1`, freemium)
+> - `app/src/pollinations.js` — Pollinations.ai provider (OpenAI-compatible, `https://text.pollinations.ai/openai`, free)
+> - `app/src/renderer/assets/providers/mistral.svg` — โลโก้ Mistral
+> - `app/src/renderer/assets/providers/pollinations.svg` — โลโก้ Pollinations
+>
+> **ไฟล์ที่แก้:**
+> - `app/src/provider-plan.js` — เพิ่ม MISTRAL_PROVIDER, POLLINATIONS_PROVIDER, mistralKey/pollinationsKey, mistralModels/pollinationsModels, default provider logic, return object
+> - `app/src/freepi-bridge.js` — เพิ่ม import, mistralKey/pollinationsKey params, catalog resolution (Promise.all), planProviders call, provider registration (factory), applyMistralKey/applyPollinationsKey, refreshCatalogs steps, model entries, rebuildModelList
+> - `app/src/main.js` — เพิ่ม import, mistralKeys/pollinationsKeys key stores, mistralStatus/pollinationsStatus IPC handlers, applyMistralKeyToTabs/applyPollinationsKeyToTabs, keyHealth, settings data, session creation
+> - `app/src/renderer/app.js` — เพิ่ม i18n (EN+TH), mistralStatus/pollinationsStatus vars, paintMistralSettings/paintPollinationsSettings, PROVIDER_TILE_ORDER, providerStatusOf, event handlers (save/remove/getKey), confirm dialog handlers, settings open paint calls
+> - `app/src/renderer/index.html` — เพิ่ม provider tiles (mistral, pollinations) + provider cards (forms)
+> - `app/src/renderer/provider-ui.js` — เพิ่ม MISTRAL_PROVIDER/POLLINATIONS_PROVIDER, logos, labels, providerChrome meters
+> - `app/src/preload.js` — เพิ่ม mistralStatus/mistralSetKey/mistralClearKey/pollinationsStatus/pollinationsSetKey/pollinationsClearKey
+> - `app/scripts/selftest-new-providers.js` — เพิ่ม import + 10 ข้อเทสต์ (config, entries, plan, UI)
+>
+> **เทสต์:** `npm test` **111/111** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · `app/package.json` = **0.9.6** (รอบนี้ถ้าปล่อย = 0.9.7) · ต้องรีสตาร์ทแอปเพื่อให้ provider ใหม่ปรากฏ
+>
+> **▶ เริ่ม session ใหม่:** อ่านบล็อกนี้จบ → `cd app && npm test` (ต้องได้ 111/111) → ถ้าผู้ใช้สั่งปล่อย: bump `0.9.6 → 0.9.7`, commit ไฟล์ทั้งหมด, `node app/scripts/provenance.js record-release`, แล้วค่อย push หลังผู้ใช้ยืนยัน
+>
+> **📌 2026-11-25 (Linux) — 🔄 ปุ่ม "ดึงรายการโมเดลล่าสุด" ยังใช้ได้กับ Cloudflare (ยืนยันแล้ว):**
+>
+> ผู้ใช้ถามหลังแก้รอบ Cloudflare ว่า ปุ่มดึงรายการโมเดลล่าสุดยังใช้ได้ไหม
+>
+> **คำตอบ: ใช้ได้ ไม่ต้องแก้โค้ดปุ่ม** — เส้นทางคือ `models:refresh` → `refreshCatalogs()` (freepi-bridge) → `applyCloudflareKey()` → `resolveCloudflareModels()` = ตัวเดียวกับที่แก้ ⇒ กดแล้วได้รายการที่ฟรีขึ้นก่อน + ตัด clairic/clef · ตัวเลขที่ปุ่มรายงานจะเหลือ **Cloudflare 19** (เดิม 24)
+> `refreshCatalogs()` เรียก `catalogCache.clear()` ก่อน ⇒ แชทใหม่หลังกดจะอ่านแคตตาล็อกใหม่ทันที (ไม่ต้องรอ cache 10 นาที)
+> **ไม่เปลี่ยนโมเดลของแชทที่เปิดอยู่** — ปุ่มอัปเดตรายการให้เลือก ไม่ได้สลับโมเดลให้ (แชทใหม่ได้ default ตัวฟรีที่เลือกไว้)
+>
+> **เพิ่มเทสต์กันหลุด (2 ข้อ ใน `selftest-new-providers.js`):** ปุ่มต้องมี step `cloudflare` และ `applyCloudflareKey()` ต้องเรียก `resolveCloudflareModels()` — ถ้าใครไปทำเส้นทางใหม่ที่ข้าม resolver นี้ เทสต์จะแดง
+>
+> **เทสต์:** `selftest-new-providers` **89/89** · `npm test` **111/111** · `check:sara` ok
+> **ไฟล์รอบนี้:** `app/scripts/selftest-new-providers.js` (เพิ่ม `require('node:fs')` + 2 ข้อ)
+> **ค้าง:** ยังไม่ commit · `app/package.json` = **0.9.6** (ถ้าปล่อย = 0.9.7) · ยังไม่ได้ bump/commit งาน Cloudflare + skill-undo รอบก่อน
+>
+> **📌 2026-11-25 (Linux) — ☁️ Cloudflare Workers AI: ตัวฟรีใช้ได้แล้ว (ต้นเหตุ = default model เป็นตัว paid) (ยังไม่ commit):**
+>
+> **ผู้ใช้เจอ:** "api cloudflare ของผมใช้ตัวฟรีไม่ได้เลย"
+>
+> **ตรวจกับบัญชีจริง (token+account ใน data root ใช้งานได้ปกติ):** แคตตาล็อกของบัญชีเรียงตัว **paid-only ขึ้นก่อน** — แถว 0 = `@cf/thinkingmachines/inkling-2-small` (`require_workers_paid=true`) → ยิง chat/completions ได้ **403 "not available on the Workers Free plan"** ส่วนตัวฟรี (llama-3.3-70b, llama-4-scout, qwen2.5-coder, mistral-small-3.1, gpt-oss) ตอบ **200 OK** หมด
+> → `provider-plan.js` ตั้ง `defaultModel = cloudflareList[0]` ⇒ **ทุกแชทใหม่เริ่มที่ตัว paid แล้ว 403 ทันที** = รู้สึกว่า "ใช้ตัวฟรีไม่ได้เลย"
+>
+> **บั๊กที่สอง:** 5 แถว `@cf/cloudflare/clairic*` / `clef*` ถูก tag `Text Generation` แต่ตอบเป็น fields ไม่ใช่แชท → endpoint คืน 400 `required properties ... 'model,fields'` · แถวกลุ่มนี้ "คิดเงินเฉพาะ input" (ไม่มี unit output) ต่างจากโมเดลแชททุกตัว
+>
+> **แก้ (`app/src/cloudflare.js` · `app/src/provider-plan.js`):**
+> - `pricesItsOutput()` — ตัดแถวที่คิดเงินเฉพาะ input ออกจาก picker (ไม่ใช่โมเดลแชท) · แถวไม่มีราคาเลยยังเก็บ (ตอบได้จริง)
+> - `resolveCloudflareModels()` — เรียง **free ก่อน paid** (stable, คงลำดับเดิมในกลุ่ม)
+> - `PREFERRED_CLOUDFLARE_MODELS` + `preferredCloudflareModel()` — เลือกตัวเปิดแชทใหม่จากตัวฟรีที่ตอบปกติ (llama-3.3-70b → llama-4-scout → qwen2.5-coder → mistral-small-3.1 → gpt-oss-20b)
+> - `provider-plan.js` ใช้ `preferredCloudflareModel(cloudflareList)` แทน `cloudflareList[0]`
+> - ลบคีย์ `reasoning` ซ้ำใน `cloudflareProviderConfig`
+>
+> **ตรวจกับบัญชีจริงหลังแก้:** 19 แถว, free ขึ้นก่อน, ไม่มี clairic/clef, default = `@cf/meta/llama-3.3-70b-instruct-fp8-fast` → ยิงจริง **HTTP 200** ตอบ "4"
+>
+> **เทสต์:** `selftest-new-providers` **87/87** (เพิ่ม 8 ข้อ: แถวคิดเงิน input ถูกตัด · แถวไม่มีราคายังอยู่ · free มาก่อน paid · preferred ถูกเลือก · plan ไม่เปิดแชทบนแถว paid) · `npm test` **111/111** · `check:sara` ok
+>
+> **ยังเหลือ (ฝั่ง Cloudflare ไม่ใช่แอป):** แถวอย่าง `@cf/utter-project/eurollm-9b-it` (4003 "model does not have config") กับ `@cf/swiss-ai/apertus-v1.5-8b` (5018 account not allowed) ยังอยู่ในแคตตาล็อกแต่ยิงไม่ได้ — ถ้าผู้ใช้เลือกเองจะเห็น error จาก Cloudflare ตรง ๆ (ไม่ได้ทำให้ default เสีย)
+>
+> **ไฟล์:** `app/src/cloudflare.js` · `app/src/provider-plan.js` · `app/scripts/selftest-new-providers.js`
+> **ค้าง:** ยังไม่ commit · `app/package.json` = **0.9.6** (รอบนี้ถ้าปล่อย = 0.9.7) · ต้องรีสตาร์ทแอปให้แคตตาล็อกถูกอ่านใหม่ (หรือกดบันทึก credential ซ้ำเพื่อ refresh ทันที)
+>
+> **📌 2026-11-25 (Linux) — ↩️ กดย้อนกลับแล้วไม่ต้องเห็นคู่มือ skill ทั้งเล่มในช่องพิมพ์ (ยังไม่ commit):**
+>
+> **ผู้ใช้เจอ:** ส่ง `/skill:lemo-opuscar …` ไปแล้ว token หมด กด "ย้อนกลับ" → ช่องพิมพ์และ bubble มีข้อความยาว ~5,000 ตัวอักษร (เนื้อ SKILL.md ทั้งไฟล์) แทนข้อความจริง 330 ตัว
+>
+> **ต้นเหตุ:** pi เก็บข้อความแบบที่โมเดลเห็น คือ `<skill name="…">…SKILL.md…</skill>\n\n<ข้อความผู้ใช้>` และ `messagesForUi()`/`undo()` เอาข้อความดิบนั้นไปแสดงและใส่กลับช่องพิมพ์ตรง ๆ
+>
+> **แก้:**
+> - `app/src/main.js` — `splitSkillExpansion()` ตัดบล็อก `<skill …>…</skill>` ที่อยู่ต้นข้อความออก, เก็บชื่อ skill ไว้ในฟิลด์ `skill` ของ message ที่ส่งให้ UI (คู่กับ `splitAttachmentNotes`)
+> - `app/src/renderer/app.js` — `composerText()` แปลงข้อความดิบเป็น `/skill:name <คำผู้ใช้>` ก่อนใส่ช่องพิมพ์ · `displayPrompt()` ซ่อนคำสั่ง เหลือแต่คำที่ผู้ใช้พิมพ์ใน bubble · `lastUserText()`/`userEntryText()` คืนรูปคอมมานด์ (undo ใช้ข้อความบนจอก่อน `res.text` เสมอ)
+> - ผลกับประวัติเก่า: เปิดแชทเดิมก็เห็นข้อความสั้นแล้ว (ตัดตอนสร้าง UI)
+>
+> **พิสูจน์กับข้อมูลจริง:** ข้อความใน session จริง 5,061 ตัว → เหลือ 330 ตัว, คอมมานด์ที่ได้ `/skill:lemo-opuscar Style: Sci-Fi Sitcom Toon ขนาดของวิดีโอ 9:16 …`
+>
+> **เทสต์:** เพิ่ม `app/scripts/selftest-skill-undo.js` (17 ข้อ) เข้า `run-unit-tests.js` → `npm test` **111/111** · `check:sara` ok
+> **แก้เทสต์เดิมที่ยึดโค้ดเก่า:** `selftest-busy-guards` (regex `typed || res.text`) · `selftest-image-viewer` (`splitAttachmentNotes(skill.text)`) · `selftest-recovered-turn` (stub `splitSkillExpansion`)
+>
+> **ไฟล์:** `app/src/main.js` · `app/src/renderer/app.js` · `app/scripts/selftest-skill-undo.js` (ใหม่) · `app/scripts/run-unit-tests.js` · `app/scripts/selftest-busy-guards.js` · `app/scripts/selftest-image-viewer.js` · `app/scripts/selftest-recovered-turn.js` + บันทึกงาน `.AGENT/HANDOFF.md` · `.AGENT/LOG.md` · `PROVENANCE/ledger.jsonl` · `PROVENANCE/sessions/2026-11/2026-11-25-0358*-session.md` (ใหม่ 2 ไฟล์)
+> **ค้าง:** ยังไม่ commit (รอสั่ง) · ไม่แตะเลขเวอร์ชัน (เวลานี้ `app/package.json` = **0.9.6** ปล่อยไปแล้วในคอมมิต `3ccd817` — รอบนี้จึงเป็น 0.9.7 ถ้าจะ bump)
+>
+> **▶ เริ่ม session ใหม่:** อ่านบล็อกนี้จบ → `cd app && npm test` (ต้องได้ 111/111) → ถ้าผู้ใช้สั่งปล่อย: bump `0.9.6 → 0.9.7`, commit ไฟล์ข้างบนทั้งหมด, `node app/scripts/provenance.js record-release`, แล้วค่อย push หลังผู้ใช้ยืนยัน · ต้องปิด-เปิดแอป NTAPI ใหม่ (ไม่ใช่แค่ reload extension) ถึงจะเห็นผลในตัวแอป
+>
+> **📌 2026-11-25 (Linux) — 🗂️ กลุ่มแท็บของ AI ใน Chrome พับเก็บเสมอ เว้นแต่ผู้ใช้กางเอง (commit แล้วใน `c69a587` / ปล่อยเป็น `0.9.6`):**
 >
 > **ผู้ใช้ขอ:** "group ของที่ AI ทำงานใน Chrome extension ให้ย่อไว้เสมอ ยกเว้นผู้ใช้ไปเปิดดู จะได้แยกแท็บผู้ใช้กับแท็บ AI ชัดเจน"
 >

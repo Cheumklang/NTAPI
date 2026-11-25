@@ -46,10 +46,12 @@ check('the UI builder is where it always was', source.length > 500);
 
 // Everything the builder reaches for, stubbed to what the transcript needs.
 const splitAttachmentNotes = (text) => ({ text, imagePaths: [] });
+const splitSkillExpansion = (text) => ({ text, skill: '' });
 // Same normalisation main.js uses to ask "is this text already in here?".
 const searchKey = (text) => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
 const build = new Function(
   'splitAttachmentNotes',
+  'splitSkillExpansion',
   'RECOVERED_TURN_CUSTOM_TYPE',
   'parseUnifiedDiff',
   'friendlyProviderError',
@@ -57,6 +59,7 @@ const build = new Function(
   `return (${source});`
 )(
   splitAttachmentNotes,
+  splitSkillExpansion,
   'ntapi.interrupted-turn',
   () => null,
   () => ({ text: '' }),

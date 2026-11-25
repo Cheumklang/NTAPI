@@ -59,7 +59,10 @@ check('undo still works when the tab is idle', /api\.undo\(/.test(undo));
 check('the confirm dialog carries the tab', /state: \{ tabId: view\.tabId \}/.test(undo));
 check('the busy path stops the turn through takeBack', /api\.takeBackPrompt\(/.test(undoBusy));
 check('both undo paths share one tail', /function finishUndo/.test(app) && /finishUndo\(view, null, text\)/.test(undoBusy));
-check('the text to restore is the newest user message', /kind === 'user'/.test(lastText) && /finishUndo\(view, res\.entryId, res\.text\)/.test(undo));
+check(
+  'the text to restore is the newest user message',
+  /kind === 'user'/.test(lastText) && /finishUndo\(view, res\.entryId, typed \|\| res\.text\)/.test(undo)
+);
 
 // --- model switch while busy ---------------------------------------------
 check('a model switch during a turn asks first', /view\?\.busy/.test(choose) && /kind: 'modelBusy'/.test(choose));

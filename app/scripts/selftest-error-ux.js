@@ -274,12 +274,12 @@ check(
 const crashNotice = bodyOf('showCrashNotice');
 check('the crash banner can be read out of the renderer', Boolean(crashNotice));
 check(
-  'the crash banner also clears itself after fifteen seconds',
-  Boolean(crashNotice) && /crashNoticeTimer = setTimeout/.test(crashNotice) && /15_000/.test(crashNotice)
+  'the crash banner stays until it is closed or retried',
+  Boolean(crashNotice) && !/crashNoticeTimer/.test(crashNotice) && !/15_000/.test(crashNotice)
 );
 check(
-  'closing the crash banner by hand stops its timer',
-  /el\('crashClose'\)[\s\S]{0,160}?clearTimeout\(crashNoticeTimer\)/.test(source)
+  'the crash banner retries by reloading the page',
+  /el\('crashRetry'\)[\s\S]{0,120}?location\.reload\(\)/.test(source)
 );
 
 if (failures) {

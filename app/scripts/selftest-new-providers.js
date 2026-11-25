@@ -15,6 +15,8 @@
  */
 'use strict';
 
+const fs = require('node:fs');
+
 const {
   ZAI_PROVIDER,
   ZAI_BASE_URL,
@@ -39,9 +41,28 @@ const {
   cloudflareProviderConfig,
   cloudflareModelEntries,
   cloudflareRowToModel,
+  preferredCloudflareModel,
   checkCloudflareKey,
   resolveCloudflareModels,
 } = require('../src/cloudflare');
+const {
+  MISTRAL_PROVIDER,
+  MISTRAL_BASE_URL,
+  MISTRAL_MODEL_CANDIDATES,
+  mistralProviderConfig,
+  mistralModelEntries,
+  checkMistralKey,
+  resolveMistralModels,
+} = require('../src/mistral');
+const {
+  POLLINATIONS_PROVIDER,
+  POLLINATIONS_BASE_URL,
+  POLLINATIONS_MODEL_CANDIDATES,
+  pollinationsProviderConfig,
+  pollinationsModelEntries,
+  checkPollinationsKey,
+  resolvePollinationsModels,
+} = require('../src/pollinations');
 const { planProviders } = require('../src/provider-plan');
 const {
   KILO_PROVIDER,
@@ -311,6 +332,93 @@ async function main() {
     cloudflareRowToModel({ name: '@cf/meta/llama-guard-3-8b', tags: ['moderation'], properties: [] }) === null
   );
 
+  /*
+   * The catalog is not all chat models. Cloudflare's own `clef`/`clairic` rows
+   * are tagged Text Generation but answer with fields; the OpenAI-compatible
+   * endpoint rejects them with "required properties ... 'model,fields'". Their
+   * price lists an input rate only, and every model that speaks chat also
+   * prices its output — that is the tell used to keep them out of the picker.
+   */
+  const cfFieldsOnly = cloudflareRowToModel({
+    name: '@cf/cloudflare/clairic-flash',
+    tags: [],
+    properties: [
+      { property_id: 'context_window', value: '65536' },
+      { property_id: 'vision', value: 'true' },
+      { property_id: 'price', value: [{ unit: 'per M input tokens', price: 0.1, currency: 'USD' }] },
+    ],
+  });
+  check('cloudflare: a row that prices only input is not a chat model', cfFieldsOnly === null);
+
+  const cfUnpriced = cloudflareRowToModel({
+    name: '@cf/ibm-granite/granite-4.0-h-micro',
+    tags: [],
+    properties: [
+      { property_id: 'context_window', value: '131000' },
+      { property_id: 'function_calling', value: 'true' },
+    ],
+  });
+  check('cloudflare: an unpriced row is kept — it still answers', cfUnpriced !== null && cfUnpriced.plan === 'free');
+
+  /*
+   * Order matters: the account's catalog opens with the frontier rows a Workers
+   * Free plan cannot run, so a list drawn as-is starts with models that 403 on
+   * every turn. Free rows come first, and the catalog order is kept inside each
+   * group.
+   */
+  const cfMixedStub = stubFetch(() =>
+    jsonResponse({
+      result: [
+        {
+          name: '@cf/thinkingmachines/inkling-2-small',
+          tags: [],
+          properties: [
+            { property_id: 'require_workers_paid', value: 'true' },
+            { property_id: 'price', value: [{ unit: 'per M output tokens', price: 3, currency: 'USD' }] },
+          ],
+        },
+        { name: '@cf/cloudflare/clairic-flash', tags: [], properties: [{ property_id: 'price', value: [{ unit: 'per M input tokens', price: 0.1 }] }] },
+        { name: '@cf/openai/gpt-oss-120b', tags: [], properties: [] },
+        { name: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', tags: [], properties: [] },
+      ],
+    })
+  );
+  const cfMixed = await resolveCloudflareModels(KEY, account, { fetchImpl: cfMixedStub });
+  check(
+    'cloudflare: the free rows come before the paid ones',
+    cfMixed.map((m) => m.id).join(',') === '@cf/openai/gpt-oss-120b,@cf/meta/llama-3.3-70b-instruct-fp8-fast,@cf/thinkingmachines/inkling-2-small',
+    cfMixed.map((m) => m.id).join(',')
+  );
+  check(
+    'cloudflare: the fields-only row never reaches the picker',
+    !cfMixed.some((m) => m.id === '@cf/cloudflare/clairic-flash')
+  );
+  check(
+    'cloudflare: the opening model is a free one that answers',
+    preferredCloudflareModel(cfMixed)?.id === '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    preferredCloudflareModel(cfMixed)?.id
+  );
+  check(
+    'cloudflare: with no preferred row the first free one is used',
+    preferredCloudflareModel([{ id: '@cf/x/unknown', plan: 'paid' }, { id: '@cf/y/other', plan: 'free' }])?.id === '@cf/y/other'
+  );
+
+  /*
+   * "Update model list" has to keep covering Cloudflare, and has to go through
+   * the resolver above: that is where the unusable rows are dropped and the
+   * free rows are put first. If the button ever grew its own path, the picker
+   * would quietly go back to offering paid rows and fields-only models.
+   */
+  const bridgeSource = fs.readFileSync(require.resolve('../src/freepi-bridge'), 'utf8');
+  check(
+    'cloudflare: the update-model-list button refreshes it',
+    /'cloudflare',\s*activeCloudflareKey,\s*\(\)\s*=>\s*applyCloudflareKey\(activeCloudflareKey\)/.test(bridgeSource)
+  );
+  check(
+    'cloudflare: a refresh re-reads the catalog through the resolver',
+    /async function applyCloudflareKey[\s\S]{0,700}resolveCloudflareModels\(/.test(bridgeSource)
+  );
+
   /* -------------------------------- Kilo -------------------------------- */
   const kiloConfig = kiloProviderConfig({ apiKey: KEY });
   check(
@@ -398,6 +506,29 @@ async function main() {
     freePiPlan.zai && freePiPlan.openrouter && freePiPlan.kilo && freePiPlan.cloudflare
   );
 
+  /*
+   * The bug this guards (2026-11-25): the account's catalog opens with
+   * `@cf/thinkingmachines/inkling-2-small` (Workers Paid only), and
+   * `defaultModel = cloudflareList[0]` sent every new chat straight into a 403
+   * "not available on the Workers Free plan" — so Cloudflare looked unusable on
+   * the free plan even though its free rows answered fine.
+   */
+  const cfPlan = planProviders({
+    hasFreePiAuth: false,
+    cloudflareKey: KEY,
+    cloudflareModels: [
+      { id: '@cf/thinkingmachines/inkling-2-small', plan: 'paid' },
+      { id: '@cf/openai/gpt-oss-120b', plan: 'free' },
+      { id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', plan: 'free' },
+    ],
+  });
+  check('plan: Cloudflare alone is usable', cfPlan.available === true && cfPlan.defaultProvider === 'cloudflare');
+  check(
+    'plan: a new Cloudflare chat opens on a free row, not the paid first row',
+    cfPlan.defaultModel === '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    cfPlan.defaultModel
+  );
+
   const paidPlan = planProviders({
     hasFreePiAuth: false,
     coarenaKey: 'coa_test',
@@ -432,11 +563,77 @@ async function main() {
   check('ui: Cloudflare is named', providerLabel('cloudflare') === 'Cloudflare');
   check(
     'ui: every new provider has a bundled mark',
-    ['zai', 'openrouter', 'kilo', 'cloudflare'].every((id) => /\.(svg|png)$/.test(providerLogoPath(id)))
+    ['zai', 'openrouter', 'kilo', 'cloudflare'].every((id) => /\.(svg|png|jpe?g|webp)$/.test(providerLogoPath(id)))
   );
   check(
     'ui: every new provider has its own meter',
     ['zai', 'openrouter', 'kilo', 'cloudflare'].every((id) => providerChrome({ provider: id }).meter === id)
+  );
+
+  /* ------------------------------- Mistral ------------------------------- */
+  const mistralCfg = mistralProviderConfig({ apiKey: KEY, models: MISTRAL_MODEL_CANDIDATES });
+  check(
+    'mistral: config points at the real endpoint',
+    mistralCfg.baseUrl === 'https://api.mistral.ai/v1' && mistralCfg.api === 'openai-completions'
+  );
+  check(
+    'mistral: config carries the key and models',
+    mistralCfg.apiKey === KEY && mistralCfg.models.length === MISTRAL_MODEL_CANDIDATES.length
+  );
+
+  const mistralEntries = mistralModelEntries(MISTRAL_MODEL_CANDIDATES);
+  check(
+    'mistral: entries tagged with provider and plan',
+    mistralEntries[0].provider === 'mistral' && mistralEntries[0].plan === 'free'
+  );
+
+  const mistralPlan = planProviders({
+    hasFreePiAuth: false,
+    mistralKey: KEY,
+    mistralModels: MISTRAL_MODEL_CANDIDATES,
+  });
+  check(
+    'plan: Mistral alone is usable',
+    mistralPlan.available === true && mistralPlan.defaultProvider === 'mistral'
+  );
+
+  /* ----------------------------- Pollinations ---------------------------- */
+  const pollCfg = pollinationsProviderConfig({ apiKey: KEY, models: POLLINATIONS_MODEL_CANDIDATES });
+  check(
+    'pollinations: config points at the real endpoint',
+    pollCfg.baseUrl === 'https://text.pollinations.ai/openai' && pollCfg.api === 'openai-completions'
+  );
+  check(
+    'pollinations: config carries the key and models',
+    pollCfg.apiKey === KEY && pollCfg.models.length === POLLINATIONS_MODEL_CANDIDATES.length
+  );
+
+  const pollEntries = pollinationsModelEntries(POLLINATIONS_MODEL_CANDIDATES);
+  check(
+    'pollinations: entries tagged with provider and plan',
+    pollEntries[0].provider === 'pollinations' && pollEntries[0].plan === 'free'
+  );
+
+  const pollPlan = planProviders({
+    hasFreePiAuth: false,
+    pollinationsKey: KEY,
+    pollinationsModels: POLLINATIONS_MODEL_CANDIDATES,
+  });
+  check(
+    'plan: Pollinations alone is usable',
+    pollPlan.available === true && pollPlan.defaultProvider === 'pollinations'
+  );
+
+  /* ------------------------- Mistral + Pollinations UI -------------------- */
+  check('ui: Mistral is named', providerLabel('mistral') === 'Mistral');
+  check('ui: Pollinations is named', providerLabel('pollinations') === 'Pollinations');
+  check(
+    'ui: Mistral and Pollinations have bundled marks',
+    ['mistral', 'pollinations'].every((id) => /\.(svg|png|jpe?g|webp)$/.test(providerLogoPath(id)))
+  );
+  check(
+    'ui: Mistral and Pollinations have their own meters',
+    ['mistral', 'pollinations'].every((id) => providerChrome({ provider: id }).meter === id)
   );
 
   if (failures) {

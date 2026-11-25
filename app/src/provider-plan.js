@@ -14,6 +14,7 @@
  */
 
 const { preferredLlm7Model } = require('./llm7');
+const { preferredCloudflareModel } = require('./cloudflare');
 
 const FREE_PI_PROVIDER = 'free-pi';
 const COARENA_PROVIDER = 'coarena';
@@ -28,6 +29,8 @@ const ZAI_PROVIDER = 'zai';
 const OPENROUTER_PROVIDER = 'openrouter';
 const KILO_PROVIDER = 'kilo';
 const CLOUDFLARE_PROVIDER = 'cloudflare';
+const MISTRAL_PROVIDER = 'mistral';
+const POLLINATIONS_PROVIDER = 'pollinations';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
 /**
@@ -66,6 +69,8 @@ function planProviders({
   openrouterKey,
   kiloKey,
   cloudflareKey,
+  mistralKey,
+  pollinationsKey,
   freePiModels,
   coarenaModels,
   zroModels,
@@ -79,6 +84,8 @@ function planProviders({
   openrouterModels,
   kiloModels,
   cloudflareModels,
+  mistralModels,
+  pollinationsModels,
 }) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
   const coarenaList = Array.isArray(coarenaModels) ? coarenaModels : [];
@@ -93,6 +100,8 @@ function planProviders({
   const openrouterList = Array.isArray(openrouterModels) ? openrouterModels : [];
   const kiloList = Array.isArray(kiloModels) ? kiloModels : [];
   const cloudflareList = Array.isArray(cloudflareModels) ? cloudflareModels : [];
+  const mistralList = Array.isArray(mistralModels) ? mistralModels : [];
+  const pollinationsList = Array.isArray(pollinationsModels) ? pollinationsModels : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
   // empty and a session could not pick a model at all.
@@ -109,6 +118,8 @@ function planProviders({
   const openrouter = Boolean(openrouterKey) && openrouterList.length > 0;
   const kilo = Boolean(kiloKey) && kiloList.length > 0;
   const cloudflare = Boolean(cloudflareKey) && cloudflareList.length > 0;
+  const mistral = Boolean(mistralKey) && mistralList.length > 0;
+  const pollinations = Boolean(pollinationsKey) && pollinationsList.length > 0;
 
   let defaultProvider = null;
   let defaultModel = null;
@@ -173,7 +184,16 @@ function planProviders({
     defaultModel = (freeRow || kiloList[0]).id;
   } else if (cloudflare) {
     defaultProvider = CLOUDFLARE_PROVIDER;
-    defaultModel = cloudflareList[0].id;
+    // Workers Free cannot run the frontier rows the catalog lists first: they
+    // answer 403 on every turn. A new chat has to open on a free row that
+    // actually answers, whatever order the account's catalog arrived in.
+    defaultModel = (preferredCloudflareModel(cloudflareList) || cloudflareList[0]).id;
+  } else if (mistral) {
+    defaultProvider = MISTRAL_PROVIDER;
+    defaultModel = mistralList[0].id;
+  } else if (pollinations) {
+    defaultProvider = POLLINATIONS_PROVIDER;
+    defaultModel = pollinationsList[0].id;
   }
 
   return {
@@ -190,6 +210,8 @@ function planProviders({
     openrouter,
     kilo,
     cloudflare,
+    mistral,
+    pollinations,
     ads: freePi,
     freePiTools: freePi,
     defaultProvider,
@@ -207,7 +229,9 @@ function planProviders({
       zai ||
       openrouter ||
       kilo ||
-      cloudflare,
+      cloudflare ||
+      mistral ||
+      pollinations,
   };
 }
 
@@ -226,6 +250,8 @@ module.exports = {
   OPENROUTER_PROVIDER,
   KILO_PROVIDER,
   CLOUDFLARE_PROVIDER,
+  MISTRAL_PROVIDER,
+  POLLINATIONS_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
 };

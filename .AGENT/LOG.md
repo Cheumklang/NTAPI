@@ -4094,3 +4094,67 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **ผู้ใช้ขอ:** ทำงานเสร็จแล้วให้แผงหายไปเอง
 - **แก้:** `renderTodos` ซ่อน panel เมื่อ `done === list.length` (หรือลิสต์ว่าง) — ครบทุกข้อ=ล้างตัวเอง, โมเดลส่งลิสต์ใหม่ค่อยโผล่ซ้ำ
 - **เทสต์:** `npm test` 110/110 · node --check ผ่าน
+
+## 2026-11-25 (Linux) — ↩️ ย้อนกลับแล้วเหลือข้อความสั้น ไม่ใช่คู่มือ skill ทั้งเล่ม
+- **ผู้ใช้เจอ:** ส่ง `/skill:lemo-opuscar …` แล้ว token หมด กดย้อนกลับ → ช่องพิมพ์ขึ้น 5,061 ตัวอักษร (เนื้อ SKILL.md) แทนคำขอ 330 ตัว
+- **ต้นเหตุ:** pi เก็บ user message หลังขยาย skill (`<skill name="…">…</skill>\n\nข้อความ`) และ UI เอาข้อความดิบไปวาด/ใส่ช่องพิมพ์
+- **แก้:** `main.js` เพิ่ม `splitSkillExpansion()` ตัดบล็อก skill ต้นข้อความ เก็บชื่อไว้ใน `skill` · `renderer/app.js` เพิ่ม `composerText()`/`displayPrompt()`/`userEntryText()` ให้ bubble โชว์แค่คำผู้ใช้ และ undo คืนรูป `/skill:name …` · `undoLastMessage` ใช้ข้อความบนจอก่อน `res.text`
+- **พิสูจน์:** ข้อความจริงใน session 5,061 → 330 ตัว
+- **เทสต์:** `selftest-skill-undo.js` ใหม่ 17 ข้อ เข้า runner → `npm test` **111/111** · `check:sara` ok
+- **เทสต์เดิมที่ต้องขยับตามโค้ดใหม่:** `selftest-busy-guards`, `selftest-image-viewer`, `selftest-recovered-turn`
+- **ค้าง:** ยังไม่ commit · ไม่แตะเลขเวอร์ชัน
+
+## 2026-11-25 (Linux) — ☁️ Cloudflare ตัวฟรีใช้ได้แล้ว: default model เคยเป็นตัว paid
+- **ผู้ใช้เจอ:** "api cloudflare ใช้ตัวฟรีไม่ได้เลย"
+- **ตรวจของจริง:** token+account ใช้ได้ · แคตตาล็อกเรียง paid-only ก่อน (inkling-2-small = 403 on Workers Free) · ตัวฟรีตอบ 200 ทุกตัว ⇒ ต้นเหตุคือ `defaultModel = cloudflareList[0]`
+- **บั๊กที่สอง:** แถว `@cf/cloudflare/clairic*`/`clef*` เป็น fields model ไม่ใช่แชท → 400 `required properties ... 'model,fields'` · แถวกลุ่มนี้คิดเงินเฉพาะ input
+- **แก้:** `cloudflare.js` — `pricesItsOutput()` ตัดแถวที่ไม่ใช่แชท, เรียง free ก่อน paid, `PREFERRED_CLOUDFLARE_MODELS`/`preferredCloudflareModel()` เลือกตัวเปิดแชท · `provider-plan.js` ใช้ preferred แทนแถวแรก
+- **ตรวจกับบัญชีจริง:** 19 แถว free ก่อน, default llama-3.3-70b → HTTP 200 ตอบ "4"
+- **เทสต์:** `selftest-new-providers` 87/87 (+8) · `npm test` 111/111 · `check:sara` ok
+- **ค้าง:** ยังไม่ commit · 0.9.6 (ถ้าปล่อย = 0.9.7)
+
+## 2026-11-25 (Linux) — 🔄 ตรวจปุ่ม "ดึงรายการโมเดลล่าสุด" หลังแก้ Cloudflare
+- **คำถามผู้ใช้:** ปุ่มดึงรายการโมเดลล่าสุดยังใช้ได้ไหม
+- **ตรวจเส้นทาง:** `models:refresh` → `refreshCatalogs()` → `applyCloudflareKey()` → `resolveCloudflareModels()` (ตัวเดียวกับที่แก้) → `rebuildModelList()` — ไม่ต้องแก้โค้ดปุ่ม
+- **พฤติกรรม:** ล้าง cache ก่อนดึง ⇒ แชทใหม่เห็นรายการใหม่ทันที · ตัวเลข Cloudflare เหลือ 19 (เดิม 24) · ไม่สลับโมเดลของแชทที่เปิดอยู่
+- **เพิ่มเทสต์ 2 ข้อ** ใน `selftest-new-providers.js` กันปุ่มหลุดจาก resolver
+- **เทสต์:** 89/89 · `npm test` 111/111 · `check:sara` ok
+- **ค้าง:** ยังไม่ commit · 0.9.6 (ถ้าปล่อย = 0.9.7)
+
+## 2026-11-25 — เพิ่ม Mistral AI + Pollinations.ai providers
+- **ผู้ใช้ขอ:** เพิ่มผู้ให้บริการ Mistral AI กับ pollinations.ai
+- **สร้างใหม่:** `app/src/mistral.js` (OpenAI-compatible, `api.mistral.ai/v1`, freemium) · `app/src/pollinations.js` (OpenAI-compatible, `text.pollinations.ai/openai`, free) · โลโก้ SVG 2 ไฟล์
+- **แก้ 8 ไฟล์:** provider-plan · freepi-bridge · main.js · renderer/app.js · index.html · provider-ui.js · preload.js · selftest-new-providers.js
+- **เทสต์:** เพิ่ม 10 ข้อใน selftest-new-providers → `npm test` 111/111 · `check:sara` ok
+- **ค้าง:** ยังไม่ commit · 0.9.6 (ถ้าปล่อย = 0.9.7)
+
+## 2026-11-25 — ขอบโค้ง + โลโก้จริง + Mistral/Pollinations
+- **เพิ่ม providers:** Mistral AI (`api.mistral.ai/v1`) + Pollinations.ai (`text.pollinations.ai/openai`)
+- **โลโก้จริง:** mistral.webp, pollinations.png, openrouter.jpeg, gemini.webp (จากผู้ใช้)
+- **ขอบโค้ง:** `html` โปร่งใส + `body` `border-radius: 10px` + titlebar มุมบนโค้ง + `transparent: true` ที่ BrowserWindow
+- **แก้ 9 ไฟล์:** provider-plan · freepi-bridge · main.js · renderer/app.js · index.html · provider-ui.js · preload.js · styles.css · selftest-new-providers.js
+- **เทสต์:** 111/111 · `check:sara` ok
+- **ค้าง:** ยังไม่ commit · 0.9.6 (ถ้าปล่อย = 0.9.7)
+
+## 2026-11-25 — แก้ Pollinations API + บันทึกงาน
+- **ปัญหา:** Pollinations หาไม่เจอใน model list — API คืน `openai-fast` แต่ candidates มี `openai` (ไม่ตรง)
+- **แก้:** เปลี่ยน candidates เป็น `openai-fast` + resolver แสดง model ที่ API คืนแม้ไม่อยู่ใน candidates
+- **ตรวจสอบ:** ปุ่มดึงรายการล่าสุด ทำงานถูกต้อง — Pollinations มีแค่ 1 model จริง (free service)
+- **สถานะ:** ครบทุกค่าย 15/15 (paint, status, tile, card, i18n, handler)
+- **เทสต์:** 111/111 · `check:sara` ok
+- **ค้าง:** ยังไม่ commit · 0.9.6 (ถ้าปล่อย = 0.9.7)
+
+## 2026-11-25 — ทำหน้าตาสวยขึ้น (ยังไม่ commit)
+- เพิ่มโลโก้ใน titlebar (`index.html` + `styles.css`)
+- เพิ่มจุดสีข้างชื่อผู้ใช้ในข้อความ (`styles.css`)
+- เพิ่ม animation ข้อความใหม่ค่อย ๆ ยกขึ้นจางเข้า (`styles.css`)
+- เทสต์: npm test 112/112 · check:sara ok
+- สถานะ: ยังไม่ commit
+
+## 2026-11-25 — ตัวกันโมเดลคิดวนซ้ำ (ยังไม่ commit)
+- **ผู้ใช้ขอ:** AI คิดวนซ้ำประโยคเดิม ทำงานไม่ต่อ ต้องกดหยุดเอง (แย่ถ้าไม่อยู่หน้าคอม)
+- **แนวทาง A:** หยุด + สั่งต่ออัตโนมัติ 1 ครั้ง, วนซ้ำอีก → หยุดจริง + ntfy
+- **ไฟล์ใหม่:** `src/thinking-loop.js` (ตัวตรวจซ้ำ conservative), `scripts/selftest-thinking-loop.js`
+- **แก้:** `src/main.js` (require, reset ตอน prompt:send, ตรวจ thinking_delta, handleThinkingLoop/abortLoopingTurn/continueAfterLoop, settle hook) · `src/renderer/app.js` (i18n EN+TH) · `scripts/run-unit-tests.js`
+- **เทสต์:** 113/113 · selftest-thinking-loop ผ่าน · check:sara ok
+- **ค้าง:** ยังไม่ commit · 0.9.6 (ถ้าปล่อย = 0.9.7)

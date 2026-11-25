@@ -196,8 +196,11 @@ const { checkKiloKey, KILO_BASE_URL } = require('./kilo');
 const { checkCloudflareKey, cloudflareBaseUrl } = require('./cloudflare');
 const { checkAnthropicKey, ANTHROPIC_BASE_URL } = require('./anthropic');
 const { checkGoogleKey, GOOGLE_BASE_URL } = require('./google-ai');
+const { checkMistralKey, MISTRAL_BASE_URL } = require('./mistral');
+const { checkPollinationsKey, POLLINATIONS_BASE_URL } = require('./pollinations');
 const { focusExistingWindow } = require('./single-instance');
 const { isUserAbort } = require('./turn-abort');
+const { createLoopGuard } = require('./thinking-loop');
 const { promptOptionsFor } = require('./prompt-mode');
 const { usageTotals } = require('./usage-totals');
 const { fetchUsdThb } = require('./fx-rate');
@@ -522,6 +525,16 @@ const cloudflareAccounts = createProviderKeyStore({
   dir: DATA_ROOT,
   safeStorage,
   fileName: 'cloudflare-account.json',
+});
+const mistralKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'mistral.json',
+});
+const pollinationsKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'pollinations.json',
 });
 /** 60 s cache for GET /key so opening Settings does not burn the rate limit. */
 let coarenaInfoCache = { at: 0, key: null, status: null };
@@ -2054,6 +2067,115 @@ function announceEmptyAnswer(tabId) {
   });
 }
 
+/*
+ * A model that loops in its own reasoning.
+ *
+ * The first time this turn's thinking starts repeating, the run is stopped and
+ * one automatic continuation is sent: a hidden instruction that says the loop
+ * has happened and to take the next concrete step. If it loops again after that,
+ * the turn is stopped for good and the window — and, when a room is configured,
+ * the phone — is told. `loopNudges` is the budget, reset by every real prompt.
+ */
+const LOOP_MAX_NUDGES = 1;
+const LOOP_BREAK_CUSTOM_TYPE = 'ntapi.loop-break';
+const LOOP_NUDGE_TEXT =
+  'The reasoning in this turn has fallen into a loop: the same thought keeps coming back and ' +
+  'the task is not moving forward. Stop re-reading that thought. Take the next concrete step ' +
+  'now — call a tool, or give the final answer — instead of repeating the reasoning.';
+
+function handleThinkingLoop(tabId, tab) {
+  if (!tab || tab.loopAborting) return;
+  tab.loopAborting = true;
+  if (tab.loopGuard) tab.loopGuard.reset();
+
+  if ((tab.loopNudges || 0) < LOOP_MAX_NUDGES) {
+    tab.pendingLoopNudge = true;
+    sendTab(tabId, 'agent:notice', { key: 'noticeThinkingLoop' });
+  } else {
+    tab.pendingLoopNudge = false;
+    sendTab(tabId, 'agent:notice', { key: 'noticeThinkingLoopGaveUp' });
+    // Nobody may be watching. Say on the phone that the turn needs them back.
+    ntfyService
+      .publish({
+        title: 'NTAPI',
+        message: 'The model kept looping in its reasoning and this turn was stopped.',
+        priority: 4,
+        tags: ['warning'],
+        sessionKey: ntfySessionForPayload({ tabId }),
+      })
+      .catch(() => {});
+  }
+
+  abortLoopingTurn(tabId, tab).catch(() => {});
+}
+
+/** Stop the looping run the way Stop does, but keep it off the error banner. */
+async function abortLoopingTurn(tabId, tab) {
+  tab.paused = false;
+  try { tab.handle.resume(); } catch {}
+  // A blocked ask_user would otherwise keep the turn alive after the stop.
+  for (const [qid, pending] of questions) {
+    if (pending.tabId !== tabId) continue;
+    questions.delete(qid);
+    pending.resolve(null);
+  }
+  tab.busy = false;
+  tab.limitFailure = null;
+  tab.turnDraft = null;
+  // Recorded as our own stop, so the abort-shaped failure is not reported as a
+  // provider stall (see reportTabError → isUserAbort).
+  tab.userAbort = { seq: tab.promptSeq || 0, at: Date.now() };
+  sendTab(tabId, 'agent:busy', { busy: false });
+  try {
+    await Promise.race([
+      tab.handle.session.abort(),
+      new Promise((resolve) => setTimeout(resolve, 4000).unref?.()),
+    ]);
+  } catch {}
+  tab.loopAborting = false;
+}
+
+/**
+ * Re-issue the job after a loop stop, hidden from the transcript.
+ *
+ * Same mechanism as `prompt:retry`: a custom message with `display: false` that
+ * triggers a turn, so the continuation reaches the model without appearing as
+ * something the person typed.
+ */
+async function continueAfterLoop(tabId, tab, attempt = 0) {
+  const session = tab?.handle?.session;
+  if (!session || typeof session.sendCustomMessage !== 'function') return;
+  // `agent_settled` means idle, but a provider can report it a beat early.
+  if (session.isStreaming) {
+    if (attempt < 12) {
+      setTimeout(() => continueAfterLoop(tabId, tab, attempt + 1).catch(() => {}), 250);
+    }
+    return;
+  }
+  tab.loopAborting = false;
+  tab.loopNudges = (tab.loopNudges || 0) + 1;
+  tab.promptSeq = (tab.promptSeq || 0) + 1;
+  tab.limitFailure = null;
+  tab.lastError = null;
+  tab.turnDraft = { prompts: [], assistant: '', thinking: '', tools: [], done: false };
+  tab.loopGuard = createLoopGuard();
+  tab.busy = true;
+  sendTab(tabId, 'agent:busy', { busy: true });
+  try {
+    await session.sendCustomMessage(
+      {
+        customType: LOOP_BREAK_CUSTOM_TYPE,
+        content: [{ type: 'text', text: LOOP_NUDGE_TEXT }],
+        display: false,
+      },
+      { triggerTurn: true }
+    );
+  } catch {
+    tab.busy = false;
+    sendTab(tabId, 'agent:busy', { busy: false });
+  }
+}
+
 /**
  * Never let a failed turn end with nothing on screen.
  *
@@ -2259,6 +2381,22 @@ function splitAttachmentNotes(raw) {
   return { text: kept.join('\n').replace(/\n{3,}/g, '\n\n').trim(), imagePaths };
 }
 
+/**
+ * A `/skill:name …` prompt is stored after pi expands it: the whole SKILL.md is
+ * prepended inside a `<skill name="…">…</skill>` block. That block is a briefing
+ * for the model, not words the user typed — drawing it in the transcript, or
+ * putting it back in the composer after undo, buried the real prompt under five
+ * thousand characters. The name is kept so the command can be rebuilt on undo.
+ */
+const SKILL_BLOCK = /^<skill name="([^"\r\n]+)"[^>]*>[\s\S]*?<\/skill>\r?\n*/;
+
+function splitSkillExpansion(raw) {
+  const text = String(raw || '');
+  const m = SKILL_BLOCK.exec(text);
+  if (!m) return { text, skill: '' };
+  return { text: text.slice(m[0].length).trim(), skill: m[1] };
+}
+
 function messagesForUi(messages) {
   const out = [];
   /*
@@ -2325,15 +2463,19 @@ function messagesForUi(messages) {
       const images = parts
         .filter((c) => c.type === 'image')
         .map((c) => ({ dataUri: `data:${c.mimeType};base64,${c.data}`, mimeType: c.mimeType }));
-      // The attachment note is not part of the message: it is the path to a file
-      // that is still on disk. Returned separately so the bubble can draw the
-      // picture without the window ever reading the path as words.
-      const split = splitAttachmentNotes(text);
-      if (split.text || images.length || split.imagePaths.length) {
+      // The skill expansion and the attachment note are not part of the message:
+      // one is a briefing for the model, the other the path to a file still on
+      // disk. Both are removed here so the bubble shows what the user typed.
+      const skill = splitSkillExpansion(text);
+      const split = splitAttachmentNotes(skill.text);
+      if (split.text || images.length || split.imagePaths.length || skill.skill) {
         if (split.text) seenUser.add(searchKey(split.text));
         out.push({
           kind: 'user',
-          text: split.text,
+          // The command itself is the only text when `/skill:name` had no words
+          // after it; with arguments the reader sees just those words.
+          text: split.text || (skill.skill ? `/skill:${skill.skill}` : ''),
+          skill: skill.skill || undefined,
           images,
           imagePaths: split.imagePaths,
           ts: m.timestamp,
@@ -2549,6 +2691,12 @@ function subscribeTab(tabId) {
           announceIfUnreported(tabId, tab, failure);
         }
         scheduleTurnRecovery(tabId, tab, event);
+        // The loop guard stopped this run and asked to carry on: the turn is
+        // idle now, so re-issue the job with a "break the loop" instruction.
+        if (tab.pendingLoopNudge) {
+          tab.pendingLoopNudge = false;
+          continueAfterLoop(tabId, tab);
+        }
         break;
       }
 
@@ -2563,6 +2711,10 @@ function subscribeTab(tabId) {
         } else if (e.type === 'thinking_delta') {
           if (tab.turnDraft && !tab.turnDraft.done) tab.turnDraft.thinking += e.delta;
           sendTab(tabId, 'agent:delta', { channel: 'thinking', delta: e.delta });
+          // Watch the reasoning as it arrives: a model stuck repeating itself
+          // never ends the turn, so it is stopped here instead of by the person.
+          if (!tab.loopGuard) tab.loopGuard = createLoopGuard();
+          if (!tab.loopAborting && tab.loopGuard.push(e.delta)) handleThinkingLoop(tabId, tab);
         } else if (e.type === 'text_end') {
           sendTab(tabId, 'agent:textEnd', { text: e.content });
         }
@@ -2906,6 +3058,8 @@ async function attachTab(tabId, manager, cwd) {
     kiloKey: kiloKeys.read(),
     cloudflareKey: cloudflareKeys.read(),
     cloudflareAccountId: cloudflareAccounts.read(),
+    mistralKey: mistralKeys.read(),
+    pollinationsKey: pollinationsKeys.read(),
   });
 
   // Every new workspace gets its output folders up front.
@@ -3366,6 +3520,7 @@ function createWindow() {
     minWidth: 1240,
     minHeight: 840,
     backgroundColor: readTheme() === 'light' ? '#f5f6fa' : '#0f1115',
+    transparent: true,
     title: 'NTAPI',
     // electron-builder stamps the packaged .exe; this covers unpackaged runs.
     icon: app.isPackaged ? undefined : path.join(__dirname, '..', 'build', 'icon.png'),
@@ -4107,6 +4262,24 @@ function applyCloudflareKeyToTabs(key, accountId) {
   });
 }
 
+function applyMistralKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'mistral',
+    label: 'Mistral',
+    key,
+    apply: (handle, next) => handle.applyMistralKey(next),
+  });
+}
+
+function applyPollinationsKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'pollinations',
+    label: 'Pollinations',
+    key,
+    apply: (handle, next) => handle.applyPollinationsKey(next),
+  });
+}
+
 /**
  * Keys that are on disk but cannot be decrypted here.
  *
@@ -4130,6 +4303,8 @@ function keyHealth() {
     { provider: 'kilo', status: kiloKeys.status() },
     { provider: 'cloudflare', status: cloudflareKeys.status() },
     { provider: 'cloudflare-account', status: cloudflareAccounts.status() },
+    { provider: 'mistral', status: mistralKeys.status() },
+    { provider: 'pollinations', status: pollinationsKeys.status() },
   ]);
 }
 
@@ -4665,6 +4840,104 @@ ipcMain.handle('cloudflare:clearKey', async () => {
   return { ok: true, status: await cloudflareStatus(), applied };
 });
 
+async function mistralStatus() {
+  return mistralKeys.status();
+}
+
+ipcMain.handle('mistral:status', async () => mistralStatus());
+
+ipcMain.handle('mistral:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: await mistralStatus(), error: 'Enter a Mistral API key first.' };
+  }
+
+  const check = await checkMistralKey(raw);
+  if (!check.ok && !check.offline) {
+    return { ok: false, status: await mistralStatus(), error: check.error, code: check.code || null };
+  }
+
+  try {
+    mistralKeys.save(raw);
+    const applied = await applyMistralKeyToTabs(raw);
+    return {
+      ok: true,
+      status: await mistralStatus(),
+      unverified: Boolean(check.offline),
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: await mistralStatus(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('mistral:clearKey', async () => {
+  try {
+    mistralKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: await mistralStatus(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyMistralKeyToTabs(null);
+  return { ok: true, status: await mistralStatus(), applied };
+});
+
+async function pollinationsStatus() {
+  return pollinationsKeys.status();
+}
+
+ipcMain.handle('pollinations:status', async () => pollinationsStatus());
+
+ipcMain.handle('pollinations:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: await pollinationsStatus(), error: 'Enter a Pollinations API key first.' };
+  }
+
+  const check = await checkPollinationsKey(raw);
+  if (!check.ok && !check.offline) {
+    return { ok: false, status: await pollinationsStatus(), error: check.error, code: check.code || null };
+  }
+
+  try {
+    pollinationsKeys.save(raw);
+    const applied = await applyPollinationsKeyToTabs(raw);
+    return {
+      ok: true,
+      status: await pollinationsStatus(),
+      unverified: Boolean(check.offline),
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: await pollinationsStatus(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('pollinations:clearKey', async () => {
+  try {
+    pollinationsKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: await pollinationsStatus(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyPollinationsKeyToTabs(null);
+  return { ok: true, status: await pollinationsStatus(), applied };
+});
+
 /**
  * The local vision model. Setup downloads ~5.8 GB, so it runs as its own step
  * with progress pushed to the window rather than a call that hangs for minutes;
@@ -4938,6 +5211,8 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     openrouter: await openrouterStatus(),
     kilo: await kiloStatus(),
     cloudflare: await cloudflareStatus(),
+    mistral: await mistralStatus(),
+    pollinations: await pollinationsStatus(),
     // Looking at a picture: which route, and is the local model ready to serve it.
     visionMode: visionMode(),
     llamacpp: llamaCpp.status(),
@@ -5449,6 +5724,12 @@ ipcMain.handle('session:clear', async (_e, tabId) => {
 
 ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode } = {}) => {
   const { tab } = tabFor(tabId);
+
+  // A message from the person starts a fresh turn: the loop guard's window and
+  // the automatic continuations it already spent are handed back.
+  tab.loopNudges = 0;
+  tab.pendingLoopNudge = false;
+  if (tab.loopGuard) tab.loopGuard.reset();
 
   /**
    * free-pi's models are text-only (the catalog declares input: ["text"]) and

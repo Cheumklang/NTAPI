@@ -108,13 +108,19 @@ html[data-theme='light'] {
 html, body {
   margin: 0;
   height: 100%;
-  background: var(--bg);
   color: var(--text);
   font: 14px/1.55 -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
   overflow: hidden;
 }
 
-body { display: flex; flex-direction: column; }
+html { background: transparent; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-radius: 10px;
+}
 
 /* ---------------- custom title bar ---------------- */
 
@@ -128,6 +134,7 @@ body { display: flex; flex-direction: column; }
   background: var(--bg-2);
   border-bottom: 1px solid var(--line);
   user-select: none;
+  border-radius: 10px 10px 0 0;
 }
 
 /* Whole bar drags the window; the buttons opt out below. */
@@ -2317,7 +2324,7 @@ mark.tx-hit.is-current {
   border-radius: 9px;
   color: #f3b0b0;
   font-size: 12.5px;
-  /* Clears itself after fifteen seconds; the Close button is still there. */
+  /* Stays until Close or Retry — it is the only clue for a bug report. */
   transition: opacity .2s ease;
 }
 .crash-notice[hidden] { display: none; }
@@ -4910,14 +4917,23 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
   color: var(--muted);
   font-weight: 600;
 }
-.todo-count { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.todo-count { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: auto; }
+.todo-close {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.todo-close:hover { color: var(--text); background: var(--bg-3); }
 .todo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 .todo-item { display: flex; gap: 8px; align-items: baseline; font-size: 13px; line-height: 1.45; }
 .todo-mark { font-family: var(--mono); width: 14px; flex: 0 0 14px; color: var(--muted); }
 .todo-item.in_progress .todo-mark,
 .todo-item.in_progress .todo-text { color: #ffd08a; }
-.todo-item.done .todo-mark { color: var(--accent-2); }
-.todo-item.done .todo-text { color: var(--muted); text-decoration: line-through; }
 .todo-text { min-width: 0; overflow-wrap: anywhere; }
 
 /* !command cards */
@@ -7088,3 +7104,49 @@ html[data-theme='light'] .empty {
 html[data-theme='light'] .md-code code > .hl-diff-add { --diff-band: rgba(15, 122, 82, .085); }
 html[data-theme='light'] .md-code code > .hl-diff-del { --diff-band: rgba(179, 32, 63, .075); }
 html[data-theme='light'] .md-code code > .hl-diff-hunk { --diff-band: rgba(90, 63, 240, .07); }
+
+/* ----------------------------------------------------------------
+   Titlebar logo — brand mark beside the wordmark. Paint only.
+   ---------------------------------------------------------------- */
+
+.tb-logo {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border-radius: 4px;
+  object-fit: contain;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .2);
+}
+html[data-theme='light'] .tb-logo {
+  box-shadow: 0 0 0 1px rgba(24, 30, 54, .1);
+}
+
+/* ----------------------------------------------------------------
+   Speaker dot — a small coloured dot beside the user's role line so
+   both speakers are marked (assistant already has one). Paint only.
+   ---------------------------------------------------------------- */
+
+.msg.user .role::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--accent-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 18%, transparent);
+}
+
+/* ----------------------------------------------------------------
+   Message entrance — new replies fade and rise in instead of
+   appearing outright. Paint only.
+   ---------------------------------------------------------------- */
+
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+.msg {
+  animation: msg-in .28s cubic-bezier(.2, .8, .3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg { animation: none; }
+}

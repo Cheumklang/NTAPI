@@ -12,6 +12,7 @@
   <body>
     <div id="titlebar">
       <div class="tb-drag">
+        <img class="tb-logo" src="assets/icon.png" alt="" />
         <span class="tb-brand">NTAPI</span>
       </div>
       <div class="tb-controls">
@@ -841,6 +842,7 @@
           </div>
           <div id="crashNotice" class="crash-notice" role="alert" hidden>
             <span id="crashText" class="crash-text"></span>
+            <button id="crashRetry" class="ghost small" data-i18n="crashRetry">Retry</button>
             <button id="crashCopy" class="ghost small" data-i18n="copySystemInfo">Copy system info</button>
             <button id="crashClose" class="ghost small" data-i18n="close">Close</button>
           </div>
@@ -1225,7 +1227,7 @@
                   </button>
                   <button type="button" class="provider-tile" data-provider="google" aria-pressed="false">
                     <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/google.svg" alt="" aria-hidden="true" />
+                      <img class="provider-tile-logo" src="assets/providers/gemini.webp" alt="" aria-hidden="true" />
                       <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
                     </span>
                     <span class="provider-tile-name" data-i18n="googleSection">Gemini</span>
@@ -1244,6 +1246,13 @@
                     </span>
                     <span class="provider-tile-name" data-i18n="llm7Section">LLM7.io</span>
                   </button>
+                  <button type="button" class="provider-tile" data-provider="mistral" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/mistral.webp" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="mistralSection">Mistral</span>
+                  </button>
                   <button type="button" class="provider-tile" data-provider="nvidia" aria-pressed="false">
                     <span class="provider-tile-logo-wrap">
                       <img class="provider-tile-logo" src="assets/providers/nvidia.svg" alt="" aria-hidden="true" />
@@ -1253,10 +1262,17 @@
                   </button>
                   <button type="button" class="provider-tile" data-provider="openrouter" aria-pressed="false">
                     <span class="provider-tile-logo-wrap">
-                      <img class="provider-tile-logo" src="assets/providers/openrouter.svg" alt="" aria-hidden="true" />
+                      <img class="provider-tile-logo" src="assets/providers/openrouter.jpeg" alt="" aria-hidden="true" />
                       <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
                     </span>
                     <span class="provider-tile-name" data-i18n="openrouterSection">OpenRouter</span>
+                  </button>
+                  <button type="button" class="provider-tile" data-provider="pollinations" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/pollinations.png" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="pollinationsSection">Pollinations</span>
                   </button>
                   <button type="button" class="provider-tile" data-provider="tokenharbor" aria-pressed="false">
                     <span class="provider-tile-logo-wrap">
@@ -1447,7 +1463,7 @@
 
                   <div class="provider-card" id="googleRow" data-provider="google">
                     <div class="provider-card-head">
-                      <img class="provider-logo" src="assets/providers/google.svg" alt="" aria-hidden="true" />
+                      <img class="provider-logo" src="assets/providers/gemini.webp" alt="" aria-hidden="true" />
                       <div class="provider-info">
                         <span class="provider-name" data-i18n="googleSection">Gemini</span>
                         <p id="googleStatus" class="settings-hint">&mdash;</p>
@@ -1487,7 +1503,7 @@
 
                   <div class="provider-card" id="openrouterRow" data-provider="openrouter">
                     <div class="provider-card-head">
-                      <img class="provider-logo" src="assets/providers/openrouter.svg" alt="" aria-hidden="true" />
+                      <img class="provider-logo" src="assets/providers/openrouter.jpeg" alt="" aria-hidden="true" />
                       <div class="provider-info">
                         <span class="provider-name" data-i18n="openrouterSection">OpenRouter</span>
                         <p id="openrouterStatus" class="settings-hint">&mdash;</p>
@@ -1543,6 +1559,42 @@
                       <button id="cloudflareGetKey" class="link-btn" data-i18n="cloudflareGetKey">Get a token at dash.cloudflare.com</button>
                       <span class="link-sep" aria-hidden="true">&middot;</span>
                       <button id="cloudflareBuy" class="link-btn" data-i18n="cloudflareBuy"></button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="mistralRow" data-provider="mistral">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/mistral.webp" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="mistralSection">Mistral</span>
+                        <p id="mistralStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="mistralKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" aria-label="Mistral API key" />
+                      <button id="mistralSave" class="ghost small" data-i18n="mistralSave">Save</button>
+                      <button id="mistralRemove" class="ghost small danger" data-i18n="mistralRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="mistralGetKey" class="link-btn" data-i18n="mistralGetKey">Get a key at console.mistral.ai</button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="pollinationsRow" data-provider="pollinations">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/pollinations.png" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="pollinationsSection">Pollinations</span>
+                        <p id="pollinationsStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="pollinationsKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" aria-label="Pollinations API key" />
+                      <button id="pollinationsSave" class="ghost small" data-i18n="pollinationsSave">Save</button>
+                      <button id="pollinationsRemove" class="ghost small danger" data-i18n="pollinationsRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="pollinationsGetKey" class="link-btn" data-i18n="pollinationsGetKey">Get a key at pollinations.ai</button>
                     </div>
                   </div>
 

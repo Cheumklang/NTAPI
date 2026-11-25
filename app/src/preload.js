@@ -117,6 +117,12 @@ contextBridge.exposeInMainWorld('freepi', {
   // saved together, so there is one call rather than two half-saves.
   cloudflareSetKey: (key, accountId) => ipcRenderer.invoke('cloudflare:setKey', { key, accountId }),
   cloudflareClearKey: () => ipcRenderer.invoke('cloudflare:clearKey'),
+  mistralStatus: () => ipcRenderer.invoke('mistral:status'),
+  mistralSetKey: (key) => ipcRenderer.invoke('mistral:setKey', { key }),
+  mistralClearKey: () => ipcRenderer.invoke('mistral:clearKey'),
+  pollinationsStatus: () => ipcRenderer.invoke('pollinations:status'),
+  pollinationsSetKey: (key) => ipcRenderer.invoke('pollinations:setKey', { key }),
+  pollinationsClearKey: () => ipcRenderer.invoke('pollinations:clearKey'),
   // "Update model list": re-read every configured provider's catalog now,
   // instead of waiting out the ten-minute cache.
   modelsRefresh: () => ipcRenderer.invoke('models:refresh'),

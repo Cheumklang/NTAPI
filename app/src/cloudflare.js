@@ -70,6 +70,35 @@ function priceNote(cost) {
   return `${fmt(cost.input)}/${fmt(cost.output)}`;
 }
 
+/**
+ * The free rows a new chat should open on, best first.
+ *
+ * Workers Free cannot run the frontier models the catalog lists first — the
+ * `require_workers_paid` rows answer 403 on every turn — so "whatever is row 0"
+ * is not a usable default. A reasoning row that answers with only
+ * `reasoning_content` is a poor opening too: it reads as an empty reply in a
+ * plain chat. These are free-plan rows that answer normally through the
+ * OpenAI-compatible endpoint.
+ */
+const PREFERRED_CLOUDFLARE_MODELS = [
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+  '@cf/meta/llama-4-scout-17b-16e-instruct',
+  '@cf/qwen/qwen2.5-coder-32b-instruct',
+  '@cf/mistralai/mistral-small-3.1-24b-instruct',
+  '@cf/openai/gpt-oss-20b',
+];
+
+/** The best free row for a new chat: a preferred one, else any free row. */
+function preferredCloudflareModel(models) {
+  const list = Array.isArray(models) ? models.filter(Boolean) : [];
+  const free = list.filter((m) => m.plan !== 'paid');
+  for (const id of PREFERRED_CLOUDFLARE_MODELS) {
+    const hit = free.find((m) => m.id === id);
+    if (hit) return hit;
+  }
+  return free[0] || list[0] || null;
+}
+
 /** One `property` value out of a catalog row, or undefined. */
 function propertyValue(properties, id) {
   const rows = Array.isArray(properties) ? properties : [];
@@ -90,6 +119,23 @@ function costFromProperties(properties) {
 }
 
 /**
+ * Whether a catalog row is priced like a chat model, i.e. it charges for output.
+ *
+ * Cloudflare's own `clairic`/`clef` rows are tagged Text Generation but answer
+ * with a set of fields, not a reply: the chat endpoint rejects them with
+ * `required properties at '/' are 'model,fields'`. The catalog's own tell is the
+ * price list — those rows quote an input rate only, while every model that
+ * speaks chat also prices its output. Rows with no price at all (free or
+ * unmetered) are kept: they still answer.
+ */
+function pricesItsOutput(properties) {
+  const value = propertyValue(properties, 'price');
+  const rows = Array.isArray(value) ? value : [];
+  if (!rows.length) return true;
+  return rows.some((r) => String(r?.unit || '').toLowerCase().includes('output'));
+}
+
+/**
  * One catalog row as a picker row, or null for a model that is not a chat model.
  *
  * `@cf/meta/llama-3.3-70b-instruct-fp8-fast` keeps its vendor in the label: with
@@ -103,6 +149,9 @@ function cloudflareRowToModel(row) {
   const tags = Array.isArray(row?.tags) ? row.tags : [];
   if (tags.includes('moderation')) return null;
   const properties = row?.properties;
+  // Tagged Text Generation, but answers with fields instead of a reply — the
+  // chat endpoint refuses it on every turn, so it must not reach the picker.
+  if (!pricesItsOutput(properties)) return null;
   const paidOnly = String(propertyValue(properties, 'require_workers_paid') || '') === 'true';
   const contextWindow = Number(propertyValue(properties, 'context_window'));
   return {
@@ -136,7 +185,6 @@ function cloudflareProviderConfig({ apiKey, accountId, models }) {
     models: list.map((m) => ({
       id: m.id,
       name: m.name,
-      reasoning: false,
       compat: { supportsDeveloperRole: false },
       input: m.vision ? ['text', 'image'] : ['text'],
       // Whether a route thinks is the route's business; the catalog is asked
@@ -251,7 +299,13 @@ async function resolveCloudflareModels(rawKey, accountId, { fetchImpl } = {}) {
 
   const rows = Array.isArray(check.models) ? check.models : [];
   const models = rows.map(cloudflareRowToModel).filter(Boolean);
-  return models.length ? models : CLOUDFLARE_MODEL_CANDIDATES.slice();
+  if (!models.length) return CLOUDFLARE_MODEL_CANDIDATES.slice();
+
+  // Free-plan rows first: the catalog opens with the frontier models a Workers
+  // Free account cannot run, so a list drawn as-is starts with rows that answer
+  // 403 on every turn. Sorting is stable — the catalog's own order is kept
+  // inside each group.
+  return models.slice().sort((a, b) => Number(a.plan === 'paid') - Number(b.plan === 'paid'));
 }
 
 module.exports = {
@@ -259,8 +313,10 @@ module.exports = {
   CLOUDFLARE_API,
   CLOUDFLARE_PLAN,
   CLOUDFLARE_MODEL_CANDIDATES,
+  PREFERRED_CLOUDFLARE_MODELS,
   priceNote,
   cloudflareRowToModel,
+  preferredCloudflareModel,
   cloudflareBaseUrl,
   cloudflareProviderConfig,
   cloudflareModelEntries,
