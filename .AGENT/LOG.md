@@ -4035,3 +4035,12 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **เทสต์:** เพิ่ม Kilo ลง `selftest-new-providers.js` (17 เช็ค: config/ราคา/ตรวจคีย์/402 ผ่าน/catalog/dynamic/ดรอปรูปภาพ/plan เปิดแชทฟรี/ui) + `selftest-provider-plan.js` (4 เช็ค) · `check-provider-grid.js` (TILE_ORDER 13, tiles===13, A-Z, settings stub kilo) · plated list ยังเป็น 4 เท่าเดิม
 - **ผลรัน:** `npm test` 110/110 · `check:sara` ok · `check:grid` ผ่านทุกเช็ค (13 ไทล์, 5/แถว, contrast, plated=4) · `node --check` ผ่านทุกไฟล์ · ทดสอบ `resolveKiloModels` กับ API จริง: 465 แถว (ฟรี 17, paid 448, dynamic 11, vision 309), คีย์ปลอม→401
 - **ยังไม่ commit** — รอคำสั่งผู้ใช้ · ยังไม่ทดสอบเทิร์นจริงด้วยคีย์จริง (ไม่มีคีย์ Kilo ของผู้ใช้)
+
+## 2026-11-25 (Linux) — ✅ ปล่อย v0.9.5 (เพิ่ม provider Kilo)
+- **ผู้ใช้สั่ง:** "ผมใส่ api ไว้แล้ว" → ทดสอบเทิร์นจริง → "commit ได้เลย" → "bump tag push ได้เลย อย่าลืมบันทึกงานส่ง session ถัดไป"
+- **commit โค้ด:** `5f66f13` (Kilo provider, 17 ไฟล์ +739/−17) · PROVENANCE บันทึกอัตโนมัติ `c74f45d`
+- **bump:** `0.9.4` → `0.9.5` (`app/package.json`)
+- **เทิร์นจริงกับคีย์ผู้ใช้:** `kilo-auto/small`→`google/gemma-4-26b-a4b-it:free` ตอบ "Kilo works" (200, cost 0) · `kilo-auto/free` auto ย้ายไป `nvidia/nemotron-3.5-super-vl:free` (200) · free tier เจอ 429 rate-limit ตามปกติ · คีย์เก็บที่ `~/.local/share/ntapi/kilo.json` (ไม่เข้ารหัสในเครื่องนี้)
+- **tag + push:** `v0.9.5` push `master` + แท็ก (รอ CI บิลด์ `NTAPI-Setup-0.9.5.exe` ที่ `Cheumklang/NTAPI-releases`)
+- **PROVENANCE:** `record-release 0.9.5` + `anchor` + `verify`
+- **เทสต์ที่ผ่าน:** `npm test` 110/110 · `check:sara` ok · `check:grid` ผ่าน (13 ไทล์)
