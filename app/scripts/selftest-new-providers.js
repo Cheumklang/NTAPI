@@ -432,7 +432,7 @@ async function main() {
   check('ui: Cloudflare is named', providerLabel('cloudflare') === 'Cloudflare');
   check(
     'ui: every new provider has a bundled mark',
-    ['zai', 'openrouter', 'kilo', 'cloudflare'].every((id) => providerLogoPath(id).endsWith('.svg'))
+    ['zai', 'openrouter', 'kilo', 'cloudflare'].every((id) => /\.(svg|png)$/.test(providerLogoPath(id)))
   );
   check(
     'ui: every new provider has its own meter',

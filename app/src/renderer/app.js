@@ -13613,12 +13613,14 @@ function renderTodos(items) {
   const panel = el('todoPanel');
   if (!panel) return;
   const list = (Array.isArray(items) ? items : []).filter((it) => it && it.text);
-  if (!list.length) {
+  const done = list.filter((it) => it.status === 'done').length;
+  // All steps done (or none): the plan has served its purpose, so it clears
+  // itself. A new list from the model brings the panel back.
+  if (!list.length || done === list.length) {
     panel.hidden = true;
     panel.innerHTML = '';
     return;
   }
-  const done = list.filter((it) => it.status === 'done').length;
   panel.innerHTML =
     `<div class="todo-head"><span class="todo-title">${escapeHtml(t('todos'))}</span>` +
     `<span class="todo-count">${done}/${list.length}</span></div>` +

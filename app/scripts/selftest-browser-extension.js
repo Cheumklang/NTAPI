@@ -47,6 +47,7 @@ function makeChrome() {
   const messageListeners = [];
   const tabRemovedListeners = [];
   const windowRemovedListeners = [];
+  const groupUpdatedListeners = [];
   const sockets = [];
 
   /** A WebSocket stand-in the test can drive by hand. */
@@ -119,6 +120,7 @@ function makeChrome() {
       },
       update: async (id, opts) => record('tabGroups.update', { id, ...opts }),
       move: async (id, opts) => record('tabGroups.move', { id, ...opts }),
+      onUpdated: { addListener: (fn) => groupUpdatedListeners.push(fn) },
     },
     tabs: {
       group: async ({ tabIds, groupId }) => {
@@ -210,11 +212,13 @@ function makeChrome() {
       return reply;
     },
     dispatchTabRemoved: (tabId) => tabRemovedListeners.forEach((fn) => fn(tabId, {})),
+    emitGroupUpdate: (group) => groupUpdatedListeners.forEach((fn) => fn(group)),
   };
 }
 
 function loadWorker() {
-  const { chrome, calls, state, emitEvent, sockets, FakeWebSocket, dispatchMessage, dispatchTabRemoved } = makeChrome();
+  const { chrome, calls, state, emitEvent, sockets, FakeWebSocket, dispatchMessage, dispatchTabRemoved, emitGroupUpdate } =
+    makeChrome();
   const source = fs.readFileSync(path.join(__dirname, '..', 'browser-extension', 'background.js'), 'utf8');
   const sandboxModule = { exports: {} };
   const context = vm.createContext({
@@ -228,7 +232,7 @@ function loadWorker() {
     URL,
   });
   vm.runInContext(source, context, { filename: 'background.js' });
-  return { handle: sandboxModule.exports.handle, calls, state, emitEvent, sockets, dispatchMessage, dispatchTabRemoved };
+  return { handle: sandboxModule.exports.handle, calls, state, emitEvent, sockets, dispatchMessage, dispatchTabRemoved, emitGroupUpdate };
 }
 
 async function expectError(fn) {
@@ -241,8 +245,10 @@ async function expectError(fn) {
 }
 
 async function main() {
-  const { handle, calls, state, emitEvent, sockets, dispatchMessage, dispatchTabRemoved } = loadWorker();
+  const { handle, calls, state, emitEvent, sockets, dispatchMessage, dispatchTabRemoved, emitGroupUpdate } = loadWorker();
   const cdpCalls = (method) => calls.filter((c) => c.name === 'cdp' && c.payload.method === method);
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+  const folded = (list) => list.some((c) => c.name === 'tabGroups.update' && c.payload.collapsed === true);
 
   // --- unknown command ---
   check('unknown command is UNSUPPORTED', (await expectError(() => handle('nope', {}))) === 'UNSUPPORTED');
@@ -285,6 +291,40 @@ async function main() {
     saver.calls.some((c) => c.name === 'tabGroups.move' && c.payload.index === 0),
     JSON.stringify(saver.calls.filter((c) => c.name === 'tabGroups.move'))
   );
+
+  // --- the group folds itself back, unless the user opened it ---
+  const folder = loadWorker();
+  await folder.handle('open', { url: 'https://a.example' });
+  folder.state.tabs = [{ id: 8, windowId: 1, active: false, groupId: 5, url: 'https://a.example', title: 'Agent A' }];
+  // The fold we asked for settles and Chrome reports the group collapsed.
+  folder.emitGroupUpdate({ id: 5, collapsed: true });
+  await settle();
+  folder.calls.length = 0;
+
+  // The user clicks the group chip: no agent command was involved.
+  folder.emitGroupUpdate({ id: 5, collapsed: false });
+  await settle();
+  check('user expansion leaves the group open', !folded(folder.calls), JSON.stringify(folder.calls));
+  check('and the choice is remembered', folder.state.sessionStore.agentGroupOpenByUser === true);
+
+  folder.calls.length = 0;
+  await folder.handle('tabs', { focus: true, tab: 8 });
+  check('agent activation does not fight the user', !folded(folder.calls), JSON.stringify(folder.calls));
+
+  // The user folds it back, so the next agent activation may fold again.
+  folder.emitGroupUpdate({ id: 5, collapsed: true });
+  await settle();
+  folder.calls.length = 0;
+  await folder.handle('tabs', { focus: true, tab: 8 });
+  check('after the user collapses it, agent activation folds it again', folded(folder.calls), JSON.stringify(folder.calls));
+
+  // Chrome expands a collapsed group by itself when a tab inside becomes
+  // active; that expansion is ours, not the user's, and must be folded back.
+  folder.calls.length = 0;
+  folder.emitGroupUpdate({ id: 5, collapsed: false });
+  await settle();
+  check('the expansion Chrome does for the agent is folded straight back', folded(folder.calls), JSON.stringify(folder.calls));
+  check('and it is not mistaken for the user', folder.state.sessionStore.agentGroupOpenByUser === false);
 
 
   // --- read ---

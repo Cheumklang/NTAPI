@@ -25,6 +25,23 @@ let wantConnection = true;
 let agentGroupId = null;
 
 /**
+ * True when the user unfolded the group to look inside. While it is true the
+ * agent never folds it back — the user opened it on purpose and may be
+ * watching. It is cleared the moment the group is collapsed again.
+ */
+let groupOpenByUser = false;
+
+/**
+ * Chrome unfolds a collapsed group by itself whenever a tab inside it becomes
+ * active, so an agent-driven activation would otherwise leave the group open
+ * among the user's own tabs. Any expansion before this instant is treated as
+ * ours (and folded back); after it, as the user's.
+ */
+let expandCausedByAgentUntil = 0;
+const EXPAND_GRACE_MS = 1500;
+const AGENT_GROUP_OPEN_KEY = 'agentGroupOpenByUser';
+
+/**
  * The id above lives in memory, and the MV3 service worker is torn down after a
  * few idle seconds. Without a saved copy every restart would create a second
  * NTAPI group. Session storage is wiped when the browser closes, which is
@@ -49,6 +66,58 @@ async function saveGroupId(id) {
     const area = chrome.storage.session || chrome.storage.local;
     await area.set({ [AGENT_GROUP_KEY]: agentGroupId });
   } catch {}
+}
+
+/**
+ * The user's "I am looking" flag has the same lifetime as the group id: session
+ * storage, so a service-worker restart does not fold the group they opened.
+ */
+async function readOpenFlag() {
+  try {
+    const area = chrome.storage.session || chrome.storage.local;
+    const found = await area.get(AGENT_GROUP_OPEN_KEY);
+    return Boolean(found && found[AGENT_GROUP_OPEN_KEY]);
+  } catch {
+    return false;
+  }
+}
+
+async function setOpenFlag(open) {
+  groupOpenByUser = Boolean(open);
+  try {
+    const area = chrome.storage.session || chrome.storage.local;
+    await area.set({ [AGENT_GROUP_OPEN_KEY]: groupOpenByUser });
+  } catch {}
+}
+
+async function ensureOpenFlag() {
+  if (groupOpenByUser) return true;
+  groupOpenByUser = await readOpenFlag();
+  return groupOpenByUser;
+}
+
+/**
+ * Fold the agent's group away unless the user is the one who opened it. Safe to
+ * call after every command: on an already-collapsed group it is a no-op.
+ */
+async function foldAgentGroup() {
+  if (await ensureOpenFlag()) return;
+  const gid = agentGroupId ?? (await readSavedGroupId());
+  if (!Number.isInteger(gid)) return;
+  try {
+    await chrome.tabGroups.update(gid, { collapsed: true });
+  } catch {}
+}
+
+/**
+ * Bring one of the agent's own tabs to the front and fold the group back. The
+ * grace window covers Chrome's automatic expansion, which arrives after the
+ * activation and is pinned on the group's `onUpdated` event.
+ */
+async function activateAgentTab(tabId) {
+  expandCausedByAgentUntil = Date.now() + EXPAND_GRACE_MS;
+  await chrome.tabs.update(tabId, { active: true }).catch(() => {});
+  await foldAgentGroup();
 }
 
 /* ------------------------------------------------------------------ badge */
@@ -254,11 +323,13 @@ async function userWindowId() {
 }
 
 /**
- * Put one tab in the agent's group, collapsed.
+ * Put one tab in the agent's group, folded away.
  *
  * This is the whole of "the agent works in its own tabs": Chrome cannot make a
  * tab that appears nowhere, so the next best thing is one collapsed chip beside
  * the user's own tabs, which they can expand to watch or collapse to ignore.
+ * A group the user has expanded stays expanded — adding a tab must not snap it
+ * shut while they are looking inside.
  */
 async function placeInGroup(tabId) {
   let gid = agentGroupId ?? (await readSavedGroupId());
@@ -269,12 +340,22 @@ async function placeInGroup(tabId) {
       gid = null;
     }
   }
-  gid = Number.isInteger(gid)
-    ? await chrome.tabs.group({ tabIds: [tabId], groupId: gid })
-    : await chrome.tabs.group({ tabIds: [tabId] });
+  const fresh = !Number.isInteger(gid);
+  // Grouping a tab makes Chrome unfold the group; that is ours, not the user's.
+  expandCausedByAgentUntil = Date.now() + EXPAND_GRACE_MS;
+  gid = fresh
+    ? await chrome.tabs.group({ tabIds: [tabId] })
+    : await chrome.tabs.group({ tabIds: [tabId], groupId: gid });
   await saveGroupId(gid);
+  // A brand-new group has no "user opened it" history; a surviving one keeps it.
+  if (fresh) await setOpenFlag(false);
+  const openByUser = await ensureOpenFlag();
   await chrome.tabGroups
-    .update(gid, { title: GROUP_TITLE, color: 'grey', collapsed: true })
+    .update(gid, {
+      title: GROUP_TITLE,
+      color: 'grey',
+      ...(openByUser ? {} : { collapsed: true }),
+    })
     .catch(() => {});
   // Take it to the far left, so the agent's tabs never sit between the user's
   // own tabs. Pinned tabs are pinned first by Chrome, so start after them.
@@ -492,7 +573,8 @@ async function listTabs(args) {
   // Listing is read-only: never create a tab or a group to answer it.
   const winId = await userWindowId();
   if (args.focus && Number.isInteger(args.tab)) {
-    await chrome.tabs.update(args.tab, { active: true }).catch(() => {});
+    // Focus, then fold the agent group back so the user's tabs stay separate.
+    await activateAgentTab(args.tab);
     if (winId !== null) await chrome.windows.update(winId, { focused: true }).catch(() => {});
   }
   const tabs = winId === null ? [] : await chrome.tabs.query({ windowId: winId });
@@ -511,17 +593,21 @@ async function openUrl(args) {
    * agent built itself a whole new window instead of using it.
    */
   if (Number.isInteger(args.tab)) {
+    if (args.foreground) expandCausedByAgentUntil = Date.now() + EXPAND_GRACE_MS;
     const tab = await chrome.tabs.update(args.tab, { url: args.url, active: Boolean(args.foreground) });
+    if (args.foreground) await foldAgentGroup();
     await waitForLoad(tab.id);
     return tabSummary(tab.id);
   }
   // Otherwise a scratch tab of its own: in the user's window, in the collapsed
   // NTAPI group, never stealing the tab they are reading.
   const winId = await userWindowId();
+  if (args.foreground) expandCausedByAgentUntil = Date.now() + EXPAND_GRACE_MS;
   const where = { url: args.url, active: Boolean(args.foreground) };
   if (winId !== null) where.windowId = winId;
   const tab = await chrome.tabs.create(where);
   await placeInGroup(tab.id);
+  if (args.foreground) await foldAgentGroup();
   await waitForLoad(tab.id);
   return tabSummary(tab.id);
 }
@@ -768,6 +854,38 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   send({ event: 'tabClosed', tabId });
 });
 
+/**
+ * Chrome unfolds a collapsed group by itself when a tab inside it becomes
+ * active. Fold that back when we caused it; treat any other expansion as the
+ * user opening the group to look, and leave it open until they fold it again.
+ */
+async function onAgentGroupChanged(group) {
+  if (!group || !Number.isInteger(group.id)) return;
+  const gid = agentGroupId ?? (await readSavedGroupId());
+  if (group.id !== gid) return;
+  if (group.collapsed) {
+    // Folded — nothing of ours is waiting to be folded, so the grace ends here.
+    expandCausedByAgentUntil = 0;
+    await setOpenFlag(false);
+    return;
+  }
+  if (Date.now() < expandCausedByAgentUntil) {
+    // Ours — unless the user is watching: then they opened it and we let it be.
+    if (await ensureOpenFlag()) return;
+    try {
+      await chrome.tabGroups.update(group.id, { collapsed: true });
+    } catch {}
+    return;
+  }
+  await setOpenFlag(true);
+}
+
+if (chrome.tabGroups && chrome.tabGroups.onUpdated) {
+  chrome.tabGroups.onUpdated.addListener((group) => {
+    onAgentGroupChanged(group).catch(() => {});
+  });
+}
+
 chrome.runtime.onStartup.addListener(() => connect());
 chrome.runtime.onInstalled.addListener(() => connect());
 connect();
@@ -790,7 +908,7 @@ async function listRealTabs(args = {}) {
   // see what the agent is about to work on.
   if (args.focus && Number.isInteger(args.tab)) {
     try {
-      await chrome.tabs.update(args.tab, { active: true });
+      await activateAgentTab(args.tab);
       const target = tabs.find((t) => t.id === args.tab);
       if (target) await chrome.windows.update(target.windowId, { focused: true });
     } catch {}
