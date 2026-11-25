@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-25T00:15:27.106Z
-entries 356
-head_hash fe92d598eb36adaa74cd929e51710e7d6eea1adbe132c11fac3bdd70a1028310
-git c5e408937294beae3a5cd3d040c9c61e7a78d795
+updated 2026-11-25T21:52:15.374Z
+entries 375
+head_hash 18abf4efd262bb034528140529e3cdf54103208f5b0ceae4348e882074749ab7
+git cc047b7f4cb1356cc25f90779a2b98ec9f771459
 
 latest entries:
-  #349 2026-11-24T22:54:36.880Z release — Released version 0.9.4
-  #350 2026-11-24T22:54:40.768Z commit — PROVENANCE: บันทึกการปล่อย v0.9.4
-  #351 2026-11-24T22:56:36.635Z commit — meta: อัปเดต HANDOFF/LOG หลังปล่อย v0.9.4
-  #352 2026-11-24T22:56:43.179Z session — ปล่อย v0.9.4: รวมงานค้างทั้งหมด (session-index + markdown cache + retry + polish + skill + model-picker) + ลบรุ่นเก่า + ลบสคริปต์ชั่วคราว
-  #353 2026-11-24T22:56:47.696Z commit — PROVENANCE: บันทึก session ปล่อย v0.9.4
-  #354 2026-11-25T00:13:40.033Z commit — feat: เพิ่มผู้ให้บริการ Kilo (OpenAI-compatible, catalog เต็ม)
-  #355 2026-11-25T00:15:03.029Z commit — release: v0.9.5 — เพิ่มผู้ให้บริการ Kilo
-  #356 2026-11-25T00:15:23.382Z release — Released version 0.9.5
+  #368 2026-11-25T04:31:16.278Z session — ยืนยันปุ่มดึงรายการโมเดลล่าสุดยังใช้ได้กับ Cloudflare + เพิ่มเทสต์กันหลุด 2 ข้อ
+  #369 2026-11-25T04:43:41.077Z session — เพิ่ม Mistral AI + Pollinations.ai providers (ยังไม่ commit, 0.9.6)
+  #370 2026-11-25T05:16:08.241Z session — เพิ่ม Mistral/Pollinations providers + โลโก้จริง + ขอบ window โค้ง + transparent frame (ยังไม่ commit, 0.9.6)
+  #371 2026-11-25T05:36:17.351Z session — แก้ Pollinations API (openai-fast) + ตรวจสอบ status ครบทุกค่าย + บันทึกงาน (ยังไม่ commit, 0.9.6)
+  #372 2026-11-25T20:31:18.356Z session — ทำหน้าตาสวยขึ้น: โลโก้ titlebar, จุดสีผู้ใช้, animation ข้อความใหม่
+  #373 2026-11-25T21:18:45.937Z session — ตัวกันโมเดลคิดวนซ้ำ: ตรวจ thinking, หยุด+สั่งต่ออัตโนมัติ 1 ครั้ง, วนซ้ำอีกหยุดจริง+ntfy
+  #374 2026-11-25T21:24:07.712Z commit — feat: ตัวกันโมเดลคิดวนซ้ำ + Mistral/Pollinations + ปรับหน้าตา
+  #375 2026-11-25T21:52:15.238Z release — Released version 0.9.7

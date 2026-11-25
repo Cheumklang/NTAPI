@@ -4158,3 +4158,10 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **แก้:** `src/main.js` (require, reset ตอน prompt:send, ตรวจ thinking_delta, handleThinkingLoop/abortLoopingTurn/continueAfterLoop, settle hook) · `src/renderer/app.js` (i18n EN+TH) · `scripts/run-unit-tests.js`
 - **เทสต์:** 113/113 · selftest-thinking-loop ผ่าน · check:sara ok
 - **ค้าง:** ยังไม่ commit · 0.9.6 (ถ้าปล่อย = 0.9.7)
+
+## 2026-11-25 — ✅ ปล่อย v0.9.7
+- **bump:** 0.9.6 → 0.9.7 · commit `cc047b7` · tag `v0.9.7` · push origin HEAD v0.9.7
+- **CI ปล่อยเข้า:** `Cheumklang/NTAPI-releases` (public)
+- **ยืนยัน:** `latest.yml`=0.9.7 · exe size 182,267,276 · sha256 `417e6c66…` · sha512 ตรง latest.yml
+- **Provenance:** record-release seq 375 + anchor + verify OK 375 entries
+- **รวมงาน:** ตัวกันคิดวนซ้ำ · Mistral/Pollinations · หน้าตา/โลโก้ · งานค้างเก่า
