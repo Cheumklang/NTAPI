@@ -27,6 +27,7 @@ const PROVIDER_LABELS = {
   deepseek: 'DeepSeek',
   anthropic: 'Claude',
   google: 'Gemini',
+  kilo: 'Kilo',
 };
 
 /**

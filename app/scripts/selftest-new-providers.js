@@ -1,5 +1,5 @@
 /**
- * z.ai, OpenRouter and Cloudflare join the keyed providers.
+ * z.ai, OpenRouter, Kilo and Cloudflare join the keyed providers.
  *
  * Three things have to hold before a turn is sent to any of them:
  *
@@ -8,8 +8,8 @@
  *      token reaches every account this app was never told about.
  *   2. A key is proven before it is saved, and a server's own wording never
  *      carries the key back into the window.
- *   3. None of the three may become the default while a free provider exists:
- *      all of them bill from the first token.
+ *   3. None of them may become the default while a free provider exists: all of
+ *      them bill from the first token (Kilo opens on a free row when it has one).
  *
  * Run: node scripts/selftest-new-providers.js
  */
@@ -43,6 +43,15 @@ const {
   resolveCloudflareModels,
 } = require('../src/cloudflare');
 const { planProviders } = require('../src/provider-plan');
+const {
+  KILO_PROVIDER,
+  KILO_BASE_URL,
+  kiloProviderConfig,
+  kiloModelEntries,
+  kiloRowToModel,
+  checkKiloKey,
+  resolveKiloModels,
+} = require('../src/kilo');
 require('../src/renderer/provider-ui');
 const { providerLabel, providerLogoPath, providerChrome } = globalThis.FPProvider;
 
@@ -302,6 +311,74 @@ async function main() {
     cloudflareRowToModel({ name: '@cf/meta/llama-guard-3-8b', tags: ['moderation'], properties: [] }) === null
   );
 
+  /* -------------------------------- Kilo -------------------------------- */
+  const kiloConfig = kiloProviderConfig({ apiKey: KEY });
+  check(
+    'kilo: name and endpoint',
+    kiloConfig.name === 'Kilo' && kiloConfig.baseUrl === KILO_BASE_URL && kiloConfig.api === 'openai-completions'
+  );
+  check('kilo: the first candidate is the fallback', kiloConfig.models.length === 1);
+  const kiloFreeEntry = kiloModelEntries([{ id: 'kilo-auto/free', name: 'Auto Free', plan: 'free' }])[0];
+  check('kilo: a free row carries no price', kiloFreeEntry.plan === 'free' && kiloFreeEntry.planNote === '');
+  const kiloPaidEntry = kiloModelEntries([
+    { id: 'anthropic/claude-opus-5.5', name: 'Claude Opus', plan: 'paid', cost: { input: 4, output: 20 } },
+  ])[0];
+  check('kilo: a paid row shows its price', kiloPaidEntry.plan === 'paid' && kiloPaidEntry.planNote === '$4.00/$20.00');
+
+  // There is no /key: a one-token completion proves the key. 401 is a bad key.
+  const kiloGoodStub = stubFetch(() => jsonResponse({ choices: [{ message: { content: 'p' } }] }));
+  const kiloCheck = await checkKiloKey(KEY, { fetchImpl: kiloGoodStub });
+  check('kilo: a good key passes', kiloCheck.ok === true);
+  check('kilo: validation posts a chat completion', kiloGoodStub.calls[0].url === `${KILO_BASE_URL}/chat/completions`);
+  const kiloDenied = stubFetch(() => jsonResponse({ error: { code: 'INVALID_TOKEN', message: 'bad' } }, 401));
+  const kiloDeniedRes = await checkKiloKey(KEY, { fetchImpl: kiloDenied });
+  check('kilo: a rejected key fails', kiloDeniedRes.ok === false && kiloDeniedRes.status === 401);
+  const kiloPoor = stubFetch(() => jsonResponse({ error: { message: 'no credit' } }, 402));
+  check('kilo: a key out of credit is still a real key', (await checkKiloKey(KEY, { fetchImpl: kiloPoor })).ok === true);
+
+  const kiloModels = stubFetch(() =>
+    jsonResponse({
+      data: [
+        {
+          id: 'anthropic/claude-opus-5.5',
+          name: 'Claude Opus 5.5',
+          context_length: 1000000,
+          pricing: { prompt: '0.000004', completion: '0.00002' },
+          top_provider: { max_completion_tokens: 64000 },
+          architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] },
+        },
+        {
+          id: 'kilo-auto/free',
+          name: 'Auto Free',
+          context_length: 256000,
+          pricing: { prompt: '0', completion: '0' },
+          architecture: { input_modalities: ['text'], output_modalities: ['text'] },
+        },
+      ],
+    })
+  );
+  const kiloResolved = await resolveKiloModels(KEY, { fetchImpl: kiloModels });
+  check('kilo: the whole public catalog becomes rows', kiloResolved.length === 2);
+  check(
+    'kilo: per-token pricing becomes per million',
+    kiloResolved[0].cost.input === 4 && kiloResolved[0].cost.output === 20
+  );
+  check('kilo: a $0 route is tagged free', kiloResolved[1].plan === 'free');
+  check('kilo: a vision route sees images', kiloResolved[0].vision === true);
+  check('kilo: no key means no catalog', (await resolveKiloModels('')).length === 0);
+  const kiloDynamic = kiloRowToModel({
+    id: 'kilo-auto/efficient',
+    name: 'Auto Efficient',
+    context_length: 1000000,
+    pricing: { prompt: '-1', completion: '-1' },
+    architecture: { input_modalities: ['text'], output_modalities: ['text'] },
+  });
+  check('kilo: a dynamic auto tier is paid with no fixed price', kiloDynamic.plan === 'paid' && kiloDynamic.cost === null);
+  check(
+    'kilo: an image generator is dropped',
+    kiloRowToModel({ id: 'black-forest-labs/flux', architecture: { output_modalities: ['image'] }, pricing: { prompt: '0', completion: '0' } }) === null
+  );
+
   /* -------------------------------- plan -------------------------------- */
   const freePiPlan = planProviders({
     hasFreePiAuth: true,
@@ -310,13 +387,15 @@ async function main() {
     zaiModels: [{ id: 'glm-4.6' }],
     openrouterKey: KEY,
     openrouterModels: [{ id: 'deepseek/deepseek-chat-v3.1' }],
+    kiloKey: KEY,
+    kiloModels: [{ id: 'kilo-auto/free', plan: 'free' }],
     cloudflareKey: KEY,
     cloudflareModels: [{ id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }],
   });
   check('plan: FreePi still wins the default', freePiPlan.defaultProvider === 'free-pi');
   check(
-    'plan: the three are registered but not the default',
-    freePiPlan.zai && freePiPlan.openrouter && freePiPlan.cloudflare
+    'plan: the four are registered but not the default',
+    freePiPlan.zai && freePiPlan.openrouter && freePiPlan.kilo && freePiPlan.cloudflare
   );
 
   const paidPlan = planProviders({
@@ -334,24 +413,37 @@ async function main() {
   const keyNoCatalog = planProviders({ hasFreePiAuth: false, zaiKey: KEY, zaiModels: [] });
   check('plan: a key with no catalog is not a provider', keyNoCatalog.zai === false && keyNoCatalog.available === false);
 
+  const onlyKilo = planProviders({
+    hasFreePiAuth: false,
+    kiloKey: KEY,
+    kiloModels: [{ id: 'kilo-auto/free', plan: 'free' }, { id: 'anthropic/claude-opus-5.5', plan: 'paid' }],
+  });
+  check('plan: Kilo alone is usable', onlyKilo.available === true && onlyKilo.defaultProvider === 'kilo');
+  check(
+    'plan: a new Kilo chat opens on the free row, not the first paid one',
+    onlyKilo.defaultModel === 'kilo-auto/free',
+    onlyKilo.defaultModel
+  );
+
   /* ----------------------------- presentation --------------------------- */
   check('ui: z.ai is named', providerLabel('zai') === 'z.ai');
   check('ui: OpenRouter is named', providerLabel('openrouter') === 'OpenRouter');
+  check('ui: Kilo is named', providerLabel('kilo') === 'Kilo');
   check('ui: Cloudflare is named', providerLabel('cloudflare') === 'Cloudflare');
   check(
     'ui: every new provider has a bundled mark',
-    ['zai', 'openrouter', 'cloudflare'].every((id) => providerLogoPath(id).endsWith('.svg'))
+    ['zai', 'openrouter', 'kilo', 'cloudflare'].every((id) => providerLogoPath(id).endsWith('.svg'))
   );
   check(
     'ui: every new provider has its own meter',
-    ['zai', 'openrouter', 'cloudflare'].every((id) => providerChrome({ provider: id }).meter === id)
+    ['zai', 'openrouter', 'kilo', 'cloudflare'].every((id) => providerChrome({ provider: id }).meter === id)
   );
 
   if (failures) {
     console.log(`\n${failures} check(s) failed.`);
     process.exit(1);
   }
-  console.log('\nAll z.ai / OpenRouter / Cloudflare checks passed.');
+  console.log('\nAll z.ai / OpenRouter / Kilo / Cloudflare checks passed.');
 }
 
 /** Two entries so the paid tag can be checked without a network call. */

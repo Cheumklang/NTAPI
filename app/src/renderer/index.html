@@ -1229,6 +1229,13 @@
                     </span>
                     <span class="provider-tile-name" data-i18n="googleSection">Gemini</span>
                   </button>
+                  <button type="button" class="provider-tile" data-provider="kilo" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/kilo.svg" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="kiloSection">Kilo</span>
+                  </button>
                   <button type="button" class="provider-tile" data-provider="llm7" aria-pressed="false">
                     <span class="provider-tile-logo-wrap">
                       <img class="provider-tile-logo" src="assets/providers/llm7.png" alt="" aria-hidden="true" />
@@ -1494,6 +1501,26 @@
                       <button id="openrouterGetKey" class="link-btn" data-i18n="openrouterGetKey">Get a key at openrouter.ai</button>
                       <span class="link-sep" aria-hidden="true">&middot;</span>
                       <button id="openrouterBuy" class="link-btn" data-i18n="openrouterBuy"></button>
+                    </div>
+                  </div>
+
+                  <div class="provider-card" id="kiloRow" data-provider="kilo">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/kilo.svg" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="kiloSection">Kilo</span>
+                        <p id="kiloStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="kiloKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" aria-label="Kilo API key" />
+                      <button id="kiloSave" class="ghost small" data-i18n="kiloSave">Save</button>
+                      <button id="kiloRemove" class="ghost small danger" data-i18n="kiloRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="kiloGetKey" class="link-btn" data-i18n="kiloGetKey">Get a key at app.kilo.ai</button>
+                      <span class="link-sep" aria-hidden="true">&middot;</span>
+                      <button id="kiloBuy" class="link-btn" data-i18n="kiloBuy"></button>
                     </div>
                   </div>
 

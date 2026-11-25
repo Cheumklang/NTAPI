@@ -5,7 +5,7 @@
  * fix could be found, and every new company pushed it further down. This check
  * pins the rules the grid has to keep:
  *
- *   - twelve tiles, five to a row, each with its own bundled mark;
+ *   - thirteen tiles, five to a row, each with its own bundled mark;
  *   - a tick only for a key this machine can actually read;
  *   - the tick sits outside the logo, never on top of it;
  *   - one card open at a time, opened by its tile;
@@ -29,7 +29,7 @@ function check(name, ok, detail) {
 }
 
 // A-Z by the name on the tile, which is what the grid has to show.
-const TILE_ORDER = ['anthropic', 'cloudflare', 'coarena', 'deepseek', 'freepi', 'google', 'llm7', 'nvidia', 'openrouter', 'tokenharbor', 'zai', 'zro'];
+const TILE_ORDER = ['anthropic', 'cloudflare', 'coarena', 'deepseek', 'freepi', 'google', 'kilo', 'llm7', 'nvidia', 'openrouter', 'tokenharbor', 'zai', 'zro'];
 
 /** Statuses the stubbed main process reports: two keys saved, the rest empty. */
 function status(configured) {
@@ -59,6 +59,7 @@ app.whenReady().then(async () => {
     google: status(false),
     zai: status(false),
     openrouter: status(false),
+    kilo: status(false),
     cloudflare: { ...status(false), accountConfigured: true, accountReadable: true, accountHint: '9f90' },
   }));
 
@@ -243,7 +244,7 @@ app.whenReady().then(async () => {
     };
   })()`);
 
-  check('twelve provider tiles without a duplicate llama.cpp tile', result.tiles === 12 && !result.order.includes('llamacpp'), { count: result.tiles, order: result.order });
+  check('thirteen provider tiles without a duplicate llama.cpp tile', result.tiles === 13 && !result.order.includes('llamacpp'), { count: result.tiles, order: result.order });
   check('llama.cpp details sit above the provider grid', result.localCardAboveGrid, result.localCardAboveGrid);
   check('llama.cpp uses a visible dedicated-card layout', result.localCardLayout !== 'none', result.localCardLayout);
   check('tiles run A-Z by the name they show', JSON.stringify(result.order) === JSON.stringify(TILE_ORDER), result.order);

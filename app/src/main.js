@@ -192,6 +192,7 @@ const { checkLlm7Key, LLM7_BASE_URL } = require('./llm7');
 const { checkDeepSeekKey, DEEPSEEK_BASE_URL } = require('./deepseek');
 const { checkZaiKey, ZAI_BASE_URL } = require('./zai');
 const { checkOpenRouterKey, OPENROUTER_BASE_URL } = require('./openrouter');
+const { checkKiloKey, KILO_BASE_URL } = require('./kilo');
 const { checkCloudflareKey, cloudflareBaseUrl } = require('./cloudflare');
 const { checkAnthropicKey, ANTHROPIC_BASE_URL } = require('./anthropic');
 const { checkGoogleKey, GOOGLE_BASE_URL } = require('./google-ai');
@@ -501,6 +502,11 @@ const openrouterKeys = createProviderKeyStore({
   dir: DATA_ROOT,
   safeStorage,
   fileName: 'openrouter.json',
+});
+const kiloKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'kilo.json',
 });
 const cloudflareKeys = createProviderKeyStore({
   dir: DATA_ROOT,
@@ -2893,10 +2899,11 @@ async function attachTab(tabId, manager, cwd) {
     // API's own /models list intersected with the families this app offers.
     anthropicKey: anthropicKeys.read(),
     googleKey: googleKeys.read(),
-    // z.ai, OpenRouter and Cloudflare: one key each, except Cloudflare which
+    // z.ai, OpenRouter and Kilo: one key each, except Cloudflare which
     // also needs the account its token is scoped to.
     zaiKey: zaiKeys.read(),
     openrouterKey: openrouterKeys.read(),
+    kiloKey: kiloKeys.read(),
     cloudflareKey: cloudflareKeys.read(),
     cloudflareAccountId: cloudflareAccounts.read(),
   });
@@ -3861,6 +3868,7 @@ function summarizeTarget(tabId) {
   const baseUrls = {
     zai: ZAI_BASE_URL,
     openrouter: OPENROUTER_BASE_URL,
+    kilo: KILO_BASE_URL,
     cloudflare: cloudflareAccounts.status().readable ? cloudflareBaseUrl(cloudflareAccounts.read()) : '',
     coarena: COARENA_BASE_URL,
     deepseek: DEEPSEEK_BASE_URL,
@@ -3874,6 +3882,7 @@ function summarizeTarget(tabId) {
   const stores = {
     zai: zaiKeys,
     openrouter: openrouterKeys,
+    kilo: kiloKeys,
     cloudflare: cloudflareKeys,
     coarena: coarenaKeys,
     deepseek: deepseekKeys,
@@ -4079,6 +4088,15 @@ function applyOpenRouterKeyToTabs(key) {
   });
 }
 
+function applyKiloKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'kilo',
+    label: 'Kilo',
+    key,
+    apply: (handle, next) => handle.applyKiloKey(next),
+  });
+}
+
 /** Both halves of the Workers AI credential travel together. */
 function applyCloudflareKeyToTabs(key, accountId) {
   return applyKeyToTabs({
@@ -4109,6 +4127,7 @@ function keyHealth() {
     { provider: 'google', status: googleKeys.status() },
     { provider: 'zai', status: zaiKeys.status() },
     { provider: 'openrouter', status: openrouterKeys.status() },
+    { provider: 'kilo', status: kiloKeys.status() },
     { provider: 'cloudflare', status: cloudflareKeys.status() },
     { provider: 'cloudflare-account', status: cloudflareAccounts.status() },
   ]);
@@ -4526,6 +4545,55 @@ ipcMain.handle('openrouter:clearKey', async () => {
   return { ok: true, status: openrouterKeys.status(), applied };
 });
 
+async function kiloStatus() {
+  return kiloKeys.status();
+}
+
+ipcMain.handle('kilo:status', async () => kiloStatus());
+
+ipcMain.handle('kilo:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: kiloKeys.status(), error: 'Enter a Kilo API key first.' };
+  }
+
+  const check = await checkKiloKey(raw);
+  if (!check.ok && !check.offline) {
+    return {
+      ok: false,
+      status: kiloKeys.status(),
+      error: check.error,
+      code: check.code || null,
+    };
+  }
+
+  try {
+    kiloKeys.save(raw);
+    const applied = await applyKiloKeyToTabs(raw);
+    return { ok: true, status: kiloKeys.status(), unverified: Boolean(check.offline), applied };
+  } catch (err) {
+    return {
+      ok: false,
+      status: kiloKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('kilo:clearKey', async () => {
+  try {
+    kiloKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: kiloKeys.status(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyKiloKeyToTabs(null);
+  return { ok: true, status: kiloKeys.status(), applied };
+});
+
 /**
  * Workers AI needs a token *and* the account its token is scoped to, so this is
  * the one provider whose form has two fields and whose status reports two.
@@ -4868,6 +4936,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     google: await googleStatus(),
     zai: await zaiStatus(),
     openrouter: await openrouterStatus(),
+    kilo: await kiloStatus(),
     cloudflare: await cloudflareStatus(),
     // Looking at a picture: which route, and is the local model ready to serve it.
     visionMode: visionMode(),

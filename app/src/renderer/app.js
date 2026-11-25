@@ -359,6 +359,20 @@ const STRINGS = {
     openrouterUnverified: 'OpenRouter could not be reached — the key was saved unverified.',
     openrouterSaveFailed: 'Could not save the key:',
     openrouterRemoved: 'OpenRouter key removed.',
+    kiloSection: 'Kilo',
+    kiloSave: 'Save',
+    kiloRemove: 'Remove',
+    kiloRemoveTitle: 'Remove the Kilo key?',
+    kiloRemoveSub: 'Kilo models leave the list. A model already running keeps going until the turn ends.',
+    kiloConfigured: 'Configured',
+    kiloUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    kiloNotConfigured: 'No key yet — Kilo models stay hidden.',
+    kiloGetKey: 'Get a key at app.kilo.ai',
+    kiloBuy: 'Top up at app.kilo.ai',
+    kiloSaved: 'Kilo key saved.',
+    kiloUnverified: 'Kilo could not be reached — the key was saved unverified.',
+    kiloSaveFailed: 'Could not save the key:',
+    kiloRemoved: 'Kilo key removed.',
     cloudflareSection: 'Cloudflare',
     cloudflareKeyLabel: 'API token',
     cloudflareAccountLabel: 'Account ID',
@@ -1013,6 +1027,20 @@ const STRINGS = {
     openrouterUnverified: 'ติดต่อ OpenRouter ไม่ได้ — บันทึกคีย์ไว้โดยยังไม่ตรวจ',
     openrouterSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
     openrouterRemoved: 'ลบคีย์ OpenRouter แล้ว',
+    kiloSection: 'Kilo',
+    kiloSave: 'บันทึก',
+    kiloRemove: 'ลบออก',
+    kiloRemoveTitle: 'ลบคีย์ Kilo?',
+    kiloRemoveSub: 'โมเดล Kilo จะหายจากรายการ โมเดลที่กำลังทำงานอยู่จะใช้ต่อจนจบเทิร์น',
+    kiloConfigured: 'ตั้งค่าแล้ว',
+    kiloUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    kiloNotConfigured: 'ยังไม่มีคีย์ — โมเดล Kilo จะไม่แสดง',
+    kiloGetKey: 'ขอคีย์ที่ app.kilo.ai',
+    kiloBuy: 'เติมเงินที่ app.kilo.ai',
+    kiloSaved: 'บันทึกคีย์ Kilo แล้ว',
+    kiloUnverified: 'ติดต่อ Kilo ไม่ได้ — บันทึกคีย์ไว้โดยยังไม่ตรวจ',
+    kiloSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    kiloRemoved: 'ลบคีย์ Kilo แล้ว',
     cloudflareSection: 'Cloudflare',
     cloudflareKeyLabel: 'API token',
     cloudflareAccountLabel: 'Account ID',
@@ -4319,6 +4347,7 @@ let anthropicStatus = null;
 let googleStatus = null;
 let zaiStatus = null;
 let openrouterStatus = null;
+let kiloStatus = null;
 let cloudflareStatus = null;
 /** The local vision model (llama.cpp) and where a picture goes when it is looked at. */
 let llamacppStatus = null;
@@ -4478,6 +4507,27 @@ function paintOpenRouterSettings() {
     if (s.hint) text += ` · ...${s.hint}`;
   } else if (s?.configured) {
     text = t('openrouterUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
+}
+
+function paintKiloSettings() {
+  const node = el('kiloStatus');
+  const remove = el('kiloRemove');
+  if (!node) return;
+
+  const s = kiloStatus;
+  let text = t('kiloNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('kiloConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('kiloUnreadable');
   }
 
   node.textContent = text;
@@ -5300,7 +5350,7 @@ api.onNtfyEvent?.(({ type, payload } = {}) => {
  * the picker cannot use it either.
  */
 // A-Z by the name each tile shows — Claude, Cloudflare, Coarena, DeepSeek,
-// FreePi, Gemini, LLM7.io, NVIDIA, OpenRouter, Token Harbor, z.ai, Zro.
+// FreePi, Gemini, Kilo, LLM7.io, NVIDIA, OpenRouter, Token Harbor, z.ai, Zro.
 // llama.cpp is the local card above the grid, not a key tile. The order is the
 // same in the grid markup; this list is what picks the first configured tile to
 // open.
@@ -5311,6 +5361,7 @@ const PROVIDER_TILE_ORDER = [
   'deepseek',
   'freepi',
   'google',
+  'kilo',
   'llm7',
   'nvidia',
   'openrouter',
@@ -5340,6 +5391,7 @@ function providerStatusOf(id) {
       google: googleStatus,
       zai: zaiStatus,
       openrouter: openrouterStatus,
+      kilo: kiloStatus,
       cloudflare: cloudflareStatus,
       // A local model has no key: "usable" means installed and switched on — the
       // tick must not blink just because the model is idle between pictures.
@@ -6373,6 +6425,7 @@ async function openSettings() {
   googleStatus = settingsData?.google || null;
   zaiStatus = settingsData?.zai || null;
   openrouterStatus = settingsData?.openrouter || null;
+  kiloStatus = settingsData?.kilo || null;
   cloudflareStatus = settingsData?.cloudflare || null;
   llamacppStatus = settingsData?.llamacpp || null;
   visionMode = settingsData?.visionMode || 'model';
@@ -6386,6 +6439,7 @@ async function openSettings() {
   paintGoogleSettings();
   paintZaiSettings();
   paintOpenRouterSettings();
+  paintKiloSettings();
   paintCloudflareSettings();
   paintLlamaCppSettings();
   paintVisionControl();
@@ -7365,6 +7419,47 @@ el('openrouterBuy')?.addEventListener('click', () => {
   api.openExternal('https://openrouter.ai/credits').catch(() => {});
 });
 
+el('kiloSave')?.addEventListener('click', async () => {
+  const inputEl = el('kiloKeyInput');
+  const button = el('kiloSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.kiloSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      kiloStatus = res.status || null;
+      paintKiloSettings();
+      paintProviderMeter(activeView());
+      showNotice(res.unverified ? t('kiloUnverified') : t('kiloSaved'));
+    } else {
+      showNotice(`${t('kiloSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('kiloSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('kiloRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'kiloRemove',
+    title: t('kiloRemoveTitle'),
+    sub: t('kiloRemoveSub'),
+    action: t('kiloRemove'),
+  });
+});
+
+el('kiloGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://app.kilo.ai/').catch(() => {});
+});
+el('kiloBuy')?.addEventListener('click', () => {
+  api.openExternal('https://app.kilo.ai/').catch(() => {});
+});
+
 el('cloudflareSave')?.addEventListener('click', async () => {
   const keyEl = el('cloudflareKeyInput');
   const accountEl = el('cloudflareAccountInput');
@@ -8112,6 +8207,19 @@ el('confirmDelete').addEventListener('click', async () => {
       showNotice(t('openrouterRemoved'));
     } else {
       showNotice(`${t('openrouterSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
+  if (state.kind === 'kiloRemove') {
+    const res = await api.kiloClearKey();
+    if (res?.ok) {
+      kiloStatus = res.status || null;
+      paintKiloSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('kiloRemoved'));
+    } else {
+      showNotice(`${t('kiloSaveFailed')} ${res?.error || ''}`.trim());
     }
     return;
   }

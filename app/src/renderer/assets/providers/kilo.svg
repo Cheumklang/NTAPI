@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Kilo">
+  <!-- Kilo mark: a squared badge with a cut "K" lettermark, so it stays readable
+       at 16px in the settings grid. The dark plate is drawn into the artwork (as
+       z.ai and Cloudflare do), so the tile needs no light-theme plate of its own. -->
+  <rect width="64" height="64" rx="14" fill="#1b1b26"/>
+  <path d="M22 18v28" fill="none" stroke="#5eead4" stroke-width="6" stroke-linecap="round"/>
+  <path d="M44 18 26 32l18 14" fill="none" stroke="#5eead4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

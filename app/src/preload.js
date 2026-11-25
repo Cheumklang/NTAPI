@@ -109,6 +109,9 @@ contextBridge.exposeInMainWorld('freepi', {
   openrouterStatus: () => ipcRenderer.invoke('openrouter:status'),
   openrouterSetKey: (key) => ipcRenderer.invoke('openrouter:setKey', { key }),
   openrouterClearKey: () => ipcRenderer.invoke('openrouter:clearKey'),
+  kiloStatus: () => ipcRenderer.invoke('kilo:status'),
+  kiloSetKey: (key) => ipcRenderer.invoke('kilo:setKey', { key }),
+  kiloClearKey: () => ipcRenderer.invoke('kilo:clearKey'),
   cloudflareStatus: () => ipcRenderer.invoke('cloudflare:status'),
   // Two fields, one credential: the account id and the token are validated and
   // saved together, so there is one call rather than two half-saves.

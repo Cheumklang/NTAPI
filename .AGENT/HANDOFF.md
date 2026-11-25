@@ -1,5 +1,20 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-25 (Linux) — เพิ่มผู้ให้บริการ Kilo (ยังไม่ commit):**
+>
+> **ผู้ใช้ขอ:** "เราเพิ่มระบบผู้ให้บริการของ kilo เข้าไปได้ไหมคับ" — ยืนยัน: catalog เต็ม + ทำ SVG โลโก้เอง
+>
+> **ทำครบแล้ว (11 จุด + เทสต์):**
+> - โมดูลใหม่ `app/src/kilo.js` — OpenAI-compatible `https://ai-gateway.kilo.ai/api/v1` · `/models` สาธารณะ (อ่าน pricing/`top_provider`/`architecture` เหมือน OpenRouter) · ไม่มี `/key` ⇒ ตรวจคีย์ด้วย POST `/chat/completions` (`kilo-auto/free`, max_tokens=1): 401=คีย์ผิด, 402/403/429=คีย์จริง, 5xx=offline · `kiloRowToModel` แยกฟรี/paid/dynamic(`-1`) · shortlist 3 แถวเมื่อดึง catalog ไม่ได้
+> - เชื่อม: `provider-plan.js`, `main.js`, `freepi-bridge.js` (รวม export `applyKiloKey`), `preload.js`, `key-health.js`, `renderer/provider-ui.js`, `renderer/app.js` (i18n en+th ครบ), `index.html` (ไทล์ A-Z ระหว่าง Gemini–LLM7 + การ์ด), `assets/providers/kilo.svg` (วาดแผ่นดำในไฟล์ — ไม่ต้องแก้ CSS plated)
+> - เทสต์: เพิ่ม Kilo ใน `selftest-new-providers.js` (17 เช็ค) + `selftest-provider-plan.js` (4) + อัป `check-provider-grid.js` (13 ไทล์)
+>
+> **ผล:** `npm test` 110/110 · `check:sara` ok · `check:grid` ผ่าน (13 ไทล์, plated=4) · ทดสอบ API จริง 465 แถว (ฟรี 17/paid 448/dynamic 11/vision 309), คีย์ปลอม→401
+>
+> **ค้าง:** ยังไม่ commit (รอคำสั่ง) · ยังไม่ทดสอบเทิร์นจริงด้วยคีย์ Kilo จริง
+
+---
+
 > **📌 2026-11-25 (Linux) — ✅ ปล่อย `v0.9.4` แล้ว:** อ่านกล่องนี้ก่อน
 >
 > **ผู้ใช้สั่ง:** "1 ทั้งหมด 2 ถ้าไม่ได้ใช้ลบคับ 3 อัปคับ 4 ปล่อยได้เลย และลบอันเก่าออกด้วยนะคับ"

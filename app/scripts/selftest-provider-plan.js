@@ -292,6 +292,32 @@ check(
   allPaid.defaultProvider === 'deepseek' && allPaid.available === true
 );
 
+// Kilo is a paid gateway like OpenRouter, but a new chat opens on a free row
+// when the catalog has one, so a saved key never starts spending by itself.
+const kilo = [
+  { id: 'anthropic/claude-opus-5.5', name: 'Claude Opus 5.5', plan: 'paid' },
+  { id: 'kilo-auto/free', name: 'Auto Free', plan: 'free' },
+];
+const kiloOnly = planProviders({ kiloKey: 'k', kiloModels: kilo });
+check('kilo-only registers', kiloOnly.kilo && kiloOnly.available && !kiloOnly.openrouter);
+check(
+  'a new Kilo chat opens on the free row',
+  kiloOnly.defaultProvider === 'kilo' && kiloOnly.defaultModel === 'kilo-auto/free',
+  kiloOnly.defaultModel
+);
+const kiloNoKey = planProviders({ kiloKey: null, kiloModels: kilo });
+check('no key means no kilo', kiloNoKey.kilo === false);
+const openrouterBeatsKilo = planProviders({
+  openrouterKey: 'k',
+  openrouterModels: [{ id: 'deepseek/deepseek-chat-v3.1', plan: 'paid' }],
+  kiloKey: 'k',
+  kiloModels: kilo,
+});
+check(
+  'openrouter outranks kilo',
+  openrouterBeatsKilo.defaultProvider === 'openrouter' && openrouterBeatsKilo.kilo === true
+);
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

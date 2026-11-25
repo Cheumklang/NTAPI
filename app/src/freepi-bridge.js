@@ -17,7 +17,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 
-const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER, ANTHROPIC_PROVIDER, GOOGLE_PROVIDER, ZAI_PROVIDER, OPENROUTER_PROVIDER, CLOUDFLARE_PROVIDER } = require('./provider-plan');
+const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER, ANTHROPIC_PROVIDER, GOOGLE_PROVIDER, ZAI_PROVIDER, OPENROUTER_PROVIDER, KILO_PROVIDER, CLOUDFLARE_PROVIDER } = require('./provider-plan');
 const { detectClientVersion, upgradedClientVersion, FALLBACK_CLIENT_VERSION } = require('./client-version');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels, retagModels, setCoarenaFreeTier } = require('./coarena');
 const {
@@ -63,6 +63,11 @@ const {
   openrouterProviderConfig,
   openrouterModelEntries,
 } = require('./openrouter');
+const {
+  resolveKiloModels,
+  kiloProviderConfig,
+  kiloModelEntries,
+} = require('./kilo');
 const {
   resolveCloudflareModels,
   cloudflareProviderConfig,
@@ -785,6 +790,8 @@ async function createFreePiSession(options) {
     zaiKey = null,
     /** OpenRouter key, or null. One key, many vendors, paid. */
     openrouterKey = null,
+    /** Kilo key, or null. One key, many vendors, OpenAI-compatible. */
+    kiloKey = null,
     /** Cloudflare Workers AI token, or null. Paired with its account id. */
     cloudflareKey = null,
     /** The Cloudflare account the token is scoped to (Workers AI needs both). */
@@ -806,6 +813,7 @@ async function createFreePiSession(options) {
   let activeGoogleKey = googleKey ? String(googleKey).trim() : null;
   let activeZaiKey = zaiKey ? String(zaiKey).trim() : null;
   let activeOpenRouterKey = openrouterKey ? String(openrouterKey).trim() : null;
+  let activeKiloKey = kiloKey ? String(kiloKey).trim() : null;
   let activeCloudflareKey = cloudflareKey ? String(cloudflareKey).trim() : null;
   let activeCloudflareAccount = cloudflareAccountId ? String(cloudflareAccountId).trim() : null;
 
@@ -876,6 +884,7 @@ async function createFreePiSession(options) {
     googleModels,
     zaiModels,
     openrouterModels,
+    kiloModels,
     cloudflareModels,
   ] = await Promise.all([
       cachedCatalog('nvidia', activeNvidiaKey, () => resolveNvidiaModels(activeNvidiaKey)),
@@ -892,6 +901,7 @@ async function createFreePiSession(options) {
       cachedCatalog('openrouter', activeOpenRouterKey, () =>
         resolveOpenRouterModels(activeOpenRouterKey)
       ),
+      cachedCatalog('kilo', activeKiloKey, () => resolveKiloModels(activeKiloKey)),
       // Workers AI needs both halves of the credential, so the cache key does too:
       // the same token pointed at another account is a different catalog.
       cachedCatalog(
@@ -915,6 +925,7 @@ async function createFreePiSession(options) {
     googleKey: activeGoogleKey,
     zaiKey: activeZaiKey,
     openrouterKey: activeOpenRouterKey,
+    kiloKey: activeKiloKey,
     cloudflareKey: activeCloudflareKey && activeCloudflareAccount ? activeCloudflareKey : null,
     freePiModels: models,
     coarenaModels,
@@ -927,11 +938,12 @@ async function createFreePiSession(options) {
     googleModels,
     zaiModels,
     openrouterModels,
+    kiloModels,
     cloudflareModels,
   });
   if (!plan.available) {
     throw new Error(
-      'No AI provider available — sign in to FreePi or add a provider key in Settings (Coarena, Zro, NVIDIA, Token Harbor, LLM7, DeepSeek, Claude, Gemini, z.ai, OpenRouter, Cloudflare).'
+      'No AI provider available — sign in to FreePi or add a provider key in Settings (Coarena, Zro, NVIDIA, Token Harbor, LLM7, DeepSeek, Claude, Gemini, z.ai, OpenRouter, Kilo, Cloudflare).'
     );
   }
   log(
@@ -946,6 +958,7 @@ async function createFreePiSession(options) {
       `google=${plan.google ? googleModels.length : 0}, ` +
       `zai=${plan.zai ? zaiModels.length : 0}, ` +
       `openrouter=${plan.openrouter ? openrouterModels.length : 0}, ` +
+      `kilo=${plan.kilo ? kiloModels.length : 0}, ` +
       `cloudflare=${plan.cloudflare ? cloudflareModels.length : 0}`
   );
 
@@ -1043,6 +1056,12 @@ async function createFreePiSession(options) {
         pi.registerProvider(
           OPENROUTER_PROVIDER,
           openrouterProviderConfig({ apiKey: activeOpenRouterKey, models: openrouterModels })
+        );
+      }
+      if (plan.kilo) {
+        pi.registerProvider(
+          KILO_PROVIDER,
+          kiloProviderConfig({ apiKey: activeKiloKey, models: kiloModels })
         );
       }
       if (plan.cloudflare) {
@@ -2094,6 +2113,7 @@ async function createFreePiSession(options) {
   let googleEntries = plan.google ? googleModelEntries(googleModels) : [];
   let zaiEntries = plan.zai ? zaiModelEntries(zaiModels) : [];
   let openrouterEntries = plan.openrouter ? openrouterModelEntries(openrouterModels) : [];
+  let kiloEntries = plan.kilo ? kiloModelEntries(kiloModels) : [];
   let cloudflareEntries = plan.cloudflare ? cloudflareModelEntries(cloudflareModels) : [];
   let modelList = [];
 
@@ -2115,6 +2135,7 @@ async function createFreePiSession(options) {
       ...googleEntries,
       ...zaiEntries,
       ...openrouterEntries,
+      ...kiloEntries,
       ...cloudflareEntries,
     ];
     return modelList;
@@ -2415,6 +2436,28 @@ async function createFreePiSession(options) {
     return { ok: true, models: rebuildModelList() };
   }
 
+  /** Swap the Kilo key while the tab is open. */
+  async function applyKiloKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(KILO_PROVIDER);
+      } catch {}
+    }
+
+    activeKiloKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeKiloKey) {
+      kiloEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolveKiloModels(activeKiloKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(KILO_PROVIDER, kiloProviderConfig({ apiKey: activeKiloKey, models }));
+    }
+    kiloEntries = kiloModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
   /**
    * Swap the Cloudflare credential while the tab is open. Both halves change
    * together: a token without its account id points at an endpoint that does not
@@ -2508,6 +2551,7 @@ async function createFreePiSession(options) {
       ['google', activeGoogleKey, () => applyGoogleKey(activeGoogleKey)],
       ['zai', activeZaiKey, () => applyZaiKey(activeZaiKey)],
       ['openrouter', activeOpenRouterKey, () => applyOpenRouterKey(activeOpenRouterKey)],
+      ['kilo', activeKiloKey, () => applyKiloKey(activeKiloKey)],
       ['cloudflare', activeCloudflareKey, () => applyCloudflareKey(activeCloudflareKey)],
     ];
 
@@ -2564,6 +2608,7 @@ async function createFreePiSession(options) {
     applyDeepSeekKey,
     applyAnthropicKey,
     applyGoogleKey,
+    applyKiloKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
 

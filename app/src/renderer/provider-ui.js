@@ -26,6 +26,7 @@
   const GOOGLE_PROVIDER = 'google';
   const ZAI_PROVIDER = 'zai';
   const OPENROUTER_PROVIDER = 'openrouter';
+  const KILO_PROVIDER = 'kilo';
   const CLOUDFLARE_PROVIDER = 'cloudflare';
   const SEPARATOR = ' \u00b7 ';
 
@@ -43,6 +44,7 @@
     google: 'assets/providers/google.svg',
     zai: 'assets/providers/zai.svg',
     openrouter: 'assets/providers/openrouter.svg',
+    kilo: 'assets/providers/kilo.svg',
     cloudflare: 'assets/providers/cloudflare.svg',
   };
 
@@ -63,6 +65,7 @@
     if (provider === GOOGLE_PROVIDER) return 'Gemini';
     if (provider === ZAI_PROVIDER) return 'z.ai';
     if (provider === OPENROUTER_PROVIDER) return 'OpenRouter';
+    if (provider === KILO_PROVIDER) return 'Kilo';
     if (provider === CLOUDFLARE_PROVIDER) return 'Cloudflare';
     return String(provider || '');
   }
@@ -169,6 +172,7 @@
     if (provider === GOOGLE_PROVIDER) return { showAds: false, meter: 'google' };
     if (provider === ZAI_PROVIDER) return { showAds: false, meter: 'zai' };
     if (provider === OPENROUTER_PROVIDER) return { showAds: false, meter: 'openrouter' };
+    if (provider === KILO_PROVIDER) return { showAds: false, meter: 'kilo' };
     if (provider === CLOUDFLARE_PROVIDER) return { showAds: false, meter: 'cloudflare' };
     return { showAds: false, meter: null };
   }

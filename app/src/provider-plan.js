@@ -10,7 +10,7 @@
  *
  * Pure on purpose: no SDK, no network, no fs. The tests pin down the states the
  * UI can be in (any combination of FreePi, Coarena, Zro, NVIDIA, Token Harbor,
- * LLM7.io, DeepSeek, Claude, Gemini, z.ai, OpenRouter and Cloudflare).
+ * LLM7.io, DeepSeek, Claude, Gemini, z.ai, OpenRouter, Kilo and Cloudflare).
  */
 
 const { preferredLlm7Model } = require('./llm7');
@@ -26,6 +26,7 @@ const ANTHROPIC_PROVIDER = 'anthropic';
 const GOOGLE_PROVIDER = 'google';
 const ZAI_PROVIDER = 'zai';
 const OPENROUTER_PROVIDER = 'openrouter';
+const KILO_PROVIDER = 'kilo';
 const CLOUDFLARE_PROVIDER = 'cloudflare';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
@@ -46,7 +47,7 @@ const FREE_PI_TOOL_NAMES = ['web_search', 'docs_lookup', 'generate_image', 'free
  *   coarena: boolean,
  *   ads: boolean,
  *   freePiTools: boolean,
- *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'llm7'|'deepseek'|'anthropic'|'google'|'zai'|'openrouter'|'cloudflare'|null,
+ *   defaultProvider: 'free-pi'|'coarena'|'zro'|'nvidia'|'tokenharbor'|'llm7'|'deepseek'|'anthropic'|'google'|'zai'|'openrouter'|'kilo'|'cloudflare'|null,
  *   defaultModel: string|null,
  *   available: boolean,
  * }}
@@ -63,6 +64,7 @@ function planProviders({
   googleKey,
   zaiKey,
   openrouterKey,
+  kiloKey,
   cloudflareKey,
   freePiModels,
   coarenaModels,
@@ -75,6 +77,7 @@ function planProviders({
   googleModels,
   zaiModels,
   openrouterModels,
+  kiloModels,
   cloudflareModels,
 }) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
@@ -88,6 +91,7 @@ function planProviders({
   const googleList = Array.isArray(googleModels) ? googleModels : [];
   const zaiList = Array.isArray(zaiModels) ? zaiModels : [];
   const openrouterList = Array.isArray(openrouterModels) ? openrouterModels : [];
+  const kiloList = Array.isArray(kiloModels) ? kiloModels : [];
   const cloudflareList = Array.isArray(cloudflareModels) ? cloudflareModels : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
@@ -103,6 +107,7 @@ function planProviders({
   const google = Boolean(googleKey) && googleList.length > 0;
   const zai = Boolean(zaiKey) && zaiList.length > 0;
   const openrouter = Boolean(openrouterKey) && openrouterList.length > 0;
+  const kilo = Boolean(kiloKey) && kiloList.length > 0;
   const cloudflare = Boolean(cloudflareKey) && cloudflareList.length > 0;
 
   let defaultProvider = null;
@@ -159,6 +164,13 @@ function planProviders({
   } else if (openrouter) {
     defaultProvider = OPENROUTER_PROVIDER;
     defaultModel = openrouterList[0].id;
+  } else if (kilo) {
+    // Same rule as OpenRouter: a paid gateway, billed from the first token, so a
+    // new chat opens on a free route when the catalog has one and never starts
+    // spending because a key happens to be saved.
+    defaultProvider = KILO_PROVIDER;
+    const freeRow = kiloList.find((m) => m.plan === 'free');
+    defaultModel = (freeRow || kiloList[0]).id;
   } else if (cloudflare) {
     defaultProvider = CLOUDFLARE_PROVIDER;
     defaultModel = cloudflareList[0].id;
@@ -176,6 +188,7 @@ function planProviders({
     google,
     zai,
     openrouter,
+    kilo,
     cloudflare,
     ads: freePi,
     freePiTools: freePi,
@@ -193,6 +206,7 @@ function planProviders({
       google ||
       zai ||
       openrouter ||
+      kilo ||
       cloudflare,
   };
 }
@@ -210,6 +224,7 @@ module.exports = {
   GOOGLE_PROVIDER,
   ZAI_PROVIDER,
   OPENROUTER_PROVIDER,
+  KILO_PROVIDER,
   CLOUDFLARE_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
