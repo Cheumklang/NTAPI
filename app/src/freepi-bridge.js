@@ -673,6 +673,44 @@ const realityPolicyExtension = {
   },
 };
 
+/**
+ * The pause gate: freeze the agent between steps without killing the step that
+ * is already running.
+ *
+ * `tool_call` fires before a tool runs, so a call that is already executing has
+ * passed it and always finishes. When the gate is paused, the next `tool_call`
+ * handler awaits here until `resume()`, so the model's next command does not start
+ * — the turn stays busy and frozen, exactly like a paused clock. The session is
+ * persisted as usual, so a real power-off is safe too: on the next launch the
+ * model re-issues whatever step was still pending.
+ */
+function createPauseGate() {
+  let paused = false;
+  let waiters = [];
+  return {
+    isPaused: () => paused,
+    pause() {
+      paused = true;
+    },
+    resume() {
+      paused = false;
+      const pending = waiters;
+      waiters = [];
+      for (const wake of pending) wake();
+    },
+    extension: {
+      name: 'ntapi-pause-gate',
+      factory(pi) {
+        pi.on('tool_call', async () => {
+          if (!paused) return undefined;
+          await new Promise((resolve) => waiters.push(resolve));
+          return undefined;
+        });
+      },
+    },
+  };
+}
+
 async function createFreePiSession(options) {
   const {
     cwd = process.cwd(),
@@ -816,6 +854,9 @@ async function createFreePiSession(options) {
   let activeKiloKey = kiloKey ? String(kiloKey).trim() : null;
   let activeCloudflareKey = cloudflareKey ? String(cloudflareKey).trim() : null;
   let activeCloudflareAccount = cloudflareAccountId ? String(cloudflareAccountId).trim() : null;
+
+  // Shared by the pause-gate extension and the handle's pause()/resume() below.
+  const pauseGate = createPauseGate();
 
   const downloadsDirAbs = path.isAbsolute(downloadsDir)
     ? downloadsDir
@@ -2006,6 +2047,9 @@ async function createFreePiSession(options) {
     ...(plan.freePiTools ? [...SAFE_TOOLS, ...FREE_PI_TOOL_NAMES] : [...SAFE_TOOLS]),
     ...browserToolAllowList,
     ...systemToolAllowList,
+    // The checklist is registered in every session; missing from this list it is
+    // never declared to the model, so the plan panel above the composer stays hidden.
+    'todo',
   ];
 
   // Only what the user actually chose reaches the SDK; everything else keeps pi's
@@ -2047,6 +2091,8 @@ async function createFreePiSession(options) {
     resourceLoaderOptions: {
       additionalSkillPaths: Array.isArray(extraSkillPaths) ? extraSkillPaths : [],
       extensionFactories: [
+        // First, so a paused agent blocks before any approval dialog is shown.
+        pauseGate.extension,
         // Ads and the FreePi-backed tools only exist when FreePi is registered.
         ...(plan.ads ? [ads.extension] : []),
         providerExtension,
@@ -2758,6 +2804,11 @@ async function createFreePiSession(options) {
       await session.setModel(model);
       return { provider: model.provider, id: model.id, name: model.name };
     },
+    /** Freeze the agent after the step in flight; the next tool call waits. */
+    pause: () => pauseGate.pause(),
+    /** Let a paused agent take its next step. */
+    resume: () => pauseGate.resume(),
+    paused: () => pauseGate.isPaused(),
     dispose() {
       try {
         session.dispose();

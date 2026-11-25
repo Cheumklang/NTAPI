@@ -5550,8 +5550,30 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
   return { ok: true, mode: options?.streamingBehavior || null };
 });
 
+/* Pause/Play: freeze the agent between steps without killing the step in flight.
+ * The gate lives in the session (see freepi-bridge createPauseGate); here we only
+ * flip it per tab and tell the window so its button can show the state. */
+ipcMain.handle('prompt:pause', async (_e, tabId) => {
+  const { tabId: id, tab } = tabFor(tabId);
+  tab.paused = true;
+  tab.handle.pause();
+  sendTab(id, 'agent:paused', { paused: true });
+  return { ok: true, paused: true };
+});
+
+ipcMain.handle('prompt:resume', async (_e, tabId) => {
+  const { tabId: id, tab } = tabFor(tabId);
+  tab.paused = false;
+  tab.handle.resume();
+  sendTab(id, 'agent:paused', { paused: false });
+  return { ok: true, paused: false };
+});
+
 ipcMain.handle('prompt:abort', async (_e, tabId) => {
   const { tabId: id, tab } = tabFor(tabId);
+  // A paused gate would keep the *next* turn frozen after this stop; clear it.
+  tab.paused = false;
+  try { tab.handle.resume(); } catch {}
   // A blocked ask_user would otherwise keep the turn alive after Stop.
   for (const [qid, pending] of questions) {
     if (pending.tabId !== id) continue;

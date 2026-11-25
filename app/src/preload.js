@@ -173,6 +173,9 @@ contextBridge.exposeInMainWorld('freepi', {
   sendPrompt: (tabId, text, images, mode) =>
     ipcRenderer.invoke('prompt:send', { tabId, text, images, mode }),
   abort: (tabId) => ipcRenderer.invoke('prompt:abort', tabId),
+  // Freeze/resume the agent between steps (the current step always finishes).
+  pause: (tabId) => ipcRenderer.invoke('prompt:pause', tabId),
+  resume: (tabId) => ipcRenderer.invoke('prompt:resume', tabId),
   takeBackPrompt: (tabId) => ipcRenderer.invoke('prompt:takeBack', tabId),
   // Resume the turn that just stopped on a spent allowance, from the window.
   retryPrompt: (tabId) => ipcRenderer.invoke('prompt:retry', tabId),

@@ -58,6 +58,8 @@
     "check:lost": "electron --no-sandbox scripts/repro-message-loss.js",
     "check:tooluse": "electron --no-sandbox scripts/check-provider-tooluse.js",
     "check:liveturn": "electron --no-sandbox scripts/check-live-turn-bubble.js",
+    "check:pause": "electron --no-sandbox scripts/check-pause-gate.js",
+    "check:todo": "electron --no-sandbox scripts/check-todo-panel.js",
     "check:sara": "node scripts/check-sara-am.js",
     "check:grid": "electron --no-sandbox scripts/check-provider-grid.js",
     "check:models": "electron --no-sandbox scripts/check-model-refresh.js",

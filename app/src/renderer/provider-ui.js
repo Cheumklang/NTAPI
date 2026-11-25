@@ -44,7 +44,7 @@
     google: 'assets/providers/google.svg',
     zai: 'assets/providers/zai.svg',
     openrouter: 'assets/providers/openrouter.svg',
-    kilo: 'assets/providers/kilo.svg',
+    kilo: 'assets/providers/kilo.png',
     cloudflare: 'assets/providers/cloudflare.svg',
   };
 

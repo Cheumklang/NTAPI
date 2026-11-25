@@ -4044,3 +4044,22 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **tag + push:** `v0.9.5` push `master` + แท็ก (รอ CI บิลด์ `NTAPI-Setup-0.9.5.exe` ที่ `Cheumklang/NTAPI-releases`)
 - **PROVENANCE:** `record-release 0.9.5` + `anchor` + `verify`
 - **เทสต์ที่ผ่าน:** `npm test` 110/110 · `check:sara` ok · `check:grid` ผ่าน (13 ไทล์)
+
+## 2026-11-25 (Linux) — 🐞 แผงแผนงาน (todo) ไม่ขึ้นเวลาคุยกับ AI
+- **ผู้ใช้รายงาน:** "จำได้ว่าเพิ่มระบบ task แล้ว แต่เวลาคุยกับ AI ยังไม่เห็น"
+- **ตรวจ:** โค้ดครบ — `todoExtension` (freepi-bridge ~1898) ลงทะเบียนทุก session, `onTodo` → `agent:todos` → `renderTodos()` → `#todoPanel` เหนือ composer, อยู่ใน 0.9.5 ตั้งแต่ `7bdf501` (13/11)
+- **ต้นเหตุจริง:** `defaultTools` (allowlist บรรทัด ~2005) ไม่มี `todo` ⇒ `createAgentSessionFromServices({tools: defaultTools})` ไม่ declare ⇒ โมเดลไม่มีเครื่องมือนี้ (ยืนยัน: รอบนี้ผู้ช่วยไม่มี `todo` ในชุดเครื่องมือ และแชทล่าสุดใช้แค่ `ls, bash`) ⇒ แผงซ่อนตลอด
+- **แก้:** เพิ่ม `'todo'` ใน `defaultTools` (พร้อมคอมเมนต์บอกว่าทำไม)
+- **เทสต์:** `npm test` 110/110
+- **ค้าง:** ยังไม่ commit · ต้องรีสตาร์ทแอป · `ask_user` ตกนอก allowlist เหมือนกัน (ยังไม่แก้)
+
+## 2026-11-25 (Linux) — ⏸ ปุ่มพัก/ทำต่อ (pause the agent between steps)
+- **ผู้ใช้ขอ:** ปุ่มหยุด AI แบบหยุดเวลา — bash ที่รันอยู่ให้จบ แต่ห้ามคำสั่งถัดไปจนกด play (เผื่อปิดคอมแล้วทำต่อ)
+- **ทำ:** `createPauseGate()` ใน freepi-bridge → extension `ntapi-pause-gate` ต่อ `tool_call`; ตอนพัก handler `await` จน resume (call ที่รันอยู่แล้วผ่าน gate มาก่อน จึงจบ) · handle `pause/resume/paused` · IPC `prompt:pause|resume` (resume อัตโนมัติใน `prompt:abort` กันค้าง) · ปุ่ม `#pauseBtn` ข้าง Stop (โผล่ตอน busy, label พัก/ทำต่อ)
+- **เทสต์:** ใช้ NVIDIA จริง `nemotron-3-ultra-550b` ผ่าน `scripts/check-pause-gate.js` → A (สเต็ปที่รันจบตอนพัก) PASS, B (สเต็ปถัดไปรอ resume) PASS · `npm test` 110/110 · check-busy/cancel/turn-status ผ่าน
+- **ค้าง:** ยังไม่ commit · ปิดคอมจริงระหว่างพัก = สเต็ปค้างถูกโมเดลยิงซ้ำ (session persist อยู่) ไม่ใช่ต่อตัวเดิม
+
+## 2026-11-25 (Linux) — ✅ ยืนยันแผงแผนงาน (todo) ว่าใช้งานได้ (ผู้ใช้บอกยังไม่ขึ้น)
+- **ตรวจ:** fix `'todo'` ใน `defaultTools` อยู่ในโค้ดแล้ว · เขียน `scripts/check-todo-panel.js` เทสต์ด้วย NVIDIA จริง `nemotron-3-ultra-550b` → todo **declared=YES**, model **เรียก todo จริง 1x (3 items)**, `onTodo` ยิง → ข้อมูลเข้าแผง
+- **สาเหตุที่ผู้ใช้ไม่เห็น:** แอปที่ทดสอบคือ process เก่าก่อน fix (main process ถือ defaultTools เก่า) — ต้อง **ปิดแล้วเปิดแอปใหม่** (ไม่ใช่แค่ reload window) · แล้วให้ AI งาน 3+ ขั้น แผงจะโผล่เฉพาะตอนที่ AI เรียก todo (ว่าง = ซ่อน)
+- **ค้าง:** ยังไม่ commit

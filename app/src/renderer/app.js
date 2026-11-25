@@ -10,6 +10,7 @@ const jumpToBottom = el('jumpToBottom');
 const input = el('input');
 const sendBtn = el('sendBtn');
 const stopBtn = el('stopBtn');
+const pauseBtn = el('pauseBtn');
 const statusHint = el('statusHint');
 const noticeEl = el('notice');
 const modelSelect = el('modelSelect');
@@ -123,6 +124,8 @@ const STRINGS = {
     browserDebugBarNote:
       'Chrome shows a yellow "started debugging this browser" bar while the agent works. Leave it alone — dismissing it disconnects the agent.',
     activityStop: 'Stop',
+    pause: 'Pause',
+    play: 'Play',
     activityFailed: 'failed',
     autopilotStopIdle: 'Hand-over mode ended after five quiet minutes.',
     autopilotStopTabClosed: 'Hand-over mode ended: the tab was closed.',
@@ -796,6 +799,8 @@ const STRINGS = {
     browserDebugBarNote:
       'Chrome จะขึ้นแถบเหลือง "started debugging this browser" ระหว่างที่ AI ทำงาน — อย่าปิดแถบนั้น เพราะจะตัดการเชื่อมต่อทันที',
     activityStop: 'หยุด',
+    pause: 'พัก',
+    play: 'ทำต่อ',
     activityFailed: 'ล้มเหลว',
     autopilotStopIdle: 'โหมดมอบงานจบลงหลังเงียบไป 5 นาที',
     autopilotStopTabClosed: 'โหมดมอบงานจบลง เพราะแท็บถูกปิด',
@@ -1954,6 +1959,10 @@ function setBusy(value) {
   if (view) view.busy = value;
   sendBtn.hidden = value;
   stopBtn.hidden = !value;
+  // Pause only means something while a turn is running; reset it when the turn
+  // ends so the next turn starts un-paused with the label back to "Pause".
+  if (!value) setPaused(false);
+  pauseBtn.hidden = !value;
   sendBtn.disabled = value || (!input.value.trim() && pendingImages.length === 0);
   // The working hint names the step and counts the turn out loud so a long turn
   // never looks like a frozen window.
@@ -10796,9 +10805,29 @@ function offerUndoSend(view, wrap, entry, { text, images }) {
 }
 
 sendBtn.addEventListener('click', submit);
+
+/** Reflect the paused state on the button: label + which IPC a click will call. */
+function setPaused(paused) {
+  const view = activeView();
+  if (view) view.paused = Boolean(paused);
+  if (pauseBtn) {
+    pauseBtn.textContent = t(paused ? 'play' : 'pause');
+    pauseBtn.dataset.paused = paused ? '1' : '';
+  }
+}
+
+pauseBtn.addEventListener('click', async () => {
+  const view = activeView();
+  if (!view) return;
+  const next = !view.paused;
+  setPaused(next);
+  if (next) await api.pause(view.tabId);
+  else await api.resume(view.tabId);
+});
 stopBtn.addEventListener('click', async () => {
   const view = activeView();
   if (view) await api.abort(view.tabId);
+  setPaused(false);
 });
 
 /* ----------------------------- status panel ----------------------------- */
