@@ -4160,3 +4160,17 @@ cards could read them). Safe to delete.
    assets + sha, `provenance.js record-release`.
 2. Ask for a live `ยินยอมทั้งหมด` test across Gemini → NVIDIA.
 
+
+## 2026-11-26 — v0.9.9 commit/push ทำแล้ว แต่ build ยังไม่ออก
+
+- คอมมิต 4 ก้อน: consent ข้ามเจ้า · path ไฟล์กดได้ · รายงานบั๊กบอกอาการ · `release: v0.9.9`
+  แล้วตามด้วยคอมมิต `internal:` ของ PROVENANCE — `git status` สะอาด
+- push `master` (0b2482c..9dc6bc3) และ tag `v0.9.9` ขึ้น origin แล้ว
+- **build ล้มเพราะ GitHub Actions ถูกบล็อกเรื่องการเงิน ไม่ใช่โค้ด**:
+  annotation ของ job บอก "The job was not started because recent account payments have failed or
+  your spending limit needs to be increased". ทุก job (Release + CI test + CI provenance) ตายใน 2-5 วิ
+  โดยไม่มี step ไหนรันเลย
+- ยังไม่มี release v0.9.9 บนหน้า Releases และยังไม่มีไฟล์ติดตั้ง
+- เครื่องนี้สร้างตัวติดตั้ง Windows ไม่ได้ (ไม่มี wine, ไม่มี dist) — ต้องให้ Actions กลับมาแล้ว rerun
+  workflow "Release" (run 45857331079) หรือ dispatch ใหม่
+- ตรวจสอบอีกครั้งด้วย: `provenance.js record-release` ต้องรอหลังมี asset จริง
