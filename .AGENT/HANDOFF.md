@@ -1,5 +1,86 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-26 (Linux) — 🔑 Grok ขึ้น "HTTP 403" ตอนบันทึกคีย์ (แก้แล้ว):**
+>
+> **ตรวจของจริงจากเครื่องนี้:** `POST/GET https://api.x.ai/v1/models` ด้วยคีย์ปลอม → **HTTP 400** `{"code":"invalid-argument","error":"Incorrect API key provided…"}` ⇒ คีย์ผิดรูปแบบตอบ 400 ไม่ใช่ 403 ⇒ **403 ของผู้ใช้ = คีย์ผ่านการยืนยันตัวตนแล้ว แต่ xAI ปฏิเสธสิทธิ์การกระทำ** (ตาม docs.x.ai: "Your API key or team doesn't have permission to perform the action / is blocked")
+>
+> **บั๊กที่เจอในโค้ดเรา:** xAI ส่ง `error` มาเป็น **สตริง** ไม่ใช่ `{message}` ⇒ `body?.error?.message` เป็น undefined แล้วหลุดเป็นข้อความ "HTTP 403" เฉย ๆ ผู้ใช้จึงไม่เห็นเหตุผลจริง
+>
+> **แก้ `app/src/grok.js`:**
+> - parse `error` ทั้งแบบสตริง/อ็อบเจกต์ + `code` + `detail`
+> - เพิ่มแฟล็ก `restricted` เมื่อ **403** (ไม่ใช่คีย์ผิด) — 400/401 ยังถูกปฏิเสธเหมือนเดิม
+> - `resolveGrokModels()`: 403 → คืนรายการโมเดล curated ทั้ง 5 ตัว (ให้เลือกใช้ได้), offline → ตัวแรก, คีย์ผิด → []
+>
+> **แก้ `app/src/main.js` + `app/src/renderer/app.js`:** `grok:setKey` บันทึกคีย์เมื่อ 403 และคืน `restricted` + `detail`; UI ขึ้น `grokSaveRestricted` (en+th) พร้อมข้อความจาก xAI
+>
+> **เทสต์:** `selftest-new-providers.js` +5 เช็ค (403→restricted, ข้อความ xAI รอด, curated list, 400→ไม่ใช่ restricted) · `npm test` = **115 passed** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit/bump (0.9.8)
+
+> **📌 2026-11-26 (Linux) — 🔧 แก้ 3 บั๊กที่ผู้ใช้เจอ (สปินเนอร์ค้าง / ปุ่มทำต่อหายหลังรีสตาร์ต / Shift+Enter ในคิว):**
+>
+> **1) วงกลมหน้าชื่อแชทไม่หยุดหมุนหลัง AI ทำงานเสร็จ** — `refreshSessionBusy()` วาดเฉพาะแถวของ tab ที่ *active* แต่ event `agent:settled` ส่งชื่อ tab ของมันเอง ⇒ แถวของแชทที่อยู่เบื้องหลังไม่เคยถูกล้าง `busy` จนกว่าจะรีสตาร์ตแอป
+> แก้: วน `for (const view of views.values())` วาดทุกแชทที่เปิดอยู่
+>
+> **2) ปิดโปรแกรมแล้วเปิดใหม่ ไม่มีปุ่ม "ทำต่อ" ต้องพิมพ์บอกเอง** — ปุ่ม pause/continue เกิดจาก state ในหน่วยความจำ (`pauseBtn.hidden = !busy`) หายไปพร้อมโปรเซส ไม่มีการบันทึกว่าเทิร์นยังไม่จบ
+> แก้: ใน `renderActiveTab()` ถ้า `!view.busy` และ entry สุดท้ายของ session เป็น `kind === 'user'` (เทิร์นที่จบแล้วต้องมี assistant ปิดท้ายเสมอ) → แสดงแบนเนอร์ `turnUnfinished` + ปุ่ม `errorRetry` ที่เรียก `retryTurn()` (ใช้ `prompt:retry` เดิม ส่ง hidden continuation message ไม่ต้องพิมพ์ซ้ำ)
+>
+> **3) แก้ข้อความในคิวกด Shift+Enter ขึ้นบรรทัดใหม่ไม่ได้** — ช่องแก้ไขเป็น `<input type="text">` ซึ่งเก็บ newline ไม่ได้เลย
+> แก้: เปลี่ยนเป็น `<textarea rows=1>` + autogrow (สูงสุด 96px) — `Enter` บันทึก, `Shift+Enter` ขึ้นบรรทัดใหม่; CSS `.queue-edit` เพิ่ม `resize:none; max-height:96px`
+>
+> **เทสต์ใหม่:** `app/scripts/selftest-busy-and-resume.js` (12 เช็ค) ลงทะเบียนใน `run-unit-tests.js` · `npm test` = **115 passed** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit/bump (0.9.8) — ไฟล์: `app/src/renderer/app.js`, `app/src/renderer/styles.css`, `app/scripts/selftest-busy-and-resume.js`, `app/scripts/run-unit-tests.js` (+ งาน Grok และมุมหน้าต่างที่ยังไม่ commit)
+> **ยังไม่ทดสอบด้วยตา:** แบนเนอร์ "ทำต่อ" และ textarea ในคิว (ไม่มีเซสชันที่ถูกตัดกลางคันในเครื่องทดสอบ)
+
+> **📌 2026-11-26 (Linux) — ➕ เพิ่มผู้ให้บริการ Grok (xAI):**
+>
+> **โลโก้:** `/home/nt/Downloads/grok.webp` (1768x1768) → คัดลอกเป็น `app/src/renderer/assets/providers/grok.webp`
+>
+> **ไฟล์ใหม่:** `app/src/grok.js` — xAI OpenAI-compatible `https://api.x.ai/v1`, 5 โมเดลตั้งต้น (grok-4.1, grok-4, grok-4-fast, grok-3-mini, grok-code-fast-1) ทุกตัว `plan: 'paid'` + ราคา; `/models` ถูก intersect ต่อ session และ id ใหม่ที่ยังไม่รู้จักก็ถูกเสนอด้วยค่า default (256k / 32k)
+>
+> **ต่อสายครบทุกจุด:** `main.js` (คีย์สโตร์ `grok.json`, `grok:status/setKey/clearKey`, applyGrokKeyToTabs, keyHealth, settings) · `preload.js` (3 เมธอด) · `provider-plan.js` (GROK_PROVIDER + default หลัง Mistral) · `freepi-bridge.js` (grokKey, catalog, registerProvider, entries, applyGrokKey, restore, exports) · `provider-ui.js` (โลโก้/ชื่อ/meter) · `index.html` (tile + การ์ด `grokRow`) · `app.js` (i18n en+th, status/paint/listeners/confirm, `grokMeterLabel|grokPrice|grokLimits` เข้าสาขา meter แบบจ่ายรายโทเคน)
+>
+> **ยืนยัน:** `selftest-new-providers.js` +15 เช็คของ Grok ผ่านหมด · `npm test` = **114 passed** · `check:sara` ok · i18n keys ok · เห็น tile "Grok" พร้อมโลโก้จริงใน Settings → Providers (สกรีนช็อต + a11y snapshot)
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.8)
+> **หมายเหตุ:** Grok ไม่มี free tier — ต้องมีคีย์จาก console.x.ai และจะไม่ถูกเลือกเป็นโมเดลเริ่มต้นตราบใดที่ยังมีผู้ให้บริการฟรี
+
+> **📌 2026-11-26 (Linux) — 🗘️ มุมหน้าต่างสีดำ (Ubuntu + Windows) แก้จบ:**
+>
+> **ผู้ใช้ยืนยันซ้ำ:** Ubuntu ก็ยังเห็นมุมดำ ไม่ใช่แค่ Windows
+>
+> **ทดลองจริงบนเครื่องนี้:** สคริปต์ `/tmp/alpha-probe.js` สร้าง transparent frameless window แล้ว `capturePage()` → **ได้ alpha 255 ทุกพิกเซล + `getBackgroundColor()` = #000000** ⇒ ในสภาพแวดล้อมนี้ (X11/XWayland) หน้าต่างโปร่งใสใช้ไม่ได้จริง → รัศมี CSS 10px ที่ `body`/`#titlebar` เผยให้เห็นพื้นหลังดำของหน้าต่าง
+>
+> **แก้ (ทางที่การันตีผล):** เลิกพึ่งความโปร่งใสของหน้าต่าง
+> - `app/src/main.js` `createWindow()`: `transparent: false` + `roundedCorners: true` (ไม่แยกแพลตฟอร์มแล้ว) — Windows 11 ให้ระบบปัดมุมเอง, ที่อื่นได้สี่เหลี่ยมสะอาด
+> - `app/src/renderer/styles.css`: ลบ `border-radius: 10px` ของ `body` และ `10px 10px 0 0` ของ `#titlebar` (ไม่เหลือมุมที่ไม่ได้ระบายสี)
+> - ถอด `enable-transparent-visuals` ที่เคยลองใส่ (ไม่ช่วย)
+>
+> **ยืนยันด้วยภาพ:** อินสแตนซ์แยก `NTAPI_DATA_DIR=/tmp/ntapi-corner` + `import -window` → พิกเซลมุม `(0,0)=srgb(15,17,23)` = สี `--bg` ไม่มีค่าดำ · `npm test` = **114 passed** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.8) — ไฟล์: `app/src/main.js`, `app/src/renderer/styles.css`, `app/scripts/selftest-release-notes.js`, `app/scripts/selftest-chat-background.js`
+> **หมายเหตุ:** Ubuntu จะเป็นมุมเหลี่ยม (ไม่โค้ง) — แลกกับการไม่มีมุมดำ · Windows 11 ยังได้มุมโค้งจากระบบ
+
+> **📌 2026-11-26 (Linux) — 🗘️ มุมหน้าต่างฝั่ง Windows ไม่เป็นสีดำแล้ว:**
+>
+> **ผู้ใช้เจอ:** บน Windows มุมหน้าต่างเป็นสีดำ ไม่โค้งมน
+>
+> **สาเหตุ:** หน้าต่างเป็น `frame:false` + `transparent:true` + `backgroundColor` ทึบ · Electron 38 ให้ compositor ของ Windows ปัดมุมหน้าต่าง frameless เอง (รัศมีไม่ใช่ 10px ที่วาดใน `styles.css`) → รัศมีสองอันชนกัน เหลือลิ่มดำทั้งสี่มุม
+>
+> **แก้:** `app/src/main.js` `createWindow()` — แยกตามแพลตฟอร์ม
+> ```js
+> const transparentFrame = process.platform !== 'win32';
+> transparent: transparentFrame,
+> roundedCorners: true,
+> ```
+> Windows = หน้าต่างทึบ ให้ระบบปัดมุมเอง (ได้เงา/มุมเนทีฟของ Win11) · Linux/macOS = คงเดิม โปร่งใสให้ CSS ปัดมุม
+>
+> **ผล:** `npm test` = **114 scripts passed** · `check:sara` ok
+> **หมายเหตุ:** Windows 10 ไม่มีการปัดมุมจากระบบ → จะเป็นมุมเหลี่ยม (แต่ไม่มีลิ่มดำ) · ยังไม่ได้ทดสอบบน Windows จริง (เครื่องนี้ Linux)
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.8 ออกแล้ว) — ไฟล์: `app/src/main.js`, `app/scripts/selftest-release-notes.js`, `app/scripts/selftest-chat-background.js`, `.github/workflows/release.yml` (แก้ regex filter มาก่อนหน้านี้ในรอบ v0.9.8)
+
 > **📌 2026-11-26 (Linux) — 🚀 ปล่อย v0.9.8 แล้ว:**
 >
 > **คำสั่งผู้ใช้:** "commit push ปล่อยอัปเดตได้เลย" (= ส่งอัปเดต)
@@ -3990,3 +4071,92 @@ AI ขับ Chrome ของผู้ใช้เองได้ผ่านส
 - ยังไม่รองรับ Windows (มี `shortcut:` ระบุไว้ใน `src/llamacpp.js`) — ต้องใช้ `win-cuda-12` และเลือก build ตาม GPU
 - ยังไม่วัด "ประหยัดโทเคน" จริงเป็นตัวเลขจากการเทิร์นจริง (ประเมินจาก prompt_tokens 1,009 ของภาพเทียบกับทาง cloud)
 - ยังไม่คอมมิตงานทั้งก้อน (boot-speed + 3 เจ้า + ตารางไอคอน + local vision)
+
+---
+
+## 2026-11-26 (Linux) — เปิดโปรแกรมแล้วโหลดแชทช้า (แก้แล้ว)
+
+**ทำเสร็จในรอบนี้**
+- ลบ `pi.on("session_start")` ที่ `await prefetchLaunchAd()` ใน extension `freepi-desktop-ads` (`app/src/freepi-bridge.js`) — โฆษณาไม่ต้องมาก่อนแท็บ; bridge ยังสั่ง prefetch แบบไม่รออยู่แล้ว
+- `app/src/renderer/app.js` restore แท็บ: ยิง `api.openTab` พร้อมกัน (`Promise.all`) แล้ว apply state ตามลำดับที่บันทึกไว้
+- `cachedCatalog` ใน `app/src/freepi-bridge.js`: cache ลงดิสก์ `DATA_ROOT/catalogs.json` (TTL 10 นาที, tmp+rename, id = sha256 ของคีย์, `catalogInFlight` กันยิงซ้ำ) และใช้ครอบ freepi/coarena catalog ด้วย; `main.js` ส่ง `catalogCachePath`
+- เทสต์ใหม่: `app/scripts/selftest-catalog-cache.js` (8 เช็ค รวม "ไม่มีคีย์หลุดลงไฟล์") + `app/scripts/selftest-startup-speed.js` (9 เช็ค) ลงทะเบียนใน `run-unit-tests.js`
+
+**ตัวเลข/หลักฐาน**
+- ก่อน: 4 แท็บ restore รวม ~15.7 วิ ถึง `ui ready`; attachTab 2.5–4.9 วิ/แท็บ (bindExtensions 2.0–3.3 วิ)
+- หลัง: bindExtensions 0–1 ms; `tabs restored` 4.5 วิ → `ui ready` **4.8 วิ (warm)** / 7.3 วิ (cold) — เร็วขึ้น ~3 เท่า
+- `npm test` **117 passed** · `check:sara` ok · เหลือ ~1.5 วิ/แท็บเป็นงานใน SDK (`createAgentSessionServices`) และ ~1 วิเป็น `/me`
+
+**ค้าง / ต้องตัดสินใจ**
+- ยังไม่คอมมิต: งานค้างรวม 5 ก้อน (corner fix, Grok, Grok 403, 3 UI bugs, boot speed) — รอไฟเขียว bump 0.9.9
+- ถ้าอยากเร็วขึ้นอีกทางเดียวที่เหลือคือ **lazy attach**: restore เฉพาะแท็บที่ active แล้ว attach แท็บอื่นตอนกด (จะเหลือ ~1.5 วิ) แต่ต้องแก้ event/เพี้ยนของ background tab ให้ครบ
+- `catalogs.json` ในเครื่องผู้ใช้จะถูกสร้างใหม่ (ไม่มีข้อมูลเดิมให้ย้าย) และ TTL 10 นาทีเท่ากับ cache ในหน่วยความจำเดิม
+- รอบ 2 (lazy restore): `app/src/renderer/app.js` เปิดเฉพาะแท็บที่จำไว้ก่อน, ที่เหลือรอหลัง ui ready (`pendingRestoreTabs`/`restorePendingTabs`) → **ui ready 3.0 วิ** (warm) / 3.1 (cold) เทียบกับ 15.7 วิ ตอนแรก
+- ถ้ายังรู้สึกช้า: ~1.6 วิที่เหลือคือ `createAgentSessionServices` ของ SDK ต่อ 1 session (และ click เปิดแชทที่ยังไม่เปิดก็จ่ายก้อนนี้) — ทางลดคือโชว์ transcript จากดิสก์ก่อนแล้ว attach ทีหลัง (งานใหญ่) หรือ profile SDK
+- รอบ 3: `src/freepi-bridge.js` — `cachedFetchMe` เก็บผล `/me` ลง `catalogs.json` ด้วย (ttl 5 นาที, key = baseUrl|jwt ที่ hash แล้ว, ค่า fail ไม่ถูกเขียน) → **warm launch 2.17 วิ**, cold 4.8 วิ
+- ผลรวมจาก 15.7 วิ → 2.2 วิ (เร็วขึ้น ~7 เท่า); เหลือ ~1.2 วิเป็นพื้นของการเปิดหน้าต่าง/โหลด UI และ ~0.6 วิเป็น `createAgentSessionServices`
+- 2026-11-26 hold/countdown: `holdMessage` ส่ง hold ที่ถูกแทนที่ทันที (ไม่ทิ้งเงียบ), `drainQueue` ไม่ส่งถ้ามี hold กำลังนับในแท็บนั้น (เดิมเทียบ `held.item === head` ซึ่งพลาดเมื่อ hold ถูกแทนที่) — ยังไม่ได้ทดสอบด้วยมือบนแอปจริง
+
+## 2026-11-26 — Provider capability access v1 (ยังไม่ release)
+- เพิ่ม `app/src/provider-apis.js` + tool `provider_call` + สวิตช์ต่อเจ้าใน Settings → Providers
+- ค่าเริ่มต้นปิดทุกเจ้า; เปิดแล้ว tool จะโผล่ในแชทที่เปิดใหม่ (ไม่ต้องรีสตาร์ทแอป แต่ต้องเปิดแท็บใหม่)
+- ยังไม่ได้ยิง API จริงด้วยคีย์ของผู้ใช้ (มีค่าใช้จ่าย) — ต้องขออนุญาตก่อนทดสอบ: Grok image.generate และ Gemini audio.speech
+
+## Provider capability consent (2026-11-26, session 404)
+- No settings switch any more. `provider_call` offers **every** provider that has a saved key (13),
+  and asks at call time through the app dialog: `ยินยอม` / `ยินยอมทั้งหมด` / `ยกเลิก`.
+- `ยินยอมทั้งหมด` = all providers **in this chat only** (`providerApiAllowedAll` lives in the session);
+  a new chat asks again.
+- Removed: `#providerApiGroup`, `paintProviderApiSettings`, `refreshProviderApi`, IPC `providerApi:status|set`,
+  preload `providerApiStatus/Set`, prefs `providerApiAccess`, 22 i18n keys.
+- Fixed latent CSS bug: `@keyframes msg-in` was never closed, swallowing the rules after it.
+- Not hand-tested yet: the consent dialog buttons in a real turn (needs a live model call).
+
+## Session handoff — 2026-11-26 (session 411)
+
+### What is done and tested (uncommitted on disk)
+- **Provider capability consent** — no settings switch. `provider_call` offers every provider with a
+  saved key (13) and asks at call time in the app dialog: `ยินยอม` / `ยินยอมทั้งหมด` / `ยกเลิก`.
+  `ยินยอมทั้งหมด` covers all providers **in that chat only** (`providerApiAllowedAll` in the session);
+  a new chat asks again. Removed: `#providerApiGroup`, `paintProviderApiSettings`, `refreshProviderApi`,
+  IPC `providerApi:status|set`, preload pair, prefs `providerApiAccess`, 22 i18n keys.
+- **Consent dialog look** — first line `strong.question-lead` (bold), rest `.question-note` (grey);
+  buttons carry tones `ok`/`all`/`cancel`; with options present the free-text box, Answer and Skip
+  are hidden (`.options-only`).
+- **Gemini TTS fix** — the TTS model is flash with audio output; a bare transcript made it answer in
+  text (HTTP 400). The request now says "Read this aloud exactly as written". Verified with a real key:
+  `generated/1795705796157-audio-speech.wav`, 415,290 B, pcm_s16le 24 kHz mono 8.65 s.
+- **File paths in the reply are the control** — `linkFilePaths(body, cwd)` wraps every media path in
+  `<button class="file-link">`; pressing it opens `.file-menu` with ดู/เล่น · เปิด · แสดงในโฟลเดอร์.
+  Image → in-app viewer, sound → inline `<audio>` under that line, video → system player.
+  Nothing is drawn under the reply any more (chips/cards deleted).
+- **Image thumbnails** keep the hover button "แสดงในโฟลเดอร์" (`imageTile` + `api.revealPath`).
+- **IPC added**: `fs:readMedia` (wav/mp3/ogg/m4a/flac/mp4/webm/mov, ≤32 MB, inside the workspace only,
+  `tooLarge` reported) and `fs:revealPath` (`shell.showItemInFolder`).
+- **CSS bug found and fixed**: `@keyframes msg-in` was never closed, which swallowed every rule after it
+  (this is what made the provider switches look unstyled). Braces are balanced now.
+- **Settings blank page fix**: a leftover `paintProviderApiSettings()` call was removed; a test now
+  guards "no call site of the removed painter survives".
+
+### Test state
+- `npm test` → **120 offline scripts pass** (new: `selftest-media-cards.js`, `selftest-provider-apis.js`,
+  `selftest-ntfy-rooms.js`).
+- `npm run check:sara` → ok. `npm run check:theme` clean (no literal white text).
+- Provenance sessions this stretch: 404 (consent), 405 (settings crash), 406 (dialog look), 407 (media
+  cards), 408 (image reveal), 409 (cards invisible), 410 (chips), **411 (inline file links)**.
+
+### Not verified by hand
+- The consent dialog's three buttons in the user's live app (only the API path and layout were proven).
+- `ยินยอมทั้งหมด` across two providers in one chat (proves the no-repeat-question rule).
+- A video path pressed in the real app (CDP was used on a copy of the session for the rest).
+- The cancelled-message path (needs a live interrupted turn).
+
+### Sample files used for the demo
+`samples-media/demo-voice-th.wav`, `demo-video.mp4`, `demo-image.png` (copied into the workspace so the
+cards could read them). Safe to delete.
+
+### Next, when the user asks
+1. Commit + release the pile (suggest **0.9.9**): bump `app/package.json`, commit, tag, push, verify
+   assets + sha, `provenance.js record-release`.
+2. Ask for a live `ยินยอมทั้งหมด` test across Gemini → NVIDIA.
+

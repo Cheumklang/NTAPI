@@ -4203,3 +4203,220 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **ยืนยัน:** release v0.9.8 (09:22:10Z) · latest.yml=0.9.8 · exe 182,276,919 bytes · sha256 67a230cf… · sha512 ตรง · เหลือรุ่นเดียว
 - **Provenance:** record-release seq 386 + anchor + verify OK 386 entries
 - **เจอ+แก้:** release body มีบรรทัด PROVENANCE หลุด (hook เขียนคอมมิตในช่วง tag) → PATCH body ใหม่ + เพิ่ม provenance เข้าตัวกรอง release.yml
+
+## 2026-11-26 — มุมหน้าต่าง Windows ไม่โค้ง/เป็นสีดำ
+- **สาเหตุ:** frameless + transparent + backgroundColor ทึบ → compositor ปัดมุมเองด้วยรัศมีที่ไม่ตรงกับ CSS 10px เหลือลิ่มดำ 4 มุม
+- **แก้:** `transparentFrame = process.platform !== 'win32'` + `roundedCorners: true` · Windows ใช้หน้าต่างทึบให้ระบบปัดมุม, Linux/macOS คงเดิม
+- **เทสต์:** npm test 114 passed · check:sara ok · ปรับ selftest-release-notes (รับ provenance) และ selftest-chat-background (45%)
+- **หมายเหตุ:** Win10 จะเป็นมุมเหลี่ยม ไม่มีลิ่มดำ · ยังไม่ทดสอบบน Windows จริง · ยังไม่ commit/bump
+
+## 2026-11-26 — มุมหน้าต่างสีดำ (Ubuntu)
+- **ทดลอง:** alpha-probe สร้าง transparent window + capturePage → alpha 255 ทุกพิกเซล, backgroundColor #000000 ⇒ โปร่งใสใช้ไม่ได้ในสภาพแวดล้อมนี้
+- **แก้:** transparent:false + roundedCorners:true (ทุกแพลตฟอร์ม) และลบ border-radius ของ body/#titlebar → ไม่มีมุมที่ไม่ได้ระบายสี
+- **ยืนยัน:** พิกเซลมุม (0,0)=srgb(15,17,23)=--bg · npm test 114 passed · check:sara ok
+- **แลก:** Ubuntu มุมเหลี่ยม, Windows 11 ยังโค้งจากระบบ · ยังไม่ commit/bump
+
+## 2026-11-26 — เพิ่มผู้ให้บริการ Grok (xAI)
+- ไฟล์ใหม่ `app/src/grok.js` (OpenAI-compatible, /models intersect, paid ทุกแถว)
+- ต่อสาย main.js / preload.js / provider-plan.js / freepi-bridge.js / provider-ui.js / index.html / app.js
+- โลโก้จาก `~/Downloads/grok.webp` -> `app/src/renderer/assets/providers/grok.webp`
+- เทสต์: selftest-new-providers +15 เช็ค, npm test 114 passed, check:sara ok, i18n ok
+- เห็น tile Grok + โลโก้ในแอปจริง · ยังไม่ commit/bump
+
+## 2026-11-26 — แก้ 3 บั๊ก UI
+- สปินเนอร์ค้าง: `refreshSessionBusy()` วาดทุก view ไม่ใช่แค่ active
+- ไม่มีปุ่มทำต่อหลังรีสตาร์ต: last stored message เป็น 'user' -> แบนเนอร์ turnUnfinished + retryTurn()
+- Shift+Enter ในคิว: เปลี่ยน `<input>` -> `<textarea>` autogrow, Enter=save
+- เทสต์ใหม่ selftest-busy-and-resume.js (12 เช็ค), npm test 115 passed, check:sara ok
+- ยังไม่ commit/bump, ยังไม่ทดสอบด้วยตา
+
+## 2026-11-26 — Grok 403 ตอนบันทึกคีย์
+- พบว่า xAI ส่ง `error` เป็นสตริง (ไม่ใช่ .message) -> ข้อความจริงหาย เหลือแค่ "HTTP 403"
+- grok.js: parse ผิดรูปเดิมแก้ + restricted flag (403) + resolve คืน curated list
+- main.js/app.js: บันทึกคีย์ได้เมื่อ 403 + แจ้ง grokSaveRestricted พร้อมเหตุผลจาก xAI
+- เทสต์ +5 เช็ค, npm test 115 passed, check:sara ok
+
+## 2026-11-26 — โหลดแชทช้าตอนเปิดโปรแกรม (แก้ 3 จุด)
+- วัดก่อนแก้: 4 แท็บที่ restore ใช้ `attachTab` ทีละแท็บ 2.5–4.9 วิ/แท็บ รวม ~15 วิ ก่อน `ui ready` (main.js เองเสร็จใน ~1.2 วิ)
+- ต้นเหตุ 1: extension `freepi-desktop-ads` มี `pi.on("session_start", async () => { await prefetchLaunchAd() })` — pi await ทุก handler ก่อนแท็บเกิด => ทุกแท็บรอโฆษณา 2–3 วิ. ลบ handler (bridge เรียก prefetch เองแบบ fire-and-forget อยู่แล้ว) => bindExtensions 2.0–3.3 วิ → 0–1 ms
+- ต้นเหตุ 2: renderer restore ทีละแท็บ (`for + await`) => เปลี่ยนเป็นยิง `api.openTab` พร้อมกันด้วย `Promise.all` แล้ว `applyTabState` ตามลำดับเดิม
+- ต้นเหตุ 3: ทุกครั้งที่เปิดโปรแกรมต้องยิง /models ของทุกเจ้าอีกครั้ง (memory cache ตายไปพร้อม process) + coarena/freepi catalog ก็ไม่มี cache ข้ามรอบ => `cachedCatalog` เก็บลง `DATA_ROOT/catalogs.json` (TTL 10 นาที, เขียนแบบ tmp+rename, id เป็น sha256 ของคีย์ ไม่เก็บคีย์ลงดิสก์) + กันยิงซ้ำพร้อมกันด้วย `catalogInFlight` + ครอบ freepi/coarena catalog ด้วย
+- ผล: `ui ready` 15.4 วิ → 4.8 วิ (warm) / 7.3 วิ (cold แรก), เทสต์ใหม่ selftest-catalog-cache.js (8 เช็ค) + selftest-startup-speed.js (9 เช็ค), npm test 117 passed, check:sara ok
+- ยังไม่ commit/bump
+
+## 2026-11-26 — boot speed รอบ 2 (lazy restore)
+- ยังช้าอยู่: 4.8 วิ เพราะรอ *ทุก* แท็บสร้าง session ก่อน splash จะปิด
+- เปลี่ยน: เปิดเฉพาะแท็บที่จำไว้ (prefs.activeSession) ก่อน แล้ว `pendingRestoreTabs` + `setTimeout(restorePendingTabs, 700)` ค่อยสร้างแท็บที่เหลือหลัง ui ready (applyTabState show:false, restore flag เดิม)
+- ผล: ui ready 4.8 → **3.0 วิ (warm)** / 3.1 วิ (cold); แท็บที่เหลือใช้ ~530 ms/แท็บหลังหน้าต่างขึ้นแล้ว
+- อัปเดต selftest-startup-speed.js (เช็ค lazy restore แทน Promise.all), npm test 117 passed, check:sara ok
+
+## 2026-11-26 — boot speed รอบ 3 (cache /me ลงดิสก์)
+- วัดได้ว่า 1.2 วิของ attachTab เป็นการยิง `/me` ตรวจ token (memory cache 5 นาที ตายพร้อม process)
+- `cachedCatalog` รับ ttl ต่อ entry ได้แล้ว (`{at, value, ttl}`); `cachedFetchMe` ใช้ `cachedCatalog("me", baseUrl|jwt, …, AUTH_TTL_MS=5 นาที)` — ค่าที่ fail (401/เน็ตหลุด) ไม่ถูกเขียนลงดิสก์
+- ผล: warm launch `ui ready` 3.0 → **2.17 วิ** (attachTab 1.6 → 0.72 วิ), cold 4.8 วิ; catalogs.json มี entry `me`
+- เทสต์ +2 เช็ค (ttl ต่อ entry, token ที่ถูกปฏิเสธไม่ถูก cache), npm test 117 passed, check:sara ok
+
+## 2026-11-26 — ตัวนับถอยหลังก่อนส่งข้อความ (hold) ส่งก่อนครบเวลา
+- ตรวจแล้วพบ 2 ทางที่ข้อความออกก่อนนาฬิกา:
+  1. `drainQueue` กันไว้เฉพาะกรณี hold.item ตรงกับคิวหัวแถว — ถ้าผู้ใช้พิมพ์ Enter (steer) ต่อทันทีหลัง Ctrl+Enter, `holdMessage` เดิมยกเลิก hold เก่าแบบเงียบ ๆ คิวหัวแถวจึงไม่มี hold ครอบ แล้ว `agent:settled` โทร `drainQueue` ส่งทันทีทั้งที่นาฬิกาบนจอยังนับอยู่
+  2. ข้อความของ hold ที่ถูกแทนที่ไม่ได้ถูกส่งและไม่ได้คืนคำให้ผู้ใช้ (หายเงียบ)
+- แก้ `src/renderer/app.js`: `holdMessage` flush hold เก่า (ส่งเลย) แทนการยกเลิกเงียบ; `drainQueue` หยุดเมื่อมี hold ที่ยังไม่ finished ตัวใดก็ได้ในแท็บนั้น
+- เทสต์ `scripts/selftest-hold-before-send.js` เพิ่ม 3 เช็ค + แก้เช็คเดิม, npm test 117 passed, check:sara ok
+
+## 2026-11-26 — provider capability access (แบบ A) v1
+- ดีไซน์: docs/superpowers/specs/2026-11-26-provider-capability-access-design.md · แผน: docs/superpowers/plans/2026-11-26-provider-capability-access.md
+- `app/src/provider-apis.js` (ใหม่): ตาราง `PROVIDER_APIS` — grok: image.generate / image.edit / audio.speech / audio.transcribe; google: audio.speech (PCM→wav) / media.analyze (inline base64 ≤18MB); `listAccess`, `describeForTool`, `callProvider` (ไม่ throw, คืน `{ok,text,files,error}`), `saveOutput` (slug + ext แยกกัน, กัน path traversal)
+- `freepi-bridge.js`: extension `freepi-desktop-provider-apis` + tool `provider_call` (enum มาจากตาราง, `askUser` ก่อนยิงทุกครั้ง, ลงทะเบียนเฉพาะเมื่อมีสิทธิ์+คีย์), option `providerApiPrefs`, เพิ่ม `provider_call` ใน `defaultTools`
+- `main.js`: `PROVIDER_APIS` require, `providerApi:status|set` (prefs `providerApiAccess`), ส่ง `providerApiPrefs` เข้า session
+- `preload.js` + renderer: `providerApiStatus/Set`, บล็อก "ให้โมเดลอื่นใช้ API ของเจ้านี้" ในหน้า Providers (`#providerApiRows`), i18n en+th 10 คีย์
+- เทสต์ใหม่ `scripts/selftest-provider-apis.js` (26 เช็ค, ไม่ยิงเน็ต: fake fetch), npm test 118 passed, check:sara ok
+- ข้อจำกัด v1: สวิตช์มีผลกับแชทที่เปิดใหม่ (registry ของ tool ถูกสร้างตอน attach) — ระบุไว้ใน UI แล้ว
+
+## 2026-11-26 — ยกเลิกแล้วข้อความยังถูกส่ง (ซ้ำ)
+- หลักฐานจาก session จริง: `user "ทำได้เลยคับ"` สองครั้ง ห่างกัน 16 วิ (11:57:36 และ 11:57:53) ครั้งแรกถูก abort หลัง 0.8 วิ (`stopReason: aborted`) = ผู้ใช้กดยกเลิก/เอากลับจริง จากนั้นมีอีกทางส่งข้อความเดิมซ้ำ
+- แก้ที่ renderer: `withdrawMessage(view, text)` จำคำที่ถูกยกเลิกไว้ใน `view.withdrawn` (Set)
+  - `holdMessage.giveBack()` และแถว undo-send (`takeBack`) เรียก withdraw
+  - `drainQueue()` ตัดหัวคิวที่ถูก withdraw ทิ้งก่อนส่ง (while loop) แล้วค่อยอ่าน `head` ใหม่
+  - `submit()` ลบข้อความออกจาก `withdrawn` เมื่อผู้ใช้ส่งคำเดิมซ้ำโดยตั้งใจ
+- เทสต์: selftest-hold-before-send.js +5 เช็ค, selftest-queue-edit.js ปรับ anchor (`const next = view.queue.shift()`), npm test 118 passed, check:sara ok
+
+## 2026-11-26 — ntfy ไม่ส่งสรุป · ช่องแก้ไขคิวเล็ก · ทดสอบ Gemini จริง
+- ntfy: `ntfy.json` มี `summary.enabled=true`, `notify.onSettle=true` แต่ session ที่ใช้งานอยู่ (`08-43-34…`) มี `enabled:false`, topic = null → `ntfyNotifySettled` ออกก่อนถึงขั้นส่งเพราะไม่มีห้อง
+  - `ntfy-service.publish()`: รับ `ensureRoom` — ถ้าแชทนี้ยังไม่มีห้องและ prefs เปิดอยู่ ให้สร้าง topic เองแล้วส่ง (emit state)
+  - renderer `ntfyNotifySettled()`: เปลี่ยนเงื่อนไขเป็น `=== false` เท่านั้น (ห้องที่ผู้ใช้ปิดเอง) + ส่ง `ensureRoom: true`
+  - เทสต์ selftest-ntfy.js +3 (แจ้งเตือนสร้างห้องเอง / ห้องที่สร้างเปิดอยู่ / publish ธรรมดาไม่มีห้องยังถูกปฏิเสธ)
+- คิว: `.queue-edit` font-size 11.5→13px, min-height 2.9em, padding 6px 8px (เดิม rows=1 + padding 2px ทำให้ตัวหนังสือถูกขอบบัง)
+- ทดสอบ Gemini ด้วยคีย์จริง (ไม่ใช่ Grok):
+  - `audio.speech` → OK, WAV 207,930 B, pcm_s16le 24 kHz mono 4.33 วิ (`/tmp/gemini-probe/generated/`)
+  - `media.analyze` → ต้องเปลี่ยนโมเดล: `gemini-2.5-flash` ถูกยกเลิก (404 → ใช้ `gemini-3.8-flash`), 3.8 ตอบ 503 overloaded, `gemini-3.7-flash` ทำงาน (ตอบ description ของ grok.webp ถูกต้อง)
+  - `provider-apis.js`: เพิ่ม `model` ต่อ capability (`audio.speech` = gemini-2.5-flash-preview-tts, `media.analyze` = gemini-3.7-flash) แทน default ก้อนเดียว; เทสต์ +3
+- npm test 118 passed · check:sara ok
+
+## 2026-11-26 — ntfy สวิตช์ปิดเองเมื่อสลับ session / เปิดโปรแกรมใหม่
+- อาการ: เปิด ntfy ในแชทหนึ่ง → ไปแชทอื่น → กลับมาเป็นปิด
+- สาเหตุ 2 ข้อ:
+  1. `rekey(from,to)` ย้ายห้องเฉพาะเมื่อ `to` ยังไม่มี — แต่ `setActiveSession()` สร้างห้องเปล่า (`topic:null, enabled:false`) ให้ `to` ไปก่อนแล้ว → ห้องที่เปิดอยู่ค้างที่คีย์เก่า (`tab:<id>`) และแผงอ่านห้องเปล่า = ปิด
+  2. ห้องของแชทใหม่ถูกสร้างด้วย `enabled:false` เสมอ และ `setEnabled` เปลี่ยนเฉพาะ `activeKey` ตอนนั้น (ถ้ายังไม่ผูกลูกก็ no-op แต่ตอบ ok)
+- แก้ `app/src/ntfy-service.js`:
+  - `rekey()` ย้ายห้องได้เมื่อปลายทางว่าง (`!topic && !enabled`)
+  - `notify.defaultOn` ใหม่: จำสวิตช์ล่าสุด; `sessionOf()` สร้างห้องใหม่ตามค่านั้น, `setActiveSession()` เปิดห้องให้ถ้ายังไม่มี, `setEnabled()` บันทึก defaultOn, `setNotify()` ไม่ลบ defaultOn
+  - `setEnabled()` ไม่มีห้องแล้วคืน `{ok:false}` แทนที่จะเงียบ
+- `app/src/main.js`: `ntfy:setEnabled` เรียก `ntfyFollowActive()` ก่อน เพื่อผูกกับแท็บที่อยู่หน้า
+- เทสต์ selftest-ntfy.js: ปรับเช็คเดิม (แชทใหม่สืบทอดสถานะ) + เพิ่ม 5 เช็ค (สลับไปกลับห้องยังเปิด/ห้องเดิม, rekey ย้ายห้องพร้อมสวิตช์, publish ธรรมดาไม่มีห้องยังถูกปฏิเสธ)
+- เริ่มขยาย PROVIDER_APIS ให้ครอบทุกเจ้า (chat capability + pollinations image, GET/query/binary ใน callProvider) — UI ยังไม่ได้ย้ายตามที่ขอ
+- npm test 118 passed · check:sara ok
+
+## 2026-11-26 — ntfy: กลับไปใช้ "หนึ่งแชท หนึ่งห้อง" ตามที่ผู้ใช้ต้องการ
+- ผู้ใช้ชี้แจงเจตนา: แต่ละ session ต้องมีห้อง ntfy ของตัวเอง ไม่สืบทอดสถานะจากแชทอื่น (กันคำสั่ง/แจ้งเตือนชนกัน)
+- ถอด `notify.defaultOn` ออกทั้งหมด (load / sessionOf / setActiveSession / setEnabled / setNotify) — ห้องใหม่เริ่มปิดเสมอ
+- renderer `ntfyNotifySettled()`: เงียบเว้นแต่ห้องของแชทนั้นเปิดอยู่ (`!== true` return) และเลิกส่ง `ensureRoom`
+- `ntfy-service.publish()`: กลับไปเช็คแค่ `room.topic`; `addTopic()` ยังไม่เปิดสตรีมถ้าสวิตช์ปิด (คงพฤติกรรมเดิม)
+- คงไว้ซึ่งตัวแก้จริงของบั๊ก "สลับแชทแล้วปิด": `rekey()` ย้ายห้องไปคีย์ไฟล์ session แม้ปลายทางมีห้องเปล่า, `setEnabled()` คืน `{ok:false}` เมื่อยังไม่มีแชท, `main.js ntfy:setEnabled` ผูกแท็บก่อนเปลี่ยนค่า
+- เทสต์ selftest-ntfy.js: กลับด้าน 2 เช็ค (แชทใหม่ = ปิด/no room, แชทอื่นไม่รับสวิตช์) + คงเช็คสลับไปกลับห้องยังเปิด/rekey
+- npm test 118 passed · check:sara ok
+
+## 2026-11-26 — ทดสอบ provider_call ด้วย NVIDIA (คีย์จริง ฟรี)
+- เทสต์ ntfy หลายแชท: `app/scripts/selftest-ntfy-rooms.js` (ใหม่, 20 เช็ค) — แชทใหม่ปิด/ไม่มีห้อง, เปิดแล้วได้ topic ของตัวเอง, สองแชทไม่ใช้ topic ร่วมกัน, ข้อความของ A ไม่ไปโผล่ B, สลับไปกลับ 5 รอบไม่เปลี่ยน topic และไม่สร้างห้องเพิ่ม, ปิด A แล้ว B ยังทำงาน, rekey tab→file ย้ายห้องพร้อมสวิตช์, รีสตาร์ทแล้วสถานะและ topic เดิมครบ — ลงทะเบียนใน run-unit-tests.js แล้ว (119 scripts)
+- `callProvider` ทดสอบจริงกับ NVIDIA (`/tmp/nvidia-probe.js`): `chat` ตอบกลับได้ ("I am an NVIDIA-hosted language model."), โมเดลผิดได้ HTTP 404 พร้อมข้อความจากผู้ให้บริการ
+- `freepi-bridge.js`: `providerApiKeys` ขยายครบ 13 เจ้า (เดิมมีแค่ grok/google/mistral) + pollinations ส่ง free เพื่อให้ tool เห็น
+- `provider-apis.js`: default model ของ nvidia = `nvidia/nemotron-3.5-lightning-30b-a3b` (เจ้าอื่นที่ยังไม่รู้ id คงเป็น  ให้ผู้เรียกระบุ)
+- หมายเหตุ: การทดสอบผ่าน UI ด้วย xdotool ล้มเหลว (พิมพ์ไทยเพี้ยน + ข้อมูลทดสอบชี้ไฟล์ session จริง) — ยกเลิกแล้ว ไม่มีอะไรเขียนลง session จริง
+- npm test 119 passed · check:sara ok
+
+## 2026-11-26 — provider consent: ถามในแชทแทนสวิตช์ในหน้าตั้งค่า
+- เอา `#providerApiGroup` + `paintProviderApiSettings`/`refreshProviderApi` + IPC `providerApi:status|set` + preload + prefs `providerApiAccess` + i18n 22 คีย์ ออกทั้งหมด
+- `freepi-bridge.js`: `listAccess({ access: true, keys })` → ทุกเจ้าที่มีคีย์ (13 เจ้า) ถูกเสนอ; สิทธิ์ถูกถามตอนเรียก
+  - `askUser` 3 ตัวเลือก: `ยินยอม` / `ยินยอมทั้งหมด` / `ยกเลิก`
+  - `providerApiAllowedAll` อยู่ใน memory ของ session นั้น ๆ → แชทใหม่ถามใหม่; `ยกเลิก` ตรวจจับทั้งไทย/อังกฤษ
+  - คำถามบอกชัดว่า "ยินยอมทั้งหมด = ผู้ให้บริการอื่นทุกเจ้าในแชทนี้ (แชทอื่นจะถามใหม่)"
+- dialog ใช้ `#questionOverlay` เดิม (ธีมของแอป) + CSS ให้ปุ่ม 3 ตัวแบ่งแถวพอดี (`.question-options .question-option { flex: 1 1 auto }`)
+- แก้บั๊ก CSS ที่เจอระหว่างทาง: `@keyframes msg-in` ขาด `}` ปิด → กฎ CSS ทั้งบล็อกถัดมาถูกกลืน (braces 1468/1467 → เท่ากันแล้ว)
+- เทสต์ selftest-provider-apis.js: เปลี่ยนจากเช็คสวิตช์ในหน้าตั้งค่า เป็นเช็ค consent 3 ปุ่ม/สถานะ session/all-providers
+- npm test 119 passed · check:sara ok
+- ยังไม่ได้กดทดสอบ dialog จริงในแอป (xdotool พิมพ์ไทยเพี้ยน + หน้าจอ welcome ต้องเลือกโฟลเดอร์ก่อน)
+
+## 2026-11-26 (ต่อ) — แก้ ReferenceError ตอนเปิดหน้าตั้งค่า
+- อาการ: เปิด ตั้งค่า > ผู้ให้บริการ แล้วขึ้น "paintProviderApiSettings is not defined" ทั้งหน้าค้าง
+- สาเหตุ: ตอนลบหัวข้อ provider API ออก ลบตัวฟังก์ชันไปแล้ว แต่ลืมลบ**จุดเรียก** `paintProviderApiSettings();` ใน `paintSettings()`
+- แก้: ลบจุดเรียก + คอมเมนต์ค้าง และเพิ่มเทสต์กันพลาดซ้ำ (`ui: no call site of the removed painter survives`)
+- ตรวจด้วย Chrome DevTools Protocol กับ instance แยก: หน้า Providers เรนเดอร์ครบ 18 tile, ไม่มี node `providerApi`/`.pswitch` เหลือ, ไม่มี "is not defined" บนหน้า
+- npm test 119 passed · check:sara ok
+
+## 2026-11-26 (ต่อ) — จัดหน้าตา dialog ขออนุญาต
+- เอา Skip + ช่องพิมพ์ + ปุ่ม Answer ออกเมื่อ dialog มีปุ่มให้เลือก (`.options-only`): ในการขออนุญาตคำตอบคือปุ่มเท่านั้น
+- ข้อความ: บรรทัดแรกเป็น `strong.question-lead` (ตัวหนา 14.5px) บรรทัดถัดไปเป็น `.question-note` (เทา 12px) → แยก "คำถาม" ออกจาก "ค่าใช้จ่าย/ขอบเขต"
+- ปุ่มมี tone: `tone-ok` / `tone-all` (ขอบ+ตัวอักษรม่วง ห hover ม่วงจาง) / `tone-cancel` (โปร่ง เทา)
+- bridge: `question` แยก 3 บรรทัด (คำถาม / ค่าใช้จ่าย / คำอธิบายยินยอมทั้งหมด), options เป็น object `{label,tone}`
+- เทสต์: เช็ค tone ครบ, lead/note, `.dialog-actions` ถูกซ่อน — npm test 119 passed · check:sara ok
+- ตรวจภาพด้วย headless chrome (`--screenshot`) กับ preview ที่ใช้ styles.css จริง: ตัวหนา/เทา/3 ปุ่ม/styles ถูก
+
+## 2026-11-26 (ต่อ) — การ์ดเสียง/วิดีโอในแชท
+- `main.js`: IPC ใหม่ `fs:readMedia` (wav/mp3/ogg/m4a/flac/mp4/webm/mov, cap 32 MB, `resolveInsideWorkspace` เท่านั้น) และ `fs:revealPath` (`shell.showItemInFolder`)
+- `preload.js`: `readMedia(cwd,p)` / `revealPath(cwd,p)`
+- `app.js`: `appendMediaPreviews(container,text,cwd)` — สแกน path จากข้อความผลลัพธ์ของ tool (สูงสุด 3 ไฟล์) สร้าง `.msg-media` → `.media-card` มี `<audio|video controls>` + ชื่อไฟล์ + ปุ่ม เปิด / แสดงในโฟลเดอร์ เรียกใน `applyToolResult` ต่อจาก `appendImagePreviews` (รูปภาพมี thumbnail คลิกเปิด viewer อยู่แล้ว)
+- i18n: `openFile` / `revealFile` (en+th)
+- `styles.css`: `.msg-media/.media-card/.media-player/.media-actions/.media-name/.media-btn` ใช้ token เดิม
+- เทสต์ใหม่ `scripts/selftest-media-cards.js` (12 checks) ลงทะเบียนใน `run-unit-tests.js` → รวม 120 สคริปต์
+- ยืนยันด้วย CDP บน instance แยก: `readMedia` คืน audio/wav 415,290 B เป็น data URI, ปฏิเสธ path นอก workspace และไฟล์ที่ไม่ใช่มีเดีย, `revealPath` ok
+- ยืนยันหน้าตาด้วย headless chrome: การ์ด+เครื่องเล่น+ปุ่ม 2 ปุ่ม เข้าธีม
+
+## 2026-11-26 (ต่อ) — ปุ่ม "แสดงในโฟลเดอร์" บน thumbnail รูปภาพ
+- `galleryImage()` ยังเหมือนเดิม; เพิ่ม `imageTile(src, rel, cwd)` ครอบรูปด้วย `.msg-image` + ปุ่ม `.img-reveal` ที่เรียก `api.revealPath`
+- ใช้ใน `paintStoredImages()` และ `appendImagePreviews()` (รูปที่อ้างถึงด้วย path และรูปที่ tool สร้าง)
+- ปุ่ม `stopPropagation()` กันไม่ให้ตัวเปิดดูรูปเด้งขึ้นมาด้วย
+- CSS: ปุ่มลอยมุมขวาล่าง โผล่ตอน hover/focus-visible (`.msg-image:hover .img-reveal`)
+- เทสต์ `selftest-media-cards.js` +3 checks (รวม 15) → npm test 120 passed · check:sara ok
+- ยืนยันภาพด้วย headless chrome: thumbnail + ปุ่มมุมขวาล่างเข้าธีม
+
+## 2026-11-26 (ต่อ) — ปุ่ม "แสดงในโฟลเดอร์" บน thumbnail รูปภาพ
+- `galleryImage()` ยังเหมือนเดิม; เพิ่ม `imageTile(src, rel, cwd)` ครอบรูปด้วย `.msg-image` + ปุ่ม `.img-reveal` ที่เรียก `api.revealPath`
+- ใช้ใน `paintStoredImages()` และ `appendImagePreviews()`
+- ปุ่ม `stopPropagation()` กันไม่ให้ตัวเปิดดูรูปเด้งขึ้นมาด้วย
+- CSS: ปุ่มลอยมุมขวาล่าง โผล่ตอน hover/focus-visible
+- เทสต์ `selftest-media-cards.js` +3 checks (รวม 15) → npm test 120 passed · check:sara ok
+- ยืนยันภาพด้วย headless chrome: thumbnail + ปุ่มมุมขวาล่างเข้าธีม
+
+## 2026-11-26 (ต่อ) — การ์ดเสียง/วิดีโอไม่ขึ้นในแชท (แก้)
+- อาการจากผู้ใช้: รูปมีปุ่ม "แสดงในโฟลเดอร์" แต่เสียง/วิดีโอไม่มีการ์ดเลย
+- สาเหตุ: `appendMediaPreviews` ถูกเรียกแค่ใน `applyToolResult` (ในการ์ด tool) ซึ่งกลุ่ม tool ถูกพับเก็บ (`display:none`) ตามค่าเริ่มต้น → การ์ดถูกสร้างแต่สูง 0 ไม่มีใครเห็น
+- แก้: เรียก `appendMediaPreviews(body, text, view.cwd)` ในเส้นทางวาดข้อความด้วย (ข้าง `appendImagePreviews`) → การ์ดอยู่ที่ระดับข้อความ มองเห็นได้
+- แก้เพิ่ม: วิดีโอแนวตั้ง 9:16 กว้าง 420 → สูง 746 ดันทั้งคำตอบตกจอ; ใส่ `max-height: 320px` + `video.media-player { width:auto; max-width:100% }`
+- ยืนยันด้วย CDP บน instance แยก (session จริงสำเนา): การ์ดเสียงสูง 103px, วิดีโอ 320px, ปุ่ม เปิด/แสดงในโฟลเดอร์ ครบ, audio readyState 4 duration 9s, video duration 73s
+- npm test 120 passed (media-cards 17 checks) · check:sara ok
+
+## 2026-11-26 (ต่อ) — เปลี่ยนการ์ดมีเดียเป็นบรรทัดข้อความกะทัดรัด
+- ผู้ใช้ขอ: ไม่ต้องแสดงเครื่องเล่น/ภาพจริง ให้เป็นข้อความกดได้ (กดฟัง/กดดู/กดเปิดโฟลเดอร์) แบบกะทัดรัด
+- `appendMediaPreviews` เขียนใหม่: ต่อไฟล์ 1 แถว `.media-chip-row`
+  - `.media-chip` = ปุ่มทรงแคปซูล "🎵/🎬 ชื่อไฟล์" (สูง 27px)
+  - คลิก: เสียง → ใส่ `<audio class="media-inline">` ใต้ชื่อแล้วเล่นทันที (กดซ้ำเอาออก) · วิดีโอ → `api.openPath` เปิดด้วยโปรแกรมของระบบ
+  - `.media-folder` = ปุ่ม 📁 เรียก `api.revealPath`
+- CSS: ลบ `.media-card/.media-player/.media-actions/.media-name/.media-btn` ทั้งหมด ใส่ `.media-chip/.media-folder/.media-inline/.media-chip-row`
+- ยืนยันด้วย CDP บน instance แยก: แคปซูลสูง 27px, ไม่มี player ใหญ่บนหน้า (0), กดแคปซูลเสียงแล้ว `<audio>` เกิดขึ้นจริงและเล่น (paused:false, 8.65 วิ)
+- ยืนยันภาพด้วย screenshot: แถวแคปซูล + ไอคอนโฟลเดอร์ เรียบร้อย ไม่เกะกะ
+- npm test 120 passed (media-cards 17 checks) · check:sara ok
+
+## 2026-11-26 (ต่อ) — path ในข้อความกดได้ แทนแถบมีเดียใต้ข้อความ
+- ผู้ใช้ขอ: เอา emoji ออก และไม่ต้องมีแถวไฟล์ใต้ข้อความ ให้ "path ในข้อความ" กดได้เลย (ดู/เล่น/เปิด/โฟลเดอร์)
+- ลบ `appendMediaPreviews` + CSS `.msg-media/.media-chip/.media-folder` ทั้งหมด (ไม่มีอะไรถูกวาดใต้ข้อความอีก)
+- เพิ่ม `linkFilePaths(container, cwd)`: เดิน text node หลัง markdown render แล้วห่อ path ด้วย `<button class="file-link">`
+  - กด → `openFileMenu()` เมนูลอย 3 ปุ่ม: ดู/เล่น · เปิด · แสดงในโฟลเดอร์ (ปิดด้วย Escape หรือคลิกนอกเมนู)
+  - รูป → `openImageViewer` · เสียง → `<audio class="media-inline">` ใต้บรรทัดนั้นเล่นทันที · วิดีโอ → `api.openPath`
+- i18n ใหม่: `viewFile`, `playFile`, `fileActions` (en+th)
+- บั๊กที่เจอระหว่างทาง: (1) regex เป็น /g ทำให้ `acceptNode` อ่าน lastIndex ค้าง → รีเซ็ตก่อน `.test` (2) path ถูก markdown ห่อเป็น `<code>` จึงถูกกฎ "ข้าม code" กรองออก → เหลือข้ามเฉพาะ `pre` (3) สี `#ffffff` ผิดกฎธีม light → ใช้ `var(--text)`
+- ยืนยันด้วย CDP: 7 file-link ใน transcript, เมนู ["เล่น","เปิด","แสดงในโฟลเดอร์"], กดเล่นแล้ว `<audio>` readyState 4 / 9 วิ / paused:false, สีม่วง + ขีดเส้นใต้จากการคำนวณจริง
+- npm test 120 passed (media-cards 17 checks) · check:sara ok
+
+## 2026-11-26 (ต่อ) — รายงานบั๊กบอกอาการจริง
+- ผู้ใช้ชี้ว่า "คัดลอกข้อมูลระบบ" ได้แค่ version/OS ไม่มี error → คนรับรายงานไม่รู้ว่าเกิดอะไร
+- เพิ่ม `src/bug-report.js` (pure): `formatBugReport()` เรียงเป็น
+  1) `## What went wrong` — ข้อความ error + stack 7 บรรทัด
+  2) `## What was happening` — เวลา, หน้าจอ (Chat/Settings), workspace, โมเดล, เทิร์นรันอยู่ไหม, การกดครั้งล่าสุด, tool ล่าสุด
+  3) `## Environment` — ของเดิม
+  4) `## Recent log` — 15 บรรทัดล่าสุด (ของ main + ของ renderer)
+  + `redact()`: home → `~`, `sk-…`/`AIza…`/`ghp_…`/`Bearer …` → `[redacted]`
+- `main.js`: buffer `recentLog` (40 บรรทัด) จากการห่อ `console.warn/error`, `app:systemInfo` รับ `{error, context, logLines}` แล้วประกอบรายงาน
+- `preload.js`: `systemInfo(payload)`
+- `renderer/app.js`: `lastCrash` (message+stack), `lastAction` (ข้อความปุ่มที่กดล่าสุด), `uiLog` (20 บรรทัด) ส่งเข้า report
+- แก้ต้นเหตุ "reply was never sent": `fs:openPath` / `fs:readMedia` / `fs:revealPath` ครอบ try/catch แล้วตอบ `{ok:false,error}` เสมอ (เดิม throw แล้ว renderer รอไม่รู้จบ)
+- เทสต์ใหม่ `scripts/selftest-bug-report.js` (24 checks) → npm test **121 passed** · check:sara ok
+- ยืนยัน end-to-end ด้วย CDP: dispatch error → banner ขึ้น → กดคัดลอก → clipboard มีครบทั้ง 4 หัวข้อ (รวม log `[ui:error]`)

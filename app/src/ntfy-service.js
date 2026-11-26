@@ -172,6 +172,9 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
     if (!key) return null;
     let record = settings.sessions[key];
     if (!record) {
+      // One room per chat, off until its own switch is turned on: two chats must
+      // never share a topic, or a command typed for one would arrive in the
+      // other (2026-11-26).
       record = { topic: null, enabled: false, since: 'all', at: 0 };
       if (legacy?.topic) {
         record.topic = legacy.topic;
@@ -219,8 +222,7 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
         ])
       ),
       summary: { ...settings.summary },
-      notify: { ...settings.notify },
-      config: { ...config },
+      notify: { ...settings.notify },      config: { ...config },
       account,
       status: statusOf(activeKey),
     };
@@ -368,7 +370,13 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
     /** A chat that gained a session file keeps the room it already had. */
     rekey(fromKey, toKey) {
       if (!fromKey || !toKey || fromKey === toKey) return snapshot();
-      if (settings.sessions[fromKey] && !settings.sessions[toKey]) {
+      // An untouched placeholder is not a room: following a tab that has no file
+      // yet creates one, and that placeholder used to block the move, so the room
+      // the reader switched on was left behind and the panel showed off
+      // (2026-11-26).
+      const dest = settings.sessions[toKey];
+      const destEmpty = !dest || (!dest.topic && !dest.enabled);
+      if (settings.sessions[fromKey] && destEmpty) {
         const wasStreaming = streams.has(fromKey);
         stopStream(fromKey);
         settings.sessions[toKey] = settings.sessions[fromKey];
@@ -429,7 +437,7 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
      */
     setEnabled(next) {
       const room = sessionOf(activeKey);
-      if (!room) return { ok: true, state: snapshot() };
+      if (!room) return { ok: false, error: 'No chat is open yet.', state: snapshot() };
       room.enabled = next !== false;
       if (room.enabled && !room.topic) {
         room.topic = api.randomTopicName();
@@ -532,6 +540,8 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
     async publish(message = {}) {
       const key = message.sessionKey || activeKey;
       const room = key ? settings.sessions[key] : null;
+      // A room the reader has not opened for this chat stays closed: every chat
+      // has its own topic so two chats never answer each other (2026-11-26).
       if (!room?.topic) return { ok: false, error: 'Switch notifications on for this session first.' };
       const payload = { ...message, topic: room.topic };
       const auth = { token: settings.token, username: settings.username, password: message.password };

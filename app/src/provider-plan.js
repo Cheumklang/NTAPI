@@ -30,6 +30,7 @@ const OPENROUTER_PROVIDER = 'openrouter';
 const KILO_PROVIDER = 'kilo';
 const CLOUDFLARE_PROVIDER = 'cloudflare';
 const MISTRAL_PROVIDER = 'mistral';
+const GROK_PROVIDER = 'grok';
 const POLLINATIONS_PROVIDER = 'pollinations';
 const PREFERRED_FREE_PI_MODEL = 'deepseek-v4.1-flash';
 
@@ -70,6 +71,7 @@ function planProviders({
   kiloKey,
   cloudflareKey,
   mistralKey,
+  grokKey,
   pollinationsKey,
   freePiModels,
   coarenaModels,
@@ -85,6 +87,7 @@ function planProviders({
   kiloModels,
   cloudflareModels,
   mistralModels,
+  grokModels,
   pollinationsModels,
 }) {
   const freePiList = Array.isArray(freePiModels) ? freePiModels : [];
@@ -101,6 +104,7 @@ function planProviders({
   const kiloList = Array.isArray(kiloModels) ? kiloModels : [];
   const cloudflareList = Array.isArray(cloudflareModels) ? cloudflareModels : [];
   const mistralList = Array.isArray(mistralModels) ? mistralModels : [];
+  const grokList = Array.isArray(grokModels) ? grokModels : [];
   const pollinationsList = Array.isArray(pollinationsModels) ? pollinationsModels : [];
 
   // A key with no catalog is not a usable provider: the model dropdown would be
@@ -119,6 +123,7 @@ function planProviders({
   const kilo = Boolean(kiloKey) && kiloList.length > 0;
   const cloudflare = Boolean(cloudflareKey) && cloudflareList.length > 0;
   const mistral = Boolean(mistralKey) && mistralList.length > 0;
+  const grok = Boolean(grokKey) && grokList.length > 0;
   const pollinations = Boolean(pollinationsKey) && pollinationsList.length > 0;
 
   let defaultProvider = null;
@@ -191,6 +196,9 @@ function planProviders({
   } else if (mistral) {
     defaultProvider = MISTRAL_PROVIDER;
     defaultModel = mistralList[0].id;
+  } else if (grok) {
+    defaultProvider = GROK_PROVIDER;
+    defaultModel = grokList[0].id;
   } else if (pollinations) {
     defaultProvider = POLLINATIONS_PROVIDER;
     defaultModel = pollinationsList[0].id;
@@ -211,6 +219,7 @@ function planProviders({
     kilo,
     cloudflare,
     mistral,
+    grok,
     pollinations,
     ads: freePi,
     freePiTools: freePi,
@@ -231,6 +240,7 @@ function planProviders({
       kilo ||
       cloudflare ||
       mistral ||
+      grok ||
       pollinations,
   };
 }
@@ -251,6 +261,7 @@ module.exports = {
   KILO_PROVIDER,
   CLOUDFLARE_PROVIDER,
   MISTRAL_PROVIDER,
+  GROK_PROVIDER,
   POLLINATIONS_PROVIDER,
   PREFERRED_FREE_PI_MODEL,
   FREE_PI_TOOL_NAMES,
