@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, safeStorage, Notification, globalShortcut, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell, clipboard, safeStorage, Notification, globalShortcut, Menu } = require('electron');
 
 /*
  * A window the agent cannot read is a window it cannot press buttons in, and
@@ -2157,7 +2157,7 @@ async function continueAfterLoop(tabId, tab, attempt = 0) {
   tab.promptSeq = (tab.promptSeq || 0) + 1;
   tab.limitFailure = null;
   tab.lastError = null;
-  tab.turnDraft = { prompts: [], assistant: '', thinking: '', tools: [], done: false };
+  tab.turnDraft = { prompts: [], assistant: '', tools: [], done: false };
   tab.loopGuard = createLoopGuard();
   tab.busy = true;
   sendTab(tabId, 'agent:busy', { busy: true });
@@ -2285,7 +2285,11 @@ async function recoverInterruptedTurn(tabId, tab) {
 
   const messages = session.messages || [];
   const userText = draft.prompts.join('\n\n').trim();
-  const partialText = (draft.assistant || '').trim() || (draft.thinking || '').trim();
+  // Text only, never the reasoning: a model that spends its whole output ceiling
+  // on thinking writes no answer at all, and putting that reasoning back as the
+  // reply made the next model carry the monologue on as if it were its own words
+  // (2026-11-26).
+  const partialText = (draft.assistant || '').trim();
   const userKey = searchKey(userText);
   const partialKey = searchKey(partialText);
   const userLost =
@@ -2709,7 +2713,6 @@ function subscribeTab(tabId) {
           if (tab.turnDraft && !tab.turnDraft.done) tab.turnDraft.assistant += e.delta;
           sendTab(tabId, 'agent:delta', { channel: 'text', delta: e.delta });
         } else if (e.type === 'thinking_delta') {
-          if (tab.turnDraft && !tab.turnDraft.done) tab.turnDraft.thinking += e.delta;
           sendTab(tabId, 'agent:delta', { channel: 'thinking', delta: e.delta });
           // Watch the reasoning as it arrives: a model stuck repeating itself
           // never ends the turn, so it is stopped here instead of by the person.
@@ -2837,10 +2840,7 @@ function subscribeTab(tabId) {
       case 'auto_retry_start': {
         // The retry streams the answer again from the start. Keeping the aborted
         // attempt's text would show it twice in the recovered turn.
-        if (tab.turnDraft && !tab.turnDraft.done) {
-          tab.turnDraft.assistant = '';
-          tab.turnDraft.thinking = '';
-        }
+        if (tab.turnDraft && !tab.turnDraft.done) tab.turnDraft.assistant = '';
         // pi treats a 429 as a throttle and re-asks the same model with backoff.
         // A spent free allowance will not come back in two seconds, so skip the
         // wait and let the turn end on the failure `message_end` already reported.
@@ -3717,6 +3717,84 @@ function mimeFor(file) {
 }
 
 /*
+ * The chat background is copied in, not referenced.
+ *
+ * A whitelisted pref that held a path would let the renderer name any file on the
+ * disk and have this process read it back, and the picture would vanish the
+ * moment the original was moved. So the picker copies the file into the app's own
+ * folder and prefs stores the name this process made — nothing else is accepted.
+ */
+const CHAT_BACKGROUND_DIR = path.join(DATA_ROOT, 'background');
+const CHAT_BACKGROUND_MAX_BYTES = 20 * 1024 * 1024;
+const CHAT_BACKGROUND_NAME = /^background-[a-z0-9]+\.(?:png|jpe?g|webp|gif|bmp)$/;
+
+/** The picture on disk, when prefs names one this app actually made. */
+function chatBackgroundFile() {
+  const name = readPrefs().chatBackground;
+  if (typeof name !== 'string' || !CHAT_BACKGROUND_NAME.test(name)) return null;
+  const file = path.join(CHAT_BACKGROUND_DIR, name);
+  return fs.existsSync(file) ? file : null;
+}
+
+/** What the window draws, or null. A picture is never worth failing to start. */
+function readChatBackground() {
+  const file = chatBackgroundFile();
+  if (!file) return null;
+  try {
+    const stat = fs.statSync(file);
+    if (stat.size > CHAT_BACKGROUND_MAX_BYTES) return null;
+    return {
+      name: path.basename(file),
+      bytes: stat.size,
+      dataUri: `data:${mimeFor(file) || 'image/png'};base64,${fs.readFileSync(file).toString('base64')}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+ipcMain.handle('fs:pickChatBackground', async () => {
+  // Pick first. On Windows and macOS this dialog follows nativeTheme, so the
+  // app's own theme is handed over before it opens; on Linux the desktop decides.
+  nativeTheme.themeSource = readTheme();
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Choose a chat background',
+    properties: ['openFile'],
+    filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] }],
+  });
+  const src = res.canceled ? '' : res.filePaths[0];
+  if (!src) return { canceled: true };
+  const ext = path.extname(src).toLowerCase();
+  if (!mimeFor(src)) return { error: 'type' };
+  try {
+    const stat = await fs.promises.stat(src);
+    if (stat.size > CHAT_BACKGROUND_MAX_BYTES) return { error: 'size' };
+    await fs.promises.mkdir(CHAT_BACKGROUND_DIR, { recursive: true });
+    const name = `background-${Date.now().toString(36)}${ext}`;
+    await fs.promises.copyFile(src, path.join(CHAT_BACKGROUND_DIR, name));
+    // One picture at a time: an old file left behind would be dead weight only.
+    for (const old of await fs.promises.readdir(CHAT_BACKGROUND_DIR)) {
+      if (old === name) continue;
+      try {
+        await fs.promises.rm(path.join(CHAT_BACKGROUND_DIR, old), { force: true });
+      } catch {}
+    }
+    writePrefs({ chatBackground: name });
+    return { ok: true, background: readChatBackground() };
+  } catch {
+    return { error: 'read' };
+  }
+});
+
+ipcMain.handle('fs:clearChatBackground', async () => {
+  writePrefs({ chatBackground: '' });
+  try {
+    await fs.promises.rm(CHAT_BACKGROUND_DIR, { recursive: true, force: true });
+  } catch {}
+  return { ok: true };
+});
+
+/*
  * Declining the terms ends the program. Nothing was accepted, so nothing may
  * keep running — the presence heartbeat included. `app.quit()` closes the
  * window, the agent tabs and the timers together.
@@ -3772,6 +3850,7 @@ ipcMain.handle('app:boot', async () => {
     openTabs: Array.isArray(prefs.openTabs) ? prefs.openTabs : [],
     lang: initialLang(prefs),
     theme: readTheme(),
+    chatBackground: readChatBackground(),
     // Fixed identity — never read from prefs so it cannot be edited.
     profile: {
       owner: PROFILE_DEFAULTS.owner,
@@ -5191,6 +5270,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     sessionsDir: wsSessionsDir,
     sessionsRoot: SESSIONS_ROOT,
     prefsPath: prefsPath(),
+    chatBackground: readChatBackground(),
     // Settings shows where the conversation gets rewritten; the toggle writes
     // back through `settings:compaction` so a live tab follows immediately.
     compaction: {
@@ -5817,7 +5897,7 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
   if (tab.handle.session.isStreaming && tab.turnDraft && !tab.turnDraft.done) {
     tab.turnDraft.prompts.push(promptText);
   } else {
-    tab.turnDraft = { prompts: [promptText], assistant: '', thinking: '', tools: [], done: false };
+    tab.turnDraft = { prompts: [promptText], assistant: '', tools: [], done: false };
   }
 
   const run = tab.handle.session.prompt(promptText, options);
@@ -5999,7 +6079,7 @@ ipcMain.handle('prompt:retry', async (_e, tabId) => {
   tab.lastError = null;
   // A draft with no prompts: if this attempt is also cut short, only the part of
   // the answer that arrived exists to put back — the question is already stored.
-  tab.turnDraft = { prompts: [], assistant: '', thinking: '', tools: [], done: false };
+  tab.turnDraft = { prompts: [], assistant: '', tools: [], done: false };
   tab.busy = true;
   sendTab(id, 'agent:busy', { busy: true });
 

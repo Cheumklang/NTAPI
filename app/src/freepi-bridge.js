@@ -92,7 +92,10 @@ const DEFAULT_BASE_URL = 'https://api.freepi.ai';
 const PROVIDER_NAME = 'free-pi';
 const DEFENSE_PROVIDER_NAME = 'free-pi-defense';
 const CONTEXT_WINDOW = 200000;
-const MAX_OUTPUT_TOKENS = 8192;
+// 8,192 cut a whole-file `write` off mid-call and the turn ended with no answer
+// at all (2026-11-26). The ceiling was ours, not the backend's: a probe with
+// max_tokens=32768 answered 32,290 output tokens in one go.
+const MAX_OUTPUT_TOKENS = 32768;
 const MODEL_ID = 'deepseek/deepseek-v4-flash';
 const SAFE_TOOLS = ['read', 'bash', 'edit', 'write', 'grep', 'find', 'ls'];
 const FREE_PI_DIR_NAME = '.free-pi';

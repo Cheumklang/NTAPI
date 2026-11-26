@@ -27,8 +27,9 @@ const main = fs.readFileSync(path.join(root, 'src/main.js'), 'utf8');
 
 /** The source of one top-level function, braces matched. */
 function body(src, name) {
-  const start = src.indexOf(`function ${name}(`);
-  if (start === -1) return '';
+  const found = new RegExp(`(?:async\\s+)?function ${name}\\(`).exec(src);
+  if (!found) return '';
+  const start = found.index;
   const brace = src.indexOf('{', start);
   let depth = 0;
   for (let i = brace; i < src.length; i += 1) {
@@ -211,8 +212,63 @@ check(
   /if \(m\.kind === 'user'\) \{\n\s*renderUserMessage\(/.test(renderer)
 );
 
-if (failed) {
-  console.error(`\n${failed} failure(s)`);
-  process.exit(1);
+/* ------------------------ a turn that only thought (2026-11-26) */
+
+// A model can spend its whole output ceiling on reasoning and write no answer at
+// all. That reasoning used to be put back as the reply, so the next model read
+// its own thoughts as something it had already said and carried the monologue on
+// as a chat message.
+const messageTextOf = new Function(`return (${body(main, 'messageTextOf')});`)();
+const recoverKey = (text) =>
+  String(text || '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80);
+const recover = new Function(
+  'searchKey',
+  'messageTextOf',
+  'RECOVERED_TURN_CUSTOM_TYPE',
+  'sendTab',
+  'setTimeout',
+  `return (${body(main, 'recoverInterruptedTurn')});`
+)(recoverKey, messageTextOf, 'ntapi.interrupted-turn', () => {}, (fn) => fn());
+
+/** Run one lost turn through the recovery, answering what it wrote into the session. */
+async function recoveryTurn(draft) {
+  const sent = [];
+  const session = {
+    messages: [],
+    isStreaming: false,
+    async sendCustomMessage(msg) {
+      sent.push(msg);
+    },
+  };
+  const tab = { turnDraft: { ...draft, done: false }, handle: { session } };
+  await recover('tab', tab);
+  return sent;
 }
-console.log('\nPASS: a turn that held two sends is put back as two messages');
+
+(async () => {
+  const thoughtOnly = await recoveryTurn({
+    prompts: ['keep going'],
+    assistant: '',
+    thinking: 'Continue: build render2.mjs with painted scene. Let me write.',
+    tools: [],
+  });
+  const note = thoughtOnly[0]?.content?.[0]?.text || '';
+  check('a turn that only thought still brings the question back', thoughtOnly.length === 1, note.slice(0, 120));
+  check('the question is in the note', note.includes('keep going'), note.slice(0, 160));
+  check('the reasoning is not handed on as the answer', !note.includes('render2.mjs'), note.slice(0, 200));
+  check('and no answer bubble is drawn for it', (thoughtOnly[0]?.details?.assistant || '') === '');
+
+  const withAnswer = await recoveryTurn({
+    prompts: ['keep going'],
+    assistant: 'half an ans',
+    thinking: 'thinking out loud',
+    tools: [],
+  });
+  check('a real half-written answer is still put back', (withAnswer[0]?.details?.assistant || '') === 'half an ans');
+
+  if (failed) {
+    console.error(`\n${failed} failure(s)`);
+    process.exit(1);
+  }
+  console.log('\nPASS: a turn that held two sends is put back as two messages');
+})();
