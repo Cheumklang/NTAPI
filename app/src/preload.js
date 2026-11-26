@@ -54,7 +54,7 @@ contextBridge.exposeInMainWorld('freepi', {
   mcpGet: () => ipcRenderer.invoke('mcp:get'),
   mcpSet: (payload) => ipcRenderer.invoke('mcp:set', payload),
   // Version/runtime/OS, for the "copy system info" button and crash reports.
-  systemInfo: () => ipcRenderer.invoke('app:systemInfo'),
+  systemInfo: (payload) => ipcRenderer.invoke('app:systemInfo', payload || {}),
   // One line kept on disk by the main process. Used by the transcript when a
   // repaint could not draw a message: the visible chat would otherwise just be
   // short, with nothing to point at afterwards.
@@ -122,6 +122,10 @@ contextBridge.exposeInMainWorld('freepi', {
   mistralStatus: () => ipcRenderer.invoke('mistral:status'),
   mistralSetKey: (key) => ipcRenderer.invoke('mistral:setKey', { key }),
   mistralClearKey: () => ipcRenderer.invoke('mistral:clearKey'),
+  grokStatus: () => ipcRenderer.invoke('grok:status'),
+  grokSetKey: (key) => ipcRenderer.invoke('grok:setKey', { key }),
+  // Which providers a model may borrow, and the switch that allows it.
+  grokClearKey: () => ipcRenderer.invoke('grok:clearKey'),
   pollinationsStatus: () => ipcRenderer.invoke('pollinations:status'),
   pollinationsSetKey: (key) => ipcRenderer.invoke('pollinations:setKey', { key }),
   pollinationsClearKey: () => ipcRenderer.invoke('pollinations:clearKey'),
@@ -226,6 +230,8 @@ contextBridge.exposeInMainWorld('freepi', {
   // A publish landed after the window had already drawn the cached strip.
   onSponsorChanged: on('sponsor:changed'),
   readImage: (cwd, p) => ipcRenderer.invoke('fs:readImage', { cwd, path: p }),
+  readMedia: (cwd, p) => ipcRenderer.invoke('fs:readMedia', { cwd, path: p }),
+  revealPath: (cwd, p) => ipcRenderer.invoke('fs:revealPath', { cwd, path: p }),
   openPath: (cwd, p) => ipcRenderer.invoke('fs:openPath', { cwd, path: p }),
 
   onBusy: on('agent:busy'),

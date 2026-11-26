@@ -9,6 +9,16 @@ const { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell, clipboard, safe
  * `app.setAccessibilitySupportEnabled` alone leaves the pane as one nameless
  * child, which is exactly what a snapshot of NTAPI used to come back with.
  */
+/*
+ * Rounded corners belong to the desktop, not to the stylesheet.
+ *
+ * While this window was transparent, the 10px radius in styles.css left the four
+ * corners unpainted, and every environment that cannot composite alpha filled
+ * them with black: Ubuntu showed four black wedges, and Windows 11 drew its own
+ * rounded, shadowed edge on top of the CSS radius so neither looked rounded
+ * (2026-11-26). Opaque window, no CSS radius — Windows 11 rounds it itself (see
+ * `roundedCorners` below) and every other desktop gets a clean square.
+ */
 try {
   app.commandLine.appendSwitch('force-renderer-accessibility');
 } catch {}
@@ -81,6 +91,7 @@ const {
   needsDialog,
 } = require('./approval-policy');
 const { formatSystemInfo, safeErrorMessage } = require('./system-info');
+const { formatBugReport } = require('./bug-report');
 const { sdkCandidatePaths } = require('./sdk-path');
 const {
   isLimitError,
@@ -197,6 +208,8 @@ const { checkCloudflareKey, cloudflareBaseUrl } = require('./cloudflare');
 const { checkAnthropicKey, ANTHROPIC_BASE_URL } = require('./anthropic');
 const { checkGoogleKey, GOOGLE_BASE_URL } = require('./google-ai');
 const { checkMistralKey, MISTRAL_BASE_URL } = require('./mistral');
+const { checkGrokKey, GROK_BASE_URL } = require('./grok');
+const { PROVIDER_APIS } = require('./provider-apis');
 const { checkPollinationsKey, POLLINATIONS_BASE_URL } = require('./pollinations');
 const { focusExistingWindow } = require('./single-instance');
 const { isUserAbort } = require('./turn-abort');
@@ -530,6 +543,11 @@ const mistralKeys = createProviderKeyStore({
   dir: DATA_ROOT,
   safeStorage,
   fileName: 'mistral.json',
+});
+const grokKeys = createProviderKeyStore({
+  dir: DATA_ROOT,
+  safeStorage,
+  fileName: 'grok.json',
 });
 const pollinationsKeys = createProviderKeyStore({
   dir: DATA_ROOT,
@@ -2994,6 +3012,10 @@ async function attachTab(tabId, manager, cwd) {
     // MCP is opt-in and its config lives at <DATA_ROOT>/mcp.json, easy to find.
     mcpEnabled: Boolean(readPrefs().mcpEnabled),
     mcpConfigDir: DATA_ROOT,
+    // Provider catalogs live on disk for ten minutes, so a relaunch opens the
+    // chat on the model list it already knows instead of asking six providers
+    // again before the window can draw.
+    catalogCachePath: path.join(DATA_ROOT, 'catalogs.json'),
     extraSkillPaths: (() => {
       // Every existing root, plus the folder that holds each skill the palette
       // found. The SDK only looks one level into a root, so a skill that lives in
@@ -3059,6 +3081,7 @@ async function attachTab(tabId, manager, cwd) {
     cloudflareKey: cloudflareKeys.read(),
     cloudflareAccountId: cloudflareAccounts.read(),
     mistralKey: mistralKeys.read(),
+    grokKey: grokKeys.read(),
     pollinationsKey: pollinationsKeys.read(),
   });
 
@@ -3520,7 +3543,10 @@ function createWindow() {
     minWidth: 1240,
     minHeight: 840,
     backgroundColor: readTheme() === 'light' ? '#f5f6fa' : '#0f1115',
-    transparent: true,
+    transparent: false,
+    // Windows 11 rounds and shadows a frameless window for us; elsewhere the
+    // window is a clean square rather than an unpainted corner.
+    roundedCorners: true,
     title: 'NTAPI',
     // electron-builder stamps the packaged .exe; this covers unpackaged runs.
     icon: app.isPackaged ? undefined : path.join(__dirname, '..', 'build', 'icon.png'),
@@ -4076,10 +4102,13 @@ ipcMain.handle('ntfy:login', async (_e, { username, password } = {}) => {
 
 ipcMain.handle('ntfy:logout', async () => ({ ok: true, state: ntfyService.logout().state }));
 
-ipcMain.handle('ntfy:setEnabled', async (_e, { enabled } = {}) => ({
-  ok: true,
-  state: ntfyService.setEnabled(enabled !== false).state,
-}));
+ipcMain.handle('ntfy:setEnabled', async (_e, { enabled } = {}) => {
+  // Bind the room to the chat that is in front first: switching on before a tab
+  // was followed used to change nothing and still answer "ok" (2026-11-26).
+  ntfyFollowActive();
+  const res = ntfyService.setEnabled(enabled !== false);
+  return { ok: res.ok !== false, error: res.error || null, state: res.state };
+});
 
 /** A tab id in a publish payload names the room it belongs to. */
 function ntfySessionForPayload(payload = {}) {
@@ -4350,6 +4379,15 @@ function applyMistralKeyToTabs(key) {
   });
 }
 
+function applyGrokKeyToTabs(key) {
+  return applyKeyToTabs({
+    provider: 'grok',
+    label: 'Grok',
+    key,
+    apply: (handle, next) => handle.applyGrokKey(next),
+  });
+}
+
 function applyPollinationsKeyToTabs(key) {
   return applyKeyToTabs({
     provider: 'pollinations',
@@ -4383,6 +4421,7 @@ function keyHealth() {
     { provider: 'cloudflare', status: cloudflareKeys.status() },
     { provider: 'cloudflare-account', status: cloudflareAccounts.status() },
     { provider: 'mistral', status: mistralKeys.status() },
+    { provider: 'grok', status: grokKeys.status() },
     { provider: 'pollinations', status: pollinationsKeys.status() },
   ]);
 }
@@ -4968,6 +5007,59 @@ ipcMain.handle('mistral:clearKey', async () => {
   return { ok: true, status: await mistralStatus(), applied };
 });
 
+async function grokStatus() {
+  return grokKeys.status();
+}
+
+ipcMain.handle('grok:status', async () => grokStatus());
+
+ipcMain.handle('grok:setKey', async (_e, { key } = {}) => {
+  const raw = String(key || '').trim();
+  if (!raw) {
+    return { ok: false, status: await grokStatus(), error: 'Enter a Grok API key first.' };
+  }
+
+  const check = await checkGrokKey(raw);
+  if (!check.ok && !check.offline && !check.restricted) {
+    return { ok: false, status: await grokStatus(), error: check.error, code: check.code || null };
+  }
+
+  try {
+    grokKeys.save(raw);
+    const applied = await applyGrokKeyToTabs(raw);
+    return {
+      ok: true,
+      status: await grokStatus(),
+      unverified: Boolean(check.offline),
+      // xAI accepted the key and refused the action: worth keeping, with the
+      // vendor's own sentence attached so the window can repeat it.
+      restricted: Boolean(check.restricted),
+      detail: check.ok ? '' : check.error || '',
+      applied,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: await grokStatus(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+});
+
+ipcMain.handle('grok:clearKey', async () => {
+  try {
+    grokKeys.clear();
+  } catch (err) {
+    return {
+      ok: false,
+      status: await grokStatus(),
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const applied = await applyGrokKeyToTabs(null);
+  return { ok: true, status: await grokStatus(), applied };
+});
+
 async function pollinationsStatus() {
   return pollinationsKeys.status();
 }
@@ -5194,7 +5286,33 @@ ipcMain.handle('google:clearKey', async () => {
   return { ok: true, status: googleKeys.status(), applied };
 });
 
-ipcMain.handle('app:systemInfo', () => {
+/*
+ * The last few lines the app complained about.
+ *
+ * The bug report used to carry the version and nothing else, so "it beeped and
+ * stopped" was all a maintainer ever got. console.* is the one channel every
+ * failure already goes through, so it is wrapped once, bounded, and read from
+ * the report instead of a log file the renderer cannot see (2026-11-26).
+ */
+const recentLog = [];
+const RECENT_LOG_MAX = 40;
+for (const level of ['warn', 'error']) {
+  const original = console[level].bind(console);
+  console[level] = (...args) => {
+    try {
+      const text = args
+        .map((a) => (a instanceof Error ? `${a.message} ${a.stack || ''}`.trim() : typeof a === 'string' ? a : JSON.stringify(a)))
+        .join(' ');
+      recentLog.push(`[${level}] ${text}`.slice(0, 400));
+      if (recentLog.length > RECENT_LOG_MAX) recentLog.shift();
+    } catch {
+      /* a logger that throws is worse than a missing line */
+    }
+    original(...args);
+  };
+}
+
+ipcMain.handle('app:systemInfo', (_e, payload = {}) => {
   const active = activeTabId ? tabs.get(activeTabId) : null;
   const info = {
     version: app.getVersion(),
@@ -5209,7 +5327,16 @@ ipcMain.handle('app:systemInfo', () => {
     packaged: app.isPackaged,
     provider: active?.handle?.session?.model?.provider || '',
   };
-  return { ...info, text: formatSystemInfo(info) };
+  const text = formatBugReport({
+    error: payload?.error || '',
+    context: payload?.context || {},
+    info,
+    // The window's own lines first: most failures never reach the main process.
+    logLines: [...(Array.isArray(payload?.logLines) ? payload.logLines.slice(-10) : []), ...recentLog],
+    home: os.homedir(),
+    when: new Date().toISOString(),
+  });
+  return { ...info, text };
 });
 
 ipcMain.handle('mcp:get', () => ({
@@ -5292,6 +5419,7 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     kilo: await kiloStatus(),
     cloudflare: await cloudflareStatus(),
     mistral: await mistralStatus(),
+    grok: await grokStatus(),
     pollinations: await pollinationsStatus(),
     // Looking at a picture: which route, and is the local model ready to serve it.
     visionMode: visionMode(),
@@ -6399,11 +6527,65 @@ ipcMain.handle('fs:readImage', async (_e, { cwd, path: target } = {}) => {
   }
 });
 
+// Audio and video a tool produced. Bigger than a picture, so a file the renderer
+// cannot hold is reported instead of silently skipped (2026-11-26).
+const MEDIA_EXTS = new Map([
+  ['.wav', 'audio/wav'],
+  ['.mp3', 'audio/mpeg'],
+  ['.ogg', 'audio/ogg'],
+  ['.m4a', 'audio/mp4'],
+  ['.flac', 'audio/flac'],
+  ['.mp4', 'video/mp4'],
+  ['.webm', 'video/webm'],
+  ['.mov', 'video/quicktime'],
+]);
+const MEDIA_MAX_BYTES = 32 * 1024 * 1024;
+
+ipcMain.handle('fs:readMedia', async (_e, { cwd, path: target } = {}) => {
+  try {
+    const abs = resolveInsideWorkspace(cwd, target);
+    if (!abs) return { ok: false };
+    const mime = MEDIA_EXTS.get(path.extname(abs).toLowerCase());
+    if (!mime) return { ok: false };
+    const stat = await fs.promises.stat(abs);
+    if (!stat.isFile()) return { ok: false };
+    if (stat.size > MEDIA_MAX_BYTES) return { ok: false, error: 'tooLarge' };
+    const buf = await fs.promises.readFile(abs);
+    return { ok: true, path: abs, mimeType: mime, size: stat.size, dataUri: `data:${mime};base64,${buf.toString('base64')}` };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[readMedia]', message);
+    return { ok: false, error: message };
+  }
+});
+
+ipcMain.handle('fs:revealPath', async (_e, { cwd, path: target } = {}) => {
+  try {
+    const abs = resolveInsideWorkspace(cwd, target);
+    if (!abs) return { ok: false, error: 'outsideWorkspace' };
+    shell.showItemInFolder(abs);
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[revealPath]', message);
+    return { ok: false, error: message };
+  }
+});
+
+// Every handler here answers, whatever happens inside it. A throw used to leave
+// the renderer waiting forever, which surfaced as the unhelpful
+// "reply was never sent" and told nobody what actually went wrong.
 ipcMain.handle('fs:openPath', async (_e, { cwd, path: target } = {}) => {
-  const abs = resolveInsideWorkspace(cwd, target);
-  if (!abs) return { ok: false };
-  const error = await shell.openPath(abs);
-  return error ? { ok: false, error } : { ok: true };
+  try {
+    const abs = resolveInsideWorkspace(cwd, target);
+    if (!abs) return { ok: false, error: 'outsideWorkspace' };
+    const error = await shell.openPath(abs);
+    return error ? { ok: false, error } : { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[openPath]', message);
+    return { ok: false, error: message };
+  }
 });
 
 /**

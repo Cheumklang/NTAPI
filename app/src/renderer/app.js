@@ -70,6 +70,7 @@ const STRINGS = {
     errorRetryHint: 'Run the last request again — no need to retype it',
     errorRetryBusy: 'Still working — press Retry when this turn finishes.',
     errorRetryFailed: 'Could not restart that turn.',
+    turnUnfinished: 'The previous turn was cut off before it finished — press Retry to carry on from here.',
     compactTitle: 'Conversation compaction',
     compactEnabled: 'Summarize long conversations automatically',
     compactKeepLabel: 'Recent tokens kept word for word',
@@ -330,6 +331,9 @@ const STRINGS = {
     anthropicMeterLabel: 'Pay per token',
     anthropicPrice: '{in} in / {out} out per 1M',
     anthropicLimits: 'Claude Opus 4.5 $5 in / $25 out per 1M',
+    grokMeterLabel: 'Pay per token',
+    grokPrice: '{in} in / {out} out per 1M',
+    grokLimits: 'Grok 4.1 $3 in / $15 out per 1M',
     googleSection: 'Gemini',
     googleSave: 'Save',
     googleRemove: 'Remove',
@@ -418,6 +422,21 @@ const STRINGS = {
     mistralUnverified: 'Mistral could not be reached — the key was saved unverified.',
     mistralSaveFailed: 'Could not save the key:',
     mistralRemoved: 'Mistral key removed.',
+    grokSection: 'Grok',
+    grokKeyLabel: 'API key',
+    grokSave: 'Save',
+    grokRemove: 'Remove',
+    grokRemoveTitle: 'Remove the Grok key?',
+    grokRemoveSub: 'Grok models leave the list.',
+    grokConfigured: 'Configured',
+    grokUnreadable: 'This key was saved on another machine and cannot be read here — enter it again.',
+    grokNotConfigured: 'No key yet — Grok models stay hidden.',
+    grokGetKey: 'Get a key at console.x.ai',
+    grokSaved: 'Grok key saved.',
+    grokUnverified: 'Grok could not be reached — the key was saved unverified.',
+    grokSaveFailed: 'Could not save the key:',
+    grokSaveRestricted: 'Key saved, but xAI refused to list models for it:',
+    grokRemoved: 'Grok key removed.',
     pollinationsSection: 'Pollinations',
     pollinationsKeyLabel: 'API key',
     pollinationsSave: 'Save',
@@ -608,6 +627,11 @@ const STRINGS = {
     queueEditingNote: 'Editing — not sent yet',
     newSession: 'New session',
     noOutput: '(no output)',
+    openFile: 'Open',
+    revealFile: 'Show in folder',
+    viewFile: 'View',
+    playFile: 'Play',
+    fileActions: 'Press for play, open or show in folder',
     copied: 'Copied',
     copyOutput: 'Copy output',
     toolRunning: 'running…',
@@ -788,6 +812,7 @@ const STRINGS = {
     errorRetryHint: 'ส่งคำขอล่าสุดซ้ำให้ ไม่ต้องพิมพ์ใหม่',
     errorRetryBusy: 'ยังทำงานอยู่ — กดลองอีกครั้งเมื่อเทิร์นนี้จบ',
     errorRetryFailed: 'เริ่มเทิร์นเดิมซ้ำไม่สำเร็จ',
+    turnUnfinished: 'เทิร์นก่อนหน้าถูกตัดกลางคัน ยังไม่จบ — กด "ลองอีกครั้ง" เพื่อทำต่อจากจุดเดิมได้เลย',
     compactTitle: 'การย่อบทสนทนา',
     compactEnabled: 'ย่อบทสนทนายาวให้เองอัตโนมัติ',
     compactKeepLabel: 'จำนวน token ท้ายบทสนทนาที่เก็บไว้ตามเดิม',
@@ -1044,6 +1069,9 @@ const STRINGS = {
     anthropicMeterLabel: 'จ่ายตามโทเคน',
     anthropicPrice: '{in} เข้า / {out} ออก ต่อ 1M',
     anthropicLimits: 'Claude Opus 4.5 $5 เข้า / $25 ออก ต่อ 1M',
+    grokMeterLabel: 'จ่ายตามโทเคน',
+    grokPrice: '{in} เข้า / {out} ออก ต่อ 1M',
+    grokLimits: 'Grok 4.1 $3 เข้า / $15 ออก ต่อ 1M',
     googleSection: 'Gemini',
     googleSave: 'บันทึก',
     googleRemove: 'ลบออก',
@@ -1132,6 +1160,21 @@ const STRINGS = {
     mistralUnverified: 'ติดต่อ Mistral ไม่ได้ — บันทึกไว้โดยยังไม่ตรวจ',
     mistralSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
     mistralRemoved: 'ลบคีย์ Mistral แล้ว',
+    grokSection: 'Grok',
+    grokKeyLabel: 'คีย์ API',
+    grokSave: 'บันทึก',
+    grokRemove: 'ลบออก',
+    grokRemoveTitle: 'ลบคีย์ Grok?',
+    grokRemoveSub: 'โมเดล Grok จะหายจากรายการ',
+    grokConfigured: 'ตั้งค่าแล้ว',
+    grokUnreadable: 'คีย์นี้ถูกบันทึกไว้บนเครื่องอื่นและอ่านไม่ได้ที่นี่ — กรอกใหม่',
+    grokNotConfigured: 'ยังไม่มีคีย์ — โมเดล Grok จะไม่แสดง',
+    grokGetKey: 'ขอคีย์ที่ console.x.ai',
+    grokSaved: 'บันทึกคีย์ Grok แล้ว',
+    grokUnverified: 'ติดต่อ Grok ไม่ได้ — บันทึกไว้โดยยังไม่ตรวจ',
+    grokSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
+    grokSaveRestricted: 'บันทึกคีย์แล้ว แต่ xAI ไม่ยอมให้อ่านรายการโมเดล:',
+    grokRemoved: 'ลบคีย์ Grok แล้ว',
     pollinationsSection: 'Pollinations',
     pollinationsKeyLabel: 'คีย์ API',
     pollinationsSave: 'บันทึก',
@@ -1322,6 +1365,11 @@ const STRINGS = {
     queueEditingNote: 'กำลังแก้ — ยังไม่ส่ง',
     newSession: 'เซสชันใหม่',
     noOutput: '(ไม่มีผลลัพธ์)',
+    openFile: 'เปิด',
+    revealFile: 'แสดงในโฟลเดอร์',
+    viewFile: 'ดู',
+    playFile: 'เล่น',
+    fileActions: 'กดเพื่อเล่น เปิด หรือแสดงในโฟลเดอร์',
     copied: 'คัดลอกแล้ว',
     copyOutput: 'คัดลอกผลลัพธ์',
     toolRunning: 'กำลังรัน…',
@@ -1710,22 +1758,32 @@ const activeView = () => (activeTabId ? views.get(activeTabId) : null);
 /**
  * Repaint the session rows so the running spinner tracks the turn.
  *
- * Only the classes on the one row change: `renderSessions()` reads the chat
- * list from disk, and doing that on every busy/settled event of every tab made
- * the window stutter right when a turn starts or ends.
+ * Only the classes on the rows change: `renderSessions()` reads the chat list
+ * from disk, and doing that on every busy/settled event of every tab made the
+ * window stutter right when a turn starts or ends.
+ *
+ * Every open chat is repainted, not just the one on screen. A settled event names
+ * its own tab, and painting from the *active* view left a background chat's row
+ * spinning long after its turn had ended — the dot kept turning until the app was
+ * restarted, which is what "I cannot tell whether it is finished" looked like
+ * (2026-11-26).
  */
 function refreshSessionBusy() {
-  const view = activeView();
   const list = el('sessionList');
-  if (!view?.sessionId || !list) return;
-  const row = list.querySelector(`.session-item[data-session-id="${CSS.escape(String(view.sessionId))}"]`);
-  if (!row) return;
-  const busy = Boolean(view.busy);
-  row.classList.toggle('busy', busy);
-  const slot = row.querySelector('.s-pin-slot');
-  if (!slot) return;
-  if (busy && view.tabId !== activeTabId) slot.innerHTML = '<span class="s-spin"></span>';
-  else slot.textContent = row.classList.contains('pinned') ? '\u{1F4CC}' : '';
+  if (!list) return;
+  for (const view of views.values()) {
+    if (!view?.sessionId) continue;
+    const row = list.querySelector(
+      `.session-item[data-session-id="${CSS.escape(String(view.sessionId))}"]`
+    );
+    if (!row) continue;
+    const busy = Boolean(view.busy);
+    row.classList.toggle('busy', busy);
+    const slot = row.querySelector('.s-pin-slot');
+    if (!slot) continue;
+    if (busy && view.tabId !== activeTabId) slot.innerHTML = '<span class="s-spin"></span>';
+    else slot.textContent = row.classList.contains('pinned') ? '\u{1F4CC}' : '';
+  }
 }
 
 function createView(tabId) {
@@ -2584,6 +2642,31 @@ function galleryImage(src, alt = '', title = '') {
 }
 
 /**
+ * A picture with the way back to the file it came from.
+ *
+ * Seeing a picture in the chat and then wanting it elsewhere is the whole point
+ * of making one, so the thumbnail carries "show in folder" (2026-11-26).
+ */
+function imageTile(src, rel, cwd, title = '') {
+  const im = galleryImage(src, rel, title || rel);
+  if (!cwd || !rel) return im;
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-image';
+  wrap.appendChild(im);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'img-reveal';
+  btn.textContent = t('revealFile');
+  btn.title = rel;
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    api.revealPath(cwd, rel);
+  });
+  wrap.appendChild(btn);
+  return wrap;
+}
+
+/**
  * Fill a strip with pictures that live on disk.
  *
  * Each read is validated in main against the workspace and the chat attachment
@@ -2594,7 +2677,7 @@ async function paintStoredImages(strip, paths, cwd) {
   if (!cwd) return;
   for (const rel of paths) {
     const res = await api.readImage(cwd, rel).catch(() => null);
-    if (res?.ok) strip.appendChild(galleryImage(res.dataUri, rel, rel));
+    if (res?.ok) strip.appendChild(imageTile(res.dataUri, rel, cwd));
   }
 }
 
@@ -2849,7 +2932,25 @@ const holds = new Map();
  * disappeared but the message stayed in the queue.
  */
 function holdMessage(view, wrap, { text, images, send, what, rowInto, onCancel }) {
-  cancelHold(view, { silent: true });
+  /*
+   * A second message while one is still counting down.
+   *
+   * The old hold used to be cancelled silently: its row vanished, the message
+   * stayed in the transcript looking sent, and it never went anywhere — the
+   * promise the countdown made was broken in the one direction the user cannot
+   * see. Whichever message was already counting down is sent now, so the newest
+   * countdown is the only one on screen and nothing is lost (2026-11-26).
+   */
+  const previous = holds.get(view.tabId);
+  if (previous && !previous.finished) {
+    previous.finished = true;
+    clearInterval(previous.timer);
+    holds.delete(view.tabId);
+    previous.row.remove();
+    try {
+      previous.send?.();
+    } catch {}
+  }
 
   const row = document.createElement('div');
   row.className = 'hold-row';
@@ -2914,6 +3015,7 @@ function holdMessage(view, wrap, { text, images, send, what, rowInto, onCancel }
   const giveBack = (taken) => {
     if (record.finished) return;
     detach();
+    withdrawMessage(view, record.text);
     // Read from the record, not the destructured parameter: the caller may set
     // it after this function returned.
     const handler = record.onCancel || onCancel;
@@ -2954,6 +3056,22 @@ function holdMessage(view, wrap, { text, images, send, what, rowInto, onCancel }
 function holdIdFor(view) {
   view.holdSeq = (view.holdSeq || 0) + 1;
   return `${view.tabId}:${view.holdSeq}`;
+}
+
+/**
+ * Words the user took back.
+ *
+ * A cancelled message must never be sent by anything else afterwards: not the
+ * queue drain that was waiting behind its countdown, not a repaint that brought
+ * a copy back. The text stays withdrawn until the user sends that same text on
+ * purpose again (2026-11-26, reported after Cancel was pressed and the message
+ * still went out).
+ */
+function withdrawMessage(view, text) {
+  const clean = String(text || '').trim();
+  if (!view || !clean) return;
+  if (!(view.withdrawn instanceof Set)) view.withdrawn = new Set();
+  view.withdrawn.add(clean);
 }
 
 /**
@@ -3974,6 +4092,7 @@ function renderActiveTab() {
         body.__fpText = body.__fpText ? `${body.__fpText}${text}` : text;
         MD.renderInto(body, body.__fpText, { copiedLabel: t('copied') });
         appendImagePreviews(body, text, view.cwd);
+        linkFilePaths(body, view.cwd);
       }
       const tc = wrap.querySelector('.tools');
       for (const tool of tools) {
@@ -4059,6 +4178,20 @@ function renderActiveTab() {
   // The repaint dropped the bubble the running turn was writing into; point it
   // back at the last reply before any chip is painted.
   adoptLiveBubble(view, liveBubble, liveFrom !== null);
+  /*
+   * A turn that never finished reopens as a dead end otherwise.
+   *
+   * Closing the app mid-run takes the pause/continue button with it: it is only
+   * drawn while a turn is running in this process. The stored history still says
+   * where the work stopped — a finished turn always ends with an assistant entry
+   * — so a conversation whose last entry is the user's own question is one
+   * something interrupted, and this line is the single press that carries on from
+   * it instead of the user typing "go on" themselves (2026-11-26).
+   */
+  const lastStored = view.messages?.[view.messages.length - 1];
+  if (!view.busy && lastStored && lastStored.kind === 'user') {
+    appendErrorBanner(t('turnUnfinished'), false, { onRetry: () => retryTurn(view) });
+  }
 
   // Ranges still to draw, nearest to the tail first: reading upward, the history
   // arrives in the order it is being looked at.
@@ -4283,7 +4416,7 @@ function paintProviderMeter(view) {
         ? t('deepseekPrice', { in: moneyText(inUsd), out: moneyText(outUsd) })
         : t('deepseekLimits');
     text.textContent = `${price} · ${view?.model?.name || '—'}`;
-  } else if (chrome.meter === 'anthropic' || chrome.meter === 'google') {
+  } else if (chrome.meter === 'anthropic' || chrome.meter === 'google' || chrome.meter === 'grok') {
     // Both are first-party routes: the balance lives in the vendor's own
     // console, so the useful thing here is what this model charges.
     const paid = chrome.meter;
@@ -4459,6 +4592,7 @@ let openrouterStatus = null;
 let kiloStatus = null;
 let cloudflareStatus = null;
 let mistralStatus = null;
+let grokStatus = null;
 let pollinationsStatus = null;
 /** The local vision model (llama.cpp) and where a picture goes when it is looked at. */
 let llamacppStatus = null;
@@ -4688,6 +4822,28 @@ function paintMistralSettings() {
     if (s.hint) text += ` · ...${s.hint}`;
   } else if (s?.configured) {
     text = t('mistralUnreadable');
+  }
+
+  node.textContent = text;
+  node.classList.toggle('warn', Boolean(s?.configured && !s.readable));
+  if (remove) remove.disabled = !s?.configured;
+  paintProviderGrid();
+}
+
+
+function paintGrokSettings() {
+  const node = el('grokStatus');
+  const remove = el('grokRemove');
+  if (!node) return;
+
+  const s = grokStatus;
+  let text = t('grokNotConfigured');
+  if (s?.configured && s.readable) {
+    const how = s.encrypted ? t('coarenaEncrypted') : t('coarenaPlaintext');
+    text = `${t('grokConfigured')} · ${how}`;
+    if (s.hint) text += ` · ...${s.hint}`;
+  } else if (s?.configured) {
+    text = t('grokUnreadable');
   }
 
   node.textContent = text;
@@ -5387,7 +5543,9 @@ async function ntfyNotifySettled(tabId, payload = {}) {
   const cfg = ntfyState?.notify;
   if (!cfg?.onSettle || ntfyPending.has(tabId)) return;
   const key = ntfyKeyOfView(views.get(tabId)) || '';
-  if (!ntfyRoomsOn.get(key.toLowerCase())) return;
+  // One room per chat, and only a room this chat's own switch opened: a notice
+  // must never be pushed through another chat's topic.
+  if (ntfyRoomsOn.get(key.toLowerCase()) !== true) return;
   // 'away' means this chat is not the one in front of the reader — another tab
   // or another window is.
   const inFront = tabId === activeTabId && document.visibilityState === 'visible' && document.hasFocus();
@@ -5514,6 +5672,7 @@ const PROVIDER_TILE_ORDER = [
   'deepseek',
   'freepi',
   'google',
+  'grok',
   'kilo',
   'llm7',
   'mistral',
@@ -5549,6 +5708,7 @@ function providerStatusOf(id) {
       kilo: kiloStatus,
       cloudflare: cloudflareStatus,
       mistral: mistralStatus,
+      grok: grokStatus,
       pollinations: pollinationsStatus,
       // A local model has no key: "usable" means installed and switched on — the
       // tick must not blink just because the model is idle between pictures.
@@ -5793,6 +5953,16 @@ function mergeLiveTurn(messages, live) {
  * tab restored cannot become the one that is "active".
  */
 let restoringTabs = false;
+/**
+ * Restored conversations still waiting for their turn.
+ *
+ * The window used to open only after every saved tab had built its session —
+ * four chats meant four session builds before anything was on screen, which is
+ * the slowness reported on 2026-11-26. Only the conversation the window was on
+ * is built now; the rest follow once the window is up and are still applied
+ * without painting, exactly as before.
+ */
+let pendingRestoreTabs = [];
 let rememberedSessionFile = '';
 
 function rememberActiveTab(view) {
@@ -6585,6 +6755,7 @@ async function openSettings() {
   kiloStatus = settingsData?.kilo || null;
   cloudflareStatus = settingsData?.cloudflare || null;
   mistralStatus = settingsData?.mistral || null;
+  grokStatus = settingsData?.grok || null;
   pollinationsStatus = settingsData?.pollinations || null;
   llamacppStatus = settingsData?.llamacpp || null;
   visionMode = settingsData?.visionMode || 'model';
@@ -6601,6 +6772,7 @@ async function openSettings() {
   paintKiloSettings();
   paintCloudflareSettings();
   paintMistralSettings();
+  paintGrokSettings();
   paintPollinationsSettings();
   paintLlamaCppSettings();
   paintVisionControl();
@@ -6703,10 +6875,44 @@ el('mcpSave')?.addEventListener('click', saveMcpSettings);
 
 /* -------------------- system info & crash notice -------------------- */
 
+/** The last failure the window saw, kept until a report is copied. */
+let lastCrash = null;
+/**
+ * What the window complained about.
+ *
+ * The main process only ever sees its own console; a failure inside the page
+ * never got that far, so the report showed an empty log for the failures people
+ * actually hit (2026-11-26).
+ */
+const uiLog = [];
+for (const level of ['warn', 'error']) {
+  const original = console[level].bind(console);
+  console[level] = (...args) => {
+    try {
+      uiLog.push(`[ui:${level}] ${args.map((a) => (a instanceof Error ? a.message : String(a))).join(' ')}`.slice(0, 300));
+      if (uiLog.length > 20) uiLog.shift();
+    } catch {
+      /* ignore */
+    }
+    original(...args);
+  };
+}
+/** The last thing the person pressed that could plausibly have broken. */
+let lastAction = '';
+
 async function copySystemInfo(btn) {
   let text = '';
   try {
-    const info = await api.systemInfo();
+    const view = activeView();
+    const context = {
+      screen: el('settingsOverlay') && !el('settingsOverlay').hidden ? 'Settings' : 'Chat',
+      workspace: view?.cwd || '',
+      model: view?.model ? `${view.model.provider || ''} ${view.model.id || ''}`.trim() : '',
+      busy: Boolean(view?.busy),
+      lastAction,
+      lastTool: view?.actTool || '',
+    };
+    const info = await api.systemInfo({ error: lastCrash || '', context, logLines: uiLog.slice(-10) });
     text = info?.text || '';
     await navigator.clipboard.writeText(text);
     if (btn) {
@@ -6727,6 +6933,7 @@ function showCrashNotice(reason) {
   const text = el('crashText');
   if (!box || !text || !box.hidden) return;
   const msg = reason && reason.message ? reason.message : typeof reason === 'string' ? reason : '';
+  lastCrash = { message: msg, stack: reason && reason.stack ? reason.stack : '' };
   text.textContent = `${t('crashNotice')}${msg ? ` — ${msg}` : ''}`;
   box.hidden = false;
   // It stays put: the message is the one clue a bug report gets, so it leaves
@@ -7703,6 +7910,50 @@ el('mistralGetKey')?.addEventListener('click', () => {
   api.openExternal('https://console.mistral.ai/').catch(() => {});
 });
 
+el('grokSave')?.addEventListener('click', async () => {
+  const inputEl = el('grokKeyInput');
+  const button = el('grokSave');
+  const key = (inputEl?.value || '').trim();
+  if (!key) return;
+
+  button.disabled = true;
+  try {
+    const res = await api.grokSetKey(key);
+    if (res?.ok) {
+      if (inputEl) inputEl.value = '';
+      grokStatus = res.status || null;
+      paintGrokSettings();
+      paintProviderMeter(activeView());
+      showNotice(
+        res.restricted
+          ? `${t('grokSaveRestricted')} ${res.detail || ''}`.trim()
+          : res.unverified
+            ? t('grokUnverified')
+            : t('grokSaved')
+      );
+    } else {
+      showNotice(`${t('grokSaveFailed')} ${res?.error || ''}`.trim());
+    }
+  } catch (err) {
+    showNotice(`${t('grokSaveFailed')} ${err instanceof Error ? err.message : String(err)}`.trim());
+  } finally {
+    button.disabled = false;
+  }
+});
+
+el('grokRemove')?.addEventListener('click', () => {
+  showConfirmDialog({
+    kind: 'grokRemove',
+    title: t('grokRemoveTitle'),
+    sub: t('grokRemoveSub'),
+    action: t('grokRemove'),
+  });
+});
+
+el('grokGetKey')?.addEventListener('click', () => {
+  api.openExternal('https://console.x.ai/').catch(() => {});
+});
+
 el('pollinationsSave')?.addEventListener('click', async () => {
   const inputEl = el('pollinationsKeyInput');
   const button = el('pollinationsSave');
@@ -8482,6 +8733,19 @@ el('confirmDelete').addEventListener('click', async () => {
     return;
   }
 
+  if (state.kind === 'grokRemove') {
+    const res = await api.grokClearKey();
+    if (res?.ok) {
+      grokStatus = res.status || null;
+      paintGrokSettings();
+      paintProviderMeter(activeView());
+      showNotice(t('grokRemoved'));
+    } else {
+      showNotice(`${t('grokSaveFailed')} ${res?.error || ''}`.trim());
+    }
+    return;
+  }
+
   if (state.kind === 'pollinationsRemove') {
     const res = await api.pollinationsClearKey();
     if (res?.ok) {
@@ -9240,20 +9504,43 @@ async function boot() {
     // as well — the extra sessions stay on disk and open from the list.
     const seen = new Set();
     let restored = 0;
+    const wantedTabs = [];
     for (const t of info.openTabs) {
       const key = t.sessionFile || `${t.cwd}::${t.tabId}`;
       if (seen.has(key) || restored >= MAX_RESTORED_TABS) continue;
       seen.add(key);
+      wantedTabs.push(t);
+      restored += 1;
+    }
+    /*
+     * The remembered conversation first, everything else after the window is up.
+     *
+     * Opening all of them together (the previous fix) already removed the sum of
+     * the waits, but the window still could not appear until the last of the
+     * four session builds had finished — a blank app for several seconds. The
+     * one tab the user is looking at is built now; the others are queued behind
+     * the splash (2026-11-26).
+     */
+    const remembered = typeof info.prefs?.activeSession === 'string' ? info.prefs.activeSession : '';
+    const order = [...wantedTabs].sort((a, b) => {
+      const aFirst = a.sessionFile === remembered ? 0 : 1;
+      const bFirst = b.sessionFile === remembered ? 0 : 1;
+      return aFirst - bFirst;
+    });
+    let firstOk = false;
+    for (const t of order) {
+      if (firstOk) {
+        pendingRestoreTabs.push(t);
+        continue;
+      }
       try {
         const res = await api.openTab({ cwd: t.cwd, sessionId: t.sessionFile || undefined, restore: true });
         // Apply the state we were handed. Creating an empty view here threw the
         // state away, so after a reload the window showed a blank tab until
         // the next event happened to refresh it.
-        // No paint yet: every restored tab used to build its whole transcript
-        // (tail first) and rescan the chat list, and only the last one was ever
-        // seen. The remembered tab is activated once, below.
+        // No paint yet: the remembered tab is activated once, below.
         applyTabState(res.state, { show: false });
-        restored += 1;
+        firstOk = true;
       } catch {}
     }
     restoringTabs = false;
@@ -9294,6 +9581,31 @@ async function boot() {
   // Last thing in boot: the guide points at real controls, so it must not open
   // while the first tab is still painting over them.
   maybeShowGuide();
+
+  // The other conversations, once this one is on screen and the splash is gone.
+  if (pendingRestoreTabs.length) setTimeout(restorePendingTabs, 700);
+}
+
+/** Build the restored tabs that were not the remembered one, without painting. */
+async function restorePendingTabs() {
+  const queue = pendingRestoreTabs;
+  pendingRestoreTabs = [];
+  const wasRestoring = restoringTabs;
+  restoringTabs = true;
+  try {
+    for (const tab of queue) {
+      try {
+        const res = await api.openTab({
+          cwd: tab.cwd,
+          sessionId: tab.sessionFile || undefined,
+          restore: true,
+        });
+        applyTabState(res.state, { show: false });
+      } catch {}
+    }
+  } finally {
+    restoringTabs = wasRestoring;
+  }
 }
 
 el('pickFolder').addEventListener('click', async () => {
@@ -10131,10 +10443,168 @@ async function appendImagePreviews(container, text, cwd) {
     // No click handler here: every picture in the transcript opens the viewer
     // through the delegated handler below, so one image cannot be left opening
     // Windows Photos while the rest open in place.
-    strip.appendChild(galleryImage(res.dataUri, rel, rel));
+    strip.appendChild(imageTile(res.dataUri, rel, cwd));
   }
   if (strip.children.length) container.appendChild(strip);
   container.__fpImagesPending = false;
+}
+
+/**
+ * A path to a picture, a sound or a video in the words themselves.
+ *
+ * The reply already says which file it made and where it is, so the path is the
+ * control: press it and the three things you can do with that file appear next
+ * to it. A strip of players under every reply said the same thing twice and
+ * pushed the conversation apart (2026-11-26).
+ */
+const MEDIA_PATH_RE = /(?:[A-Za-z]:[\\/]|\/)?[^\s"'<>|]+?\.(?:wav|mp3|ogg|m4a|flac|mp4|webm|mov|png|jpe?g|webp|gif)\b/gi;
+
+function mediaKindOf(ext) {
+  if (/\.(png|jpe?g|webp|gif)$/i.test(ext)) return 'image';
+  if (/\.(mp4|webm|mov)$/i.test(ext)) return 'video';
+  return 'audio';
+}
+
+/** Put a menu beside the path it belongs to. */
+function closeFileMenus() {
+  document.querySelectorAll('.file-menu').forEach((m) => m.remove());
+}
+
+function openFileMenu(anchor, rel, cwd) {
+  closeFileMenus();
+  const kind = mediaKindOf(rel);
+  const menu = document.createElement('div');
+  menu.className = 'file-menu';
+  menu.setAttribute('role', 'menu');
+
+  const look = document.createElement('button');
+  look.type = 'button';
+  look.className = 'file-menu-item';
+  look.textContent = kind === 'image' ? t('viewFile') : kind === 'video' ? t('playFile') : t('playFile');
+  look.addEventListener('click', async () => {
+    closeFileMenus();
+    if (kind === 'video') {
+      api.openPath(cwd, rel);
+      return;
+    }
+    if (kind === 'image') {
+      const res = await api.readImage(cwd, rel).catch(() => null);
+      if (res?.ok) openImageViewer(res.dataUri, rel);
+      return;
+    }
+    const res = await api.readMedia(cwd, rel).catch(() => null);
+    if (!res?.ok) return;
+    // The player sits right under the line that names the file, once.
+    const host = anchor.closest('.body, .tool-body') || anchor.parentElement;
+    const existing = host.querySelector('.media-inline');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    const player = document.createElement('audio');
+    player.className = 'media-inline';
+    player.controls = true;
+    player.src = res.dataUri;
+    host.appendChild(player);
+    player.play().catch(() => {});
+  });
+
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'file-menu-item';
+  open.textContent = t('openFile');
+  open.addEventListener('click', () => {
+    closeFileMenus();
+    api.openPath(cwd, rel);
+  });
+
+  const folder = document.createElement('button');
+  folder.type = 'button';
+  folder.className = 'file-menu-item';
+  folder.textContent = t('revealFile');
+  folder.addEventListener('click', () => {
+    closeFileMenus();
+    api.revealPath(cwd, rel);
+  });
+
+  menu.append(look, open, folder);
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  const width = menu.offsetWidth || 150;
+  menu.style.top = `${Math.round(Math.min(r.bottom + 4, window.innerHeight - 90))}px`;
+  menu.style.left = `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - width - 8)))}px`;
+}
+
+document.addEventListener('click', (e) => {
+  const target = e.target instanceof Element ? e.target : null;
+  if (target) {
+    // Three words of context turn "it broke" into "it broke when I pressed the
+    // path to a sound file" (2026-11-26).
+    const label = (target.closest('button, [data-i18n], .file-link, .session-item')?.textContent || '').trim();
+    if (label) lastAction = label.slice(0, 80);
+  }
+  if (!e.target.closest('.file-menu') && !e.target.closest('.file-link')) closeFileMenus();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeFileMenus();
+});
+
+/**
+ * Turn every file path in the rendered words into that control.
+ *
+ * The pass runs over text nodes only, and never inside code, so a path quoted in
+ * an example stays the quoted text a reader can copy.
+ */
+function linkFilePaths(container, cwd) {
+  if (!container || !cwd) return;
+  if (container.dataset.fpLinked === '1') return;
+  container.dataset.fpLinked = '1';
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      // The pattern is global, so a leftover lastIndex would silently skip the
+      // first node it is asked about.
+      MEDIA_PATH_RE.lastIndex = 0;
+      if (!node.nodeValue || !MEDIA_PATH_RE.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+      MEDIA_PATH_RE.lastIndex = 0;
+      // A path in the words is usually styled as inline code, which is exactly
+      // where the reader wants the control; a fenced block is example text.
+      if (node.parentElement?.closest('pre, a, .file-link')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const text = node.nodeValue;
+    MEDIA_PATH_RE.lastIndex = 0;
+    let last = 0;
+    let match;
+    const frag = document.createDocumentFragment();
+    while ((match = MEDIA_PATH_RE.exec(text))) {
+      // Two cells can end up in one text node, and then the match starts in the
+      // words before the path. Keep only the part after the last colon.
+      let raw = match[0].replace(/^[('"`]+/, '');
+      if (raw.includes(':') && raw.indexOf(':') > 1) raw = raw.slice(raw.lastIndexOf(':') + 1);
+      if (/^https?:/i.test(raw) || raw.includes('://') || /^data:/i.test(raw)) continue;
+      const start = match.index + (match[0].length - raw.length);
+      frag.appendChild(document.createTextNode(text.slice(last, start)));
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'file-link';
+      link.textContent = raw;
+      link.title = t('fileActions');
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openFileMenu(link, raw, cwd);
+      });
+      frag.appendChild(link);
+      last = start + raw.length;
+    }
+    if (!last) continue;
+    frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
 }
 
 /**
@@ -10240,6 +10710,15 @@ async function drainQueue(view) {
     renderQueue();
     return;
   }
+  // A withdrawn message is gone even if its row survived a repaint: sending it
+  // now would be the cancel the user already pressed being undone.
+  while (view.queue.length && view.withdrawn?.has(String(view.queue[0].text || '').trim())) {
+    view.queue.shift();
+  }
+  if (!view.queue.length) {
+    renderQueue();
+    return;
+  }
   const head = view.queue[0];
   // An item being edited is not ready to go: sending it would ship the text the
   // user is in the middle of changing. It keeps its place and the drain simply
@@ -10256,9 +10735,15 @@ async function drainQueue(view) {
    * still said "จะส่งในอีก 4 วิ" while the model was already reading it, so the
    * countdown promised a moment that had already passed. Waiting for the clock
    * is the whole point of the hold — the timer calls back here at zero.
+   *
+   * Any live hold blocks this, not only the one whose item happens to be the
+   * head: a queue item whose own hold was released by a newer countdown (a
+   * steer typed straight after it) is still a message nobody has been told
+   * about, and shipping it here is how the model started reading a message the
+   * countdown was still promising (2026-11-26).
    */
   const held = holds.get(view.tabId);
-  if (held && !held.finished && held.item === head) return;
+  if (held && !held.finished) return;
   const next = view.queue.shift();
   renderQueue();
   if (next.kind === 'action') {
@@ -10419,17 +10904,26 @@ function renderQueue() {
 
     if (item.editing) {
       row.classList.add('editing');
-      const field = document.createElement('input');
+      // A textarea, not an input: a queued message is often a list or a snippet,
+      // and Shift+Enter in a one-line field could only ever be swallowed.
+      const field = document.createElement('textarea');
       field.className = 'queue-edit';
-      field.type = 'text';
+      field.rows = 1;
       field.value = item.draft ?? item.text ?? '';
       field.setAttribute('aria-label', t('queueEditingNote'));
+      // Grows with what is typed, so a new line is visible instead of scrolled away.
+      const grow = () => {
+        field.style.height = 'auto';
+        field.style.height = `${Math.min(field.scrollHeight, 96)}px`;
+      };
       field.addEventListener('input', () => {
         item.draft = field.value;
+        grow();
         updateKeepButton(item, row);
       });
       field.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+        // Shift+Enter is a newline, exactly as in the composer; plain Enter saves.
+        if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
           e.stopPropagation();
           saveQueueEdit(view, item);
@@ -10440,6 +10934,7 @@ function renderQueue() {
         }
       });
       line.appendChild(field);
+      grow();
 
       const save = document.createElement('button');
       save.type = 'button';
@@ -10906,6 +11401,8 @@ async function submit() {
   // `@caveman …` becomes `/skill:caveman …` before anything is stored, so the
   // queue, the transcript and the session all see the command pi expands.
   const outgoing = await resolveForSend(text);
+  // Sent on purpose again: the earlier take-back no longer applies to it.
+  view.withdrawn?.delete(outgoing.trim());
 
   // Enter while the agent works steers the running turn: the model sees the
   // instruction after the current step, before its next call. Ctrl+Enter is
@@ -11056,6 +11553,7 @@ function offerUndoSend(view, wrap, entry, { text, images }) {
       return;
     }
     stop();
+    withdrawMessage(view, text);
     /*
      * Stop the turn *and* take the prompt back out of the session.
      *
@@ -14549,18 +15047,37 @@ let questionPending = null;
 
 function showQuestion(payload) {
   questionPending = payload;
-  el('questionText').textContent = payload.question || '';
+  // Line one is the decision, the lines under it are the fine print: read as one
+  // bold sentence the cost and the scope were skipped over (2026-11-26).
+  const [lead, ...rest] = String(payload.question || '').split('\n');
+  el('questionText').innerHTML = '';
+  const leadEl = document.createElement('strong');
+  leadEl.className = 'question-lead';
+  leadEl.textContent = lead;
+  el('questionText').appendChild(leadEl);
+  for (const line of rest) {
+    if (!line.trim()) continue;
+    const note = document.createElement('span');
+    note.className = 'question-note';
+    note.textContent = line;
+    el('questionText').appendChild(note);
+  }
   const options = el('questionOptions');
   options.innerHTML = '';
   for (const option of payload.options || []) {
+    const label = typeof option === 'string' ? option : String(option?.label ?? '');
+    const tone = typeof option === 'string' ? '' : String(option?.tone || '');
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'question-option';
-    btn.textContent = option;
-    btn.addEventListener('click', () => answerQuestion(option));
+    btn.className = tone ? `question-option tone-${tone}` : 'question-option';
+    btn.textContent = label;
+    btn.addEventListener('click', () => answerQuestion(label));
     options.appendChild(btn);
   }
   el('questionInput').value = '';
+  // The three buttons are the whole answer. Leaving the free-text box on screen
+  // made a permission request look like it also wanted a typed reply.
+  el('questionOverlay').classList.toggle('options-only', Boolean(payload.options?.length));
   el('questionOverlay').hidden = false;
   (payload.options?.length ? options.firstChild : el('questionInput'))?.focus();
 }

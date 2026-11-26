@@ -340,15 +340,32 @@ async function main() {
   check('the summary length is capped', summary.state.summary.limit <= 4000, summary.state.summary.limit);
   service.setSummary({ enabled: false, limit: 120 });
 
+  // Every chat has a room of its own, and a chat nobody switched on stays shut:
+  // two chats must never share a topic (2026-11-26).
+  const plain = createNtfyService({ dir, safeStorage: fakeSafeStorage, client: fakeClient, log: () => {} });
+  plain.load();
+  plain.setActiveSession('file:/sessions/plain.jsonl');
+  const refusedPlain = await plain.publish({ message: 'turn finished' });
+  check(
+    'a chat nobody switched on has no room and refuses to publish',
+    refusedPlain.ok === false && /switch notifications on/i.test(refusedPlain.error || ''),
+    refusedPlain
+  );
+
   const enabled = service.setEnabled(true);
   check('switching it on makes a room', /^ntapi-/.test(enabled.state.topic || ''), enabled.state.topic);
   check('the new room is switched on and has a link', enabled.state.enabled === true && enabled.state.link.endsWith(enabled.state.topic), enabled.state.link);
 
   check('the notify default is on and every turn', service.state().notify.onSettle === true && service.state().notify.mode === 'always', service.state().notify);
 
-  // One session, one room: another session gets a room of its own, off by default.
+  // One session, one room: another session gets a room of its own, off until its
+  // own switch is turned on.
   service.setActiveSession('file:/sessions/two.jsonl');
-  check('a second session starts off with no room', service.state().enabled === false && service.state().topic === null, service.state());
+  check(
+    'a second session starts off with no room of its own',
+    service.state().enabled === false && service.state().topic === null,
+    service.state()
+  );
   check("and does not see the first session's room", service.state().rooms['file:/sessions/one.jsonl'].enabled === true, service.state().rooms);
 
   service.setActiveSession('file:/sessions/one.jsonl');
@@ -359,6 +376,33 @@ async function main() {
   check('the login token comes from the client', service.state().signedIn === true, service.state().signedIn);
 
   const firstRoom = service.state().topic;
+  // Leaving a chat and coming back must not turn its room off (2026-11-26,
+  // reported: "open another session, come back, it is off again").
+  service.setActiveSession('file:/sessions/other.jsonl');
+  const back = service.setActiveSession('file:/sessions/one.jsonl');
+  check('switching to another chat and back keeps the room on', back.enabled === true, back);
+  check(
+    'and it is the same room, not a second one',
+    back.topic === firstRoom,
+    back.topic
+  );
+  // A tab that has no session file yet is followed under a tab key; when the
+  // file appears the room has to move with it, or the panel shows off again.
+  const moved = createNtfyService({ dir, safeStorage: fakeSafeStorage, client: fakeClient, log: () => {} });
+  moved.load();
+  moved.setActiveSession('tab:7');
+  moved.setEnabled(true);
+  const beforeMove = moved.state().topic;
+  moved.rekey('tab:7', 'file:/sessions/moved.jsonl');
+  const afterMove = moved.setActiveSession('file:/sessions/moved.jsonl');
+  check('a chat that gains a file keeps its switch', afterMove.enabled === true, afterMove);
+  check('and keeps the very room it had', afterMove.topic === beforeMove, afterMove.topic);
+  const nextChat = service.setActiveSession('file:/sessions/other.jsonl');
+  check(
+    'another chat keeps its own switch, not the one just set',
+    nextChat.enabled === false && nextChat.topic === null,
+    nextChat
+  );
   // Reload from the same folder: rooms, summary and credential must survive.
   const reloadedService = createNtfyService({ dir, safeStorage: fakeSafeStorage, client: fakeClient, log: () => {} });
   reloadedService.load();

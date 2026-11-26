@@ -76,7 +76,7 @@ check(
 );
 check(
   'a scrim keeps the text readable in both themes',
-  /color-mix\(in srgb, var\(--bg\) 74%, transparent\)/.test(css) && !/--chat-scrim/.test(css)
+  /color-mix\(in srgb, var\(--bg\) 45%, transparent\)/.test(css) && !/--chat-scrim/.test(css)
 );
 
 /* ---------------------------------------------------------- the words */

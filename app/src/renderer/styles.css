@@ -119,7 +119,6 @@ body {
   display: flex;
   flex-direction: column;
   background: var(--bg);
-  border-radius: 10px;
 }
 
 /* ---------------- custom title bar ---------------- */
@@ -134,7 +133,6 @@ body {
   background: var(--bg-2);
   border-bottom: 1px solid var(--line);
   user-select: none;
-  border-radius: 10px 10px 0 0;
 }
 
 /* Whole bar drags the window; the buttons opt out below. */
@@ -778,6 +776,32 @@ button { font-family: inherit; }
   cursor: zoom-in;
   display: block;
 }
+
+/* A thumbnail keeps a way back to its file: hover it, or reach the button with
+   the keyboard, and "show in folder" appears over the corner. */
+.msg-image {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.img-reveal {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.msg-image:hover .img-reveal,
+.img-reveal:focus-visible { opacity: 1; }
+.img-reveal:hover { border-color: var(--accent); }
 
 /* ---------------- image viewer ---------------- */
 
@@ -2895,14 +2919,22 @@ mark.tx-hit.is-current {
   flex: 1 1 auto;
   min-width: 0;
   font: inherit;
-  font-size: 11.5px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--text);
   background: var(--bg);
   border: 1px solid var(--accent, #4d7cff);
   border-radius: 6px;
-  padding: 2px 6px;
+  /* Two full lines from the start: one line hid the text behind the border and
+     could not be read while editing (2026-11-26). */
+  min-height: 2.9em;
+  padding: 6px 8px;
   outline: none;
+  /* A textarea so Shift+Enter can add a line; it grows with the text up to the
+     same 96px the editor script stops at, and never shows its own resize handle. */
+  resize: none;
+  overflow-y: auto;
+  max-height: 96px;
 }
 .queue-edit:focus { box-shadow: 0 0 0 2px rgba(77, 124, 255, .22); }
 .queue-save,
@@ -5080,6 +5112,42 @@ html[data-theme='dark'] .palette-item.active { background: #262b3d; }
 
 /* ask_user dialog */
 .question-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+/* Three answers (allow once / allow all / cancel) share the row instead of being
+   pushed out of the dialog by their own padding. */
+.question-options .question-option { flex: 1 1 auto; text-align: center; white-space: nowrap; }
+/* Answered by the buttons alone: no free-text box, no separate Answer button. */
+#questionOverlay.options-only #questionInput,
+#questionOverlay.options-only .dialog-actions { display: none; }
+
+/* The question reads as one bold sentence with its fine print under it, so the
+   cost and the scope are not skimmed past (2026-11-26). */
+.question-lead {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 650;
+  line-height: 1.45;
+  color: var(--text);
+}
+.question-note {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.question-option.tone-ok { border-color: var(--line-2); }
+.question-option.tone-all {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  color: color-mix(in srgb, var(--accent) 30%, #ffffff);
+}
+.question-option.tone-all:hover {
+  background: color-mix(in srgb, var(--accent) 24%, var(--bg-3));
+  border-color: var(--accent);
+}
+.question-option.tone-cancel {
+  background: transparent;
+  color: var(--muted);
+}
 .question-option {
   background: var(--bg-3);
   border: 1px solid var(--line);
@@ -7179,9 +7247,153 @@ html[data-theme='light'] .tb-logo {
 @keyframes msg-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
+}
 .msg {
   animation: msg-in .28s cubic-bezier(.2, .8, .3, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   .msg { animation: none; }
+}
+
+/* ------------------- provider capability switches (Settings) ------------- */
+.provider-api-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.provider-api-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-3);
+}
+.provider-api-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.provider-api-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.provider-api-caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.provider-api-chip {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+/* The knob is the state: left is closed, right is open. */
+.pswitch {
+  flex: 0 0 auto;
+  position: relative;
+  width: 42px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease;
+}
+.pswitch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform .16s ease, background .16s ease;
+}
+.pswitch[aria-checked=true] {
+  background: color-mix(in srgb, #46d39a 26%, transparent);
+  border-color: #46d39a;
+}
+.pswitch[aria-checked=true] .pswitch-knob {
+  transform: translateX(18px);
+  background: #46d39a;
+}
+.pswitch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pswitch,
+  .pswitch-knob { transition: none; }
+}
+
+/* ---- a path to a file, inside the words ------------------------------ */
+/*
+ * The reply names the file and where it is, so the name is the control. It looks
+ * like text until hovered, so a paragraph full of paths still reads as a
+ * paragraph (2026-11-26).
+ */
+.file-link {
+  padding: 0 2px;
+  margin: 0 -1px;
+  font: inherit;
+  color: var(--accent);
+  /* Inside a code span the path already reads as machine text, so it needs a
+     stronger hint than an underline to look pressable (2026-11-26). */
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 62%, transparent);
+  border-radius: 3px;
+  cursor: pointer;
+  word-break: break-all;
+}
+.file-link:hover,
+.file-link:focus-visible {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-bottom-color: var(--accent);
+}
+.file-menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 132px;
+  padding: 4px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);
+}
+.file-menu-item {
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.file-menu-item:hover {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.media-inline {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: 32px;
+  margin-top: 6px;
+  border-radius: 8px;
 }

@@ -73,7 +73,7 @@ check('the drain checks for an item being edited', /\.editing/.test(drain));
 check('an edited item blocks the drain instead of being sent',
   /if \(head\?\.editing\) \{[\s\S]{0,120}return;/.test(drain));
 const drainGate = drain.indexOf('editing');
-const drainShift = drain.indexOf('view.queue.shift()');
+const drainShift = drain.indexOf('const next = view.queue.shift()');
 check('the check happens before the item is taken', drainGate !== -1 && drainShift !== -1 && drainGate < drainShift);
 
 // --- 3. the row offers the controls -------------------------------------

@@ -55,6 +55,14 @@ const {
   resolveMistralModels,
 } = require('../src/mistral');
 const {
+  GROK_BASE_URL,
+  GROK_MODEL_CANDIDATES,
+  grokProviderConfig,
+  grokModelEntries,
+  checkGrokKey,
+  resolveGrokModels,
+} = require('../src/grok');
+const {
   POLLINATIONS_PROVIDER,
   POLLINATIONS_BASE_URL,
   POLLINATIONS_MODEL_CANDIDATES,
@@ -635,6 +643,105 @@ async function main() {
     'ui: Mistral and Pollinations have their own meters',
     ['mistral', 'pollinations'].every((id) => providerChrome({ provider: id }).meter === id)
   );
+
+  /* -------------------------------- Grok --------------------------------- */
+  const grokCfg = grokProviderConfig({ apiKey: KEY, models: GROK_MODEL_CANDIDATES });
+  check(
+    'grok: config points at the real endpoint',
+    grokCfg.baseUrl === 'https://api.x.ai/v1' && grokCfg.api === 'openai-completions'
+  );
+  check(
+    'grok: config carries the key and models',
+    grokCfg.apiKey === KEY && grokCfg.models.length === GROK_MODEL_CANDIDATES.length
+  );
+
+  const grokEntries = grokModelEntries(GROK_MODEL_CANDIDATES);
+  check(
+    'grok: every row is paid and priced',
+    grokEntries.every((e) => e.provider === 'grok' && e.plan === 'paid' && /^\$/.test(e.planNote))
+  );
+
+  const grokPlan = planProviders({
+    hasFreePiAuth: false,
+    grokKey: KEY,
+    grokModels: GROK_MODEL_CANDIDATES,
+  });
+  check(
+    'plan: Grok alone is usable',
+    grokPlan.available === true && grokPlan.defaultProvider === 'grok'
+  );
+
+  const grokOk = stubFetch(() => jsonResponse({ data: [{ id: 'grok-4.1' }, { id: 'grok-4' }] }));
+  const grokCheck = await checkGrokKey(KEY, { fetchImpl: grokOk });
+  check('grok: a good key passes', grokCheck.ok === true);
+  check('grok: validation asks /models', grokOk.calls[0].url === `${GROK_BASE_URL}/models`);
+  check(
+    'grok: the Bearer header carries the key',
+    grokOk.calls[0].init.headers.authorization === `Bearer ${KEY}`
+  );
+  check(
+    'grok: an unreachable API is reported as offline',
+    (await checkGrokKey(KEY, { fetchImpl: stubFetch(() => { throw new Error('ENOTFOUND'); }) })).offline === true
+  );
+  const grokEcho = stubFetch(() => jsonResponse({ error: { message: `bad key ${KEY}` } }, 401));
+  check(
+    'grok: the key is never echoed back',
+    !(await checkGrokKey(KEY, { fetchImpl: grokEcho })).error.includes(KEY)
+  );
+
+  const grokLive = stubFetch(() =>
+    jsonResponse({ data: [{ id: 'grok-4.1' }, { id: 'grok-9-unreleased' }] })
+  );
+  const grokResolved = await resolveGrokModels(KEY, { fetchImpl: grokLive });
+  check(
+    'grok: a listed id this app knows keeps its limits',
+    grokResolved.find((m) => m.id === 'grok-4.1')?.maxTokens === 32768
+  );
+  check(
+    'grok: a newer id is offered rather than hidden',
+    grokResolved.some((m) => m.id === 'grok-9-unreleased')
+  );
+  check('grok: no key means no catalog', (await resolveGrokModels('')).length === 0);
+
+  /*
+   * xAI says 403 when the key is fine and the *action* is refused (no team
+   * permission, no credit). The first Grok user saw "HTTP 403" and nothing else:
+   * the vendor's sentence was in `error` as a plain string, and the parser only
+   * read `error.message`. It has to reach the window, and the key has to survive
+   * — a 403 is not "wrong key".
+   */
+  const grokForbidden = stubFetch(() =>
+    jsonResponse(
+      {
+        code: 'permission-denied',
+        error: 'You have either run out of available resources or do not have an active Grok subscription.',
+      },
+      403
+    )
+  );
+  const grokDenied = await checkGrokKey(KEY, { fetchImpl: grokForbidden });
+  check('grok: 403 is reported as a restriction, not a bad key', grokDenied.ok === false && grokDenied.restricted === true);
+  check(
+    'grok: the vendor sentence survives the 403',
+    /run out of available resources/.test(grokDenied.error) && grokDenied.code === 'permission-denied'
+  );
+  check(
+    'grok: a restricted key still gets the curated rows to try',
+    (await resolveGrokModels(KEY, { fetchImpl: grokForbidden })).length === GROK_MODEL_CANDIDATES.length
+  );
+  const grokBadKey = stubFetch(() =>
+    jsonResponse({ code: 'invalid-argument', error: 'Incorrect API key provided.' }, 400)
+  );
+  const grokBad = await checkGrokKey(KEY, { fetchImpl: grokBadKey });
+  check('grok: a bad key is not a restriction', grokBad.restricted === undefined || grokBad.restricted === false);
+  check(
+    'grok: a bad key offers no catalog',
+    (await resolveGrokModels(KEY, { fetchImpl: grokBadKey })).length === 0
+  );
+
+  check('ui: Grok is named', providerLabel('grok') === 'Grok');
+  check('ui: Grok has a bundled mark', /\.(svg|png|jpe?g|webp)$/.test(providerLogoPath('grok')));
+  check('ui: Grok has its own meter', providerChrome({ provider: 'grok' }).meter === 'grok');
 
   if (failures) {
     console.log(`\n${failures} check(s) failed.`);

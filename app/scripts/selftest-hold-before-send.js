@@ -121,8 +121,13 @@ check('a finished turn does not release a countdown that is still running', !/ho
 
 const drain = body(app, 'drainQueue');
 check(
-  'the drain waits for the countdown on the message at the head',
-  /const head = view\.queue\[0\]/.test(drain) && /held\.item === head\) return;/.test(drain)
+  'the drain waits for the countdown',
+  /const head = view\.queue\[0\]/.test(drain) && /held && !held\.finished\) return;/.test(drain)
+);
+check(
+  'any live countdown holds the queue, not only the one at the head',
+  !/held\.item === head/.test(drain),
+  'a message whose own countdown was replaced could still be shipped early'
 );
 check('the drain does not shift a message it declined to send', /const next = view\.queue\.shift\(\);/.test(drain));
 check(
@@ -143,6 +148,20 @@ check('the countdown names the number of seconds left', /holdCountdown: 'Sending
 check('the countdown is in Thai too', /holdCountdown: 'จะส่งในอีก \{n\} วิ/.test(app));
 check('the countdown says where the message is going', /holdWhatSteer/.test(app) && /holdWhatQueue/.test(app));
 check('edit and cancel are translated', /holdEdit: 'แก้ไข'/.test(app) && /holdCancel: 'ยกเลิก'/.test(app));
+
+// --- 9. a second message does not lose the first -------------------
+// Creating a hold used to cancel the one before it silently: its row went away,
+// the bubble stayed looking sent, and the words were never sent anywhere.
+
+check(
+  'a new countdown sends the one it replaces',
+  /previous\.send\?\.\(\)/.test(hold),
+  'the replaced message is cancelled rather than sent'
+);
+check(
+  'the replaced row is removed before it is sent',
+  hold.indexOf('previous.row.remove()') !== -1 && hold.indexOf('previous.row.remove()') < hold.indexOf('previous.send?.()')
+);
 
 // --- styling: quiet, and the clock does not jitter ----------------------
 
@@ -177,6 +196,17 @@ check('the queue sets its cancel handler after the hold is created',
 check('the queue cancel handler removes the item',
   /view\.queue\.splice\(at, 1\)/.test(queueMsg));
 check('the queue cancel handler repaints the queue', /renderQueue\(\)/.test(queueMsg));
+
+check('a cancelled message is remembered as withdrawn',
+  /withdrawMessage\(view, record\.text\)/.test(holdBody));
+check('taking a sent message back withdraws it too',
+  /withdrawMessage\(view, text\);/.test(body(app, 'holdRow') || app));
+check('a withdrawn message is dropped before the queue sends',
+  /view\.withdrawn\?\.has\(/.test(drain));
+check('the drain reads the head after the withdrawn ones are gone',
+  drain.indexOf('const head = view.queue[0];') > drain.indexOf('view.withdrawn?.has('));
+check('sending the same text again on purpose clears the withdrawal',
+  /view\.withdrawn\?\.delete\(outgoing\.trim\(\)\)/.test(body(app, 'submit')));
 
 if (failures) {
   console.log(`\n${failures} check(s) failed`);

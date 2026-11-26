@@ -1254,6 +1254,13 @@
                     </span>
                     <span class="provider-tile-name" data-i18n="googleSection">Gemini</span>
                   </button>
+                  <button type="button" class="provider-tile" data-provider="grok" aria-pressed="false">
+                    <span class="provider-tile-logo-wrap">
+                      <img class="provider-tile-logo" src="assets/providers/grok.webp" alt="" aria-hidden="true" />
+                      <span class="provider-tile-tick" aria-hidden="true" hidden>&#10003;</span>
+                    </span>
+                    <span class="provider-tile-name" data-i18n="grokSection">Grok</span>
+                  </button>
                   <button type="button" class="provider-tile" data-provider="kilo" aria-pressed="false">
                     <span class="provider-tile-logo-wrap">
                       <img class="provider-tile-logo" src="assets/providers/kilo.png" alt="" aria-hidden="true" />
@@ -1602,6 +1609,24 @@
                     </div>
                   </div>
 
+                  <div class="provider-card" id="grokRow" data-provider="grok">
+                    <div class="provider-card-head">
+                      <img class="provider-logo" src="assets/providers/grok.webp" alt="" aria-hidden="true" />
+                      <div class="provider-info">
+                        <span class="provider-name" data-i18n="grokSection">Grok</span>
+                        <p id="grokStatus" class="settings-hint">&mdash;</p>
+                      </div>
+                    </div>
+                    <div class="provider-actions">
+                      <input id="grokKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" aria-label="Grok API key" />
+                      <button id="grokSave" class="ghost small" data-i18n="grokSave">Save</button>
+                      <button id="grokRemove" class="ghost small danger" data-i18n="grokRemove">Remove</button>
+                    </div>
+                    <div class="provider-card-foot">
+                      <button id="grokGetKey" class="link-btn" data-i18n="grokGetKey">Get a key at console.x.ai</button>
+                    </div>
+                  </div>
+
                   <div class="provider-card" id="pollinationsRow" data-provider="pollinations">
                     <div class="provider-card-head">
                       <img class="provider-logo" src="assets/providers/pollinations.png" alt="" aria-hidden="true" />
@@ -1622,6 +1647,8 @@
 
                 </div>
                 </div>
+
+                <!-- What other providers a model may call, with the user's key -->
               </div>
             </section>
 
