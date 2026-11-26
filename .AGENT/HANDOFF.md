@@ -4174,3 +4174,17 @@ cards could read them). Safe to delete.
 - เครื่องนี้สร้างตัวติดตั้ง Windows ไม่ได้ (ไม่มี wine, ไม่มี dist) — ต้องให้ Actions กลับมาแล้ว rerun
   workflow "Release" (run 45857331079) หรือ dispatch ใหม่
 - ตรวจสอบอีกครั้งด้วย: `provenance.js record-release` ต้องรอหลังมี asset จริง
+
+## 2026-11-26 — ตัดสินใจ: repo ซอร์สเป็น public ต่อไป
+
+- เหตุผล: GitHub Actions ของ repo private ถูกบล็อก (job ไม่ยอมเริ่มเลยเพราะ billing/โควต้า
+  — Windows runner คูณ 2) พอเปลี่ยนเป็น public Actions ฟรีไม่จำกัด และ Release v0.9.9 build สำเร็จทันที
+- ผู้ใช้ตัดสินใจคง public ไว้ ไม่ rewrite history — ไม่มีเอกสารส่วนตัวที่สำคัญใน repo
+  (สแกนแล้ว: ไม่มี API key/credential ในทุกคอมมิต; ที่เปิดเผยคือชื่อ+เมล, path `/home/nt/...`,
+  สเปกเครื่อง และบันทึกงานใน `.AGENT/`+`PROVENANCE/`)
+- สถาปัตยกรรมที่ต้องจำ: แอปพึ่ง repo สาธารณะ 2 ที่เท่านั้น
+  `Cheumklang/NTAPI-releases` (latest.yml + exe + blockmap → electron-updater)
+  และ `Cheumklang/NTAPI-sponsor` (sponsor.json → `src/sponsor-feed.js`)
+  repo ซอร์สไม่เกี่ยวกับการอัปเดตหรือโฆษณาของผู้ใช้เลย
+- ทางเลือกที่ยังเปิดอยู่ถ้าเปลี่ยนใจ: ซอร์ส private + build บน Windows VM
+  (`npx electron-builder --win --x64 --publish always`) — ฟรีเหมือนกันแต่ต้องสั่ง build เอง
