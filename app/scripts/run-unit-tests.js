@@ -123,6 +123,7 @@ const TESTS = [
   'selftest-which-side.js',
   'selftest-launcher.js',
   'selftest-recovered-turn.js',
+  'selftest-chat-background.js',
   'selftest-live-numbers.js',
   'selftest-system-control.js',
   'selftest-session-marks.js',

@@ -186,6 +186,17 @@ const STRINGS = {
     sessionMenuHint: 'Right-click to rename or delete',
     settings: 'Settings',
     settingsSub: 'Where this app keeps its files. Everything lives in one folder you can copy or back up.',
+    appearanceTab: 'Appearance',
+    chatBackground: 'Chat background',
+    chatBackgroundHint:
+      'Pick a picture and it is copied into this app\u2019s own folder, then drawn behind the chat. Nothing is uploaded anywhere.',
+    chooseImage: 'Choose image…',
+    removeBackground: 'Remove background',
+    backgroundSet: 'The chat background is set.',
+    backgroundRemoved: 'The chat background is gone.',
+    backgroundTooBig: 'That picture is over 20 MB — pick a smaller one.',
+    backgroundUnsupported: 'That file is not an image this app can draw.',
+    backgroundFailed: 'The picture could not be read.',
     adFrom: 'Ad from FREEPI.AI',
     provider: 'Provider',
     coarenaSection: 'Coarena',
@@ -894,6 +905,17 @@ const STRINGS = {
     sessionMenuHint: 'คลิกขวาเพื่อเปลี่ยนชื่อหรือลบ',
     settings: 'ตั้งค่า',
     settingsSub: 'ที่เก็บไฟล์ของแอปนี้ — ทุกอย่างอยู่ในโฟลเดอร์เดียว ก๊อปหรือแบ็กอัปได้ทั้งก้อน',
+    appearanceTab: 'หน้าตาแอป',
+    chatBackground: 'พื้นหลังแชท',
+    chatBackgroundHint:
+      'เลือกรูปแล้วโปรแกรมจะก๊อปเก็บไว้ในโฟลเดอร์ของตัวเอง แล้ววาดเป็นพื้นหลังหลังแชท — ไม่มีการอัปโหลดไปที่ไหน',
+    chooseImage: 'เลือกรูป…',
+    removeBackground: 'ลบพื้นหลัง',
+    backgroundSet: 'ตั้งพื้นหลังแชทแล้ว',
+    backgroundRemoved: 'ลบพื้นหลังแชทแล้ว',
+    backgroundTooBig: 'รูปใหญ่เกิน 20 MB — เลือกรูปที่เล็กลง',
+    backgroundUnsupported: 'ไฟล์นี้ไม่ใช่รูปที่โปรแกรมวาดได้',
+    backgroundFailed: 'อ่านรูปไม่ได้',
     adFrom: 'โฆษณาจาก FREEPI.AI',
     provider: 'ผู้ให้บริการ',
     coarenaSection: 'Coarena',
@@ -9117,6 +9139,49 @@ el('termsDecline')?.addEventListener('click', () => {
   api.quitApp?.().catch(() => {});
 });
 
+/* --------------------------- chat background --------------------------- */
+
+/** Draw the picture the user chose behind the chat, or take it away. */
+function applyChatBackground(background) {
+  const url = background && background.dataUri ? `url("${background.dataUri}")` : 'none';
+  const on = url !== 'none';
+  document.documentElement.style.setProperty('--chat-bg', url);
+  document.documentElement.classList.toggle('has-chat-bg', on);
+  const preview = el('chatBgPreview');
+  if (preview) {
+    preview.hidden = !on;
+    if (on) preview.src = background.dataUri;
+    else preview.removeAttribute('src');
+  }
+  const clear = el('chatBgClear');
+  if (clear) clear.hidden = !on;
+}
+
+/** A picture is a preference: a refusal here must never break the window. */
+async function pickChatBackground() {
+  let res = null;
+  try {
+    res = await api.pickChatBackground();
+  } catch {}
+  if (!res || res.canceled) return;
+  if (res.error) {
+    const key =
+      res.error === 'size' ? 'backgroundTooBig' : res.error === 'type' ? 'backgroundUnsupported' : 'backgroundFailed';
+    showToast({ title: t('chatBackground'), body: t(key) });
+    return;
+  }
+  applyChatBackground(res.background);
+  showToast({ title: t('chatBackground'), body: t('backgroundSet') });
+}
+
+async function clearChatBackground() {
+  try {
+    await api.clearChatBackground();
+  } catch {}
+  applyChatBackground(null);
+  showToast({ title: t('chatBackground'), body: t('backgroundRemoved') });
+}
+
 async function boot() {
   const bootT0 = performance.now();
   const bootMark = (label) => {
@@ -9136,6 +9201,7 @@ async function boot() {
   theme = info.theme === 'light' ? 'light' : 'dark';
   document.documentElement.dataset.theme = theme;
   paintThemeButton();
+  applyChatBackground(info.chatBackground);
   if (typeof refreshBrowserStatus === 'function') refreshBrowserStatus();
   applyLanguage();
   // Before anything else: the terms are shown, not just linked. A person who
@@ -11611,6 +11677,10 @@ el('langBtn').addEventListener('click', () => setLanguage(lang === 'en' ? 'th' :
 
 // Theme toggle, right below Settings: one click, remembered across restarts.
 el('themeBtn')?.addEventListener('click', () => setTheme(currentTheme() === 'light' ? 'dark' : 'light'));
+
+// Chat background: Settings → Appearance.
+el('chatBgPick')?.addEventListener('click', () => pickChatBackground());
+el('chatBgClear')?.addEventListener('click', () => clearChatBackground());
 // A shortcut, because the chip is small and the sidebar can be narrow. `T` alone
 // is typing, so this needs the modifier every keyboard already has.
 document.addEventListener('keydown', (e) => {

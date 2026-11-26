@@ -1560,6 +1560,41 @@ html[data-theme='dark'] .model-group-head:hover { background: #1c2231; }
   flex-direction: column;
 }
 
+/*
+ * A background the user chose (Settings → Appearance). Drawn on the wrapper, not
+ * on .transcript: the transcript scrolls, so a picture on it would slide away
+ * with the messages. The layer underneath is the theme's own --bg at 74%, so the
+ * text keeps its contrast in light and dark without a second token to forget.
+ */
+html.has-chat-bg .transcript-wrap {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--bg) 45%, transparent), color-mix(in srgb, var(--bg) 45%, transparent)),
+    var(--chat-bg);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.chat-bg-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.chat-bg-preview {
+  width: 168px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+}
+.chat-bg-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 mark.tx-hit.is-current {
   background: var(--accent-fill);
   color: var(--on-accent);

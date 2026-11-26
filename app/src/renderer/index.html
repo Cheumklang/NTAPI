@@ -1122,6 +1122,10 @@
               <span class="settings-nav-icon" aria-hidden="true">📁</span>
               <span class="settings-nav-label" data-i18n="workspaceSection">Workspace</span>
             </button>
+            <button type="button" class="settings-nav-item" data-section="appearance" role="tab" id="settingsTabAppearance" aria-controls="settingsPanelAppearance">
+              <span class="settings-nav-icon" aria-hidden="true">🎨</span>
+              <span class="settings-nav-label" data-i18n="appearanceTab">Appearance</span>
+            </button>
             <button type="button" class="settings-nav-item" data-section="providers" role="tab" id="settingsTabProviders" aria-controls="settingsPanelProviders">
               <span class="settings-nav-icon" aria-hidden="true">🔑</span>
               <span class="settings-nav-label" data-i18n="providersSection">Providers</span>
@@ -1146,6 +1150,24 @@
               <div class="settings-group">
                 <div class="settings-head" data-i18n="folderSettings">Folder Settings</div>
                 <div id="settingsFolders" class="settings-list"></div>
+              </div>
+            </section>
+
+            <!-- Appearance -->
+            <section class="settings-panel" data-section="appearance" id="settingsPanelAppearance" role="tabpanel" aria-labelledby="settingsTabAppearance">
+              <div class="settings-group">
+                <div class="settings-head" data-i18n="chatBackground">Chat background</div>
+                <p class="settings-hint" data-i18n="chatBackgroundHint">
+                  Pick a picture and it is copied into this app's own folder, then drawn behind the chat.
+                  Nothing is uploaded anywhere.
+                </p>
+                <div class="chat-bg-row">
+                  <img id="chatBgPreview" class="chat-bg-preview" alt="" hidden />
+                  <div class="chat-bg-actions">
+                    <button type="button" class="ghost" id="chatBgPick" data-i18n="chooseImage">Choose image…</button>
+                    <button type="button" class="ghost danger" id="chatBgClear" data-i18n="removeBackground" hidden>Remove background</button>
+                  </div>
+                </div>
               </div>
             </section>
 

@@ -11,6 +11,8 @@ const on = (channel) => (cb) => {
 contextBridge.exposeInMainWorld('freepi', {
   pickFolder: () => ipcRenderer.invoke('fs:pickFolder'),
   pickImages: () => ipcRenderer.invoke('fs:pickImages'),
+  pickChatBackground: () => ipcRenderer.invoke('fs:pickChatBackground'),
+  clearChatBackground: () => ipcRenderer.invoke('fs:clearChatBackground'),
 
   /**
    * Electron dropped `File.path` in v32 — the supported way to turn a dropped or
