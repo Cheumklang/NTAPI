@@ -29,6 +29,7 @@
   const KILO_PROVIDER = 'kilo';
   const CLOUDFLARE_PROVIDER = 'cloudflare';
   const MISTRAL_PROVIDER = 'mistral';
+  const GROK_PROVIDER = 'grok';
   const POLLINATIONS_PROVIDER = 'pollinations';
   const SEPARATOR = ' \u00b7 ';
 
@@ -49,6 +50,7 @@
     kilo: 'assets/providers/kilo.png',
     cloudflare: 'assets/providers/cloudflare.svg',
     mistral: 'assets/providers/mistral.webp',
+    grok: 'assets/providers/grok.webp',
     pollinations: 'assets/providers/pollinations.png',
   };
 
@@ -72,6 +74,7 @@
     if (provider === KILO_PROVIDER) return 'Kilo';
     if (provider === CLOUDFLARE_PROVIDER) return 'Cloudflare';
     if (provider === MISTRAL_PROVIDER) return 'Mistral';
+    if (provider === GROK_PROVIDER) return 'Grok';
     if (provider === POLLINATIONS_PROVIDER) return 'Pollinations';
     return String(provider || '');
   }
@@ -181,6 +184,7 @@
     if (provider === KILO_PROVIDER) return { showAds: false, meter: 'kilo' };
     if (provider === CLOUDFLARE_PROVIDER) return { showAds: false, meter: 'cloudflare' };
     if (provider === MISTRAL_PROVIDER) return { showAds: false, meter: 'mistral' };
+    if (provider === GROK_PROVIDER) return { showAds: false, meter: 'grok' };
     if (provider === POLLINATIONS_PROVIDER) return { showAds: false, meter: 'pollinations' };
     return { showAds: false, meter: null };
   }

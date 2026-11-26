@@ -18,6 +18,7 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 
 const { planProviders, FREE_PI_TOOL_NAMES, ZRO_PROVIDER, NVIDIA_PROVIDER, TOKENHARBOR_PROVIDER, LLM7_PROVIDER, DEEPSEEK_PROVIDER, ANTHROPIC_PROVIDER, GOOGLE_PROVIDER, ZAI_PROVIDER, OPENROUTER_PROVIDER, KILO_PROVIDER, CLOUDFLARE_PROVIDER, MISTRAL_PROVIDER, POLLINATIONS_PROVIDER } = require('./provider-plan');
+const { listAccess, describeForTool, callProvider } = require('./provider-apis');
 const { detectClientVersion, upgradedClientVersion, FALLBACK_CLIENT_VERSION } = require('./client-version');
 const { COARENA_PROVIDER, coarenaProviderConfig, coarenaModelEntries, fetchCoarenaModels, retagModels, setCoarenaFreeTier } = require('./coarena');
 const {
@@ -78,6 +79,12 @@ const {
   mistralProviderConfig,
   mistralModelEntries,
 } = require('./mistral');
+const {
+  GROK_PROVIDER,
+  resolveGrokModels,
+  grokProviderConfig,
+  grokModelEntries,
+} = require('./grok');
 const {
   resolvePollinationsModels,
   pollinationsProviderConfig,
@@ -284,9 +291,30 @@ const authCache = new Map();
 async function cachedFetchMe(baseUrl, jwt) {
   const hit = authCache.get(jwt);
   if (hit && Date.now() - hit.at < AUTH_TTL_MS) return hit.me;
-  const me = await fetchMe(baseUrl, jwt);
-  if (me) authCache.set(jwt, { at: Date.now(), me });
-  return me;
+  /*
+   * Kept on disk as well, for the same five minutes.
+   *
+   * This call is the single biggest thing standing between a launch and a
+   * window with a conversation in it — measured at 1.2 s against the real
+   * backend, on every restart of the program. The answer only says who the
+   * token belongs to (guest or not, plan, credits), and it is no more current
+   * here than the five minutes of memory cache above already accepts
+   * (2026-11-26).
+   */
+  return cachedCatalog(
+    'me',
+    `${baseUrl}|${jwt}`,
+    async () => {
+      const me = await fetchMe(baseUrl, jwt);
+      // A rejected or unreachable token is never written down: the caller has
+      // to see that failure and fall back to a guest session.
+      if (!me) throw new Error('no account for this token');
+      authCache.set(jwt, { at: Date.now(), me });
+      return me;
+    },
+    null,
+    AUTH_TTL_MS
+  );
 }
 
 /** The FreePi model catalog, remembered per token for the same reason. */
@@ -552,9 +580,16 @@ function createAdsClient(options) {
         event.headers[TURN_HEADER] = turnId;
       });
 
-      pi.on('session_start', async () => {
-        await prefetchLaunchAd();
-      });
+      /*
+       * No ad fetch on session_start.
+       *
+       * This handler used to `await prefetchLaunchAd()`, and pi awaits every
+       * session_start handler before the tab exists — so every restored tab, on
+       * every launch, waited 2–3 s for a banner ad before the window could show
+       * the conversation it already had on disk. The bridge asks for the same ad
+       * right after the tab is up (and the UI is told when it arrives), so the
+       * network is never in the way of opening a chat (2026-11-26).
+       */
 
       pi.on('before_agent_start', async (event, ctx) => {
         if (event.messageType !== 'user') return;
@@ -606,20 +641,76 @@ function createAdsClient(options) {
  */
 const CATALOG_TTL_MS = 10 * 60 * 1000;
 const catalogCache = new Map();
+/** Reads already on the wire, so two tabs opening at once share one request. */
+const catalogInFlight = new Map();
+/**
+ * Where that cache survives a restart.
+ *
+ * Ten minutes of memory helped nothing on the complaint that started this —
+ * "opening the program again is slow" — because the process, and its cache, had
+ * just died. The same provider round trips are on the next launch's critical
+ * path, so the answers are written beside the other app data and read back
+ * before any tab is built (2026-11-26).
+ */
+let catalogCacheFile = null;
+let catalogSaveTimer = null;
 
-function cachedCatalog(name, key, run, empty = []) {
+function loadCatalogCache(file) {
+  if (!file || file === catalogCacheFile) return;
+  catalogCacheFile = file;
+  try {
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const [id, entry] of Object.entries(saved || {})) {
+      if (!entry || !Number.isFinite(entry.at)) continue;
+      if (Date.now() - entry.at >= CATALOG_TTL_MS) continue;
+      catalogCache.set(id, entry);
+    }
+  } catch {}
+}
+
+function saveCatalogCache() {
+  if (!catalogCacheFile || catalogSaveTimer) return;
+  catalogSaveTimer = setTimeout(() => {
+    catalogSaveTimer = null;
+    const fresh = {};
+    for (const [id, entry] of catalogCache) {
+      if (entry && Date.now() - entry.at < CATALOG_TTL_MS) fresh[id] = entry;
+    }
+    try {
+      const tmp = `${catalogCacheFile}.tmp`;
+      fs.mkdirSync(path.dirname(catalogCacheFile), { recursive: true });
+      fs.writeFileSync(tmp, JSON.stringify(fresh));
+      fs.renameSync(tmp, catalogCacheFile);
+    } catch {}
+  }, 300);
+  catalogSaveTimer.unref?.();
+}
+
+function cachedCatalog(name, key, run, empty = [], ttlMs = CATALOG_TTL_MS) {
   const clean = String(key || '').trim();
   if (!clean) return Promise.resolve(empty);
-  const id = `${name}:${clean}`;
+  // The id is a hash, and it has to be: this map is written to disk, and a
+  // plain `${name}:${key}` would put the user's API keys in a file in the clear.
+  const id = `${name}:${crypto.createHash('sha256').update(clean).digest('hex').slice(0, 16)}`;
   const hit = catalogCache.get(id);
-  if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return Promise.resolve(hit.value);
-  return run().then(
-    (value) => {
-      catalogCache.set(id, { at: Date.now(), value });
-      return value;
-    },
-    () => (hit ? hit.value : empty)
-  );
+  if (hit && Date.now() - hit.at < (hit.ttl || CATALOG_TTL_MS)) return Promise.resolve(hit.value);
+  // Restored tabs are opened together, and without this each one asked the same
+  // provider for the same catalog in the same instant — four times the traffic
+  // and four chances to wait on the same slow endpoint.
+  const pending = catalogInFlight.get(id);
+  if (pending) return pending;
+  const request = run()
+    .then(
+      (value) => {
+        catalogCache.set(id, { at: Date.now(), value, ttl: ttlMs });
+        saveCatalogCache();
+        return value;
+      },
+      () => (hit ? hit.value : empty)
+    )
+    .finally(() => catalogInFlight.delete(id));
+  catalogInFlight.set(id, request);
+  return request;
 }
 
 /**
@@ -849,8 +940,20 @@ async function createFreePiSession(options) {
     cloudflareAccountId = null,
     /** Mistral AI API key, or null. OpenAI-compatible, freemium. */
     mistralKey = null,
+    /** xAI Grok API key, or null. OpenAI-compatible, billed per token. */
+    grokKey = null,
+    /**
+     * Which providers the user allows other models to call: `{ grok: 'on' }`.
+     * Anything absent is off, and off means the tool is not even created.
+     */
+    providerApiPrefs = {},
     /** Pollinations.ai API key, or null. OpenAI-compatible, free. */
     pollinationsKey = null,
+    /**
+     * File the provider catalogs survive in between launches. Main passes the
+     * app data root; omitting it keeps the cache in memory only, as before.
+     */
+    catalogCachePath = null,
     /**
      * Injectable so tests can simulate "no FreePi login" without touching the
      * real credentials file. Production uses the normal resolver.
@@ -872,6 +975,7 @@ async function createFreePiSession(options) {
   let activeCloudflareKey = cloudflareKey ? String(cloudflareKey).trim() : null;
   let activeCloudflareAccount = cloudflareAccountId ? String(cloudflareAccountId).trim() : null;
   let activeMistralKey = mistralKey ? String(mistralKey).trim() : null;
+  let activeGrokKey = grokKey ? String(grokKey).trim() : null;
   let activePollinationsKey = pollinationsKey ? String(pollinationsKey).trim() : null;
 
   // Shared by the pause-gate extension and the handle's pause()/resume() below.
@@ -889,13 +993,15 @@ async function createFreePiSession(options) {
   // skillsAgentDir and we hand it to services separately below.
   const credentialsPath = getCredentialsPath(agentDir);
 
+  loadCatalogCache(catalogCachePath);
+
   // FreePi is optional now: a failed login must not stop a Coarena session
   // from opening. The reason is logged so "why am I on Coarena?" is answerable.
   // Coarena's catalog is a network call of its own and depends on nothing
   // above, so it starts here and is collected further down — one round trip
   // saved from the wait before a new chat appears.
   const coarenaCatalogPromise = coarenaKey
-    ? fetchCoarenaModels()
+    ? cachedCatalog('coarena', coarenaKey, fetchCoarenaModels, { models: [], source: 'none' })
     : Promise.resolve({ models: [], source: 'none' });
   let auth = null;
   try {
@@ -905,7 +1011,14 @@ async function createFreePiSession(options) {
   }
   if (auth && !auth.jwt) auth = null;
 
-  const catalog = auth ? await cachedFetchCatalog(baseUrl, auth.jwt) : { model: undefined, models: undefined };
+  const catalog = auth
+    ? await cachedCatalog(
+        'freepi',
+        `${baseUrl}|${auth.jwt}`,
+        () => cachedFetchCatalog(baseUrl, auth.jwt),
+        { model: undefined, models: undefined }
+      )
+    : { model: undefined, models: undefined };
   // Every model the account can reach is listed, free and paid alike, each one
   // tagged with its plan. A paid route spends FreePi credits at the multiplier
   // its `usage_x` names, so the row says the cost and the choice is the user's.
@@ -947,6 +1060,7 @@ async function createFreePiSession(options) {
     kiloModels,
     cloudflareModels,
     mistralModels,
+    grokModels,
     pollinationsModels,
   ] = await Promise.all([
       cachedCatalog('nvidia', activeNvidiaKey, () => resolveNvidiaModels(activeNvidiaKey)),
@@ -972,6 +1086,7 @@ async function createFreePiSession(options) {
         () => resolveCloudflareModels(activeCloudflareKey, activeCloudflareAccount)
       ),
       cachedCatalog('mistral', activeMistralKey, () => resolveMistralModels(activeMistralKey)),
+      cachedCatalog('grok', activeGrokKey, () => resolveGrokModels(activeGrokKey)),
       cachedCatalog('pollinations', activePollinationsKey, () =>
         resolvePollinationsModels(activePollinationsKey)
       ),
@@ -994,6 +1109,7 @@ async function createFreePiSession(options) {
     kiloKey: activeKiloKey,
     cloudflareKey: activeCloudflareKey && activeCloudflareAccount ? activeCloudflareKey : null,
     mistralKey: activeMistralKey,
+    grokKey: activeGrokKey,
     pollinationsKey: activePollinationsKey,
     freePiModels: models,
     coarenaModels,
@@ -1009,11 +1125,12 @@ async function createFreePiSession(options) {
     kiloModels,
     cloudflareModels,
     mistralModels,
+    grokModels,
     pollinationsModels,
   });
   if (!plan.available) {
     throw new Error(
-      'No AI provider available — sign in to FreePi or add a provider key in Settings (Coarena, Zro, NVIDIA, Token Harbor, LLM7, DeepSeek, Claude, Gemini, z.ai, OpenRouter, Kilo, Cloudflare, Mistral, Pollinations).'
+      'No AI provider available — sign in to FreePi or add a provider key in Settings (Coarena, Zro, NVIDIA, Token Harbor, LLM7, DeepSeek, Claude, Gemini, z.ai, OpenRouter, Kilo, Cloudflare, Mistral, Grok, Pollinations).'
     );
   }
   log(
@@ -1031,6 +1148,7 @@ async function createFreePiSession(options) {
       `kilo=${plan.kilo ? kiloModels.length : 0}, ` +
       `cloudflare=${plan.cloudflare ? cloudflareModels.length : 0}, ` +
       `mistral=${plan.mistral ? mistralModels.length : 0}, ` +
+      `grok=${plan.grok ? grokModels.length : 0}, ` +
       `pollinations=${plan.pollinations ? pollinationsModels.length : 0}`
   );
 
@@ -1150,6 +1268,12 @@ async function createFreePiSession(options) {
         pi.registerProvider(
           MISTRAL_PROVIDER,
           mistralProviderConfig({ apiKey: activeMistralKey, models: mistralModels })
+        );
+      }
+      if (plan.grok) {
+        pi.registerProvider(
+          GROK_PROVIDER,
+          grokProviderConfig({ apiKey: activeGrokKey, models: grokModels })
         );
       }
       if (plan.pollinations) {
@@ -2082,6 +2206,131 @@ async function createFreePiSession(options) {
       }
     : null;
 
+/*
+ * Other providers, on the user's terms.
+ *
+ * A model can already make a picture or read a video with the tools it has —
+ * through the free-pi backend. What it could not do is use a provider the user
+ * pays for directly: Grok's image models, Gemini's voice. This tool exposes
+ * exactly the capabilities switched on in Settings, and asks before spending
+ * anything, because every one of these calls costs the user money
+ * (2026-11-26).
+ */
+const providerApiKeys = {
+  grok: activeGrokKey || '',
+  google: activeGoogleKey || '',
+  mistral: activeMistralKey || '',
+  openrouter: activeOpenRouterKey || '',
+  deepseek: activeDeepseekKey || '',
+  zai: activeZaiKey || '',
+  kilo: activeKiloKey || '',
+  coarena: activeCoarenaKey || '',
+  zro: activeZroKey || '',
+  tokenharbor: activeTokenHarborKey || '',
+  llm7: activeLlm7Key || '',
+  nvidia: activeNvidiaKey || '',
+  pollinations: activePollinationsKey || 'free',
+};
+// Every provider the user has a key for, so the question is asked once per call
+// instead of being pre-answered in Settings. Consent lives in this session only:
+// a new chat asks again (2026-11-26).
+const providerApiAccess = listAccess({ access: true, keys: providerApiKeys });
+let providerApiAllowedAll = false;
+const providerApiExtension = providerApiAccess.length
+  ? {
+      name: 'freepi-desktop-provider-apis',
+      factory(pi) {
+        pi.registerTool({
+          name: 'provider_call',
+          label: 'Other Provider API',
+          description:
+            `Use a capability of another provider, with the key the user already saved. Available here: ${describeForTool(providerApiAccess)}. ` +
+            'The user is asked to approve each call, and "allow everything" covers every provider in this chat, so ask once for the real task and do not repeat a call that already returned a file.',
+          promptSnippet: 'Make an image, speak text or read media with another provider',
+          parameters: {
+            type: 'object',
+            properties: {
+              provider: { type: 'string', enum: providerApiAccess.map((entry) => entry.provider) },
+              capability: { type: 'string', description: 'One of the capability ids listed for that provider' },
+              params: {
+                type: 'object',
+                description: 'Arguments for that capability, as its description in this tool names them',
+              },
+            },
+            required: ['provider', 'capability', 'params'],
+          },
+          async execute(_id, params) {
+            const chosen = providerApiAccess.find((entry) => entry.provider === params?.provider);
+            if (!chosen) {
+              return {
+                content: [{ type: 'text', text: `That provider is not available here. Available: ${providerApiAccess.map((e) => e.label).join(', ')}.` }],
+                details: { ok: false },
+              };
+            }
+            const capability = chosen.capabilities.find((entry) => entry.id === params.capability);
+            if (!capability) {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: `${chosen.label} cannot do "${params.capability}". It can: ${chosen.capabilities.map((c) => c.id).join(', ')}.`,
+                  },
+                ],
+                details: { ok: false },
+              };
+            }
+            if (!providerApiAllowedAll) {
+              const answer = askUser
+                ? await askUser({
+                    question:
+                      `ให้ ${chosen.label} ทำ "${capability.summary}" ด้วยคีย์ของคุณไหม\n` +
+                      `${capability.cost}\n` +
+                      'ยินยอมทั้งหมด = เปิดให้ผู้ให้บริการอื่นทุกเจ้าในแชทนี้ (แชทอื่นจะถามใหม่)',
+                    options: [
+                      { label: 'ยินยอม', tone: 'ok' },
+                      { label: 'ยินยอมทั้งหมด', tone: 'all' },
+                      { label: 'ยกเลิก', tone: 'cancel' },
+                    ],
+                  })
+                : 'ยินยอม';
+              const said = String(answer || '');
+              if (!said || /ยกเลิก|cancel|deny|no\b/i.test(said)) {
+                return {
+                  content: [{ type: 'text', text: 'The user did not allow this call, so nothing was sent.' }],
+                  details: { ok: false, cancelled: true },
+                };
+              }
+              // "Allow everything" is for this chat only: another chat is another
+              // question, because the reader may trust one job and not the next.
+              if (/ทั้งหมด|all/i.test(said)) providerApiAllowedAll = true;
+            }
+
+            const result = await callProvider({
+              provider: chosen.provider,
+              capability: capability.id,
+              params: params?.params || {},
+              apiKey: providerApiKeys[chosen.provider],
+              cwd,
+            });
+            if (!result.ok) {
+              return { content: [{ type: 'text', text: result.error }], details: { ok: false } };
+            }
+            const lines = [];
+            if (result.files.length) {
+              lines.push(`Saved ${result.files.length} file(s):`);
+              for (const file of result.files) lines.push(path.relative(cwd, file) || file);
+            }
+            if (result.text) lines.push(result.text);
+            return {
+              content: [{ type: 'text', text: lines.join('\n') }],
+              details: { ok: true, files: result.files },
+            };
+          },
+        });
+      },
+    }
+  : null;
+
   // The plan already picked the default (free-pi's tuned model when present,
   // else the first Coarena model). A session must never start on a dead id.
   const browserToolAllowList = browserBridge ? allBrowserToolNames() : [];
@@ -2093,6 +2342,9 @@ async function createFreePiSession(options) {
     // The checklist is registered in every session; missing from this list it is
     // never declared to the model, so the plan panel above the composer stays hidden.
     'todo',
+    // Only declared when the user switched a provider on; without it the tool
+    // would be registered but never offered to the model.
+    ...(providerApiExtension ? ['provider_call'] : []),
   ];
 
   // Only what the user actually chose reaches the SDK; everything else keeps pi's
@@ -2146,6 +2398,7 @@ async function createFreePiSession(options) {
         ...(systemBridge ? [systemExtension] : []),
         todoExtension,
         ...(askUserExtension ? [askUserExtension] : []),
+        ...(providerApiExtension ? [providerApiExtension] : []),
         // The CLI loads these as built-in extensions; an SDK session must add
         // them explicitly. MCP is opt-in and reads the app's own `mcp.json`
         // (not the SDK's hidden agent dir), so the config is easy to find.
@@ -2205,6 +2458,7 @@ async function createFreePiSession(options) {
   let kiloEntries = plan.kilo ? kiloModelEntries(kiloModels) : [];
   let cloudflareEntries = plan.cloudflare ? cloudflareModelEntries(cloudflareModels) : [];
   let mistralEntries = plan.mistral ? mistralModelEntries(mistralModels) : [];
+  let grokEntries = plan.grok ? grokModelEntries(grokModels) : [];
   let pollinationsEntries = plan.pollinations ? pollinationsModelEntries(pollinationsModels) : [];
   let modelList = [];
 
@@ -2229,6 +2483,7 @@ async function createFreePiSession(options) {
       ...kiloEntries,
       ...cloudflareEntries,
       ...mistralEntries,
+      ...grokEntries,
       ...pollinationsEntries,
     ];
     return modelList;
@@ -2616,6 +2871,34 @@ async function createFreePiSession(options) {
   }
 
   /**
+   * Swap the Grok key while the tab is open. The catalog is re-resolved so
+   * a retired id leaves the dropdown.
+   */
+  async function applyGrokKey(nextKey) {
+    if (piApi) {
+      try {
+        piApi.unregisterProvider(GROK_PROVIDER);
+      } catch {}
+    }
+
+    activeGrokKey = nextKey ? String(nextKey).trim() : null;
+    if (!activeGrokKey) {
+      grokEntries = [];
+      return { ok: true, models: rebuildModelList() };
+    }
+
+    const models = await resolveGrokModels(activeGrokKey);
+    if (piApi && models.length) {
+      piApi.registerProvider(
+        GROK_PROVIDER,
+        grokProviderConfig({ apiKey: activeGrokKey, models })
+      );
+    }
+    grokEntries = grokModelEntries(models);
+    return { ok: true, models: rebuildModelList() };
+  }
+
+  /**
    * Swap the Pollinations key while the tab is open. The catalog is re-resolved
    * so a retired id leaves the dropdown.
    */
@@ -2703,6 +2986,7 @@ async function createFreePiSession(options) {
       ['kilo', activeKiloKey, () => applyKiloKey(activeKiloKey)],
       ['cloudflare', activeCloudflareKey, () => applyCloudflareKey(activeCloudflareKey)],
       ['mistral', activeMistralKey, () => applyMistralKey(activeMistralKey)],
+      ['grok', activeGrokKey, () => applyGrokKey(activeGrokKey)],
       ['pollinations', activePollinationsKey, () => applyPollinationsKey(activePollinationsKey)],
     ];
 
@@ -2764,6 +3048,7 @@ async function createFreePiSession(options) {
     applyKiloKey,
     applyCloudflareKey,
     applyMistralKey,
+    applyGrokKey,
     applyPollinationsKey,
     /** Fetch and show a fresh banner ad without starting a new turn. */
     rotateAd: () => ads.rotateAd(),
@@ -3609,6 +3894,9 @@ function loadAppMcpConfig(dir) {
 
 module.exports = {
   createFreePiSession,
+  // Tests only: the catalog cache, so a restart's saved answers and the hashed
+  // ids they are filed under can be checked without a network or an app.
+  catalogCacheForTests: { catalogCache, cachedCatalog, loadCatalogCache, saveCatalogCache },
   realityPolicyExtension,
   realityPolicyRule,
   REALITY_SECTION,
