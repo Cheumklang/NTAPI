@@ -4165,3 +4165,41 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - **ยืนยัน:** `latest.yml`=0.9.7 · exe size 182,267,276 · sha256 `417e6c66…` · sha512 ตรง latest.yml
 - **Provenance:** record-release seq 375 + anchor + verify OK 375 entries
 - **รวมงาน:** ตัวกันคิดวนซ้ำ · Mistral/Pollinations · หน้าตา/โลโก้ · งานค้างเก่า
+
+## 2026-11-26 — README ของ NTAPI-releases เป็นปัจจุบัน
+- **repo:** `Cheumklang/NTAPI-releases` (clone ที่ `/home/nt/Documents/GitHub/NTAPI-releases`) · commit `2c55b0c` · push main แล้ว
+- **ผู้ใช้ขอ:** "อัปข้อมูลใน NTAPI-releases ให้เป็นปัจจุบัน"
+- **แก้ README.md:** ตารางผู้ให้บริการ 9 → 15 ราย (เพิ่ม Mistral, Pollinations, OpenRouter, z.ai, Kilo, Cloudflare) · บรรทัด `Providers:` ภาษาอังกฤษเพิ่ม 6 รายเท่ากัน · แก้สระอำ 36 จุดเป็น U+0E33
+- **ไม่แตะ:** llama.cpp (ไบนารียังเป็น Linux), version/tag/release body v0.9.7 (ตรงแล้ว)
+- **ผล:** +37/−30 · remote README ตรง HEAD (raw CDN ยัง cache ชั่วคราว)
+
+## 2026-11-26 — ภาพหน้าจอใหม่ใน NTAPI-releases
+- **ผู้ใช้ขอ:** "แก้รูปหน้าตาโปรแกรม screens มันรุ่นเก่า อย่าให้ติดแชทผม"
+- **วิธี:** เปิดอินสแตนซ์แยก `NTAPI_DATA_DIR=/tmp/ntapi-shot` (สำเนา data root, ลบ `sessions/*`, ตัด prefs ชี้แชทเดิม, ตั้ง `lastCwd=/tmp/ntapi-demo`) + `--user-data-dir=/tmp/ntapi-shot-ud` + `--ozone-platform=x11` แล้ว `import -window` (Wayland ตรง ๆ แคปไม่ได้)
+- **ผล:** `screens/app.png` 1240×840 · 212 KB · commit `252b44b` push main · ตรวจภาพแล้วไม่มี path/คีย์/แชทจริง
+- **เก็บกวาด:** ปิดอินสแตนซ์ชั่วคราว + ลบ `/tmp/ntapi-shot*`, `/tmp/ntapi-demo` (สำเนาคีย์) แล้ว
+- **บทเรียน:** ตอนแคปครั้งแรกได้ PNG 281 ไบต์ (หน้าต่างยังว่าง) → ต้องวน retry จนไฟล์ > 40 KB · `pkill -f electron` ฆ่าเชลล์ตัวเอง (cmdline มีคำว่า electron) → ใช้ Python อ่าน /proc/&lt;pid&gt;/cmdline แทน
+
+## 2026-11-26 — เทิร์นที่คิดจนชนเพดานไม่ถูกกู้เป็นคำตอบ
+- **อาการ:** แชท 08-23-24 (01a216f3) ขึ้นว่าโมเดลใช้เพดานผลลัพธ์หมดไปกับการคิด · ข้อความในกล่องความคิดโผล่เป็นบับเบิลคำตอบ
+- **หลักฐาน:** assistant message stopReason=length output=8192 มีแต่ part thinking ไม่มี text → กู้เทิร์นแล้ว details.assistant = thinking → วาดเป็นคำตอบ · เทิร์นต่อไปโมเดลอ่านเป็นคำพูดตัวเอง
+- **แก้:** main.js ตัด fallback draft.thinking ใน partialText + เลิกเก็บ turnDraft.thinking · เทสต์ใหม่ 5 เคสใน selftest-recovered-turn.js
+- **ผล:** npm test 113 scripts passed · check:sara ok · ยังไม่ commit / ยังไม่ bump (0.9.7)
+
+## 2026-11-26 — เพดานผลลัพธ์ free-pi 8,192 → 32,768
+- **สาเหตุ:** 8192 เป็นค่าของแอปเองใน freepi-bridge.js ไม่ใช่ของ backend · โมเดลเขียนไฟล์ทั้งไฟล์ใน write ครั้งเดียวแล้วถูกตัด → stopReason=length ไม่มีคำตอบ
+- **ทดสอบ backend จริง:** max_tokens=32768 → finish=stop · completion_tokens=32290 · 40.7 วิ (สคริปต์ /tmp ไม่เข้า repo)
+- **แก้:** MAX_OUTPUT_TOKENS = 32768 (ใช้ทั้ง free-pi / free-pi-defense)
+- **ผล:** npm test 113 scripts passed · ต้องรีสตาร์ทแอป · ยังไม่ commit / bump (0.9.7)
+
+## 2026-11-26 — พื้นหลังแชทในหน้าตั้งค่า (Settings → Appearance)
+- **ผู้ใช้ขอ:** เปลี่ยนพื้นหลังแชทได้ในตั้งค่า · dialog เลือกไฟล์ให้เป็นธีมแอป · ตรวจภาษา
+- **ทำ:** IPC `fs:pickChatBackground`/`fs:clearChatBackground` ก๊อปไฟล์เข้า DATA_ROOT/background แล้ว prefs เก็บแค่ชื่อ (regex กัน path) · จำกัด 20 MB · nativeTheme.themeSource ก่อนเปิด dialog · boot + settings ส่ง dataUri · แท็บ Appearance + preview/ลบ · i18n en+th · CSS วาดที่ .transcript-wrap พร้อมสคริม color-mix 45%
+- **ทดสอบ:** อินสแตนซ์แยก /tmp/ntapi-bgtest + import -window เห็นพื้นหลังจริง ข้อความอ่านชัด · npm test 114 scripts passed · i18n/sara ผ่าน
+- **หมายเหตุ:** Linux dialog เป็น GTK ตามเดสก์ท็อป; Windows/macOS ตามธีมแอป · ยังไม่ commit/bump (0.9.7)
+
+## 2026-11-26 — ปล่อย v0.9.8
+- **คำสั่ง:** commit push ปล่อยอัปเดต (= ส่งอัปเดต) · bump 0.9.7 → 0.9.8 · tag v0.9.8 · push origin HEAD v0.9.8
+- **ยืนยัน:** release v0.9.8 (09:22:10Z) · latest.yml=0.9.8 · exe 182,276,919 bytes · sha256 67a230cf… · sha512 ตรง · เหลือรุ่นเดียว
+- **Provenance:** record-release seq 386 + anchor + verify OK 386 entries
+- **เจอ+แก้:** release body มีบรรทัด PROVENANCE หลุด (hook เขียนคอมมิตในช่วง tag) → PATCH body ใหม่ + เพิ่ม provenance เข้าตัวกรอง release.yml

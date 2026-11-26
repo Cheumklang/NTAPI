@@ -1,5 +1,89 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-26 (Linux) — 🚀 ปล่อย v0.9.8 แล้ว:**
+>
+> **คำสั่งผู้ใช้:** "commit push ปล่อยอัปเดตได้เลย" (= ส่งอัปเดต)
+>
+> **ปล่อยแล้ว:** bump `0.9.7 → 0.9.8` · commit `1c40018` (พื้นหลังแชท) / `43b1ec9`-ish (fix เทิร์น+เพดาน) / `3aeb7af` (release) · tag `v0.9.8` · push `origin HEAD v0.9.8`
+>
+> **ยืนยันของจริง:** release `v0.9.8` เผยแพร่ `2026-11-26T09:22:10Z` · `latest.yml` = 0.9.8 · `NTAPI-Setup-0.9.8.exe` size **182,276,919** · sha256 `67a230cf2871e5a4f48b1b5905c8be7b7547594926db85b8f88e49f1ddea78db` · sha512 ตรงกับ latest.yml · เหลือรุ่นเดียวบนหน้า releases (prune ทำงานแล้ว)
+>
+> **Provenance:** `record-release` seq 386 + `anchor` + `verify` = `OK 386 entries`
+>
+> **แก้เพิ่ม:** body ของ release มีบรรทัด `PROVENANCE:` หลุดขึ้นหน้า (hook เขียนคอมมิตระหว่างช่วง tag) → เปลี่ยน body ใหม่ให้เหลือแต่สิ่งที่ผู้ใช้เห็น และเติม `provenance` เข้าตัวกรองใน `.github/workflows/release.yml` กันซ้ำ
+>
+> **ผู้ใช้ต้อง:** กดอัปเดตในโปรแกรมหรือรีสตาร์ทเพื่อรับ 0.9.8
+
+> **📌 2026-11-26 (Linux) — 🖼️ เพิ่ม "พื้นหลังแชท" ในตั้งค่า (Settings → Appearance):**
+>
+> **ผู้ใช้ขอ:** ให้เปลี่ยนพื้นหลังแชทได้ในหน้าตั้งค่า · ตอนเลือกไฟล์ให้เป็นธีมของโปรแกรม · ตรวจภาษา
+>
+> **ทำ (ทั้งชุด):**
+> - `app/src/main.js`: `fs:pickChatBackground` / `fs:clearChatBackground` · รูปถูก **ก๊อปเข้า `DATA_ROOT/background/`** แล้ว prefs เก็บแค่ชื่อที่แอปสร้าง (`^background-[a-z0-9]+\.(png|jpe?g|webp|gif|bmp)$`) — renderer ตั้ง path เองไม่ได้ · จำกัด 20 MB · `nativeTheme.themeSource = readTheme()` ก่อนเปิด dialog · `app:boot` + `settings:get` ส่ง dataUri ไปให้
+> - `app/src/preload.js`: `pickChatBackground` / `clearChatBackground`
+> - `app/src/renderer/index.html`: แท็บ ** Appearance** + แผง preview / เลือกรูป / ลบ
+> - `app/src/renderer/app.js`: `applyChatBackground()` ตั้ง `--chat-bg` + class `has-chat-bg` · คีย์ i18n en+th (`appearanceTab`, `chatBackground`, …)
+> - `app/src/renderer/styles.css`: พื้นหลังวาดที่ `.transcript-wrap` (ไม่ใช่ `.transcript` ที่เลื่อน) + สครim `color-mix(in srgb, var(--bg) 45%, transparent)` ปรับตามธีมเอง
+>
+> **ทดสอบจริง:** เปิดอินสแตนซ์แยก `NTAPI_DATA_DIR=/tmp/ntapi-bgtest` + รูป gradient + `import -window` → **เห็นพื้นหลังจริง ข้อความยังอ่านชัด** (สคริม 74% จางเกินไป ใช้ 45%) · `npm test` = **114 scripts passed** · `selftest-i18n-keys` ผ่าน · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.7) — ไฟล์: `app/src/main.js`, `app/src/preload.js`, `app/src/freepi-bridge.js`, `app/src/renderer/{app.js,index.html,styles.css}`, `app/scripts/{selftest-recovered-turn.js,selftest-chat-background.js,run-unit-tests.js}` + memory/provenance
+> **หมายเหตุ:** บน Linux dialog ไฟล์เป็น GTK ตามธีมเดสก์ท็อป (ตั้งเองไม่ได้) · ฝั่ง Windows/macOS จะตามธีมแอปผ่าน `nativeTheme`
+
+> **📌 2026-11-26 (Linux) — 📏 เพดานผลลัพธ์ของ free-pi 8,192 → 32,768:**
+>
+> **ที่มา:** ต่อจากเคสเทิร์นที่ชนเพดาน — พบว่า `reasoning` ที่ใช้จริงแค่ 208–1,114 โทเคน ส่วนอีก ~7,000 โทเคนคือ tool call ที่ถูกตัดกลางคัน · เพดาน 8,192 มาจาก `app/src/freepi-bridge.js` ของเราเอง ไม่ใช่ปลายทาง
+>
+> **ทดสอบกับ backend จริง** (สคริปต์ชั่วคราว `/tmp/fp-max-tokens-test.mjs`, ไม่ได้เข้า repo): `max_tokens=32768` → `finish=stop · completion_tokens=32,290 · 40.7 วิ` ⇒ ปลายทางรับเกิน 8,192 ได้
+>
+> **แก้:** `MAX_OUTPUT_TOKENS = 8192 → 32768` (บรรทัด 98) ใช้กับทั้ง `free-pi` และ `free-pi-defense` ผ่าน `buildProviderConfig`
+>
+> **ผล:** `npm test` = **113 scripts passed** · `check:sara` ok · **ต้องรีสตาร์ทแอป** ถึงจะมีผล (ค่าอยู่ใน main process)
+>
+> **ค้าง:** ยังไม่ commit (ไฟล์: `app/src/main.js`, `app/scripts/selftest-recovered-turn.js`, `app/src/freepi-bridge.js` + memory/provenance) · ยังไม่ขยับเวอร์ชัน (0.9.7) — ต้องถามก่อน · ยังไม่ได้ทดสอบในแอปจริงว่าเทิร์นเขียนไฟล์ใหญ่จบครบ
+
+> **📌 2026-11-26 (Linux) — 🩹 เทิร์นที่คิดจนชนเพดาน ไม่ถูกกู้เป็นคำตอบอีกแล้ว:**
+>
+> **ผู้ใช้เจอ:** แชท `2026-11-26T08-23-24-153Z_01a216f3` — ถามเรื่องสร้างวิดีโอแล้วขึ้นว่าโมเดลใช้เพดานผลลัพธ์หมดไปกับการคิด · ข้อความในกล่องความคิดโผล่เป็นบับเบิลคำตอบ
+>
+> **หลักฐานจาก session:** assistant message `stopReason=length · output=8192` มีแต่ part `thinking` ไม่มี part `text` → แอปกู้เทิร์นแล้วเอา thinking ใส่ `details.assistant` → วาดเป็นคำตอบ · เทิร์นถัดไปโมเดลอ่านเป็นคำพูดของตัวเอง
+>
+> **แก้:** `app/src/main.js` ตัด fallback `|| draft.thinking` ใน `partialText` และเลิกเก็บ `turnDraft.thinking` (ไม่มีคนอ่านแล้ว) — เทิร์นที่ไม่เขียนอะไรจะกู้แค่คำถามของผู้ใช้
+> - เทสต์ใหม่ใน `app/scripts/selftest-recovered-turn.js`: เทิร์นที่คิดอย่างเดียว → กู้คำถาม ไม่กู้ความคิด · คำตอบที่เขียนค้างจริงยังกู้เหมือนเดิม · helper `body()` รับ `async function` ได้แล้ว
+>
+> **ผล:** `selftest-recovered-turn` ผ่านทั้งหมด · `npm test` = **113 scripts passed** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit (ไฟล์: `app/src/main.js`, `app/scripts/selftest-recovered-turn.js` + memory/provenance) · ยังไม่ขยับเวอร์ชัน (0.9.7) — ต้องถามก่อน
+
+> **📌 2026-11-26 (Linux) — 🖼️ ภาพหน้าจอใหม่ใน repo `NTAPI-releases`:**
+>
+> **ผู้ใช้ขอ:** "แก้รูปหน้าตาโปรแกรม screens มันรุ่นเก่า อย่าให้ติดแชทผม"
+>
+> **ทำ:** แคปหน้าจอจากแอปรุ่น 0.9.7 ด้วยอินสแตนซ์แยก `NTAPI_DATA_DIR=/tmp/ntapi-shot` (สำเนา data root, ลบ `sessions/*` หมด, ตัด `prefs.json` ที่ชี้แชทเดิม, `lastCwd=/tmp/ntapi-demo`) + `--user-data-dir=/tmp/ntapi-shot-ud` + `--ozone-platform=x11` แล้ว `import -window`
+> - `screens/app.png` ใหม่ 1240×840 · 212 KB (เดิม 160 KB, UI อังกฤษรุ่นเก่า)
+> - ตรวจภาพแล้ว: แชทว่าง ไม่มี path จริง/คีย์/อีเมล
+>
+> **ผล:** commit `252b44b` push `main` · sha256 local = remote · provenance `OK 379 entries`
+>
+> **เก็บกวาดแล้ว:** ปิดอินสแตนซ์ชั่วคราว + ลบ `/tmp/ntapi-shot*`, `/tmp/ntapi-demo`
+>
+> **บทเรียน:** บน Wayland แคปด้วย `import -window` ได้เฉพาะตอนรันด้วย `--ozone-platform=x11` · แคปเร็วเกินได้ PNG ว่าง 281 ไบต์ → วน retry จนขนาด > 40 KB · ห้าม `pkill -f electron` (ฆ่าเชลล์ตัวเอง) ให้ใช้ Python อ่าน `/proc/<pid>/cmdline`
+
+> **📌 2026-11-26 (Linux) — 📄 README ของ repo `NTAPI-releases` เป็นปัจจุบันแล้ว:**
+>
+> **ผู้ใช้ขอ:** "อัปข้อมูลใน NTAPI-releases ให้เป็นปัจจุบัน"
+>
+> **ทำ:** แก้ `README.md` ของ repo `Cheumklang/NTAPI-releases` (clone ที่ `/home/nt/Documents/GitHub/NTAPI-releases`)
+> - ตารางผู้ให้บริการ **9 → 15 ราย** — เพิ่ม Mistral · Pollinations · OpenRouter · z.ai · Kilo · Cloudflare
+> - บรรทัด `Providers:` ภาษาอังกฤษ เพิ่ม 6 รายเดียวกัน
+> - แก้สระอำ 36 จุดเป็น `ำ` (U+0E33)
+>
+> **ไม่แตะ:** `llama.cpp` (ไบนารีย์ใน `src/llamacpp.js` ยังเป็น Linux) · version/tag · body ของ release v0.9.7 (ตรงแล้ว)
+>
+> **ผล:** commit `2c55b0c` push `main` แล้ว · remote README = 15 แถว provider, สระอำ 0 · tree ของ `NTAPI` ไม่มีไฟล์ค้าง
+>
+> **หมายเหตุ:** `raw.githubusercontent.com` ยัง cache หน้าเก่า ~5 นาที (อ่านผ่าน API contents เห็นของใหม่แล้ว)
+
 > **📌 2026-11-25 (Linux) — ✅ ปล่อย v0.9.7 แล้ว:**
 >
 > **ปล่อยแล้ว:** bump `0.9.6 → 0.9.7` · commit `cc047b7` · tag `v0.9.7` · push → CI ปล่อยเข้า `Cheumklang/NTAPI-releases`

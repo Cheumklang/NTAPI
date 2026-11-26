@@ -72,10 +72,12 @@ jobs:
           # (`ci:`/`chore:`/`test:`/`docs:`) says nothing to someone deciding
           # whether to update, and `internal:` marks work behind the scenes —
           # tooling, publishing, backend plumbing — that a user must never be
-          # told about. The version bump itself is dropped too: the heading
-          # already says which version this is.
+          # told about. Provenance bookkeeping is written by a local git hook and
+          # is not news either (it reached a release page once, 2026-11-26).
+          # The version bump itself is dropped too: the heading already says which
+          # version this is.
           $commits = @(& git log $range --no-merges --pretty=format:"%s") |
-            Where-Object { $_ -and $_ -notmatch '^(ci|chore|test|docs|style|internal)\s*:' } |
+            Where-Object { $_ -and $_ -notmatch '^(ci|chore|test|docs|style|internal|provenance)\s*:' } |
             ForEach-Object { $_ -replace "^$([regex]::Escape($tag))\s*:\s*", '' } |
             ForEach-Object { "- $_" }
 

@@ -1,15 +1,15 @@
 NTAPI — authorship ledger
-updated 2026-11-25T21:52:15.374Z
-entries 375
-head_hash 18abf4efd262bb034528140529e3cdf54103208f5b0ceae4348e882074749ab7
-git cc047b7f4cb1356cc25f90779a2b98ec9f771459
+updated 2026-11-26T09:35:29.120Z
+entries 386
+head_hash 1b68878eb2cac8e7967e8e326c311787196f71bdccfe0d5e2c530569e190f134
+git 74ce7e16ca14bd397cef7c633ae083bd5422b4ad
 
 latest entries:
-  #368 2026-11-25T04:31:16.278Z session — ยืนยันปุ่มดึงรายการโมเดลล่าสุดยังใช้ได้กับ Cloudflare + เพิ่มเทสต์กันหลุด 2 ข้อ
-  #369 2026-11-25T04:43:41.077Z session — เพิ่ม Mistral AI + Pollinations.ai providers (ยังไม่ commit, 0.9.6)
-  #370 2026-11-25T05:16:08.241Z session — เพิ่ม Mistral/Pollinations providers + โลโก้จริง + ขอบ window โค้ง + transparent frame (ยังไม่ commit, 0.9.6)
-  #371 2026-11-25T05:36:17.351Z session — แก้ Pollinations API (openai-fast) + ตรวจสอบ status ครบทุกค่าย + บันทึกงาน (ยังไม่ commit, 0.9.6)
-  #372 2026-11-25T20:31:18.356Z session — ทำหน้าตาสวยขึ้น: โลโก้ titlebar, จุดสีผู้ใช้, animation ข้อความใหม่
-  #373 2026-11-25T21:18:45.937Z session — ตัวกันโมเดลคิดวนซ้ำ: ตรวจ thinking, หยุด+สั่งต่ออัตโนมัติ 1 ครั้ง, วนซ้ำอีกหยุดจริง+ntfy
-  #374 2026-11-25T21:24:07.712Z commit — feat: ตัวกันโมเดลคิดวนซ้ำ + Mistral/Pollinations + ปรับหน้าตา
-  #375 2026-11-25T21:52:15.238Z release — Released version 0.9.7
+  #379 2026-11-26T08:02:24.388Z session — อัปเดต screens/app.png จากแอปรุ่น 0.9.7 ด้วยอินสแตนซ์แยก ไม่ติดแชทผู้ใช้ (commit 252b44b)
+  #380 2026-11-26T08:51:49.483Z session — แก้ตัวกู้เทิร์น: ไม่เอา thinking มาเป็นคำตอบ (เลิกเก็บ turnDraft.thinking) + เทสต์ 5 เคส
+  #381 2026-11-26T09:01:23.634Z session — ยกเพดานผลลัพธ์ free-pi 8192->32768 (ทดสอบ backend จริงได้ 32,290 โทเคน)
+  #382 2026-11-26T09:16:31.529Z session — เพิ่มพื้นหลังแชทใน Settings→Appearance (ก๊อปไฟล์เข้า data root, i18n en+th, เทสต์ใหม่)
+  #383 2026-11-26T09:19:45.122Z commit — fix: เทิร์นที่ถูกตัดไม่เอาความคิดมาเป็นคำตอบ + เพดานคำตอบ free-pi 32,768
+  #384 2026-11-26T09:19:45.381Z commit — feat: เลือกพื้นหลังแชทได้ในตั้งค่า → หน้าตาแอป
+  #385 2026-11-26T09:19:45.618Z commit — release: v0.9.8 — พื้นหลังแชทในตั้งค่า · เทิร์นที่ถูกตัดไม่กู้ความคิด · เพดานคำตอบ 32k
+  #386 2026-11-26T09:35:28.994Z release — Released version 0.9.8
