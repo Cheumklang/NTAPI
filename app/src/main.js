@@ -2119,7 +2119,7 @@ function announceEmptyAnswer(tabId) {
 }
 
 /*
- * A model that loops in its own reasoning.
+ * A model that loops in its own reasoning, or in the text it is writing.
  *
  * The first time this turn's thinking starts repeating, the run is stopped and
  * one automatic continuation is sent: a hidden instruction that says the loop
@@ -2138,6 +2138,7 @@ function handleThinkingLoop(tabId, tab) {
   if (!tab || tab.loopAborting) return;
   tab.loopAborting = true;
   if (tab.loopGuard) tab.loopGuard.reset();
+  if (tab.textLoopGuard) tab.textLoopGuard.reset();
 
   if ((tab.loopNudges || 0) < LOOP_MAX_NUDGES) {
     tab.pendingLoopNudge = true;
@@ -2210,6 +2211,7 @@ async function continueAfterLoop(tabId, tab, attempt = 0) {
   tab.lastError = null;
   tab.turnDraft = { prompts: [], assistant: '', tools: [], done: false };
   tab.loopGuard = createLoopGuard();
+  tab.textLoopGuard = null;
   tab.busy = true;
   sendTab(tabId, 'agent:busy', { busy: true });
   try {
@@ -2327,11 +2329,16 @@ async function recoverInterruptedTurn(tabId, tab) {
     // A queued prompt has already started; give it room instead of writing into
     // the middle of a turn. Bounded, so a session that never idles cannot loop.
     draft.waits = (draft.waits || 0) + 1;
-    if (draft.waits > 12) return;
-    setTimeout(() => {
-      recoverInterruptedTurn(tabId, tab).catch(() => {});
-    }, 500);
-    return;
+    if (draft.waits > 12) {
+      // Twelve attempts is six seconds of a stream that should have gone idle.
+      // Waiting longer was a silent loss: no note, no bubble, nothing to read.
+      // pi queues a custom message, so the note is written anyway (2026-11-27).
+    } else {
+      setTimeout(() => {
+        recoverInterruptedTurn(tabId, tab).catch(() => {});
+      }, 500);
+      return;
+    }
   }
 
   const messages = session.messages || [];
@@ -2343,12 +2350,30 @@ async function recoverInterruptedTurn(tabId, tab) {
   const partialText = (draft.assistant || '').trim();
   const userKey = searchKey(userText);
   const partialKey = searchKey(partialText);
-  const userLost =
-    Boolean(userKey) &&
-    !messages.some((m) => m.role === 'user' && searchKey(messageTextOf(m)).includes(userKey));
-  const answerLost =
-    Boolean(partialKey) &&
-    !messages.some((m) => m.role === 'assistant' && searchKey(messageTextOf(m)).includes(partialKey));
+  // Is this text already in the session? Only an exact match, or a longer copy of
+  // the same words that starts with it (the provider can keep the whole block
+  // while the stream was cut). A fragment appearing anywhere inside an older
+  // message is not the same text: the Thai answer "ได้" matched an unrelated reply
+  // and the real answer was dropped without a word, and the send "ต่อ" matched an
+  // older "ต่อจากตรงนั้นเลย" so nothing was written back at all (2026-11-27).
+  const alreadyIn = (role, key, allowPrefix) => {
+    if (!key) return false;
+    return messages.some((m) => {
+      if (m.role !== role) return false;
+      const stored = searchKey(messageTextOf(m));
+      if (stored === key) return true;
+      // The provider can keep a longer copy of the same words — it finished the
+      // block before the allowance ran out — and that copy starts with what was
+      // seen. A fragment found anywhere else inside an older message is not the
+      // same text: "ได้" matched an unrelated reply and the real answer was dropped,
+      // and the send "ต่อ" matched an older "ต่อจากตรงนั้นเลย" so nothing was written
+      // back at all (2026-11-27). Eight characters is the shortest prefix worth
+      // trusting; anything shorter is agreement by accident.
+      return allowPrefix && key.length >= 8 && stored.startsWith(key);
+    });
+  };
+  const userLost = Boolean(userKey) && !alreadyIn('user', userKey, false);
+  const answerLost = Boolean(partialKey) && !alreadyIn('assistant', partialKey, true);
 
   draft.done = true;
   if (!userLost && !answerLost) return;
@@ -2463,6 +2488,24 @@ function messagesForUi(messages) {
    */
   const seenUser = new Set();
   const seenAssistant = new Set();
+  // What the real messages already hold, counted before the walk. A note can be
+  // stored *before* the answer it carries — the provider writes the message a beat
+  // after the turn settles — and reading these sets in order drew that answer
+  // twice, the same reply with one of them marked "cut off" (2026-11-27).
+  for (const m of messages || []) {
+    if (!m) continue;
+    const content = Array.isArray(m.content) ? m.content : [];
+    const text =
+      typeof m.content === 'string'
+        ? m.content
+        : content.filter((c) => c.type === 'text').map((c) => c.text).join('');
+    if (m.role === 'user') {
+      const key = searchKey(splitAttachmentNotes(splitSkillExpansion(text).text).text);
+      if (key) seenUser.add(key);
+    } else if (m.role === 'assistant' && text) {
+      seenAssistant.add(searchKey(text));
+    }
+  }
   for (const m of messages || []) {
     if (!m || m.role === 'system') continue;
 
@@ -2480,22 +2523,33 @@ function messagesForUi(messages) {
           // message instead of gluing them into a single bubble separated by a
           // blank line.
           for (const part of userParts) {
-            const text = part.trim();
+            // The attachment note and the skill briefing are not the message: the
+            // real bubble has them stripped, and the note carries the path the
+            // person never typed. Keeping it drew the same prompt twice, once with
+            // a raw file path in it (2026-11-27).
+            const text = splitAttachmentNotes(splitSkillExpansion(part).text).text.trim();
             const key = searchKey(text);
             if (key && seenUser.has(key)) continue;
             if (key) seenUser.add(key);
             out.push({ kind: 'user', text, images: [], ts: m.timestamp });
           }
         } else if (details.user) {
-          const key = searchKey(details.user);
-          if (!(key && seenUser.has(key))) {
-            if (key) seenUser.add(key);
-            out.push({ kind: 'user', text: details.user, images: [], ts: m.timestamp });
+          const text = splitAttachmentNotes(splitSkillExpansion(details.user).text).text.trim();
+          const key = searchKey(text);
+          if (key && !seenUser.has(key)) {
+            seenUser.add(key);
+            out.push({ kind: 'user', text, images: [], ts: m.timestamp });
           }
         }
         if (details.assistant) {
           const key = searchKey(details.assistant);
-          if (!(key && seenAssistant.has(key))) {
+          // Exact, or a longer copy of the same answer: the note keeps the part that
+          // was on screen and the message keeps the rest of it.
+          const copy =
+            Boolean(key) &&
+            (seenAssistant.has(key) ||
+              (key.length >= 8 && [...seenAssistant].some((other) => other.startsWith(key))));
+          if (!copy) {
             if (key) seenAssistant.add(key);
             out.push({
               kind: 'assistant',
@@ -2792,6 +2846,12 @@ function subscribeTab(tabId) {
             tab.turnDraft.assistant += e.delta;
           }
           sendTab(tabId, 'agent:delta', { channel: 'text', delta: e.delta });
+          // The answer loops too, not only the reasoning: the same sentence over
+          // and over with no tool call and no end (2026-11-27 — a model kept
+          // repeating "(จบรอบคิด) ส่ง tool call เดี๋ยวนี้" until Stop was pressed).
+          // Its own guard, because long healthy text is not a long reasoning pass.
+          if (!tab.textLoopGuard) tab.textLoopGuard = createLoopGuard();
+          if (!tab.loopAborting && tab.textLoopGuard.push(e.delta)) handleThinkingLoop(tabId, tab);
         } else if (e.type === 'thinking_delta') {
           sendTab(tabId, 'agent:delta', { channel: 'thinking', delta: e.delta });
           // Watch the reasoning as it arrives: a model stuck repeating itself
@@ -6053,6 +6113,7 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
   tab.loopNudges = 0;
   tab.pendingLoopNudge = false;
   if (tab.loopGuard) tab.loopGuard.reset();
+  if (tab.textLoopGuard) tab.textLoopGuard.reset();
 
   /**
    * free-pi's models are text-only (the catalog declares input: ["text"]) and

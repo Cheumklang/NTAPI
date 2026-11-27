@@ -46,7 +46,18 @@ const source = body(main, 'messagesForUi');
 check('the UI builder is where it always was', source.length > 500);
 
 // Everything the builder reaches for, stubbed to what the transcript needs.
-const splitAttachmentNotes = (text) => ({ text, imagePaths: [] });
+// The real one pulls the path out of the text, which is why the bubble never
+// shows `[image: …]` (2026-11-27).
+const splitAttachmentNotes = (text) => {
+  const imagePaths = [];
+  const cleaned = String(text || '')
+    .replace(/\[image: ([^\]]+)\]/gi, (_, p) => {
+      imagePaths.push(p);
+      return '';
+    })
+    .trim();
+  return { text: cleaned, imagePaths };
+};
 const splitSkillExpansion = (text) => ({ text, skill: '' });
 // Same normalisation main.js uses to ask "is this text already in here?".
 const searchKey = (text) => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -217,7 +228,75 @@ check(
 check('a finished text block is what marks the boundary', /tab\.turnDraft\.segmentDone = true/.test(main));
 check(
   'the answer that survives is still the one looked for',
-  /const answerLost =[\s\S]{0,220}m\.role === 'assistant' && searchKey\(messageTextOf\(m\)\)\.includes\(partialKey\)/.test(main),
+  // Equality, or a longer copy that starts with it — never a fragment found
+  // somewhere inside an older message (2026-11-27: "ได้" matched an unrelated
+  // reply and the real answer was dropped).
+  /const answerLost = Boolean\(partialKey\) && !alreadyIn\('assistant', partialKey, true\)/.test(main),
+);
+
+/* ------------------- the restart that drew the answer twice (2026-11-27) */
+
+// The provider writes its message a beat after the turn settles, so the note can
+// sit before the answer it carries. The transcript then drew the same reply twice,
+// one of them marked "cut off".
+const noteFirst = build([
+  {
+    role: 'custom',
+    customType: 'ntapi.interrupted-turn',
+    timestamp: 1,
+    details: { user: 'ask', userParts: ['ask'], assistant: 'half an ans' },
+  },
+  { role: 'assistant', content: [{ type: 'text', text: 'half an ans' }], timestamp: 2 },
+]);
+check(
+  'a note stored before its answer is not drawn as a second answer',
+  noteFirst.filter((b) => b.kind === 'assistant').length === 1,
+  JSON.stringify(noteFirst.map((b) => b.text))
+);
+
+const longerCopy = build([
+  { role: 'user', content: [{ type: 'text', text: 'ask' }], timestamp: 1 },
+  {
+    role: 'custom',
+    customType: 'ntapi.interrupted-turn',
+    timestamp: 2,
+    details: { user: '', userParts: [], assistant: 'ได้ครับ นี่คือ' },
+  },
+  { role: 'assistant', content: [{ type: 'text', text: 'ได้ครับ นี่คือโค้ดเต็ม ๆ' }], timestamp: 3 },
+]);
+check(
+  'a longer copy of the same answer wins over the cut-off fragment',
+  longerCopy.filter((b) => b.kind === 'assistant').length === 1,
+  JSON.stringify(longerCopy.map((b) => b.text))
+);
+
+// Two real sends that happen to be the same words are still two sends.
+const sameTwice = build([
+  { role: 'user', content: [{ type: 'text', text: 'ต่อ' }], timestamp: 1 },
+  { role: 'user', content: [{ type: 'text', text: 'ต่อ' }], timestamp: 2 },
+]);
+check('two identical sends stay two bubbles', sameTwice.length === 2);
+
+// A prompt that carried a picture is stored with the path appended. The note holds
+// it raw, so the same prompt was drawn twice — once with a file path in the bubble.
+const attached = build([
+  { role: 'user', content: [{ type: 'text', text: 'ดูรูปนี้ [image: /tmp/a.png]' }], timestamp: 1 },
+  {
+    role: 'custom',
+    customType: 'ntapi.interrupted-turn',
+    timestamp: 2,
+    details: { user: 'ดูรูปนี้ [image: /tmp/a.png]', userParts: ['ดูรูปนี้ [image: /tmp/a.png]'], assistant: '' },
+  },
+]);
+check(
+  'a prompt with a picture is not drawn twice',
+  attached.filter((b) => b.kind === 'user').length === 1,
+  JSON.stringify(attached.map((b) => b.text))
+);
+check(
+  'and the bubble holds no file path',
+  !/\[image:/.test(attached[0]?.text || ''),
+  attached[0]?.text
 );
 
 const renderer = fs.readFileSync(path.join(root, 'src/renderer/app.js'), 'utf8');

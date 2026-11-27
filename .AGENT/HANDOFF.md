@@ -1,5 +1,62 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **🔄 2026-11-27 (Linux) — ผู้ใช้บอก "พิมพ์แล้วรอ error แล้วปิดเปิดโปรแกรมใหม่" → เจอ 3 บั๊กข้อความตอน restart (แก้ครบ):**
+> ทดสอบด้วยการจำลอง session บนดิสก์ 12 รูปแบบ ป้อนเข้า `messagesForUi` ตัวจริง (สคริปต์ `/tmp/inspect-restart.js`, `/tmp/inspect2.js` — ไม่ได้เก็บเข้า repo)
+> 1. **note มาก่อนคำตอบ** (provider เขียน message ช้ากว่าที่เทิร์น settle) → เดิมเทียบ `seenAssistant` แบบเดินหน้า ⇒ **คำตอบเดียวกันถูกวาด 2 บับเบิล** อันหนึ่งติดป้าย "cut off" → แก้: precompute คีย์ของ message จริงทั้งหมดก่อนเดิน loop
+> 2. **คำตอบยาวกว่าที่ขึ้นต้นเหมือนกัน** (note มี "ได้ครับ นี่คือ" / message มี "ได้ครับ นี่คือโค้ดเต็ม ๆ") → ซ้ำ → แก้: ถ้า message จริงขึ้นต้นด้วยข้อความของ note (≥8 ตัว) ถือว่าซ้ำ ให้ตัวยาวชนะ
+> 3. **prompt ที่มีไฟล์แนบ** → user bubble ซ้ำ 2 อัน และอันหนึ่งโชว์ `[image: /path]` ดิบ → แก้: note ผ่าน `splitAttachmentNotes`+`splitSkillExpansion` ก่อนวาด (เหมือนสาขา message จริง)
+> **ยืนยันไม่พัง:** ผู้ใช้พิมพ์ข้อความเดิม 2 ครั้งจริง = ยังได้ 2 บับเบิล · user+error+answer ตัดกลาง = 1 error + 1 answer ถูกต้อง
+> **เทสต์:** เพิ่ม 5 check ใน `selftest-recovered-turn.js` (+แก้ stub ให้ strip attachment เหมือนของจริง) · `npm test` = **124 ผ่าน** · `check:sara` ok
+> **ยังไม่ commit · 0.9.9** · ค้างในมือ: loop-guard + 4 บั๊ก token + 3 บั๊ก restart
+
+> **💸 2026-11-27 (Linux) — ผู้ใช้บอก "หมด token ทีไรบัคข้อความทุกที" → เขียนเทสต์ใหม่ 13 แบบ เจอ 4 บั๊กจริง (แก้ครบ):**
+> ไฟล์เทสต์ใหม่ `app/scripts/selftest-token-out.js` (13 check · รัน `recoverInterruptedTurn` จริงกับ session ปลอม · เพิ่มเข้า `run-unit-tests.js` แล้ว)
+> 1. **คำตอบสั้นหายเงียบ** — `includes()` ทำให้คำตอบ "ได้" ไปตรงกับคำตอบเทิร์นเก่า ⇒ คิดว่าไม่หาย ⇒ ไม่เขียนกลับ → แก้เป็น เท่ากันพอดี หรือ prefix ≥ 8 ตัวอักษร (`alreadyIn`)
+> 2. **ข้อความผู้ใช้สั้นหายทั้งเทิร์น** — "ต่อ" ไปตรงกับ "ต่อจากตรงนั้นเลย" ⇒ `userLost=false` + `answerLost=false` ⇒ **ไม่ส่งอะไรเลย** → user ต้องตรงกันพอดี (ไม่ใช้ prefix)
+> 3. **stream ค้าง 12 รอบ = เงียบ** — `if (draft.waits > 12) return;` ทิ้งงานไม่มี note ไม่มี bubble → เขียน note ต่อแม้ยัง streaming (pi คิวให้)
+> 4. **402 ของ provider ที่ไม่มี branch (freepi/kilo/openrouter) โผล่เป็นอังกฤษดิบ** `"Insufficient Balance (request_id: …)"` → เพิ่ม fallback ทั่วไปใน `provider-errors.js` (insufficient_balance/balance_zero/quota + 402 เปล่า)
+> **ทดสอบกับของจริง:** curl DeepSeek ได้ `HTTP 402 insufficient_balance_error` จริง → ข้อความที่ผู้ใช้เห็นตอนนี้ = "This DeepSeek account has no balance left — top up…" (เดิมดิบ)
+> **เทสต์:** `npm test` = **124 สคริปต์ผ่าน** · `check:sara` ok · `node --check` ok
+> **ยังไม่ commit · 0.9.9**
+
+> **🔁 2026-11-27 (Linux) — แก้บั๊กจริง: โมเดลวนข้อความเดิมใน "คำตอบ" (ไม่ใช่ thinking) — เดิมไม่มีใครดัก ต้องกดหยุดเอง:**
+> ผู้ใช้เจอเองใน NTAPI และผมเจอสด ๆ กับ jcode (`kilo-auto/free` วน "(จบรอบคิด) ส่ง tool call เดี๋ยวนี้" ไม่เรียก tool)
+> **สาเหตุ:** `main.js` ต่อ loop guard เข้าแค่ช่อง `thinking_delta` (`tab.loopGuard.push`) — ช่อง `text_delta` ไม่มีใครดู ⇒ ข้อความวนได้ไม่จำกัดจนผู้ใช้กด Stop
+> **แก้:** เพิ่ม `tab.textLoopGuard` (guard แยก ป้อนจาก `text_delta`) แล้วเรียก `handleThinkingLoop` ตัวเดิม ⇒ หยุดเทิร์น + nudge 1 ครั้ง + ถ้าวนซ้ำแจ้งเตือน + ntfy · รีเซ็ตครบ 3 จุด (`prompt:send`, `abortLoopingTurn`, `continueAfterLoop`)
+> **ไฟล์:** `app/src/main.js` (5 จุด) · `app/scripts/selftest-thinking-loop.js` (+1 check ว่าช่อง text มี guard) · `AGENTS.md` §4 เพิ่มข้อ 3 = วิธีสั่ง jcode (พิมพ์ `/home/nt/NT-ALL/NTAPI อ่านกฏด้วย` + model ที่ใช้ได้ + ห้ามเชื่อคำตอบโดยไม่ grep)
+> **ลบ** `.AGENT/JCODE_BRIEF.md` ตามคำสั่ง (ย้ายเข้า AGENTS.md แล้ว)
+> **เทสต์:** `npm test` = **123 สคริปต์ผ่าน** · `selftest-thinking-loop` ผ่าน (+check ใหม่) · `check:sara` ok · `node --check` ok
+> **ยังไม่ commit · ยังไม่ bump (0.9.9)**
+
+> **✅ 2026-11-27 (Linux) — วิธีเปิด session ของผู้ใช้ได้ผล: ส่ง path เดียวให้ jcode แล้วมันอ่านกฏเอง (`/home/nt/NT-ALL/NTAPI อ่านกฏด้วย`):**
+> ผู้ใช้สอนวิธี: พิมพ์path repo คำเดียวเหมือนที่ผู้ใช้พิมพ์กับผม → jcode อ่าน `AGENTS.md` + `.AGENT/HANDOFF.md` เองแล้วทำงานต่อได้ทันที
+> **ทดลอง:**
+> - `kilo-auto/free` = **พัง** (วนใน thinking ไม่ยิง tool เลย — โมเดลอ่อนเกินไป)
+> - **`nvidia/nemotron-3-ultra-550b-a55b:free` = ทำงานจริง** (55 วิ, 32k tokens, cache_read 26k) → รายงานถูก: ฝั่ง Ubuntu, version 0.9.9, งานค้าง 5 ข้อ, กฎ sara/1-call/no-commit/PROVENANCE ครบ
+> **ตั้ง default ใหม่แล้ว:** `kilo` / `nvidia/nemotron-3-ultra-550b-a55b:free` (ฟรี)
+> **ข้อจำกัดที่เจอ:** มันอ่าน HANDOFF จากบนลงล่างแต่อ้างข้อมูลเก่าปน (บอก Kilo token INVALID_TOKEN ทั้งที่แก้แล้ว) ⇒ HANDOFF ที่ยาวขึ้นเรื่อย ๆ ต้องพึ่งบล็อกบนสุดเป็นหลัก
+> **ไฟล์ค้าง:** `.AGENT/JCODE_BRIEF.md` ยังไม่ commit · 0.9.9 · ยังไม่ bump
+
+> **🧑‍🏫 2026-11-27 (Linux) — สอนงาน jcode เป็นผล: สร้าง `.AGENT/JCODE_BRIEF.md` + ทดลอง prompt แบบรัดกุม:**
+> ไฟล์ใหม่ `.AGENT/JCODE_BRIEF.md` = หัว prompt มาตรฐาน (บังคับ ไฟล์:บรรทัด + ยกข้อความจริงในเครื่องหมายคำพูด · บังคับตอบ "ไม่พบ" · สูงสุด 3 ข้อ · ปิดท้ายความมั่นใจ · ป้อนความจริงที่มันไม่มี) + สรุปว่า "สอนได้/สอนไม่ได้" อะไร
+> **ผลทดลองจริง:** prompt เดิม (5 ข้อ ไม่บังคับหลักฐาน) = อ้างบรรทัดลอย ๆ · prompt รัดกุม = **ตอบ 2 ข้อ ไม่แต่งเพิ่ม บอกตรง ๆ ว่า "ไม่เติมให้ครบ 3 ข้อ"** และ**ยกข้อความโค้ดตรงทุกตัวอักษร** (ตรวจแล้ว: `ntfy-service.js:291 .catch(() => {})` · `freepi-bridge.js:1905-1908` ข้อความ `no room is set up in the ntfy panel`)
+> **ต้นทุน:** 91k tokens (session ใหม่ ไม่มี cache) — เท่ากับ ~3 เท่าของ prompt สั้น ⇒ งานเดิมควรใช้ `--resume`
+> **ข้อจำกัด:** มันยังตีความกว้าง (บอก "ไม่มีการตั้งสถานะ error" ทั้งที่มี `onError: setStatus(connected:false)` อยู่บรรทัด 291) ⇒ prompt ลดการเดาได้ แต่ไม่ตัดทิ้ง
+> **ค้าง:** `.AGENT/JCODE_BRIEF.md` ยังไม่ commit (ผู้ใช้ยังไม่สั่ง) · 0.9.9
+
+> **⚖️ 2026-11-27 (Linux) — ทดลอง blind: ผมกับ jcode ทำงานเดียวกันแยกกัน (ผู้ใช้สั่ง) — โจทย์ "หา 5 silent failure ใน app/src":**
+> jcode (kilo-auto/free, background, ~10 นาที, 36k tokens) ส่ง 5 จุด: `main.js:1432` browserBridge focus เงียบ · `freepi-bridge.js:169` fetchMe กลืน text · `:195,197` fetchCatalog → null (หน้าโมเดลว่าง) · `ntfy-service.js:293` stream ขาดเงียบ · `main.js:2157` rotateAd เงียบ
+> ผมส่ง 5 จุด (ตรวจบรรทัดเองแล้ว): `linux.js:604-608` typeText รายงาน ok โดยไม่ตรวจผล · `freepi-bridge.js:2941-2942` refreshClientVersion คืน before (426 วน) · `:493-496` adsFetch กลืน → null · `renderer/app.js:3537` setPrefs กล swallowed (ค่าหาย) · `:2944-2952` unregister→register ไม่มี try (provider หายแต่รายงานสำเร็จ)
+> **ผลลัพธ์: ไม่ทับกันเลยสักจุด (0/5)** — มันไล่ตาม `catch{}` แบบกว้าง ผมไล่ตาม "สถานะผิดแต่ผู้ใช้ไม่รู้" ⇒ ได้ lead ใหม่ 2-3 ข้อที่ผมไม่เคยมอง (fetchMe, ntfy disconnect, browser focus)
+> **เวลา:** jcode ~10 นาที/36k token · ผม ~2 นาที/3 call · ข้ออ้างของมันยังไม่ได้ตรวจ (ตามที่ผู้ใช้สั่งห้ามช่วยตรวจ)
+> **ไม่มีการแก้โค้ด · ไม่ commit · 0.9.9**
+
+> **✅ 2026-11-27 (Linux) — commit งาน 426 แล้ว (ผู้ใช้สั่ง "commit ก่อนก็ได้"):**
+> commit `483c1f4` = แก้ 426 upgrade_required: cooldown retry 15 วิ + ปุ่มลองอีกครั้งอยู่รอดทุกเส้นทาง (14 ไฟล์: main.js, client-version.js, provider-errors.js, error-messages.js, renderer/app.js, 2 selftest, .AGENT 2, PROVENANCE)
+> `provenance verify` = **OK 450 entries, 211 record files** · post-commit hook บันทึกเองเป็น `6ba16da`
+> **version ยัง 0.9.9 — ยังไม่ bump** (ถามแล้ว ยังไม่ได้รับคำตอบ) · tag ล่าสุด v0.9.9
+> **คิวถัดไป:** เฟส 2 Windows (jcode วางแผนไว้แล้ว: drag + screenshot ทั้งจอ + DPI awareness — บรรทัดตรวจแล้วถูกทุกข้อ)
+
 > **✅ 2026-11-27 (Linux) — Kilo ใช้ได้แล้ว (คีย์ใหม่ + free route) — jcode กลับมาทำงานจริงได้:**
 > คีย์ใหม่ `kilo.json` len 313 (JWT ใหม่) · โมเดลจ่ายเงิน = **402 Credits Required (balance 0)** แต่ `/v1/models` มี **17 free models** → **`kilo-auto/free` PASS**
 > ตั้ง `jcode provider add kilo --base-url https://ai-gateway.kilo.ai/api/v1 --model kilo-auto/free --set-default` ⇒ default ของ jcode = kilo/kilo-auto/free (ฟรี)

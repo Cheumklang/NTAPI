@@ -44,6 +44,7 @@ const TESTS = [
   'selftest-turn-blocks.js',
   'selftest-turn-abort.js',
   'selftest-thinking-loop.js',
+  'selftest-token-out.js',
   'selftest-copy-button.js',
   'selftest-queue-edit.js',
   'selftest-queue-controls.js',

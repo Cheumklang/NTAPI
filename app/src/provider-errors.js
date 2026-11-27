@@ -305,6 +305,16 @@ function friendlyProviderError(raw, { provider } = {}) {
   // must not fall through to the raw "This operation was aborted", which reads
   // like the user cancelled rather than the provider going quiet.
   if (!hint && looksLikeStall(text)) hint = STALL_HINTS[provider] || STALL_HINTS.default;
+  // A spent balance looks the same at every provider, and the ones with no branch
+  // above (free-pi, kilo, openrouter…) used to hand the window the raw English
+  // body — "Insufficient Balance (request_id: …)" — with no advice in it
+  // (2026-11-27).
+  if (!hint && /insufficient[_ ]balance|balance_zero|insufficient[_ ]quota|quota exceeded|exceeded your current quota/i.test(text)) {
+    hint = 'This provider key has no balance or allowance left — top up the account or pick another provider. Failed turns are not charged.';
+  }
+  if (!hint && status === '402') {
+    hint = 'The provider refused this request for lack of balance — top up the account or pick another provider.';
+  }
   if (!hint) hint = (code && ERROR_HINTS[code]) || message || text || 'The model request failed.';
   // A provider body is JSON; nobody should have to read `{"message":…}` in the
   // chat window, so a body that failed to parse falls back to a plain sentence.

@@ -4589,3 +4589,56 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - คีย์ใหม่ใช้ได้ · จ่ายเงิน 402 balance 0 · free models 17 ตัว · kilo-auto/free PASS
 - jcode default = kilo/kilo-auto/free · วางแผนเฟส 2 Windows ระบุบรรทัดถูกทุกจุด (ตรวจเองแล้ว)
 - ยังไม่เขียนโค้ด windows.js/uia.ps1
+
+## 2026-11-27 — commit งาน 426
+
+- commit 483c1f4 (14 ไฟล์) · provenance verify OK 450 entries
+- ยังไม่ bump (0.9.9) · คิวถัดไป: เฟส 2 Windows
+
+## 2026-11-27 — blind test: ผม vs jcode (หา 5 silent failure)
+
+- jcode 5 จุด: main.js:1432, freepi-bridge.js:169, :195/197, ntfy-service.js:293, main.js:2157
+- ผม 5 จุด: linux.js:604-608, freepi-bridge.js:2941, :493, renderer/app.js:3537, :2944-2952
+- ไม่ทับกันเลย 0/5 · jcode ไล่ catch{} กว้าง, ผมไล่สถานะผิดแต่ผู้ใช้ไม่รู้
+- เวลา jcode ~10 นาที vs ผม ~2 นาที
+
+## 2026-11-27 — สร้าง .AGENT/JCODE_BRIEF.md + ทดลอง prompt รัดกุม
+
+- prompt รัดกุม: 2 ข้อ, ไม่แต่งเพิ่ม, ยกข้อความโค้ดตรงทุกตัวอักษร (ตรวจแล้ว)
+- ยังตีความกว้าง 1 จุด (ntfy onError มีอยู่จริงที่บรรทัด 291)
+- ต้นทุน 91k token เพราะ session ใหม่ ไม่มี cache -> งานเดิมใช้ --resume
+- ไฟล์ยังไม่ commit
+
+## 2026-11-27 — วิธีเปิด session jcode ด้วย path เดียว (วิธีของผู้ใช้)
+
+- kilo-auto/free วนใน thinking ไม่เรียก tool -> ใช้ไม่ได้กับงาน agentic
+- nvidia/nemotron-3-ultra-550b-a55b:free ทำงานได้: อ่าน AGENTS.md+HANDOFF แล้วรายงานถูก (55 วิ 32k token)
+- ตั้งเป็น default ของ profile kilo แล้ว
+- ข้อจำกัด: อ้าง HANDOFF บล็อกเก่าปนกับใหม่
+
+## 2026-11-27 — แก้ loop ที่หลุด: ช่อง text ไม่มี loop guard
+
+- เจอจาก jcode (kilo-auto/free) วนข้อความเดิม + ผู้ใช้เคยเจอใน NTAPI ต้องกด Stop เอง
+- เดิม: loopGuard ป้อนจาก thinking_delta เท่านั้น
+- แก้: เพิ่ม tab.textLoopGuard ป้อนจาก text_delta -> handleThinkingLoop (หยุด+nudge+ntfy)
+- รีเซ็ต 3 จุด: prompt:send, abortLoopingTurn, continueAfterLoop
+- AGENTS.md §4 ข้อ 3 = วิธีสั่ง jcode (path เดียว + model + ห้ามเชื่อโดยไม่ grep)
+- ลบ .AGENT/JCODE_BRIEF.md ตามสั่ง
+- npm test 123 ผ่าน, sara ok
+
+## 2026-11-27 — บั๊กข้อความตอน token หมด: 4 จุด (แก้ครบ)
+
+- เทสต์ใหม่ selftest-token-out.js (13 check) เข้า run-unit-tests แล้ว
+- 1. คำตอบสั้นหายเงียบ: includes -> เท่ากัน/prefix >=8
+- 2. ข้อความผู้ใช้สั้นหายทั้งเทิร์น: user ต้องตรงพอดี
+- 3. stream ค้าง 12 รอบเงียบ: เขียน note ต่อ
+- 4. 402 ของ freepi/kilo/openrouter เป็นอังกฤษดิบ: เพิ่ม fallback ใน provider-errors.js
+- npm test 124 ผ่าน, sara ok
+
+## 2026-11-27 — บั๊กข้อความตอน restart (ปิดเปิดโปรแกรมหลัง error): 3 จุด
+
+- จำลอง 12 รูปแบบ session เข้า messagesForUi ตัวจริง
+- 1. note มาก่อนคำตอบ -> วาดซ้ำ 2 บับเบิล: precompute คีย์ message จริงก่อน loop
+- 2. คำตอบยาวกว่าที่ขึ้นต้นเหมือนกัน -> ซ้ำ: ตัวยาวชนะ (prefix >= 8)
+- 3. prompt มีไฟล์แนบ -> user ซ้ำ + โชว์ [image: path]: strip attachment ก่อนวาด
+- เพิ่ม 5 check ใน selftest-recovered-turn.js, npm test 124 ผ่าน

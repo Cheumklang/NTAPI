@@ -121,6 +121,28 @@ const freeStall = friendlyProviderError('The operation was aborted due to timeou
 check('a stall without a provider still makes sense', /stopped responding/i.test(freeStall.text));
 check('a stall never reads as a user cancel', !/aborted/i.test(freeStall.text));
 
+// A spent key at a provider with no branch of its own: the raw English body used
+// to reach the window as "Insufficient Balance (request_id: …)" (2026-11-27).
+{
+  const raw = JSON.stringify({
+    error: {
+      message: 'Insufficient Balance (request_id: 0cb0fb28)',
+      type: 'insufficient_balance_error',
+      code: 'invalid_request_error',
+    },
+  });
+  for (const provider of ['freepi', 'kilo', 'openrouter', undefined]) {
+    const got = friendlyProviderError(raw, { provider });
+    check(
+      `a spent key at ${provider || 'an unnamed provider'} is explained`,
+      /no balance or allowance left/i.test(got.text) && !/request_id/.test(got.text),
+      got.text
+    );
+  }
+  const bare = friendlyProviderError('402: {"message":"payment required"}', { provider: 'kilo' });
+  check('a bare 402 still says what to do', /top up the account or pick another provider/i.test(bare.text), bare.text);
+}
+
 if (failed) {
   console.error(`\n${failed} check(s) failed`);
   process.exit(1);

@@ -86,6 +86,19 @@ const PARAGRAPH =
   check('reset clears the window', guard.text === '' && feed(guard, PARAGRAPH) === false);
 }
 
+// The answer can loop too, not only the reasoning: main.js watches the text
+// channel with its own guard so the loop is cut without anyone pressing Stop.
+{
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8');
+  check(
+    'the answer text has its own loop guard',
+    /tab\.textLoopGuard\.push\(e\.delta\)/.test(source) &&
+      /if \(tab\.textLoopGuard\) tab\.textLoopGuard\.reset\(\)/.test(source)
+  );
+}
+
 if (failures) {
   console.log(`\n${failures} check(s) failed`);
   process.exit(1);
