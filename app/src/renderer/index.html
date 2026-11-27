@@ -133,7 +133,7 @@
             <div class="sys-popover" id="sysPopover" role="dialog" aria-labelledby="sysLabel" hidden>
               <div class="sys-head">
                 <span class="sys-label" id="sysLabel" data-i18n="sysTitle">ควบคุมเครื่อง</span>
-                <span class="sys-state" id="sysState">ปิดอยู่</span>
+                <span class="sys-state" id="sysState">—</span>
               </div>
               <!--
                 The warning is not fine print: it is the sentence that explains
@@ -188,7 +188,7 @@
             <div class="ntfy-panel" id="ntfyPanel" role="dialog" aria-labelledby="ntfyLabel" hidden>
               <div class="ntfy-head">
                 <span class="ntfy-label" id="ntfyLabel" data-i18n="ntfyTitle">แจ้งเตือน/สั่งงานผ่านลิงก์</span>
-                <span class="ntfy-state" id="ntfyState">ปิดอยู่</span>
+                <span class="ntfy-state" id="ntfyState">—</span>
               </div>
               <!--
                 The switch for this session's room. Off means: no stream, no
@@ -385,7 +385,7 @@
             data-i18n-ph="searchChats"
             data-i18n-aria="searchChats"
             placeholder="Search chats"
-            aria-label="Search chats"
+            data-i18n-aria="searchChats" aria-label="Search chats"
           />
           <div id="sessionList" class="session-list"></div>
         </div>
@@ -445,7 +445,7 @@
         <header id="topbar">
           <div id="titleWrap">
             <span id="sessionDot" class="session-dot" hidden aria-hidden="true"></span>
-            <input id="sessionTitle" class="title-input" placeholder="Untitled session" />
+            <input id="sessionTitle" class="title-input" data-i18n-ph="untitled" placeholder="Untitled session" />
           </div>
 
           <!--
@@ -497,7 +497,7 @@
               class="status-popover"
               id="statusPopover"
               role="dialog"
-              aria-label="Status"
+              data-i18n-aria="ariaStatus" aria-label="Status"
               hidden
             >
               <div class="status-pop-head">
@@ -704,7 +704,7 @@
                 <span
                   class="model-picker-plan free"
                   id="modelPickerFreeTier"
-                  title="Free daily quota"
+                  data-i18n-title="freeQuotaTitle" title="Free daily quota"
                   hidden
                 ></span>
                 <span class="model-picker-chevron" aria-hidden="true">▾</span>
@@ -717,8 +717,8 @@
                     type="search"
                     autocomplete="off"
                     spellcheck="false"
-                    placeholder="Search models"
-                    aria-label="Search models"
+                    data-i18n-ph="searchModels" placeholder="Search models"
+                    data-i18n-aria="searchModels" aria-label="Search models"
                   />
                   <!-- Paid routes are labelled but never hidden unless asked for. -->
                   <!-- `tabindex="-1"` keeps focus in the menu when the words are
@@ -755,7 +755,7 @@
                   </button>
                 </div>
                 <div class="model-refresh-note" id="modelRefreshNote" hidden></div>
-                <div class="model-list" id="modelList" role="listbox" aria-label="Model"></div>
+                <div class="model-list" id="modelList" role="listbox" data-i18n-aria="ariaModelPick" aria-label="Model"></div>
                 <div class="model-menu-empty" id="modelMenuEmpty" hidden>No models match</div>
                 <div class="model-tip" id="modelTip" hidden aria-hidden="true"></div>
               </div>
@@ -767,7 +767,7 @@
              Plain text and a caption, no refresh control: the creative rotates on its
              own, and a button in the middle of the conversation read as part of the
              interface rather than as an ad. -->
-        <div id="adSlot" class="ad-slot" hidden role="complementary" aria-label="Sponsored">
+        <div id="adSlot" class="ad-slot" hidden role="complementary" data-i18n-aria="ariaSponsored" aria-label="Sponsored">
           <span class="ad-tag" data-i18n="adFrom">โฆษณาจาก FREEPI.AI</span>
           <div class="ad-copy">
             <span class="ad-headline"></span>
@@ -821,7 +821,7 @@
           class="jump-bottom"
           type="button"
           hidden
-          aria-label="Jump to the newest message"
+          data-i18n-aria="jumpLatest" aria-label="Jump to the newest message"
           data-i18n-title="jumpLatest"
           data-i18n="jumpToBottom"
         >Newest</button>
@@ -848,9 +848,9 @@
           </div>
           <div id="attachments" class="attachments" hidden></div>
           <div class="composer-box">
-            <div id="slashMenu" class="slash-menu" hidden role="listbox" aria-label="Commands"></div>
-            <div id="fileMenu" class="slash-menu file-menu" hidden role="listbox" aria-label="Files"></div>
-            <textarea id="input" rows="1" placeholder="Ask NTAPI to build, fix, or explain… (Enter to send, Shift+Enter for newline)"></textarea>
+            <div id="slashMenu" class="slash-menu" hidden role="listbox" data-i18n-aria="ariaCommands" aria-label="Commands"></div>
+            <div id="fileMenu" class="slash-menu file-menu" hidden role="listbox" data-i18n-aria="ariaFiles" aria-label="Files"></div>
+            <textarea id="input" rows="1" data-i18n-ph="placeholderIdle" placeholder="Ask NTAPI to build, fix, or explain… (Enter to send, Shift+Enter for newline)"></textarea>
             <div class="composer-side">
               <div class="composer-actions">
                 <button id="attachBtn" class="attach" data-i18n-title="attachTitle" data-i18n="attach">Attach</button>
@@ -899,7 +899,7 @@
     </div>
 
     <div id="findBar" class="find-bar" hidden>
-      <input id="findInput" type="text" placeholder="Search this conversation" aria-label="Search this conversation" />
+      <input id="findInput" type="text" data-i18n-ph="findInChat" placeholder="Search this conversation" data-i18n-aria="findInChat" aria-label="Search this conversation" />
       <span id="findCount" class="find-count">0/0</span>
       <button id="findPrev" class="ghost small" data-i18n-title="findPrev">↑</button>
       <button id="findNext" class="ghost small" data-i18n-title="findNext">↓</button>
@@ -907,8 +907,8 @@
     </div>
 
     <div id="paletteOverlay" class="overlay palette-overlay" hidden>
-      <div class="dialog palette-dialog" role="dialog" aria-modal="true" aria-label="Commands">
-        <input id="paletteInput" class="palette-input" placeholder="Type a command or a task…" aria-label="Commands" />
+      <div class="dialog palette-dialog" role="dialog" aria-modal="true" data-i18n-aria="ariaCommands" aria-label="Commands">
+        <input id="paletteInput" class="palette-input" data-i18n-ph="paletteTaskHint" placeholder="Type a command or a task…" data-i18n-aria="ariaCommands" aria-label="Commands" />
         <div id="paletteList" class="palette-list" role="listbox"></div>
         <div class="dialog-hint" data-i18n="paletteHint">↑↓ move · Enter run · Esc close</div>
       </div>
@@ -919,7 +919,7 @@
         <h2 id="questionTitle" data-i18n="questionTitle">The agent needs your decision</h2>
         <p id="questionText" class="dialog-sub"></p>
         <div id="questionOptions" class="question-options"></div>
-        <input id="questionInput" class="field" placeholder="Type your answer" autocomplete="off" />
+        <input id="questionInput" class="field" data-i18n-ph="answerHint" placeholder="Type your answer" autocomplete="off" />
         <div class="dialog-actions">
           <button id="questionSkip" class="ghost" data-i18n="skip">Skip</button>
           <button id="questionSend" class="send" data-i18n="answer">Answer</button>
@@ -976,7 +976,7 @@
         <ol class="browser-steps">
           <li>
             <h3 class="step-title" data-i18n="stepEnable">Turn it on</h3>
-            <div class="ntfy-slide browser-slide" id="browserPower" role="group" aria-label="browser control">
+            <div class="ntfy-slide browser-slide" id="browserPower" role="group" data-i18n-aria="browserTitle" aria-label="browser control">
               <button type="button" class="ntfy-slide-opt" data-on="1" data-i18n="browserConnect">On</button>
               <button type="button" class="ntfy-slide-opt" data-on="0" data-i18n="browserDisconnect">Off</button>
             </div>
@@ -1117,29 +1117,62 @@
         </header>
 
         <div class="settings-body">
-          <nav class="settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+          <nav class="settings-nav" role="tablist" data-i18n-aria="ariaSections" aria-label="Settings sections" aria-orientation="vertical">
             <button type="button" class="settings-nav-item" data-section="workspace" role="tab" id="settingsTabWorkspace" aria-controls="settingsPanelWorkspace">
-              <span class="settings-nav-icon" aria-hidden="true">📁</span>
+              <span class="settings-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M4 6h6l2 2h8v10H4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                </svg>
+              </span>
               <span class="settings-nav-label" data-i18n="workspaceSection">Workspace</span>
             </button>
             <button type="button" class="settings-nav-item" data-section="appearance" role="tab" id="settingsTabAppearance" aria-controls="settingsPanelAppearance">
-              <span class="settings-nav-icon" aria-hidden="true">🎨</span>
+              <span class="settings-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M12 3.2v2M12 18.8v2M3.2 12h2M18.8 12h2M5.8 5.8l1.4 1.4M16.8 16.8l1.4 1.4M18.2 5.8l-1.4 1.4M7.2 16.8l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+              </span>
               <span class="settings-nav-label" data-i18n="appearanceTab">Appearance</span>
             </button>
             <button type="button" class="settings-nav-item" data-section="providers" role="tab" id="settingsTabProviders" aria-controls="settingsPanelProviders">
-              <span class="settings-nav-icon" aria-hidden="true">🔑</span>
+              <span class="settings-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <circle cx="8.2" cy="15.8" r="3.6" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M10.8 13.2L19 5M16.4 7.6l2.2 2.2M14.2 9.8l2.2 2.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+              </span>
               <span class="settings-nav-label" data-i18n="providersSection">Providers</span>
             </button>
             <button type="button" class="settings-nav-item" data-section="mcp" role="tab" id="settingsTabMcp" aria-controls="settingsPanelMcp">
-              <span class="settings-nav-icon" aria-hidden="true">🔌</span>
+              <span class="settings-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M9 3v4M15 3v4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  <path d="M6.5 7h11v3.2a5.5 5.5 0 0 1-11 0z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                  <path d="M12 15.7V21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+              </span>
               <span class="settings-nav-label" data-i18n="mcpSection">MCP</span>
             </button>
             <button type="button" class="settings-nav-item" data-section="advanced" role="tab" id="settingsTabAdvanced" aria-controls="settingsPanelAdvanced">
-              <span class="settings-nav-icon" aria-hidden="true">⚙️</span>
+              <span class="settings-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  <circle cx="15" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  <circle cx="9" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  <circle cx="17" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.7" />
+                </svg>
+              </span>
               <span class="settings-nav-label" data-i18n="advancedSection">Advanced</span>
             </button>
             <button type="button" class="settings-nav-item" data-section="about" role="tab" id="settingsTabAbout" aria-controls="settingsPanelAbout">
-              <span class="settings-nav-icon" aria-hidden="true">ℹ️</span>
+              <span class="settings-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M12 10.8v5.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  <circle cx="12" cy="7.9" r="1.05" fill="currentColor" stroke="none" />
+                </svg>
+              </span>
               <span class="settings-nav-label" data-i18n="aboutSection">About</span>
             </button>
           </nav>
@@ -1211,7 +1244,7 @@
                      a key is saved and readable — it sits outside the mark so the logo
                      stays recognisable. Clicking a tile opens that one form below.
                 -->
-                <div class="provider-grid" id="providerGrid" role="group" aria-label="Providers">
+                <div class="provider-grid" id="providerGrid" role="group" data-i18n-aria="ariaProviders" aria-label="Providers">
                   <button type="button" class="provider-tile" data-provider="anthropic" aria-pressed="false">
                     <span class="provider-tile-logo-wrap">
                       <img class="provider-tile-logo" src="assets/providers/anthropic.svg" alt="" aria-hidden="true" />
@@ -1359,7 +1392,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="coarenaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="coa_&hellip;" aria-label="Coarena API key" />
+                      <input id="coarenaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="coa_&hellip;" data-i18n-aria="keyAria" aria-label="Coarena API key" />
                       <button id="coarenaSave" class="ghost small" data-i18n="coarenaSave">Save</button>
                       <button id="coarenaRemove" class="ghost small danger" data-i18n="coarenaRemove">Remove</button>
                     </div>
@@ -1379,7 +1412,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="zroKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-&hellip;" aria-label="Zro API key" />
+                      <input id="zroKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-&hellip;" data-i18n-aria="keyAria" aria-label="Zro API key" />
                       <button id="zroSave" class="ghost small" data-i18n="zroSave">Save</button>
                       <button id="zroRemove" class="ghost small danger" data-i18n="zroRemove">Remove</button>
                     </div>
@@ -1399,7 +1432,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="nvidiaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="nvapi-&hellip;" aria-label="NVIDIA API key" />
+                      <input id="nvidiaKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="nvapi-&hellip;" data-i18n-aria="keyAria" aria-label="NVIDIA API key" />
                       <button id="nvidiaSave" class="ghost small" data-i18n="nvidiaSave">Save</button>
                       <button id="nvidiaRemove" class="ghost small danger" data-i18n="nvidiaRemove">Remove</button>
                     </div>
@@ -1419,7 +1452,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="tokenharborKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="thk_live_&hellip;" aria-label="Token Harbor API key" />
+                      <input id="tokenharborKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="thk_live_&hellip;" data-i18n-aria="keyAria" aria-label="Token Harbor API key" />
                       <button id="tokenharborSave" class="ghost small" data-i18n="tokenharborSave">Save</button>
                       <button id="tokenharborRemove" class="ghost small danger" data-i18n="tokenharborRemove">Remove</button>
                     </div>
@@ -1439,7 +1472,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="llm7KeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="YOUR_LLM7_API_TOKEN" aria-label="LLM7.io API token" />
+                      <input id="llm7KeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="YOUR_LLM7_API_TOKEN" data-i18n-aria="keyAria" aria-label="LLM7.io API token" />
                       <button id="llm7Save" class="ghost small" data-i18n="llm7Save">Save</button>
                       <button id="llm7Remove" class="ghost small danger" data-i18n="llm7Remove">Remove</button>
                     </div>
@@ -1459,7 +1492,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="deepseekKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-&hellip;" aria-label="DeepSeek API key" />
+                      <input id="deepseekKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-&hellip;" data-i18n-aria="keyAria" aria-label="DeepSeek API key" />
                       <button id="deepseekSave" class="ghost small" data-i18n="deepseekSave">Save</button>
                       <button id="deepseekRemove" class="ghost small danger" data-i18n="deepseekRemove">Remove</button>
                     </div>
@@ -1479,7 +1512,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="anthropicKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-&hellip;" aria-label="Claude API key" />
+                      <input id="anthropicKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-&hellip;" data-i18n-aria="keyAria" aria-label="Claude API key" />
                       <button id="anthropicSave" class="ghost small" data-i18n="anthropicSave">Save</button>
                       <button id="anthropicRemove" class="ghost small danger" data-i18n="anthropicRemove">Remove</button>
                     </div>
@@ -1499,7 +1532,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="googleKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="AIza&hellip;" aria-label="Gemini API key" />
+                      <input id="googleKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="AIza&hellip;" data-i18n-aria="keyAria" aria-label="Gemini API key" />
                       <button id="googleSave" class="ghost small" data-i18n="googleSave">Save</button>
                       <button id="googleRemove" class="ghost small danger" data-i18n="googleRemove">Remove</button>
                     </div>
@@ -1519,7 +1552,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="zaiKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="id.secret&hellip;" aria-label="z.ai API key" />
+                      <input id="zaiKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="id.secret&hellip;" data-i18n-aria="keyAria" aria-label="z.ai API key" />
                       <button id="zaiSave" class="ghost small" data-i18n="zaiSave">Save</button>
                       <button id="zaiRemove" class="ghost small danger" data-i18n="zaiRemove">Remove</button>
                     </div>
@@ -1539,7 +1572,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="openrouterKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-&hellip;" aria-label="OpenRouter API key" />
+                      <input id="openrouterKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-&hellip;" data-i18n-aria="keyAria" aria-label="OpenRouter API key" />
                       <button id="openrouterSave" class="ghost small" data-i18n="openrouterSave">Save</button>
                       <button id="openrouterRemove" class="ghost small danger" data-i18n="openrouterRemove">Remove</button>
                     </div>
@@ -1559,7 +1592,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="kiloKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" aria-label="Kilo API key" />
+                      <input id="kiloKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" data-i18n-aria="keyAria" aria-label="Kilo API key" />
                       <button id="kiloSave" class="ghost small" data-i18n="kiloSave">Save</button>
                       <button id="kiloRemove" class="ghost small danger" data-i18n="kiloRemove">Remove</button>
                     </div>
@@ -1579,8 +1612,8 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="cloudflareAccountInput" class="settings-input mono" type="text" autocomplete="off" spellcheck="false" placeholder="account id" aria-label="Cloudflare account id" />
-                      <input id="cloudflareKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API token&hellip;" aria-label="Cloudflare API token" />
+                      <input id="cloudflareAccountInput" class="settings-input mono" type="text" autocomplete="off" spellcheck="false" data-i18n-ph="accountIdPh" placeholder="account id" data-i18n-aria="accountIdAria" aria-label="Cloudflare account id" />
+                      <input id="cloudflareKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API token&hellip;" data-i18n-aria="keyAria" aria-label="Cloudflare API token" />
                       <button id="cloudflareSave" class="ghost small" data-i18n="cloudflareSave">Save</button>
                       <button id="cloudflareRemove" class="ghost small danger" data-i18n="cloudflareRemove">Remove</button>
                     </div>
@@ -1600,7 +1633,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="mistralKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" aria-label="Mistral API key" />
+                      <input id="mistralKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" data-i18n-aria="keyAria" aria-label="Mistral API key" />
                       <button id="mistralSave" class="ghost small" data-i18n="mistralSave">Save</button>
                       <button id="mistralRemove" class="ghost small danger" data-i18n="mistralRemove">Remove</button>
                     </div>
@@ -1618,7 +1651,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="grokKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" aria-label="Grok API key" />
+                      <input id="grokKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" data-i18n-aria="keyAria" aria-label="Grok API key" />
                       <button id="grokSave" class="ghost small" data-i18n="grokSave">Save</button>
                       <button id="grokRemove" class="ghost small danger" data-i18n="grokRemove">Remove</button>
                     </div>
@@ -1636,7 +1669,7 @@
                       </div>
                     </div>
                     <div class="provider-actions">
-                      <input id="pollinationsKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" aria-label="Pollinations API key" />
+                      <input id="pollinationsKeyInput" class="settings-input mono" type="password" autocomplete="off" spellcheck="false" placeholder="API key&hellip;" data-i18n-aria="keyAria" aria-label="Pollinations API key" />
                       <button id="pollinationsSave" class="ghost small" data-i18n="pollinationsSave">Save</button>
                       <button id="pollinationsRemove" class="ghost small danger" data-i18n="pollinationsRemove">Remove</button>
                     </div>
@@ -1688,7 +1721,7 @@
               <div class="settings-group">
                 <div class="settings-head" data-i18n="resetAll">Reset All Settings</div>
                 <button id="settingsReset" class="ghost danger" data-i18n="resetDefaults">Reset to defaults</button>
-                <p class="settings-hint">This resets folder overrides and language. Your chats, skills, and API keys are not affected.</p>
+                <p class="settings-hint" data-i18n="resetHint">This resets folder overrides and language. Your chats, skills, and API keys are not affected.</p>
               </div>
             </section>
 
@@ -1746,7 +1779,7 @@
                       <span class="link-sep" aria-hidden="true">·</span>
                       <button id="aboutNotices" class="link-btn" data-doc="THIRD-PARTY-NOTICES.md" data-i18n="aboutNoticesOpen">สัญญาอนุญาตของซอฟต์แวร์ที่ใช้</button>
                     </div>
-                    <p class="about-copyright" id="aboutCopyright">© 2026 Chanathip Cheumklang · สงวนลิขสิทธิ์</p>
+                    <p class="about-copyright" id="aboutCopyright" data-i18n="aboutCopyright">© 2026 Chanathip Cheumklang · สงวนลิขสิทธิ์</p>
                   </div>
                 </div>
               </div>
@@ -1814,7 +1847,7 @@
           wording matters most — and agreeing to text you cannot read is neither
           consent nor fair. Two words, the same two the title bar shows.
         -->
-        <div class="terms-lang" role="group" aria-label="Language">
+        <div class="terms-lang" role="group" data-i18n-aria="ariaLanguage" aria-label="Language">
           <button type="button" class="terms-lang-btn" id="termsLangTh" lang="th" aria-pressed="false">ไทย</button>
           <button type="button" class="terms-lang-btn" id="termsLangEn" lang="en" aria-pressed="false">EN</button>
         </div>
@@ -1886,8 +1919,8 @@
 
     <!-- A picture opened on top of the chat. Clicking anywhere that is not the
          picture closes it; the × is there for anyone who does not guess that. -->
-    <div id="imageViewer" class="image-viewer" role="dialog" aria-modal="true" aria-label="Image" hidden>
-      <button id="imageViewerClose" class="image-viewer-close" type="button" aria-label="Close">×</button>
+    <div id="imageViewer" class="image-viewer" role="dialog" aria-modal="true" data-i18n-aria="ariaImage" aria-label="Image" hidden>
+      <button id="imageViewerClose" class="image-viewer-close" type="button" data-i18n-aria="ariaClose" aria-label="Close">×</button>
       <figure class="image-viewer-stage">
         <img id="imageViewerImg" alt="" />
         <figcaption id="imageViewerCaption" class="image-viewer-caption" hidden></figcaption>

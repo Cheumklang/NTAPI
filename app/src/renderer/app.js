@@ -573,6 +573,8 @@ const STRINGS = {
     unknownError: 'unknown cause',
     noticeReasoningOverflow:
       'The model spent its whole output limit on reasoning and never answered. Retry, or pick a model that does not think first.',
+    noticeCompactingForRoom:
+      'Context was nearly full — compacted the history first, so the model has room to answer.',
     noticeThinkingLoop:
       'The model fell into a loop of repeating the same reasoning — stopped it and told it to move on.',
     noticeThinkingLoopGaveUp:
@@ -920,7 +922,7 @@ const STRINGS = {
     adFrom: 'โฆษณาจาก FREEPI.AI',
     provider: 'ผู้ให้บริการ',
     coarenaSection: 'Coarena',
-    coarenaKeyLabel: 'API key',
+    coarenaKeyLabel: 'คีย์ API',
     coarenaSave: 'บันทึก',
     coarenaRemove: 'ลบออก',
     coarenaRemoveTitle: 'ลบคีย์ Coarena?',
@@ -942,7 +944,7 @@ const STRINGS = {
     coarenaRemoved: 'ลบคีย์ Coarena แล้ว',
     coarenaModelSwitched: 'โมเดลที่บันทึกไว้ใช้ไม่ได้แล้ว — เปลี่ยนเป็น',
     zroSection: 'Zro',
-    zroKeyLabel: 'API key',
+    zroKeyLabel: 'คีย์ API',
     zroSave: 'บันทึก',
     zroRemove: 'ลบออก',
     zroRemoveTitle: 'ลบคีย์ Zro?',
@@ -957,7 +959,7 @@ const STRINGS = {
     zroSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
     zroRemoved: 'ลบคีย์ Zro แล้ว',
     nvidiaSection: 'NVIDIA',
-    nvidiaKeyLabel: 'API key',
+    nvidiaKeyLabel: 'คีย์ API',
     nvidiaSave: 'บันทึก',
     nvidiaRemove: 'ลบออก',
     nvidiaRemoveTitle: 'ลบคีย์ NVIDIA?',
@@ -975,7 +977,7 @@ const STRINGS = {
     nvidiaFreeTier: 'โควตาฟรี',
     nvidiaLimits: '40/นาที · 10,000/วัน',
     tokenharborSection: 'Token Harbor',
-    tokenharborKeyLabel: 'API key',
+    tokenharborKeyLabel: 'คีย์ API',
     tokenharborSave: 'บันทึก',
     tokenharborRemove: 'ลบออก',
     tokenharborRemoveTitle: 'ลบคีย์ Token Harbor?',
@@ -993,7 +995,7 @@ const STRINGS = {
     tokenharborFreeTier: 'โควตาฟรี',
     tokenharborLimits: 'โควตารายสัปดาห์',
     llm7Section: 'LLM7.io',
-    llm7KeyLabel: 'API key',
+    llm7KeyLabel: 'คีย์ API',
     llm7Save: 'บันทึก',
     llm7Remove: 'ลบออก',
     llm7RemoveTitle: 'ลบโทเคน LLM7.io?',
@@ -1106,8 +1108,8 @@ const STRINGS = {
     kiloSaveFailed: 'บันทึกคีย์ไม่สำเร็จ:',
     kiloRemoved: 'ลบคีย์ Kilo แล้ว',
     cloudflareSection: 'Cloudflare',
-    cloudflareKeyLabel: 'API token',
-    cloudflareAccountLabel: 'Account ID',
+    cloudflareKeyLabel: 'โทเคน API',
+    cloudflareAccountLabel: 'ID บัญชี',
     cloudflareSave: 'บันทึก',
     cloudflareRemove: 'ลบออก',
     cloudflareRemoveTitle: 'ลบข้อมูล Cloudflare?',
@@ -1222,7 +1224,7 @@ const STRINGS = {
     appearanceSection: 'รูปลักษณ์และพฤติกรรม',
     advancedSection: 'ขั้นสูง',
     folderSettings: 'ตั้งค่าโฟลเดอร์',
-    apiKeys: 'API Keys',
+    apiKeys: 'คีย์ API',
     accountsKeys: 'บัญชีและคีย์ API',
     providersIntro: 'หนึ่งการ์ดต่อหนึ่งบริษัท คีย์แต่ละอันใช้กับบริการบนการ์ดนั้นเท่านั้น',
     freepiSection: 'FreePi',
@@ -1300,6 +1302,8 @@ const STRINGS = {
     unknownError: 'ไม่ทราบสาเหตุ',
     noticeReasoningOverflow:
       'model ใช้เพดานผลลัพธ์หมดไปกับการคิดแล้วไม่ได้ตอบเลย — ลองส่งอีกครั้ง หรือเปลี่ยนไปใช้ model ที่ไม่ใช่สายคิดก่อนตอบ',
+    noticeCompactingForRoom:
+      'บริบทเกือบเต็ม — บีบประวัติให้ก่อน เพื่อให้ model มีที่พอสำหรับคำตอบ',
     noticeThinkingLoop:
       'model คิดวนซ้ำประโยคเดิม — หยุดให้แล้วและสั่งให้ทำงานขั้นถัดไปต่อ',
     noticeThinkingLoopGaveUp:
@@ -9371,6 +9375,28 @@ async function clearChatBackground() {
   showToast({ title: t('chatBackground'), body: t('backgroundRemoved') });
 }
 
+/**
+ * The window's decorations: which providers have a key, how many people are
+ * online, and the sponsor strip.
+ *
+ * Kept together so `boot()` can queue them behind the first conversation instead
+ * of ahead of it — see the comment at the call site.
+ */
+function paintProviderStatuses() {
+  refreshCoarenaStatus().catch(() => {});
+  refreshZroStatus().catch(() => {});
+  refreshNvidiaStatus().catch(() => {});
+  refreshTokenharborStatus().catch(() => {});
+  refreshLlm7Status().catch(() => {});
+  refreshDeepSeekStatus().catch(() => {});
+  refreshAnthropicStatus().catch(() => {});
+  refreshGoogleStatus().catch(() => {});
+  warnUnreadableKeys().catch(() => {});
+  api.getPresence().then(paintPresence).catch(() => {});
+  initSponsor();
+  if (typeof api.onSponsorChanged === 'function') api.onSponsorChanged(reloadSponsor);
+}
+
 async function boot() {
   const bootT0 = performance.now();
   const bootMark = (label) => {
@@ -9399,24 +9425,35 @@ async function boot() {
   loadProfile();
   initUpdates();
   api.onPresence(paintPresence);
-  api.getPresence().then(paintPresence).catch(() => {});
-  refreshCoarenaStatus().catch(() => {});
-  refreshZroStatus().catch(() => {});
-  refreshNvidiaStatus().catch(() => {});
-  refreshTokenharborStatus().catch(() => {});
-  refreshLlm7Status().catch(() => {});
-  refreshDeepSeekStatus().catch(() => {});
-  refreshAnthropicStatus().catch(() => {});
-  refreshGoogleStatus().catch(() => {});
-  warnUnreadableKeys().catch(() => {});
   applySidebarWidth();
   if (info.lastCwd) {
     lastWorkspace = info.lastCwd;
     paintWorkspaceChip(info.lastCwd);
   }
+  /*
+   * The list first, the conversation second.
+   *
+   * `renderSessions()` used to run only from `applyTabState`, which happens after
+   * the remembered tab has been rebuilt in the main process — its history read,
+   * its providers registered, the bridge started. On a big history or a data
+   * root on the other side of a VM that is seconds of empty sidebar while a list
+   * that costs ~50 ms is already sitting there. The list does not depend on the
+   * tab, so it is painted here and the restore below may take as long as it
+   * takes; `applyTabState` repaints the same rows when the tab lands.
+   */
+  if (lastWorkspace) renderSessions(lastWorkspace);
   api.getApprovalMode().then(applyApprovalMode).catch(() => {});
-  initSponsor();
-  if (typeof api.onSponsorChanged === 'function') api.onSponsorChanged(reloadSponsor);
+  /*
+   * The decorations come last, and on the next tick.
+   *
+   * Every one of these is a round trip into the main process, and the status
+   * reads look at the credential store (two of them go to the network). Firing
+   * them at the top of `boot()` put them in front of the conversation the user is
+   * actually waiting for, one IPC message at a time. Timed out of the way like
+   * this, the tab request is already in flight before they are sent
+   * (2026-11-27: "still feels sluggish").
+   */
+  setTimeout(paintProviderStatuses, 0);
 
   if (info.openTabs?.length) {
     // While the tabs are being restored every one of them passes through
@@ -15414,6 +15451,59 @@ Object.assign(STRINGS.th, {
   revertFailed: 'ย้อนไม่สำเร็จ: {why}',
   skills: 'สกิล',
   useSkill: 'ใช้สกิล',
+});
+
+/* ------------------------ what the wording audit added ------------------- */
+/*
+ * `t()` answers with the key itself when a string is missing, so a hole here
+ * reaches the screen as the literal word `keyAria`. These are the surfaces that
+ * had no entry at all: three placeholders, one warning paragraph and the
+ * accessible names of icon-only controls — a screen reader is their only reader.
+ */
+Object.assign(STRINGS.en, {
+  findInChat: 'Search this conversation',
+  paletteTaskHint: 'Type a command or a task…',
+  answerHint: 'Type your answer',
+  resetHint:
+    'This resets folder overrides and language. Your chats, skills, and API keys are not affected.',
+  keyAria: 'API key field',
+  accountIdAria: 'Account ID field',
+  accountIdPh: 'Account ID',
+  freeQuotaTitle: 'Free daily quota',
+  ariaStatus: 'Status',
+  ariaModelPick: 'Model list',
+  ariaSponsored: 'Sponsored',
+  ariaCommands: 'Commands',
+  ariaFiles: 'Files',
+  ariaSections: 'Settings sections',
+  ariaProviders: 'Providers',
+  ariaLanguage: 'Language',
+  ariaImage: 'Image',
+  ariaClose: 'Close',
+  aboutCopyright: '© 2026 Chanathip Cheumklang · All rights reserved',
+});
+
+Object.assign(STRINGS.th, {
+  findInChat: 'ค้นหาในบทสนทนานี้',
+  paletteTaskHint: 'พิมพ์คำสั่งหรืองาน…',
+  answerHint: 'พิมพ์คำตอบของคุณ',
+  resetHint:
+    'การรีเซ็ตนี้ล้างโฟลเดอร์ที่ตั้งไว้และการตั้งค่าภาษา — แชท สกิล และคีย์ API ยังอยู่ครบ',
+  keyAria: 'ช่องคีย์ API',
+  accountIdAria: 'ช่อง ID บัญชี',
+  accountIdPh: 'ID บัญชี',
+  freeQuotaTitle: 'โควตาฟรีรายวัน',
+  ariaStatus: 'สถานะ',
+  ariaModelPick: 'รายการโมเดล',
+  ariaSponsored: 'ผู้สนับสนุน',
+  ariaCommands: 'คำสั่ง',
+  ariaFiles: 'ไฟล์',
+  ariaSections: 'หมวดในหน้าตั้งค่า',
+  ariaProviders: 'ผู้ให้บริการ',
+  ariaLanguage: 'ภาษา',
+  ariaImage: 'รูปภาพ',
+  ariaClose: 'ปิด',
+  aboutCopyright: '© 2026 Chanathip Cheumklang · สงวนลิขสิทธิ์',
 });
 
 /**

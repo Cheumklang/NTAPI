@@ -4694,3 +4694,49 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - end-to-end: F5 (keycode 63) -> MyFirstGame (DEBUG) ขึ้น -> ลูกศรขวา 15 ครั้ง -> วงกลมขยับ (1.62% diff)
 - บันทึกเดิมที่เขียนว่าคลิกไม่ถึง XWayland = ผิด แก้แล้ว
 - ข้อจำกัดจริง: ไม่มี per-window screenshot, focus by name ไม่ได้, อ่านตำแหน่งเมาส์ไม่ได้, ไม่มี accessibility ใน Godot
+
+## 2026-11-27 — กฏ path ฝั่ง Windows VM เปลี่ยนเป็น Z:\home\nt\NT-ALL\NTAPI
+
+- ผู้ใช้: ตอนอยู่ VM Windows จะวาง path เต็ม `Z:\home\nt\NT-ALL\NTAPI` (Z: = root ของ Ubuntu) แทน `Z:\NT-ALL\NTAPI` เดิม
+- ยืนยันจากเครื่อง: `ntapi-run.log` เขียน `source=Z:\home\nt\NT-ALL\NTAPI\app` และ `data-root=Z:\home\nt\.local\share\ntapi keyword=shared`; `Z:\home\nt\NTAPI` มีจริง, `Z:\.local` ไม่มี
+- แก้: `AGENTS.md §2` (ตารางสองหน้า, bullet แมปเก่าใช้ไม่ได้, trigger ตอนผู้ใช้วาง path, ตัวอย่าง inode proof) · `AGENTS.md §3` (data root ร่วม) · `.AGENT/GRAPHIFY.md` (รันจาก root)
+- ไม่แตะฝั่ง Ubuntu (`/home/nt/NT-ALL/NTAPI`) และไม่เขียนทับประวัติใน HANDOFF/LOG
+- ค้าง: โค้ด/คอมเมนต์/เทสต์ที่ยังฝัง path เก่า (which-side.js REPO_WINDOWS, NTAPI.bat fallback, NTAPI.vbs, main.js, session-paths.js, selftest-session-paths.js) — รอผู้ใช้สั่ง
+
+## 2026-11-27 (Windows VM) — เพดานผลลัพธ์หมดไปกับการคิด: เช็กที่ว่างก่อนส่ง
+
+- อาการ: แชท 01a21b73 ขึ้น noticeReasoningOverflow 4 ครั้งติด, output=reasoning=164, text=0
+- ต้นเหตุฝั่งเรา: pi ตั้ง max_tokens = window - estimate - 4096 = 164 ที่ context ~195.7k และ auto-compaction ปิดโดยปริยาย
+- ตรวจ backend จริง: prompt 4k/48k/120k ตอบ 620-775 โทเคน, max_tokens=1 ได้ 1 โทเคน -> ปลายทางปกติ
+- แก้: answerRoomTokens + ensureAnswerRoom ใน main.js (prompt:send เฉพาะ non-stream, prompt:retry) + คีย์ i18n 2 ภาษา
+- เทสต์: selftest-compaction +19 check, npm test 123/124 (ที่ล้มคือ EPERM symlink ของ VM)
+- ยังไม่ commit, ยังไม่ bump 0.9.12, ต้องรีสตาร์ทแอปถึงจะมีผล
+
+## 2026-11-27 (Windows VM) — ตรวจ TH/EN ทั้งโปรแกรม + จัดสเกลระยะห่าง UI
+- สคริปต์ตรวจชั่วคราว: เทียบ 901 คีย์ en/th, หา attr ที่ไม่มี data-i18n hook, หาข้อความฝังใน index.html
+- แก้ค่าไทยปนอังกฤษ: KeyLabel/apiKeys → คีย์ API · cloudflare → โทเคน API / ID บัญชี
+- เพิ่ม 19 คีย์ × 2 ภาษา + เติม hook ใน index.html 42 จุด (placeholder, aria-label, ประโยค reset, ลิขสิทธิ์)
+- styles.css: 171 ระยะ → สเกลคู่ + ซ่อมกองข้อความติดกัน (tab-info, model-picker-copy, ad-copy, session-item, ctx-menu, settings-row-top) · คืน banner padding 11px 14px ตามเทสต์
+- เทสต์: i18n keys ผ่าน · sara ok · npm test 503 ok ล้ม selftest-skill-scan (EPERM symlink บน VM)
+
+## 2026-11-27 (Windows VM) — ไข "exit code -1" ของ NTAPI.bat (ไม่ได้แก้โค้ด)
+- ผู้ใช้เปิด NTAPI.bat (hidden/shared) 17:20:33 → แอปขึ้นจริง (crash.log 10:20:37Z + ready 10:20:43Z) → 17:21:16 ปิดด้วย exit code -1 + dialog
+- ตรวจ: crash.log ไม่มี entry ตอนนั้น · Application event log ไม่มี error electron/NTAPI ⇒ ไม่ใช่ crash แต่ถูกฆ่าจากภายนอก
+- หลักฐาน: electron ที่รันอยู่ (PID 10964, start 17:21:20) มี parent = C:\Program Files\Git\usr\bin\nohup.exe (คำสั่ง nohup electron.exe Z:/home/nt/.../app) ⇒ มีคนเปิดใหม่ผ่าน Git Bash 4 วินาทีหลังรอบที่ถูกฆ่า · dialog ของ .bat จึงเป็นของรอบเก่า
+- ของค้างบนเครื่อง: node tmp-proxy2.mjs (PID 9904, listen 127.0.0.1:8799, start 17:15:46) · electron PID 5148 ตาย 10:26:43Z ด้วย uncaughtException spawn llamacpp\llama-b12648\llama-server ENOENT
+
+## 2026-11-27 (Windows VM) — ไอคอนเมนูตั้งค่าเป็นชุดเดียวกัน
+- เปลี่ยน emoji 6 ตัวใน nav.settings-nav เป็น inline SVG stroke 1.7 / 16px / currentColor
+- .settings-nav-icon เป็นกล่อง 18x18 inline-flex, สี muted → accent เมื่อ selected
+- เทสต์ 503 ok (ล้ม selftest-skill-scan EPERM ตามเดิม) · ไม่ได้แตะ process ของผู้ใช้
+
+## 2026-11-27 (Windows VM) — รายการแชทขึ้นช้าตอนเปิดโปรแกรม
+- วัด: readSessionInfos บน data root จริง 7 ไฟล์ 2 MB = cold 51 ms / warm 5 ms (ไม่ใช่คอขวด)
+- ต้นเหตุ: renderSessions ถูกเรียกจาก applyTabState เท่านั้น = หลัง await api.openTab + attachTab + createFreePiSession
+- แก้: boot() เรียก renderSessions(lastWorkspace) ทันทีก่อนกู้แท็บ
+- เพิ่ม check ใน selftest-startup-speed.js · npm test 503 ok (ล้ม selftest-skill-scan ตามเดิม)
+
+## 2026-11-27 (Windows VM) — ยังหน่วง: จัดคิวงานบูตใหม่
+- วัด: Z: อ่าน 299 ไฟล์ 392 ms vs local 178 ms (2.2x) · node_modules 10,782 ไฟล์ · ไม่มี sync child process ใน main
+- แก้: รวม 9 refresh* + presence + sponsor เป็น paintProviderStatuses() เรียกด้วย setTimeout 0 หลังขอเปิดแท็บ
+- เทสต์: เพิ่ม check "provider status reads do not jump the queue" · app.js syntax ok · npm test 503 ok (ล้ม skill-scan ตามเดิม)

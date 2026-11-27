@@ -1,5 +1,73 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-27 (Windows VM) — ยังหน่วงต่อ: ย้ายงานตกแต่งไปต่อท้ายคิวบูต:**
+>
+> **วัดเพิ่ม:** Z: (ไดรฟ์ VM) อ่าน 299 ไฟล์ = 392 ms เทียบ local 178 ms (~2.2× ช้า) · node_modules มี 10,782 ไฟล์ · เขียน CSS/JS ใหญ่ 0.6–0.2 MB อ่าน 2–3 ms ⇒ I/O ช้ากว่าจาน لكنไม่ใช่หลายวินาที · ไม่มี execFileSync/spawnSync ใน main (ไม่มีอะไรบล็อก event loop)
+> **ต้นเหตุฝั่งโค้ดที่เหลือ:** `boot()` ยิง 9 คำขอสถานะผู้ให้บริการ + presence + sponsor **ก่อน** ขอเปิดแท็บ ⇒ ข้อความ IPC เหล่านั้นเข้าคิว main ก่อนงานที่ผู้ใช้รออยู่
+> **แก้:** รวมเป็นฟังก์ชัน `paintProviderStatuses()` แล้วเรียกด้วย `setTimeout(..., 0)` หลัง `renderSessions`/`getApprovalMode` ⇒ คำขอเปิดแท็บถูกส่งก่อน แล้วสถานะ/provider meter/โฆษณาค่อยตามมา (ของเดิมไม่เปลี่ยนพฤติกรรม แค่ลำดับ)
+> **เทสต์:** เพิ่ม check ที่ 2 ใน `selftest-startup-speed.js` — "provider status reads do not jump the queue" · `node --check src/renderer/app.js` ผ่าน · `npm test` 503 ok ล้ม `selftest-skill-scan.js` (EPERM symlink ของ VM)
+> **ยังไม่ยืนยันด้วยตา:** ผู้ใช้รัน source อยู่ (ห้ามปิดแอป) · ต้อง Ctrl+R/เปิดใหม่ · ถ้ายังหน่วง ให้เปิด `NTAPI_BOOT_TRACE=1` + `NTAPI.bat console` จะเห็น `[boot] +Nms ...` และ `[boot-ui] [boot] ...` บอกว่าช่วงไหนกินเวลา
+> **ขั้นถัดไปถ้ายังช้า:** วัด `attachTab`/`createFreePiSession` (เปิด history + ลงทะเบียน provider + bridge) เพราะนั่นคืองานที่ยังอยู่หน้าจอว่าง
+> **ค้าง:** ไม่ได้ commit · ไม่ bump (0.9.12)
+
+
+> **📌 2026-11-27 (Windows VM) — ซ่อม "เปิดโปรแกรมแล้วกว่า session จะออกมานาน": รายการแชทถูกวาดหลังกู้แท็บเสร็จ:**
+>
+> **วัดจริงก่อนแก้:** `readSessionInfos()` บน data root ที่ใช้จริง (`Z:\home\nt\.local\share\ntapi\sessions\NTAPI` · 7 ไฟล์ · 2.0 MB) = **cold 51 ms / warm 5 ms** · ไฟล์ใหญ่สุด 0.6 MB 282 messages (อ่าน 10 ms, parse 2 ms) ⇒ **การอ่านรายการไม่ใช่คอขวด**
+> **ต้นเหตุ:** `renderSessions()` ถูกเรียกจาก `applyTabState()` เท่านั้น ซึ่งเกิดหลัง `await api.openTab({restore:true})` → `attachTab()` → `bridge.createFreePiSession()` (เปิด history + ลงทะเบียน provider + สตาร์ท bridge) ⇒ sidebar ว่างหลายวินาทีทั้งที่รายการพร้อมใน ~50 ms
+> **แก้:** `app/src/renderer/app.js` — ใน `boot()` หลังรู้ `lastWorkspace` แล้วเรียก `renderSessions(lastWorkspace)` ทันที (ก่อนบล็อก `info.openTabs`) · `applyTabState` ยังวาดซ้ำด้วยข้อมูลเดียวกันเมื่อแท็บเสร็จ (ไม่มี flicker เพราะแถวเหมือนกัน)
+> **เทสต์:** เพิ่ม 1 check ใน `scripts/selftest-startup-speed.js` — "sidebar: the chat list is painted before the tab is restored" (เทียบ index ของ `renderSessions(lastWorkspace)` กับ `info.openTabs` ใน boot) · `npm test` = 503 ok ล้ม `selftest-skill-scan.js` (EPERM symlink ของ VM — ค้างมาก่อน)
+> **ยังไม่ยืนยันด้วยตา:** ผู้ใช้รันsource อยู่ ห้ามปิด/รีสตาร์ทแอป · ต้อง Ctrl+R หรือเปิดใหม่ถึงเห็นผล · ถ้ายังช้า ขั้นถัดไปคือวัด `attachTab`/`createFreePiSession` (bootTrace ขึ้นเฉพาะเมื่อเปิด BOOT_TRACE)
+> **ค้าง:** ไม่ได้ commit · ไม่ bump (0.9.12)
+
+
+> **📌 2026-11-27 (Windows VM) — ไอคอนเมนูตั้งค่าเป็นชุดเดียวกัน (emoji → inline SVG):**
+>
+> **เดิม:** 6 แท็บใน `nav.settings-nav` ใช้ emoji (`📁 🎨 🔑 🔌 ⚙️ ℹ️`) — สี/ขนาด/สไตล์แล้วแต่ฟอนต์ของระบบ ไม่เข้าชุดกับไอคอนอื่นในแอปที่เป็นเส้น stroke
+> **ใหม่:** วาดเป็น inline SVG `viewBox="0 0 24 24"` width/height 16 · `stroke="currentColor"` `stroke-width="1.7"` `fill="none"` ตามสไตล์เดียวกับไอคอนใน titlebar/toolbar — โฟลเดอร์ (Workspace) · ดวงอาทิตย์ (Appearance) · กุญแจ (Providers) · ปลั๊ก (MCP) · สไลเดอร์ (Advanced) · วงกลม i (About)
+> **CSS (`styles.css`):** `.settings-nav-icon` จาก `font-size/line-height` → กล่อง `inline-flex` 18×18 + `svg { display:block }` · สี `var(--muted)` ตอนปกติ และ `var(--accent)` เมื่อแท็บถูกเลือก (`.settings-nav-item[aria-selected="true"] .settings-nav-icon`)
+> **เทสต์:** CSS braces สมดุล (1489/1489) · nav มี 6 span และ 6 svg · emoji เหลือ 0 · `npm test` 503 ok ล้ม `selftest-skill-scan.js` (EPERM symlink ของ VM — ค้างมาก่อน)
+> **ไม่ได้ทำ:** ไม่ได้รัน/ปิดแอป (ผู้ใช้รัน source อยู่ · ห้าม taskkill) · ยังไม่ commit · ไม่ bump (0.9.12) · ยังไม่เห็นด้วยตา — ต้อง Ctrl+R หรือเปิดแอปใหม่แล้วเปิดหน้าตั้งค่า
+
+
+> **📌 2026-11-27 (Windows VM) — ตรวจภาษา TH/EN ทั้งโปรแกรม + จัดระยะห่าง UI:**
+>
+> **ตรวจด้วยสคริปต์ชั่วคราว (ไม่เข้า repo):** เทียบพจนานุกรม en/th 901 คีย์ · หา attr ที่ไม่มี hook ของ i18n · หาข้อความไทย/อังกฤษฝังใน index.html
+> **แก้ภาษา:** ค่าไทยที่ไม่สอดคล้อง — `coarena/zro/nvidia/tokenharbor/llm7 KeyLabel` = `API key` → `คีย์ API` · `apiKeys` = `API Keys` → `คีย์ API` · `cloudflareKeyLabel` → `โทเคน API` · `cloudflareAccountLabel` → `ID บัญชี` (ก่อนหน้านี้มีทั้ง `คีย์ API` และ `API key` ปนกัน)
+> **เติมคีย์ที่ขาด 19 ตัว × 2 ภาษา** (Object.assign block ใหม่ใน `app/src/renderer/app.js`): `findInChat`, `paletteTaskHint`, `answerHint`, `resetHint`, `keyAria`, `accountIdAria`, `accountIdPh`, `freeQuotaTitle`, `ariaStatus/ModelPick/Sponsored/Commands/Files/Sections/Providers/Language/Image/Close`, `aboutCopyright`
+> **index.html:** เติม `data-i18n-ph` / `data-i18n-aria` / `data-i18n-title` / `data-i18n` 42 จุด — placeholder ค้นหาแชท/ค้นหาโมเดล/ค้นในบทสนทนา/พาเลตต์/ช่องตอบคำถาม, aria-label ของปุ่มไอคอนและช่องคีย์ผู้ให้บริการ 16 ช่อง, ประโยค "Reset to defaults" ที่เคยเป็นอังกฤษล้วน, ลิขสิทธิ์หน้า About ที่เคยเป็นไทยล้วน · `#sysState`/`#ntfyState` ค่าเริ่มต้น `ปิดอยู่` → `—` (JS วาดทันที)
+> **ระยะห่าง/ความสวยงาม (styles.css):** ปรับ 171 declaration ให้ลงสเกลคู่ (1→2, 3→4, 5→6, 7→8, 9→10, 11→12, 13→14 px) เฉพาะ property ระยะ (gap/padding/margin) — ไม่แตะ border-width/ขนาด · ซ่อมกองข้อความที่ติดกัน: `.tab-info` 2→5px · `.model-picker-copy` 2→4px + line-height 1.18→1.35 · `.ad-copy` 2→4 · `.about-name` 2→4 · `.session-item` 2→5 · `.ctx-menu` 2→4 · `.settings-row-top` margin-bottom 4→6
+> **เทสต์:** `selftest-i18n-keys` ผ่าน (901 คีย์ · en/th เท่ากัน) · `check:sara` ok · `npm test` = 503 ok ล้มตัวเดียว `selftest-skill-scan.js` (EPERM symlink ของ VM — ค้างมาก่อน) · ระหว่างทาง `selftest-error-ux` ฟ้อง banner padding 11→12 จึงคืน `padding: 11px 14px` ของ `.transcript > .error-banner` (เทสต์ปักค่านี้ไว้ ให้ตรงร่อง 22px)
+> **ค้าง:** ไม่ได้ commit · ไม่ได้ bump (0.9.12) · ยังไม่ได้เปิดแอปดูด้วยตา (ต้องรีสตาร์ท) · placeholder รูปแบบคีย์ (เช่น `sk-…`) คงอังกฤษตามเดิมเพราะเป็นตัวอย่างรูปแบบ
+
+
+> **🔎 2026-11-27 (Windows VM) — ไข "exit code -1" ตอนเปิด NTAPI.bat (ไม่ได้แก้โค้ด):**
+> **อาการ:** `NTAPI.bat` (hidden, shared) เริ่ม 17:20:33 → แอปขึ้นจริง (crash.log boot 10:20:37Z + renderer ready 10:20:43Z) → 17:21:16 ปิดด้วย `exit code -1` แล้วขึ้น dialog
+> **สาเหตุ:** ไม่ใช่ crash — ไม่มี entry ใน `crash.log` ในวินาทีนั้น และ Application event log ไม่มี error ของ electron/NTAPI ⇒ กระบวนการถูกฆ่าจากภายนอก (แบบ `taskkill /F`) แล้ว 4 วินาทีต่อมามีการเปิดใหม่ผ่าน Git Bash: parent ของ electron ที่รันอยู่ = `C:\Program Files\Git\usr\bin\nohup.exe` (start 17:21:20) ไม่ใช่ `.bat` ⇒ dialog ของ `.bat` รายงานรอบที่ถูกฆ่า ไม่ใช่ instance ที่กำลังรัน
+> **ของค้างบนเครื่อง (ยังไม่เก็บ):** `node tmp-proxy2.mjs` (PID 9904 · listen 127.0.0.1:8799 · start 17:15:46) · electron PID 10964 (nohup) ถือ single-instance lock + data root shared · อีก instance (PID 5148) ตาย 10:26:43Z ด้วย `uncaughtException: spawn ...llamacpp\llama-b12648\llama-server ENOENT`
+> **ขั้นถัดไป:** ปิด electron ที่รันอยู่ + `tmp-proxy2` ก่อน แล้วเปิดใหม่ด้วย `NTAPI.bat` (อยากเห็น error ใช้ `NTAPI.bat console`) · llama-server ENOENT = ไม่มีไบนารีใน data root คนละเรื่อง
+
+> **📌 2026-11-27 (Windows VM) — 🩹 "model ใช้เพดานผลลัพธ์หมดไปกับการคิด" เกิดซ้ำ 4 เทิร์นติดในแชทเดียว → แก้: เช็กที่ว่างก่อนส่ง + บีบประวัติถ้าไม่พอ:**
+>
+> **ผู้ใช้เจอ:** แชท `2026-11-27T05-21-34-660Z_01a21b73` พิมพ์ "ตอนนี้ผมอยู่บน VM Windows แล้วนะคับ ทดลองกันเลย" แล้วขึ้นข้อความ `noticeReasoningOverflow` 4 ครั้งติด
+>
+> **หลักฐานจาก session (วัดจริง):** assistant ทุกครั้ง `stopReason=length` · `output=164 · reasoning=164` · `text=0` · input ครั้งแรก 191,991 (cache 0) แล้วหลัง pi compact เอง input เหลือ 40,758 แต่ก็ยังได้ 164 เท่าเดิม
+>
+> **ต้นเหตุที่ยืนยันได้ (ฝั่งเรา):** pi คิด `max_tokens = contextWindow - estimate - 4096` (พื้น 1) · ที่ context ใกล้เต็ม 200k ค่าที่ได้ = **164** (200,000 − 195,740 − 4,096) ⇒ model มีที่ตอบแค่ 164 โทเคน ทั้งหมดถูกใช้ไปกับการคิด · **auto-compaction ปิดโดยปริยาย** (`readCompactionPrefs`) จึงไม่มีใครไปทำที่ว่างให้ (เคส 2026-11-26 ที่ 8,192 คือเพดาน provider — คนละชั้นกับเคสนี้)
+>
+> **ทดสอบกับ backend จริง (สคริปต์ชั่วคราว ไม่เข้า repo):** token เดียวกันยิง `deepseek-v4.1-flash` ปกติ — prompt 4k/48k/120k ตอบ 620–775 โทเคน · `max_tokens=1` ⇒ ได้ 1 โทเคนจริง ⇒ ปลายทางเคารพ max_tokens ไม่ได้หั่นเอง · ยิงด้วย x-session-id ของผู้ใช้ก็ปกติ ⇒ **บัญชี/ปลายทางไม่เสีย** เฉพาะตอนนั้นที่ context เต็ม
+>
+> **แก้ (โค้ด):** `app/src/main.js` — เพิ่ม `CONTEXT_SAFETY_TOKENS = 4096`, `MIN_ANSWER_ROOM_TOKENS = 2048`, `answerRoomTokens()` (อ่าน `session.getContextUsage()`) และ `ensureAnswerRoom()` (บีบประวัติ + แจ้ง `noticeCompactingForRoom`) · เรียกใน `prompt:send` (เฉพาะเมื่อไม่ได้ stream — steer ห้ามบีบเพราะจะตัดเทิร์นที่กำลังต่ออยู่) และ `prompt:retry` · `app/src/renderer/app.js` เพิ่มคีย์ i18n en+th
+> **เทสต์:** `scripts/selftest-compaction.js` +19 check (คำนวณห้องตอบจริงจาก usage 195,740 → 164 · ไม่บีบเมื่อที่ว่างพอ/ไม่รู้ค่า/session บีบไม่ได้/บีบพลาด · ทั้ง 2 ทางที่เทิร์นเริ่มต้องเรียก guard · คีย์มีทั้ง 2 ภาษา) · `npm test` = **123/124 ผ่าน** · ที่ล้มคือ `selftest-skill-scan.js` = `EPERM symlink` ของ Windows VM (ไม่เกี่ยวกับงานนี้)
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.12) · ยังไม่ได้ลองในแอปจริง (ต้องรีสตาร์ทถึงจะมีผล) · ยังไม่ได้แตะพฤติกรรมฝั่ง provider ที่หั่นที่ 164 หลัง compact (ตอนตรวจซ้ำวันนี้ปกติ)
+
+> **📌 2026-11-27 (Windows VM) — แก้กฏ path ฝั่ง VM: `Z:\NT-ALL\NTAPI` → `Z:\home\nt\NT-ALL\NTAPI`:**
+> ผู้ใช้แจ้งว่าฝั่ง VM วาง path แบบเต็ม `Z:\home\nt\NT-ALL\NTAPI` (`Z:` map ไปที่ **root ของ Ubuntu** ไม่ใช่ `/home/nt`) ⇒ แก้ `AGENTS.md §2` (ตาราง + bullet แมปเก่า/ใหม่ + trigger path + ตัวอย่างใน inode proof) · `AGENTS.md §3` data root → `Z:\home\nt\.local\share\ntapi` · `.AGENT/GRAPHIFY.md` 1 บรรทัด · **ฝั่ง Ubuntu ไม่แตะ**
+> **หลักฐานจากเครื่องนี้:** `ntapi-run.log` = `source=Z:\home\nt\NT-ALL\NTAPI\app` · `data-root=Z:\home\nt\.local\share\ntapi keyword=shared` · `which-side.js` = `repo ที่เห็น Z:\home\nt\NT-ALL\NTAPI [มีจริง]`
+> **ยังไม่แก้ (รอผู้ใช้สั่ง — เป็นโค้ด/เทสต์ ไม่ใช่กฏ):** `app/scripts/which-side.js:32` (`REPO_WINDOWS`) · `NTAPI.bat:7,91,92` (fallback เก่า; ตัวจริงคำนวณจาก `%HERE%\..\..` จึงไม่พัง) · `NTAPI.vbs:13` · `app/src/main.js:1733` · `app/src/session-paths.js:33` · เทสต์ `selftest-session-paths.js:28,116`
+> **ไม่แตะ:** บล็อกเก่าใน `HANDOFF.md`/`LOG.md` = บันทึกประวัติของวันนั้น · ยังไม่ commit · 0.9.12
+
+
 > **🖱️ 2026-11-27 (Linux) — ทดสอบควบคุมเดสก์ท็อปด้วยตา (Godot 4.7.2, GNOME Wayland) — **สรุปจริง: ใช้ได้ทั้งคีย์บอร์ดและคลิก** ข้อจำกัดมี 4 ข้อ:**
 > **ทดสอบสำเร็จ end-to-end:** เปิด Godot editor ด้วย CLI (`--path ... --editor`) → ยิง `F5` ด้วย ydotool (keycode 63) → หน้าต่าง `MyFirstGame (DEBUG)` ขึ้น → กดลูกศรขวา 15 ครั้ง → **วงกลมขยับจริง** (diff 1.62% ในหน้าต่างเกม, วงกลมย้ายจาก x≈576 ไป 661)
 > **คลิกใช้ได้** (ยืนยัน 3 ที่): GNOME Activities เปิด overview (94% เปลี่ยน) · Nautilus เลือกไฟล์ (5.1%) · แถวโปรเจกต์ใน Godot ถูกเลือก (0.04%)

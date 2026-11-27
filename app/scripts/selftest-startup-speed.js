@@ -70,6 +70,39 @@ check(
   /catch \{\}/.test(restoreBlock)
 );
 
+/*
+ * 2b. The chat list is not held hostage by the tab being restored.
+ *
+ * The sidebar was painted from `applyTabState` only, i.e. after the remembered
+ * conversation had been rebuilt in the main process (2026-11-27: reported as "the
+ * existing sessions take very long to come out"). A list that costs ~50 ms must
+ * not wait behind that: `boot()` asks for it as soon as it knows the workspace.
+ */
+const bootBody = renderer.slice(
+  renderer.indexOf('async function boot('),
+  renderer.indexOf('async function restorePendingTabs')
+);
+check(
+  'sidebar: the chat list is painted before the tab is restored',
+  bootBody.indexOf('renderSessions(lastWorkspace)') !== -1 &&
+    bootBody.indexOf('renderSessions(lastWorkspace)') < bootBody.indexOf('info.openTabs'),
+  'boot() still waits for the restored tab before asking for the chat list'
+);
+
+/*
+ * 2c. Nothing that only decorates the window is queued ahead of the tab.
+ *
+ * The provider-status reads are IPC round trips that touch the credential store,
+ * and two of them go to the network. At the top of boot() they were sent before
+ * the conversation was even asked for (2026-11-27).
+ */
+check(
+  'sidebar: provider status reads do not jump the queue',
+  /setTimeout\(paintProviderStatuses, 0\)/.test(bootBody) &&
+    !/refreshCoarenaStatus\(\)\.catch/.test(bootBody),
+  'boot() still fires the provider status reads directly, ahead of the tab'
+);
+
 /* 3. Catalogs outlive the process, filed under a hash and never a raw key. */
 check('catalog: main hands the bridge a cache file', /catalogCachePath:\s*path\.join\(DATA_ROOT/.test(main));
 check('catalog: the bridge reads it before building a tab', /loadCatalogCache\(catalogCachePath\)/.test(bridge));
