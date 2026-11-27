@@ -4680,3 +4680,17 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - jcode 3 ข้อ: main.js:1432 จริง -> แก้; fetchMe/fetchCatalog อ้างผิด (มี guest fallback)
 - Kilo free route: 6 ครั้งติด HTTP 200 ไม่ rate-limit
 - 0.9.12 message มีอักษรจีน 2 ตัว: ไม่ force-push (tag จะชี้ SHA ใหม่ + Release รันซ้ำ)
+
+## 2026-11-27 — ทดสอบควบคุมเดสก์ท็อปด้วยตา (Godot)
+
+- ได้: windows list, screenshot ทั้งจอ, keyboard (พิมพ์ลง Godot filter สำเร็จ), pointer ขยับ
+- ไม่ได้: screenshot ทีละหน้าต่าง, focus ตามชื่อ, click (diff ภาพ 0 พิกเซล), อ่านตำแหน่งเมาส์
+- บทเรียน: ห้ามเชื่อพิกัดจาก vision model -> วิเคราะห์พิกเซล + xwininfo
+- สร้างโปรเจกต์ Godot ตัวอย่าง /home/nt/Downloads/MyFirstGame (headless ผ่าน)
+
+## 2026-11-27 (แก้บันทึก) — คลิก Wayland ใช้ได้: ที่พลาดคือพิกัด
+
+- ยืนยันคลิกได้: Activities 94%, Nautilus 5.1%, แถวโปรเจกต์ Godot 0.04%
+- end-to-end: F5 (keycode 63) -> MyFirstGame (DEBUG) ขึ้น -> ลูกศรขวา 15 ครั้ง -> วงกลมขยับ (1.62% diff)
+- บันทึกเดิมที่เขียนว่าคลิกไม่ถึง XWayland = ผิด แก้แล้ว
+- ข้อจำกัดจริง: ไม่มี per-window screenshot, focus by name ไม่ได้, อ่านตำแหน่งเมาส์ไม่ได้, ไม่มี accessibility ใน Godot

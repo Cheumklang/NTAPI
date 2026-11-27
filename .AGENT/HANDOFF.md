@@ -1,5 +1,12 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **🖱️ 2026-11-27 (Linux) — ทดสอบควบคุมเดสก์ท็อปด้วยตา (Godot 4.7.2, GNOME Wayland) — **สรุปจริง: ใช้ได้ทั้งคีย์บอร์ดและคลิก** ข้อจำกัดมี 4 ข้อ:**
+> **ทดสอบสำเร็จ end-to-end:** เปิด Godot editor ด้วย CLI (`--path ... --editor`) → ยิง `F5` ด้วย ydotool (keycode 63) → หน้าต่าง `MyFirstGame (DEBUG)` ขึ้น → กดลูกศรขวา 15 ครั้ง → **วงกลมขยับจริง** (diff 1.62% ในหน้าต่างเกม, วงกลมย้ายจาก x≈576 ไป 661)
+> **คลิกใช้ได้** (ยืนยัน 3 ที่): GNOME Activities เปิด overview (94% เปลี่ยน) · Nautilus เลือกไฟล์ (5.1%) · แถวโปรเจกต์ใน Godot ถูกเลือก (0.04%)
+> **ข้อจำกัดจริง (ยืนยันแล้ว):** (1) `system_screenshot` ทีละหน้าต่าง = NOT_CAPTURABLE (2) `system_focus` ตามชื่อ = NOT_SUPPORTED — **หน้าต่างที่ทับอยู่จะกินคลิก** (3) `xdotool getmouselocation` บน Wayland อ่านค่าค้าง (4) Godot ไม่มี accessibility tree → ต้องใช้พิกัด
+> **บทเรียนสำคัญ (เคยบันทึกผิดแล้วแก้):** รอบแรกผมสรุปว่า "คลิกไม่ถึง XWayland" เพราะ diff = 0 — **ผิด** ต้นเหตุจริงคือ **พิกัดผิด**: vision model ประเมินพิกัดพลาด ⇒ ต้องหาแถว/ปุ่มด้วยการวิเคราะห์พิกเซลในภาพ (แถวสว่างสุด + run แนวนอน) บวก offset จาก `xwininfo`
+> **ของแถม:** โปรเจกต์ `/home/nt/Downloads/MyFirstGame` (Main.gd = วงกลมขยับด้วยลูกศร + ขอบจอ) — รันและเล่นได้แล้ว
+
 ---
 
 ## ⭐ สถานะปัจจุบัน (อ่านบล็อกนี้ก่อน · **เขียนทับทุกเทิร์น ไม่ใช่ต่อท้าย**)
@@ -7,7 +14,7 @@
 - **รุ่น:** `0.9.12` · CI **เขียว** · release เหลือรุ่นเดียว · ปล่อยล่าสุด 2026-11-27
 - **ฝั่งที่ทำงาน:** Ubuntu (`/home/nt/NT-ALL/NTAPI`) · data root `/home/nt/.local/share/ntapi` · โปรแกรมจริงอยู่ Windows (`C:\Program Files\NTAPI` — ห้ามแตะ)
 - **เพิ่งปิด (2026-11-27):** 8 บั๊กข้อความ (loop คำตอบ / กู้เทิร์นตอนโควตาหมด / วาดประวัติซ้ำหลังเปิดใหม่) · 5 silent failure (typeText focus, ntfy stream, register provider, ข้อความ ntfy หลอก, prefs, focus แท็บ) · CI แดงเพราะ CRLF → `.gitattributes` LF ครบ
-- **ค้างจริงตอนนี้:** (1) เฟส 2 Windows = `drag` + ถ่ายทั้งจอ + DPI aware (แผนพร้อม ยังไม่เขียน) (2) ทดสอบควบคุมเครื่อง Linux ด้วยตา (3) 426→200 กับ backend จริง (auth.json ว่าง) (4) edge 426 อีก 3 จุด (5) shortcut 2 จุด (รอง)
+- **ค้างจริงตอนนี้:** (1) เฟส 2 Windows = `drag` + ถ่ายทั้งจอ + DPI aware (แผนพร้อม ยังไม่เขียน) (2) ~~ทดสอบควบคุมเครื่อง Linux ด้วยตา~~ เสร็จ 2026-11-27 (3) 426→200 กับ backend จริง (auth.json ว่าง) (4) edge 426 อีก 3 จุด (5) shortcut 2 จุด (รอง)
 - **ข้อเท็จจริงที่วัดแล้ว:** Kilo free route ยิงติดกัน 6 ครั้ง HTTP 200 ทั้งหมด ไม่ rate-limit · `typeText` ยัง**ไม่ verify** ว่าเข้าจริง (แค่ไม่กลืน focus) · `ntfy-service` ตั้งสถานะ error ได้แล้ว · jcode อ้าง `fetchMe`/`fetchCatalog` ว่ากลืน error = **ผิด** (มี guest fallback ตั้งใจ)
 - **jcode:** เปิดด้วย `/home/nt/NT-ALL/NTAPI อ่านกฏด้วย` · model `nvidia/nemotron-3-ultra-550b-a55b:free` · รายละเอียดใน `AGENTS.md §4 ข้อ 3`
 
