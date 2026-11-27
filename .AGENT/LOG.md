@@ -4519,3 +4519,8 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - ตรวจ: `grep -c NVIDIA AGENTS.md` = 0 · ไม่มีคำว่า NVIDIA เหลือในไฟล์กติกา
 - เหตุผลจากผู้ใช้: ไม่ต้องการผูกการทดสอบกับผู้ให้บริการใดเจ้าหนึ่ง
 - ประวัติใน LOG/HANDOFF เดิมไม่ลบ · ยังไม่ commit · ไม่ bump (0.9.9)
+
+## 2026-11-27 (Linux) — commit งานค้าง 38 ไฟล์ (ผู้ใช้สั่ง)
+- commit 980f6c6: Linux ควบคุมเครื่อง (drag/แคปทั้งจอ portal/ydotool 1024 units/backend Wayland→ydotool/พิมพ์ไทย wl-copy) + recovered-turn วาดคำตอบซ้ำ
+- เทสต์: npm test = 123 สคริปต์ผ่าน · check:sara ok · git status = 0 ไฟล์
+- ยังไม่ bump (0.9.9) · ก/ข/ค ผู้ใช้สั่งพักไว้เป็นรอง ไม่รีบ
