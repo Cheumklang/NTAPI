@@ -393,7 +393,7 @@ for (const key of ['sysTitle', 'sysWarn', 'sysConfirmTitle', 'sysStoppedHotkey',
 
 const tools = require(path.join(root, 'src/freepi-bridge.js'));
 const toolNames = Object.keys(tools.SYSTEM_TOOLS);
-check('ten desktop tools, no more', toolNames.length === 10, toolNames.join());
+check('eleven desktop tools, no more', toolNames.length === 11, toolNames.join());
 check(
   'look before pressing is the order offered',
   toolNames[0] === 'system_windows' && toolNames[1] === 'system_snapshot' && toolNames[9] === 'system_act'
@@ -408,7 +408,7 @@ check(
 check(
   'every kind of real input prompts',
   tools.systemGuardedTools().join() ===
-    'system_launch,system_keys,system_type,system_click_at,system_scroll,system_act',
+    'system_launch,system_keys,system_type,system_click_at,system_scroll,system_act,system_drag',
   tools.systemGuardedTools().join(),
 );
 check('system_act is in the default guard list', tools.DEFAULT_GUARDED_TOOLS.includes('system_act'));
@@ -429,6 +429,57 @@ check(
 check(
   'and that every real input brings the window to the front first',
   /refuses if it did not get there/.test(freepi),
+);
+check(
+  'a drag names both ends and asks for the pointer to travel between them',
+  tools.SYSTEM_TOOLS.system_drag.cmd === 'drag' &&
+    tools.SYSTEM_TOOLS.system_drag.write === true &&
+    ['x', 'y', 'toX', 'toY'].every((key) => tools.SYSTEM_TOOLS.system_drag.parameters.required.includes(key)),
+);
+check(
+  'a screenshot can ask for the whole screen, not only one window',
+  tools.SYSTEM_TOOLS.system_screenshot.parameters.properties.scope.enum.join() === 'window,screen',
+);
+check(
+  'the prompt tells the model when to drag',
+  /system_drag/.test(freepi),
+);
+check(
+  'a model without eyes is handed the path and told where to look, not left stuck',
+  /this model cannot see images: call look_at_image/.test(freepi),
+);
+check(
+  'the desktop tools are declared to every session, whatever the provider',
+  /const systemToolAllowList = systemBridge \? Object\.keys\(SYSTEM_TOOLS\) : \[\];/.test(freepi) &&
+    /systemToolAllowList,/.test(freepi),
+);
+
+/* ------------------------------------------------ the Linux input and eyes */
+
+const linuxSrc = fs.readFileSync(path.join(root, 'src/system', 'linux.js'), 'utf8');
+check(
+  'ydotool is handed its own units, not screen pixels (1024 across the screen)',
+  /const YDOTOOL_UNITS = 1024;/.test(linuxSrc) &&
+    /function toYdotoolUnits\(value\)/.test(linuxSrc) &&
+    /String\(toYdotoolUnits\(input\.x\)\)/.test(linuxSrc) &&
+    /toYdotoolUnits\(from\[0\]\)/.test(linuxSrc),
+);
+check(
+  'dragging presses, travels and releases (xdotool and ydotool both)',
+  /mousedown/.test(linuxSrc) && /mouseup/.test(linuxSrc) && /0x40/.test(linuxSrc) && /0x80/.test(linuxSrc),
+);
+check('the pointer travels in steps, not from one point straight to the other', /for \(let i = 1; i <= steps/.test(linuxSrc));
+check(
+  'the whole screen comes from the desktop portal, which is the only way on Wayland',
+  /portal-shot\.py/.test(linuxSrc) && /screenshotScreen/.test(linuxSrc) && fs.existsSync(path.join(root, 'src/system', 'portal-shot.py')),
+);
+check(
+  'the portal helper waits on the request handle, where the answer really arrives',
+  /request\/%s\/%s/.test(fs.readFileSync(path.join(root, 'src/system', 'portal-shot.py'), 'utf8')),
+);
+check(
+  'main routes scope screen and drag to the adapter',
+  /args\.scope === 'screen'/.test(main) && /systemAdapter\.drag/.test(main) && /cmd === 'drag'/.test(main),
 );
 
 /* --------------------------------------------------- the Windows input half */

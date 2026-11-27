@@ -203,10 +203,6 @@ contextBridge.exposeInMainWorld('freepi', {
   compact: (tabId, instructions) => ipcRenderer.invoke('session:compact', { tabId, instructions }),
   exportSession: (tabId) => ipcRenderer.invoke('session:export', tabId),
   setThinking: (tabId, level) => ipcRenderer.invoke('session:thinking', { tabId, level }),
-  // Auto-compaction: read the effective values for the open tab, or send a patch
-  // (`{ enabled }` applies at once, token numbers travel with the next tab).
-  getCompaction: (tabId) => ipcRenderer.invoke('settings:compaction', { tabId }),
-  setCompaction: (patch, tabId) => ipcRenderer.invoke('settings:compaction', { tabId, patch }),
   runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
   listChanges: (tabId) => ipcRenderer.invoke('changes:list', tabId),
   revertChanges: (tabId, path, all) => ipcRenderer.invoke('changes:revert', { tabId, path, all }),

@@ -122,6 +122,8 @@ const TESTS = [
   'selftest-resolve-sdk.js',
   'selftest-session-paths.js',
   'selftest-which-side.js',
+  'selftest-window-state.js',
+  'selftest-open-path.js',
   'selftest-launcher.js',
   'selftest-recovered-turn.js',
   'selftest-chat-background.js',

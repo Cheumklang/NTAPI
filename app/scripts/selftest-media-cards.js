@@ -38,7 +38,24 @@ function main() {
   check('renderer: nothing is drawn under the reply any more', !/appendMediaPreviews|msg-media|media-chip/.test(app));
   check('renderer: the menu offers play, open and the folder', /t\('playFile'\)/.test(app) && /api\.openPath\(cwd, rel\)/.test(app) && /api\.revealPath\(cwd, rel\)/.test(app));
   check('renderer: an image path opens the picture in place', /api\.readImage\(cwd, rel\)[\s\S]{0,60}openImageViewer/.test(app));
-  check('renderer: a sound plays under the line that names it', /createElement\('audio'\)[\s\S]{0,400}media-inline/.test(app));
+  check(
+    'renderer: a sound or a clip plays under the line that names it',
+    /createElement\(kind === 'video' \? 'video' : 'audio'\)[\s\S]{0,500}media-inline/.test(app)
+  );
+  /*
+   * Clicking a finished video used to hand it to the desktop, which never answered
+   * on Linux — the clip never played and the window showed an IPC error instead
+   * (2026-11-26). It is played in the transcript now.
+   */
+  check(
+    'renderer: a video is no longer handed straight to another program',
+    !/if \(kind === 'video'\) \{\s*\n\s*api\.openPath/.test(app)
+  );
+  check(
+    'renderer: a path that cannot be embedded says so instead of going quiet',
+    /if \(!opened\?\.ok\) showNotice\(t\('fileOpenFailed'\)\)/.test(app) &&
+      /fileOpenFailed: '/.test(app)
+  );
   check('renderer: a path inside inline code is still a control, a fenced block is not', /closest\('pre, a, \.file-link'\)/.test(app));
   check('renderer: the menu closes on Escape and on a click away', /key === 'Escape'\) closeFileMenus/.test(app));
   check(
@@ -53,6 +70,7 @@ function main() {
   );
   check('css: the menu floats over the chat', /\.file-menu \{/.test(css) && /position: fixed/.test(css));
   check('css: the inline player cannot overflow the bubble', /\.media-inline \{/.test(css) && /max-width: 320px/.test(css));
+  check('css: a clip fills the bubble and keeps its shape', /\.media-inline\.video \{/.test(css) && /height: auto/.test(css));
   check('css: no chip or card styles are left behind', !/\.media-chip|\.media-card|\.msg-media/.test(css));
 
   if (failed) {

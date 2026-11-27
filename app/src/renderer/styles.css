@@ -4966,7 +4966,11 @@ button.ghost:disabled { opacity: .45; cursor: not-allowed; }
   background: var(--bg-2);
   border-radius: 10px;
   padding: 8px 11px;
-  margin-bottom: 8px;
+  /* The same column as the box underneath it. Without a width the plan ran edge to
+   * edge while the composer was held to the reading width, and the panel looked
+   * like a second, wider window over the chat (2026-11-26). */
+  max-width: var(--read-width);
+  margin: 0 auto 8px;
   max-height: 190px;
   overflow-y: auto;
 }
@@ -7396,4 +7400,11 @@ html[data-theme='light'] .tb-logo {
   height: 32px;
   margin-top: 6px;
   border-radius: 8px;
+}
+/* A clip is watched, not glanced at: it takes the bubble's width and keeps its
+ * own aspect ratio instead of the 32px row a sound needs. */
+.media-inline.video {
+  max-width: min(100%, 560px);
+  height: auto;
+  background: #000;
 }

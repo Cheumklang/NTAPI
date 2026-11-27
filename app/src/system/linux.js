@@ -17,10 +17,11 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFile, spawn } = require('node:child_process');
+const { execFile, execFileSync, spawn } = require('node:child_process');
 const { helperPath } = require('./helper-path');
 
 const HELPER = helperPath('atspi.py');
+const PORTAL_SHOT = helperPath('portal-shot.py');
 const PYTHON = process.env.NTAPI_PYTHON || 'python3';
 /** What a snapshot returns unless the caller asks for less. */
 const MAX_NODES = 250;
@@ -36,9 +37,9 @@ function failure(code, message) {
  * JSON too ({"ok": false}), so a non-zero exit still carries a reason worth
  * passing on — the only things lost here are crashes and timeouts.
  */
-function run(args, { timeoutMs = 15000 } = {}) {
+function run(args, { timeoutMs = 15000, helper = HELPER } = {}) {
   return new Promise((resolve, reject) => {
-    execFile(PYTHON, [HELPER, ...args], { timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+    execFile(PYTHON, [helper, ...args], { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => {
       const text = String(stdout || '').trim();
       let parsed = null;
       if (text) {
@@ -154,6 +155,43 @@ function daemonRunning() {
   }
 }
 
+/**
+ * ydotool counts 1024 units across the screen, not pixels, and does so on both
+ * axes whatever the screen is: on a 1920x1080 desktop `mousemove --absolute
+ * 512 288` put the pointer exactly at the centre and `960 540` in the far corner
+ * (measured 2026-11-27). Handing it raw pixels therefore lands every click 1.875
+ * times too far, which reads as "the pointer control is broken".
+ */
+const YDOTOOL_UNITS = 1024;
+let screenWidthCache = null;
+
+/** The width every other coordinate we are handed is measured against. */
+function screenWidth() {
+  if (screenWidthCache) return screenWidthCache;
+  const fromEnv = Number(process.env.YDOTOOL_SCREEN_WIDTH || 0);
+  if (fromEnv > 0) {
+    screenWidthCache = fromEnv;
+    return screenWidthCache;
+  }
+  try {
+    const out = String(execFileSync('xdotool', ['getdisplaygeometry'], { timeout: 4000, encoding: 'utf8' }) || '');
+    const width = Number(out.trim().split(/\s+/)[0]);
+    if (width > 0) {
+      screenWidthCache = width;
+      return screenWidthCache;
+    }
+  } catch {
+    /* No X11 to ask: the fallback below is still better than raw pixels. */
+  }
+  screenWidthCache = 1920;
+  return screenWidthCache;
+}
+
+/** Turn a screen pixel into the number ydotool wants. */
+function toYdotoolUnits(value) {
+  return Math.round((Number(value) * YDOTOOL_UNITS) / screenWidth());
+}
+
 function commandExists(binary) {
   return new Promise((resolve) => {
     execFile('sh', ['-c', `command -v ${binary} >/dev/null 2>&1`], (err) => resolve(!err));
@@ -173,7 +211,14 @@ async function capabilities() {
     commandExists('ydotool'),
   ]);
   let backend = '';
-  if (xdotool) backend = 'xdotool';
+  // Wayland first: XTest events from XWayland never reach a native Wayland
+  // window, so xdotool types and clicks into nothing there. Measured 2026-11-27:
+  // text aimed at gedit landed in whichever XWayland window had focus instead,
+  // and read as keycode garbage for Thai. ydotool goes through uinput, which the
+  // compositor treats as a real keyboard and pointer.
+  const ydotoolReady = ydotool ? daemonRunning() : false;
+  if (session === 'wayland' && ydotoolReady) backend = 'ydotool';
+  else if (xdotool) backend = 'xdotool';
   else if (ydotool) backend = 'ydotool';
   else if (wtype) backend = 'wtype';
   // An installed binary is not the same as a running daemon: without it every
@@ -184,7 +229,7 @@ async function capabilities() {
     wtype,
     ydotool,
     backend,
-    ydotoolReady: ydotool ? daemonRunning() : false,
+    ydotoolReady,
     clipboard: ['wl-copy', 'xclip', 'xsel'].some((tool) => commandExists(tool)),
   };
   return capsCache;
@@ -320,12 +365,58 @@ function buildSteps(action, input = {}, caps = { backend: '' }) {
       // button. The pointer has to be moved first: ydotool clicks where it is.
       const steps = [];
       if (hasPoint) {
-        steps.push({ binary: 'ydotool', args: ['mousemove', '--absolute', String(Math.round(Number(input.x))), String(Math.round(Number(input.y)))] });
+        steps.push({ binary: 'ydotool', args: ['mousemove', '--absolute', String(toYdotoolUnits(input.x)), String(toYdotoolUnits(input.y))] });
       }
       steps.push({ binary: 'ydotool', args: ['click', input.button === 'right' ? '0xC1' : '0xC0'] });
       return { steps };
     }
     return { missing: 'wtype cannot move the pointer. Install ydotool (Wayland) or xdotool (X11) to click by coordinate.' };
+  }
+
+  if (action === 'drag') {
+    const point = (value) => Math.round(Number(value));
+    const from = [point(input.x), point(input.y)];
+    const to = [point(input.toX), point(input.toY)];
+    if (![...from, ...to].every(Number.isFinite)) {
+      return { missing: 'drag needs x, y, toX and toY in screen coordinates' };
+    }
+    const steps = Math.max(2, Math.min(Math.trunc(Number(input.steps) || 8), 40));
+    const right = input.button === 'right';
+    // A press and a release in one place is a click, not a drag: the pointer has
+    // to travel between them or nothing that listens for motion (a slider, a
+    // selection, a file being moved) ever hears about it.
+    const path = [];
+    for (let i = 1; i <= steps; i += 1) {
+      path.push([Math.round(from[0] + ((to[0] - from[0]) * i) / steps), Math.round(from[1] + ((to[1] - from[1]) * i) / steps)]);
+    }
+    if (backend === 'xdotool') {
+      // No `--sync` on the travel: with a button held the pointer is grabbed and
+      // `--sync` waits for a position the compositor can report late — measured
+      // once as a 15 s timeout in the middle of a drag, on a desktop where the
+      // same xdotool call finishes in 11 ms on its own.
+      const steps_ = [
+        { binary: 'xdotool', args: ['mousemove', String(from[0]), String(from[1])] },
+        { binary: 'xdotool', args: ['mousedown', right ? '3' : '1'] },
+      ];
+      for (const [px, py] of path) steps_.push({ binary: 'xdotool', args: ['mousemove', String(px), String(py)] });
+      steps_.push({ binary: 'xdotool', args: ['mouseup', right ? '3' : '1'] });
+      return { steps: steps_ };
+    }
+    if (backend === 'ydotool') {
+      // 0x40 is BTN_LEFT pressed and 0x80 released; the right button adds 1.
+      const down = right ? '0x41' : '0x40';
+      const up = right ? '0x81' : '0x80';
+      const steps_ = [
+        { binary: 'ydotool', args: ['mousemove', '--absolute', String(toYdotoolUnits(from[0])), String(toYdotoolUnits(from[1]))] },
+        { binary: 'ydotool', args: ['click', down] },
+      ];
+      for (const [px, py] of path) {
+        steps_.push({ binary: 'ydotool', args: ['mousemove', '--absolute', String(toYdotoolUnits(px)), String(toYdotoolUnits(py))] });
+      }
+      steps_.push({ binary: 'ydotool', args: ['click', up] });
+      return { steps: steps_ };
+    }
+    return { missing: 'dragging needs xdotool (X11) or ydotool (Wayland) - install one of them' };
   }
 
   if (action === 'scroll') {
@@ -531,6 +622,27 @@ async function clickAt({ app = 0, x, y, button = 'left' } = {}) {
  * has no such rule, so ImageMagick is asked for the window by name; Wayland
  * refuses outright and says so rather than returning a blank rectangle.
  */
+/**
+ * The whole desktop, in one picture, on a Wayland session.
+ *
+ * The compositor will not let a program photograph the screen behind its back,
+ * so this asks the portal and waits for its answer — which may be a permission
+ * dialog the user has to approve. Everything else about the reply matches what a
+ * window photograph looks like, so the caller does not branch on the platform.
+ */
+async function screenshotScreen() {
+  const shot = await run([], { helper: PORTAL_SHOT, timeoutMs: 90000 });
+  return {
+    scope: 'screen',
+    title: 'whole screen',
+    width: shot.width || 0,
+    height: shot.height || 0,
+    method: 'portal',
+    mimeType: 'image/png',
+    data: shot.data,
+  };
+}
+
 async function screenshot({ app = 0 } = {}) {
   const list = await windows();
   // By app number, never by position in the list: the number the window list
@@ -560,6 +672,17 @@ async function screenshot({ app = 0 } = {}) {
   return { app: row.app, title: row.title || '', method: 'import', mimeType: 'image/png', data };
 }
 
+async function drag({ app = 0, x, y, toX, toY, button = 'left', steps = 8 } = {}) {
+  await focus({ app }).catch(() => null);
+  const backend = await perform('drag', { x, y, toX, toY, button, steps });
+  return {
+    ok: true,
+    app,
+    did: `dragged ${Math.round(Number(x))},${Math.round(Number(y))} to ${Math.round(Number(toX))},${Math.round(Number(toY))}`,
+    backend,
+  };
+}
+
 async function scroll({ app = 0, notches = 3 } = {}) {
   await focus({ app }).catch(() => null);
   const backend = await perform('scroll', { notches });
@@ -573,8 +696,10 @@ module.exports = {
   keys,
   type: typeText,
   clickAt,
+  drag,
   scroll,
   screenshot,
+  screenshotScreen,
   capabilities,
   buildSteps,
   envFor,

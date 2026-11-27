@@ -1,5 +1,170 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **🗑️ 2026-11-27 (Linux) — ผู้ใช้สั่งลบกฎ NVIDIA ออกจาก AGENTS.md:**
+> ลบบล็อก §5 "ทดลอง/ทดสอบที่ต้องโต้ตอบกับโมเดล → ใช้ NVIDIA" ทั้ง 7 บรรทัด (`git checkout -- AGENTS.md` = คืนเท่า HEAD, ไฟล์ไม่มี diff เหลือ)
+> · `grep NVIDIA AGENTS.md` = 0 · ไม่มีกฎ NVIDIA ในไฟล์กติกาแล้ว ⇒ งานทดสอบ/ทดลองเลือกผู้ให้บริการเองตามปกติ ไม่ต้องบังคับ NVIDIA
+> · ประวัติใน LOG/HANDOFF ไม่ลบ (append-only) — ลบแค่ตัวกฎ
+> · version 0.9.9 ยังไม่ bump · งานค้างที่เหลือ: เฟส 1 Linux ควบคุมเครื่อง + recovered-turn วาดคำตอบซ้ำ (ยังไม่ commit)
+
+> **🛑 2026-11-27 (Linux) — ผู้ใช้สั่งหยุดกลางงาน (เปลี่ยน session) — สถานะส่งต่อ:**
+>
+> **งานที่ค้างในมือ (ยังไม่ commit ทั้งหมด):** เฟส 1 Linux ควบคุมเครื่อง (drag + แคปทั้งจอผ่าน portal + พิกัด ydotool 1024 หน่วย + สลับ backend Wayland→ydotool + พิมพ์ไทยผ่าน wl-copy) · แก้ recovered-turn วาดคำตอบซ้ำ · เติมที่มาของกฎ NVIDIA ใน AGENTS.md
+>
+> **ทดสอบกับ Godot 4.7.2 (`/home/nt/Downloads/Godot_v4.7.2-stable_linux.x86_64`) — ผลจริง:**
+> - เปิดได้ (app 8, title "Godot Engine - Project Manager", XWayland window 12583742)
+> - AT-SPI เห็นแค่ frame + Minimize/Maximize/Close — **Godot วาด UI เอง ไม่มี a11y** ⇒ ปุ่มภายในต้องใช้พิกัด+ภาพเท่านั้น
+> - `drag` ด้วย ydotool ทำงาน: ลาก (790,106)→(590,196) แล้ว geometry เปลี่ยน `y 94→190`, height `705→609` (ไปโดนขอบบน = resize ไม่ใช่ย้ายตำแหน่ง)
+> - กด Maximize ผ่าน AT-SPI ref → `1857×1048 @63,32` = เต็มจอ (ตรวจด้วย `xdotool getwindowgeometry` ไม่ต้องใช้ตา)
+> - แคปจอ: `images/godot-max.png` (1920×1080)
+> - ยังไม่ได้กดปุ่มภายใน Godot (ผู้ใช้สั่งหยุดก่อน) · vision provider (Gemini) ตอนนั้น 503 · local vision model ให้พิกัดไม่น่าเชื่อถือ
+>
+> **ขั้นถัดไปเมื่อกลับมา:** (1) ถามผู้ใช้ว่าจะ commit/"ส่งอัปเดต"/"build" ไหม (ยังไม่ bump, 0.9.9) (2) เฟส 2 Windows: `uia.ps1` เพิ่ม `drag` + `screenshot --screen`, `windows.js` เพิ่ม `drag`/`screenshotScreen`, DPI awareness (3) ช่องว่าง: `system_type` รายงาน Done โดยไม่ตรวจผล
+
+> **📌 2026-11-27 (Linux) — ✅ ควบคุมเครื่องครบวงจรบน Wayland (พิมพ์ไทยเข้าถึงแอป Wayland แท้แล้ว):**
+>
+> ผู้ใช้ยืนยันด้วยตา: ข้อความไทยที่ผมพิมพ์เข้า gedit (แอป GTK/Wayland แท้) **ถูกต้อง** = เห็นจอ + ขยับ/ลาก + พิมพ์ ครบ
+>
+> **เจอ 3 บั๊กจริงและแก้แล้วใน `app/src/system/linux.js`:**
+> 1. **`ydotool` นับ 1024 หน่วยเต็มจอ ไม่ใช่ pixel** (วัด: ส่ง 512,288 → pointer อยู่กลางจอ 960,540 เป๊ะ) ⇒ เดิม click/drag พลาด 1.875 เท่าทุกครั้ง · เพิ่ม `YDOTOOL_UNITS` + `toYdotoolUnits()` + `screenWidth()` (xdotool getdisplaygeometry, override ด้วย `YDOTOOL_SCREEN_WIDTH`) แปลงทุกจุดที่ส่งให้ ydotool
+> 2. **xdotool ส่งคีย์ไม่ถึงหน้าต่าง Wayland แท้** — พิมพ์ภาษาไทยเข้า gedit แต่ข้อความไปโผล่ในหน้าต่าง XWayland ที่มีโฟกัส (แชท NTAPI) และออกมาเป็นตัวอักษรมั่ว ⇒ `capabilities()` เปลี่ยนลำดับ: **Wayland + ydotool พร้อม → backend = ydotool ก่อน** (uinput = คีย์บอร์ดจริง) แล้วจึง xdotool/ydotool/wtype
+> 3. **พิมพ์ไทยผ่าน ydotool ไม่ได้** (keycode = ASCII เท่านั้น) → ข้อความ non-ASCII ไปทาง `wl-copy` + Ctrl+V (มี `verifyClipboard` อยู่แล้ว) · เครื่องนี้มี `wl-copy`/`wl-paste`
+>
+> **ยังอ่านตำแหน่ง pointer ไม่ได้บน GNOME/Wayland:** `xdotool getmouselocation` ค้างที่ค่าเก่า (วัด 3 ครั้ง ขณะ pointer อยู่ 100,60 แต่รายงาน 500,400) · `xinput` ไม่มี · `org.gnome.Shell.Eval` ปิด · Shell Screenshot AccessDenied ⇒ ยืนยันด้วยตาผู้ใช้หรือเทียบภาพเท่านั้น
+> **ช่องที่ยังเปิด:** `system_type` รายงาน "Done" โดยไม่ตรวจว่าเข้าจริง — AT-SPI ของ gedit ไม่รายงานเนื้อหา text view
+>
+> **เทสต์:** `selftest-system-control` ผ่าน (+ เช็ค `toYdotoolUnits`/1024 units) · `npm test` = **123 สคริปต์ผ่าน** · `check:sara` ok
+> **ค้าง:** ไม่ commit · ไม่ bump (0.9.9) · ยังไม่ทดสอบ drag ในแอป Wayland แท้ด้วยตา · **เฟส 2 Windows ยังไม่เริ่ม** (uia.ps1 ไม่มี drag, screenshot บังคับ --app/--window, ไม่มี DPI awareness)
+
+> **📌 2026-11-27 (Linux) — 🔄 แก้ข้อสรุปเดิม: ydotool ขยับ pointer ได้จริง · `xdotool getmouselocation` เชื่อไม่ได้บน Wayland:**
+>
+> ผู้ใช้ยืนยันด้วยตา: หลังสั่ง `ydotool mousemove --absolute 1800 900` เคอร์เซอร์ไปอยู่ **มุมขวาล่างจริง** ขณะที่ `xdotool getmouselocation` ยังรายงาน 500,400 ⇒ **ข้อสรุปเดิม ("ydotool mousemove ไม่มีผล") ผิด** — ที่ผิดคือตัวอ่านค่า ไม่ใช่ตัวขยับ
+> · ไม่ใช่เรื่อง DPI/scale: `xdotool getdisplaygeometry` = 1920x1080, `text-scaling-factor` = 1.0, `monitors.xml` scale=1 ⇒ พิกัดเป็น 1:1
+> · **กติกาใหม่:** บน Wayland ใช้ `ydotool` ขยับ pointer และ **ห้ามยืนยันตำแหน่งด้วย `xdotool getmouselocation`** (อ่านค่าเก่า/ไม่ sync) — ทางยืนยันมี: ถามผู้ใช้ หรือเทียบภาพหน้าจอ
+> · adapter ปัจจุบันเลือก xdotool ก่อนเมื่อติดตั้งทั้งคู่ ⇒ บน Wayland ควรกลับไปใช้ ydotool สำหรับ pointer/drag
+
+> **📌 2026-11-27 (Linux) — 🖱️ ทดสอบขยับเมาส์จริง + เจอว่า ydotool mousemove ไม่มีผลบนเครื่องนี้:**
+>
+> ผู้ใช้ reboot แอปแล้วขอให้ลองขยับเมาส์ไปที่ Chrome · **แคปจอทั้งจอผ่าน portal ใช้ได้จริงในของจริง** (1920x1080, 460 KB, เขียนเป็น `images/fullscreen-check.png` ได้)
+>
+> **ผลวัด (สำคัญ):** `ydotool mousemove` **exit 0 แต่ pointer ไม่ขยับเลย** ทั้ง `--absolute 1000 500` และ relative `200 100` (อ่านด้วย `xdotool getmouselocation` ค้างที่ 500,400) ⇒ uinput pointer ของ ydotool ถูก compositor มองข้ามบนเครื่องนี้ · **xdotool mousemove ขยับได้จริง** (1000,600 → 1010,520) ⇒ adapter ที่ prefer xdotool อยู่แล้วเป็นทางที่ถูกสำหรับ pointer
+> · ydotool ยังใช้ได้กับการ `click` แต่**อย่าเชื่อ exit 0 ว่า pointer ไปถึง** — ค่าที่ควรยึดคือ `xdotool getmouselocation`
+> · Chrome รันแบบ native Wayland: `xdotool getmouselocation` รายงาน window 884 (XWayland) ไม่ใช่ Chrome ⇒ ตรวจ "ใต้ pointer คือหน้าต่างไหน" ด้วย X11 ไม่ได้ ต้องใช้ AT-SPI (`system_windows`/`system_snapshot`) หรือตาผู้ใช้
+>
+> **ค้าง:** ยังไม่ commit · ไม่ bump (0.9.9) · ยังไม่ได้ยืนยันด้วยตาว่า pointer อยู่บน Chrome
+
+> **📌 2026-11-27 (Linux) — 🩹 คำตอบถูกวาดซ้ำ (draft ของ turn เก็บข้อความหลาย block ปนกัน):**
+>
+> **อาการ:** ผู้ใช้เห็นคำตอบของผมขึ้น 2 รอบ · หลักฐานจาก session จริง (`18-38-51_01a21927…jsonl`): entry 105 = assistant คำตอบเต็ม (2236 ตัวอักษร) แล้ว entry 106 = `custom:ntapi.interrupted-turn` ที่ `details.assistant` มีข้อความเดิมอีกครั้ง **นำหน้าด้วยขยะ "Now the code changes — 4 files:"** ที่ค้างมาจาก block ก่อนในเทิร์นเดียวกัน
+>
+> **ต้นเหตุ:** `tab.turnDraft.assistant += e.delta` รวมข้อความทุก assistant message ของเทิร์นเดียวเป็นก้อนเดียว (ข้อความ → tool call → ข้อความ → tool) · กันซ้ำใช้ `searchKey` เทียบ 80 ตัวอักษรแรก ⇒ ก้อนที่ต่อกันไม่ตรงกับข้อความใดใน session ⇒ `answerLost = true` ⇒ เขียนคำตอบที่ "ไม่ได้หาย" กลับมาเป็น bubble ที่สอง
+>
+> **แก้ `app/src/main.js`:** `text_end` ตั้ง `turnDraft.segmentDone = true` · `text_delta` ถัดไปล้าง buffer เริ่ม block ใหม่ ⇒ เก็บเฉพาะ block สุดท้าย (สิ่งที่อยู่บนจอตอนรันตาย) และ `answerLost` จับคู่ได้จริง
+> **เทสต์:** `selftest-recovered-turn.js` +3 เช็ค (segment reset, boundary, guard ยังเทียบกับ assistant) · `npm test` = **123 สคริปต์ผ่าน** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.9) · ต้องปิด/เปิดแอปใหม่
+> **เฟส 2 (Windows) ยังไม่เริ่ม:** `uia.ps1` ไม่มี `drag` และ `screenshot` บังคับ `--app/--window` · `windows.js` ยังไม่มี `drag`/`screenshotScreen` · ไม่มีโค้ด DPI/หลายจอ
+
+> **📌 2026-11-27 (Linux) — 🖱️ ควบคุมเครื่องเต็มที่: ลากเมาส์ + เห็นจอทั้งจอ (Wayland) + ทุกโมเดลใช้ได้:**
+>
+> **ผู้ใช้สั่ง:** ฝั่ง Ubuntu (เครื่องเจ้าของ) ให้ครบก่อน · Windows ทีหลัง (ผู้ใช้ทั่วไป) · และให้ **ทุก provider/model** ใช้ได้ ไม่ใช่เฉพาะ NVIDIA
+>
+> **ของใหม่**
+> - `app/src/system/portal-shot.py` (ไฟล์ใหม่) — แคปจอทั้งจอผ่าน `org.freedesktop.portal.Screenshot` (ทางเดียวที่เหลือบน Wayland: `org.gnome.Shell.Screenshot` = AccessDenied, `import -window root` บน XWayland ได้ภาพเปล่า) · **ต้อง subscribe ที่ request handle** ที่ portal คืนมา ไม่ใช่ path ของ portal (พลาดแล้วรอเปล่า 20 วิ)
+> - `linux.js` — `screenshotScreen()` · `buildSteps("drag")` + `drag()` (xdotool mousedown→mousemove หลายขั้น→mouseup · ydotool 0x40/0x80) · `run()` รับ `helper` ได้ · **ถอด `--sync` ออกจาก drag** (เจอค้าง 15 วิกลางทางจริงทั้งที่เรียกเดี่ยว 11 ms)
+> - `main.js` — dispatch `cmd === "drag"` + `scope === "screen"` (ที่อื่นตอบ NOT_SUPPORTED ไม่แกล้งทำ)
+> - `freepi-bridge.js` — tool `system_drag` (ตัวที่ 11) · `system_screenshot.params.scope = window|screen` · prompt บอกเมื่อต้อง drag · **โมเดลไม่มีตา** ได้ path + "call look_at_image" (เดิมบอกแค่ "reference the path")
+> - `package.json` — `portal-shot.py` ลง `asarUnpack` คู่กับ `atspi.py` (ไม่งั้นแพ็กแล้ว python อ่านใน asar ไม่ได้)
+> - `selftest-system-control.js` — 10 → 11 tools + เช็ค drag/scope/portal/tool-для-ทุก-session/text-model-ได้ทางดูภาพ
+>
+> **ทุกโมเดลใช้ได้จริง:** `defaultTools` ใส่ `systemToolAllowList` ให้ทุก session ไม่ผูก provider · ส่วน "เห็นภาพ" ใช้ `look_at_image` (localVision หรือ vision provider) เมื่อโมเดลไม่มี vision
+>
+> **วัดจริงบนเครื่องนี้:** portal shot 1920x1080 0.54 วิ 646 KB (ไม่มี dialog เพราะอนุญาตไว้แล้ว) · drag 200,200 → 1000,600 แล้ว `xdotool getmouselocation` = **1000,600** (pointer ขยับจริง) · `npm test` = **123 สคริปต์ผ่าน** · `check:sara` ok · provenance verify OK
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.9) · ยังไม่ได้ลองในแอปจริง (ต้องปิด/เปิดแอปใหม่) · **Windows ยังไม่มี drag/แคปทั้งจอ** (เฟส 2 เมื่อผู้ใช้สั่ง)
+
+> **📌 2026-11-27 (Linux) — 📝 เติมที่มาของกฎ NVIDIA ใน AGENTS.md §5 (ผู้ใช้สั่ง):**
+>
+> ผมอ่าน `git blame` เห็น "Not Committed Yet" แล้วสรุปผิดว่าเป็นกฎที่ session ก่อนแต่งเอง — **ผู้ใช้ยืนยันว่าสั่งเอง 2026-11-26**
+> เพิ่ม 1 บรรทัดใต้บล็อกเดิม: *"กฎนี้ผู้ใช้สั่งเอง (2026-11-26) และใช้เฉพาะงานใน repo NTAPI"* — กัน session หน้าตีความว่าครอบทุกโปรเจกต์
+> **ค้าง:** ยังไม่ commit (กองเดิม + AGENTS.md) · ไม่ bump (0.9.9)
+
+> **📌 2026-11-26 (Linux) — 🎬 วิดีโอเล่นในแชทเอง + บอกเมื่อ path ผิด (รอบ 2 ของ "เปิดไฟล์ไม่ได้"):**
+>
+> **ทำไมยังไม่เปิดหลังแก้ xdg-open:** ข้อความอ้างชื่อไฟล์ล้วน `sun-black-hole.mp4` แต่ `linkFilePaths()` แปลงเป็น path เทียบกับ cwd ของแท็บ (`~/NTAPI`) ⇒ ได้ `~/NTAPI/sun-black-hole.mp4` **ซึ่งไม่มีอยู่** (ของจริงอยู่ `~/NTAPI/sun-black-hole/sun-black-hole.mp4`) · และฝั่ง UI ทิ้งผลลัพธ์ `{ok:false}` ทั้งไป ⇒ คลิกแล้วเงียบ
+>
+> **แก้ `app/src/renderer/app.js` `openFileMenu()`:**
+> - **video เล่นใน transcript** ด้วย `<video controls class="media-inline video">` (เดิมส่ง `shell.openPath` ออกนอกแอป) — `readMedia` รองรับ `video/mp4` และ limit 32 MB (ไฟล์นี้ 3.4 MB)
+> - `!res.ok` → ลอง `api.openPath` ต่อ ถ้ายังไม่ ok → `showNotice(t('fileOpenFailed'))` (i18n en+th ใหม่) — ไม่เงียบอีก
+>
+> **`styles.css`:** `.media-inline.video { max-width: min(100%,560px); height:auto; background:#000 }`
+> **เทสต์:** `selftest-media-cards.js` สลับเป็นเช็ค "video ไม่ถูกส่งออกนอกแอปแล้ว" + "path ผิดต้องบอก" + CSS · `npm test` = **123 สคริปต์ผ่าน** · `check:sara` ok
+>
+> **วิธีทดสอบเอง:** คลิก path เต็ม `sun-black-hole/sun-black-hole.mp4` (ไม่ใช่ชื่อไฟล์ล้วน) → ควรมีปุ่มเล่นวิดีโอในบับเบิ้ล
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.9)
+
+> **📌 2026-11-26 (Linux) — 🎬 กดเปิดไฟล์แล้วขึ้น "reply was never sent" (แก้ที่ต้นเหตุ `shell.openPath`):**
+>
+> **อาการ:** คลิก `sun-black-hole.mp4` ในแชท → ไม่เปิด + การ์ด error `Error invoking remote method 'fs:openPath': reply was never sent`
+>
+> **หลักฐาน (วัดจากเครื่องนี้):** โพรบ Electron เรียก `shell.openPath` กับ `.txt` / `.jpg` / `.mp4` → **ค้างเกิน 8 วิ ไม่ตอบสักไฟล์** (VLC เริ่มเปิดจริงแต่ promise ไม่ resolve) · เทียบ `xdg-open` จาก shell → **exit 0 ทันที** ⇒ ต้นเหตุอยู่ที่ `shell.openPath` บน Linux เครื่องนี้ ไม่ใช่เส้นทางไฟล์ (ไฟล์อยู่ `/home/nt/NTAPI/sun-black-hole/` ใน workspace ถูกต้อง)
+>
+> **แก้ `app/src/main.js`:** เพิ่ม `openWithSystem(abs)` — Linux: `spawn('xdg-open',[abs],{detached:true,stdio:'ignore'})` + `unref()` แล้วตอบ `{ok:true}` ทันที · Windows/macOS: ใช้ `shell.openPath` เดิม (คืน error ตามจริง) · แทนทั้งหมด 5 จุด: `fs:openPath` · `settings:reveal` · `session:export` · `openShippedDoc` · `browser:openFolder` (ไม่มี `await shell.openPath(` เหลือ)
+> · `fs:revealPath` (`shell.showItemInFolder`) ไม่แตะ — sync ไม่ค้าง
+>
+> **เทสต์:** ใหม่ `app/scripts/selftest-open-path.js` 13 เช็ค (รัน `openWithSystem` จริงด้วย stub spawn/shell: ตอบ <1s, ได้ `xdg-open`+detached, Windows ใช้ Electron + รายงาน error, ทุก handler เดินผ่าน helper) · `npm test` = **123 สคริปต์ผ่าน** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.9) · ต้องปิด/เปิดแอปใหม่จึงมีผล
+
+> **📌 2026-11-26 (Linux) — 🪟 จำขนาด/ตำแหน่ง/สถานะขยายของหน้าต่าง (เพิ่มใหม่):**
+>
+> **ปัญหา:** ปรับขนาดหรือขยายเต็มจอแล้ว ปิด/เปิดใหม่กลับมา 1240x840 ทุกครั้ง — ไม่มีที่ไหนเก็บค่า
+>
+> **แก้ `app/src/main.js`:**
+> - เพิ่ม `readWindowState()` — อ่าน `prefs.json` key `window` = `{x,y,width,height,maximized,fullScreen}` · ค่าขยะถูกทิ้ง · **ตำแหน่งที่ไม่ถูกจอไหนครอบถูกทิ้ง** (ถอดมอนิเตอร์ / ค่าจากอีกฝั่ง VM) ด้วย `screen.getAllDisplays()` + ต้องเหลื่อม ≥120x80 px · นำเข้า `screen` จาก electron แล้ว
+> - `createWindow()`: ใช้ `saved.width/height` + `x/y` (ถ้ามี) · คืน `maximize()`/`setFullScreen()` **ก่อน** `loadFile` (ไม่เห็นหน้าต่างกระพริบ) · renderer sync ไอคอนขยายผ่าน `win:state` เดิมอยู่แล้ว
+> - `win.on('close')`: บันทึก `getNormalBounds()` + `isMaximized()/isFullScreen()` ⇒ หน้าต่างที่ขยายอยู่ยังจำขนาดเดิมไว้คืนค่า
+> - `minWidth/minHeight` 1240x840 เดิมไม่เปลี่ยน
+>
+> **เทสต์:** ใหม่ `app/scripts/selftest-window-state.js` 20 เช็ค (รัน `readWindowState()` จริงกับ prefs/จอปลอม: ค่าเริ่มต้น, ค่าที่บันทึกไว้, ค่าขยะ, ตำแหน่งนอกจอ, จอที่สอง) + ลงทะเบียนใน `run-unit-tests.js` · แก้ `selftest-update-handoff.js` slice 4000→6000 (บล็อก createWindow ยาวขึ้น) · `npm test` = **122 สคริปต์ผ่าน** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.9) · ยังไม่ได้ทดสอบด้วยตา (ขยาย → ปิด → เปิด)
+
+> **📌 2026-11-26 (Linux) — 🔁 ปุ่ม "ทำต่อ" ไม่ขึ้นอีก (แก้รอบ 2 — เจอรูปทรงที่สอง):**
+>
+> **ผู้ใช้ลองจริง:** สั่งงาน → พัก → ปิด/เปิดโปรแกรม → ยังไม่มีปุ่ม
+> **หลักฐานจาก session ของผู้ใช้** (`...15-05-24-305Z_01a21863...jsonl` entry สุดท้าย): `role=assistant stop=toolUse parts=[thinking,toolCall]` ⇒ **ไม่มี result ของ tool** เพราะกดพักตอน tool กำลังรัน ⇒ ไม่ใช่ `aborted` แต่เป็น `toolUse` (คำตอบเดิมที่แก้รอบแรกจับแค่ `aborted`)
+>
+> **แก้:** `main.js` `messagesForUi()` → `unfinished: m.stopReason === 'aborted' || m.stopReason === 'toolUse'` · `app.js` ใช้ `lastStored.unfinished` · เทสต์ `selftest-busy-and-resume.js` เพิ่มเช็ค `toolUse`
+> **ยืนยัน:** รันเงื่อนไขกับ entry จริง = `unfinished = true` · `npm test` 121 ผ่าน · `check:sara` ok
+> **Retry ปลอดภัย:** `pi-ai/dist/api/transform-messages.js:136-160` ใส่ synthetic `toolResult` ("No result provided") ให้ toolCall ที่ขาดผลเอง ⇒ ส่งคำขอใหม่ได้ ไม่ติด API error
+>
+> **ต้องรู้:** ผู้ใช้รันจากซอร์ส (`Z:\NT-ALL\NTAPI\app` ผ่าน electron dev — ดู `ntapi-run.log`) ⇒ ต้องปิดแล้วเปิดแอปใหม่หลังแก้ รอบนี้จึงจะมีผล
+
+> **📌 2026-11-26 (Linux) — 🔧 กดพักแล้วปิดโปรแกรม → "ทำต่อ" หาย (แก้) + ถอดสวิตช์ "ตัวเลขสถานะ" ออกจากตั้งค่า:**
+>
+> **บั๊ก (ผู้ใช้เจอเอง):** กดปุ่ม **พัก** → ปิดโปรแกรม → เปิดใหม่ → ไม่มีปุ่ม "ทำต่อ"
+> **หาหลักฐานจากsession จริง** (`~/.local/share/ntapi/sessions/NTAPI/2026-11-26T15-05-24-305Z_*.jsonl`) ท้ายไฟล์เป็น `assistant stop=aborted | สวัส` ⇒ เงื่อนไขเดิม `lastStored.kind === 'user'` ไม่จริง เพราะ SDK **เขียนคำตอบที่ขาดกลางคัน** ลง session ตอนปิด (ถ้าไม่มีข้อความเลยจะถูก `messagesForUi` ทิ้ง → กรณีนั้นบังเอิญทำงานถูก)
+> **แก้:** `main.js` `messagesForUi()` ส่ง `aborted: m.stopReason === 'aborted'` ออกมา · `app.js` `renderActiveTab()` เปลี่ยนเป็น `cutOff = kind==='user' || (kind==='assistant' && aborted)` + `!view.stopped` · `view.stopped = true` ตอนกด Stop และ reset เมื่อขึ้นเทิร์นใหม่ (`setBusy(true)`) ⇒ Stop เองจะไม่ขึ้นแบนเนอร์ซ้ำ แต่พัก+ปิด/ปิดกลางคันจะขึ้น
+>
+> **ถอด "ตัวเลขสถานะ" ออกจาก Settings (ตามสั่ง):** ลบกลุ่ม `statusFxHead` (สวิตช์ `setNumberFx` + hint) ออกจาก `index.html` · ลบ i18n `statusFxHead/Label/Hint` en+th · ลบ wiring `numberFxBox` ใน `app.js` · **คงพฤติกรรมเดิม** (ตัวเลขวิ่ง) — `numberFxEnabled()` ยังอ่าน `localStorage['ntapi.numberFx']` ⇒ เครื่องที่เคยตั้ง "ปิด" ไว้ยังคงปิด · ปรับข้อความ hint ของ Reset (ไม่พูดถึง compaction แล้ว)
+>
+> **เทสต์:** `selftest-busy-and-resume.js` +4 เช็ค (aborted นับว่ายังไม่จบ, Stop ไม่ขึ้นซ้ำ, เริ่มเทิร์นใหม่ล้าง mark) · `selftest-live-numbers.js` สลับเช็คเป็น "ไม่มีสวิตช์เหลือ" · `npm test` = **121 สคริปต์ผ่าน** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.9) · ยังไม่ได้ทดสอบด้วยตา (พัก→ปิด→เปิด) กับแอปจริง — ตรวจจาก session file + เทสต์ซอร์สเท่านั้น
+
+> **📌 2026-11-26 (Linux) — 🔇 ปิดการย่อบทสนทนาอัตโนมัติเป็นค่าเริ่มต้น + ถอดตัวตั้งค่าออก (ตามสั่งผู้ใช้):**
+>
+> **เหตุ:** ผู้ใช้เจอว่าบริบทที่ได้น้อยมาก และเข้าใจว่ามีระบบบังคับ — ความจริงคือสวิตช์อยู่ที่ Settings → Advanced และค่าเริ่มต้นเป็น **เปิด** (ย่อที่ `contextWindow − reserveTokens` = 16,384) · ntfy ไม่เกี่ยวข้องเลย (grep = 0)
+>
+> **แก้:** `readCompactionPrefs()` คืน `{ enabled: false }` เสมอ เว้นแต่ `prefs.json` เขียน `enabled: true` ด้วยมือ → ทุกแท็บใหม่ได้ `compaction: { enabled: false }` ส่งลง SettingsManager
+> · ถอด UI ทั้งกลุ่ม (สวิตช์ + ตัวเลข 2 ช่อง + hint) ออกจาก `index.html` · ถอด `ipcMain.handle('settings:compaction')` + `getCompaction/setCompaction` ใน preload · ถอด `paintCompaction/refreshCompaction/compactionData` + listener ใน `app.js` + i18n 8 คีย์ทั้ง en/th · ถอด `setCompaction()/compactionSettings()` ที่ตายแล้วอกจาก `freepi-bridge.js` · `COMPACTION_DEFAULT` ลบ (ไม่มีที่ใช้)
+> · **คงไว้:** `/compact` ทำมือ (คำสั่ง + `session:compact`) และ `sanitizeCompaction` ในบริดจ์ (ทางเดียวที่ทำให้ "ปิด" มีผลจริงกับ SDK) · Reset All Settings ยังส่ง `compaction: {}` = กลับเป็นปิด
+>
+> **เทสต์:** เขียน `app/scripts/selftest-compaction.js` ใหม่ 23 เช็ค (รัน `readCompactionPrefs` จริงผ่าน `new Function` กับ prefs ปลอม + ยืนยันว่าไม่มี UI/IPC เหลือ + `/compact` ยังอยู่) · `npm test` = **121 สคริปต์ผ่าน** · `check:sara` ok
+>
+> **ค้าง:** ยังไม่ commit · ยังไม่ bump (0.9.9) · ยังไม่ได้เปิดแอปดูด้วยตาว่า Settings → Advanced เหลือแต่ Data Locations
+> **ผลข้างเคียงที่ต้องบอกผู้ใช้:** บทสนทนายาวมากจะไม่ถูกย่อเองแล้ว — จะเจอ error "บทสนทนายาวเกินไป" ต้องกด `/compact` เอง หรือเขียน `"compaction": { "enabled": true }` ใน `prefs.json`
+
 > **📌 2026-11-26 (Linux) — 🔑 Grok ขึ้น "HTTP 403" ตอนบันทึกคีย์ (แก้แล้ว):**
 >
 > **ตรวจของจริงจากเครื่องนี้:** `POST/GET https://api.x.ai/v1/models` ด้วยคีย์ปลอม → **HTTP 400** `{"code":"invalid-argument","error":"Incorrect API key provided…"}` ⇒ คีย์ผิดรูปแบบตอบ 400 ไม่ใช่ 403 ⇒ **403 ของผู้ใช้ = คีย์ผ่านการยืนยันตัวตนแล้ว แต่ xAI ปฏิเสธสิทธิ์การกระทำ** (ตาม docs.x.ai: "Your API key or team doesn't have permission to perform the action / is blocked")

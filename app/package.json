@@ -95,6 +95,7 @@
       "node_modules/@earendil-works/**",
       "node_modules/quickjs-wasi/**",
       "src/system/atspi.py",
+      "src/system/portal-shot.py",
       "src/system/uia.ps1"
     ],
     "win": {

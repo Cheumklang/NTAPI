@@ -206,6 +206,20 @@ check('the model is told how many messages there were', /separate messages in th
 check('the model still gets one block to read', /const userText = draft\.prompts\.join\('\\n\\n'\)\.trim\(\)/.test(main));
 check('both prompts are kept, not just the last', /tab\.turnDraft\.prompts\.push\(promptText\)/.test(main));
 
+/* --------------------------- one turn, many assistant messages (2026-11-27) */
+// The draft used to glue every text block of the turn into one buffer. A turn
+// that ends on a tool call (text, tool, text, tool) therefore matched no stored
+// answer at all, and its reply was put back a second time as "recovered".
+check(
+  'each text block starts its own buffer, so the guard can recognise the answer',
+  /if \(tab\.turnDraft\.segmentDone\) \{\s*tab\.turnDraft\.assistant = ''/.test(main),
+);
+check('a finished text block is what marks the boundary', /tab\.turnDraft\.segmentDone = true/.test(main));
+check(
+  'the answer that survives is still the one looked for',
+  /const answerLost =[\s\S]{0,220}m\.role === 'assistant' && searchKey\(messageTextOf\(m\)\)\.includes\(partialKey\)/.test(main),
+);
+
 const renderer = fs.readFileSync(path.join(root, 'src/renderer/app.js'), 'utf8');
 check(
   'the window draws one bubble per user entry',

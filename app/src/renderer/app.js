@@ -71,19 +71,6 @@ const STRINGS = {
     errorRetryBusy: 'Still working — press Retry when this turn finishes.',
     errorRetryFailed: 'Could not restart that turn.',
     turnUnfinished: 'The previous turn was cut off before it finished — press Retry to carry on from here.',
-    compactTitle: 'Conversation compaction',
-    compactEnabled: 'Summarize long conversations automatically',
-    compactKeepLabel: 'Recent tokens kept word for word',
-    compactReserveLabel: 'Tokens held back for the reply',
-    compactHintOn: 'Compaction starts at about {threshold} of {window} tokens.',
-    compactHintOnPlain: 'Compaction starts at about {threshold} tokens.',
-    compactHintOff:
-      'Auto-compaction is off. A very long chat may then fail with a “conversation too long” error.',
-    compactNewTabs: 'Token numbers apply to new tabs. The switch takes effect at once.',
-    statusFxHead: 'Status numbers',
-    statusFxLabel: 'Animate the credit and context numbers',
-    statusFxHint:
-      'Numbers count up or down instead of jumping, and the meter refreshes while a turn runs. Showing them costs no tokens — the turn has already been paid for.',
     updateOverlayTitle: 'Updating NTAPI…',
     updateOverlayLine: 'The program closes itself to install the update, then opens again on its own.',
     updateOverlayHint: 'You do not need to start it again. Leave this window; it goes away by itself.',
@@ -631,6 +618,7 @@ const STRINGS = {
     revealFile: 'Show in folder',
     viewFile: 'View',
     playFile: 'Play',
+    fileOpenFailed: 'Could not open that file — check that the path is still correct.',
     fileActions: 'Press for play, open or show in folder',
     copied: 'Copied',
     copyOutput: 'Copy output',
@@ -813,18 +801,6 @@ const STRINGS = {
     errorRetryBusy: 'ยังทำงานอยู่ — กดลองอีกครั้งเมื่อเทิร์นนี้จบ',
     errorRetryFailed: 'เริ่มเทิร์นเดิมซ้ำไม่สำเร็จ',
     turnUnfinished: 'เทิร์นก่อนหน้าถูกตัดกลางคัน ยังไม่จบ — กด "ลองอีกครั้ง" เพื่อทำต่อจากจุดเดิมได้เลย',
-    compactTitle: 'การย่อบทสนทนา',
-    compactEnabled: 'ย่อบทสนทนายาวให้เองอัตโนมัติ',
-    compactKeepLabel: 'จำนวน token ท้ายบทสนทนาที่เก็บไว้ตามเดิม',
-    compactReserveLabel: 'จำนวน token ที่กันไว้ให้คำตอบ',
-    compactHintOn: 'จะเริ่มย่อที่ประมาณ {threshold} จาก {window} tokens',
-    compactHintOnPlain: 'จะเริ่มย่อที่ประมาณ {threshold} tokens',
-    compactHintOff: 'ปิดการย่ออัตโนมัติอยู่ บทสนทนายาวมากอาจเจอข้อความว่าบทสนทนายาวเกินไป',
-    compactNewTabs: 'ตัวเลข token มีผลกับแท็บใหม่ ส่วนสวิตช์มีผลทันที',
-    statusFxHead: 'ตัวเลขสถานะ',
-    statusFxLabel: 'ให้ตัวเลขเครดิตและ context วิ่ง',
-    statusFxHint:
-      'ตัวเลขจะไต่ขึ้น/ลงแทนการกระโดด และมิเตอร์รีเฟรชระหว่างเทิร์นกำลังรัน การแสดงตัวเลขไม่กิน token เพิ่ม เพราะเทิร์นจ่ายไปแล้ว',
     sponsorSoundOn: 'เปิดเสียงโฆษณา',
     sponsorSoundOff: 'ปิดเสียงโฆษณา',
     updateOverlayTitle: 'กำลังอัปเดต NTAPI…',
@@ -1369,6 +1345,7 @@ const STRINGS = {
     revealFile: 'แสดงในโฟลเดอร์',
     viewFile: 'ดู',
     playFile: 'เล่น',
+    fileOpenFailed: 'เปิดไฟล์นี้ไม่ได้ — เช็คว่า path ในข้อความยังถูกอยู่ไหมคับ',
     fileActions: 'กดเพื่อเล่น เปิด หรือแสดงในโฟลเดอร์',
     copied: 'คัดลอกแล้ว',
     copyOutput: 'คัดลอกผลลัพธ์',
@@ -2102,7 +2079,11 @@ setInterval(paintWorkingHint, 1000);
 
 function setBusy(value) {
   const view = activeView();
-  if (view) view.busy = value;
+  if (view) {
+    view.busy = value;
+    // A new turn was asked for, so an earlier Stop no longer describes the chat.
+    if (value) view.stopped = false;
+  }
   sendBtn.hidden = value;
   stopBtn.hidden = !value;
   // Pause only means something while a turn is running; reset it when the turn
@@ -4189,7 +4170,17 @@ function renderActiveTab() {
    * it instead of the user typing "go on" themselves (2026-11-26).
    */
   const lastStored = view.messages?.[view.messages.length - 1];
-  if (!view.busy && lastStored && lastStored.kind === 'user') {
+  /*
+   * A turn the app closed on is stored in one of three shapes: the user's own
+   * words, an answer that stopped mid-sentence (`unfinished`), or an answer still
+   * waiting for a tool result that never came (`toolUse`, again `unfinished`).
+   * All three mean the work never finished, so all three get the line. A Stop the
+   * reader pressed while looking at this window is not offered back — they
+   * already know it ended.
+   */
+  const cutOff =
+    lastStored && (lastStored.kind === 'user' || (lastStored.kind === 'assistant' && lastStored.unfinished));
+  if (!view.busy && cutOff && !view.stopped) {
     appendErrorBanner(t('turnUnfinished'), false, { onRetry: () => retryTurn(view) });
   }
 
@@ -7060,54 +7051,10 @@ window.addEventListener('resize', () => {
 let settingsSectionsInited = false;
 let settingsSection = 'workspace';
 
-/**
- * Auto-compaction, as reported by the tab that is open. The switch applies at
- * once; the two token numbers are read when a compaction happens, so they only
- * reach tabs opened afterwards — the hint says so instead of implying otherwise.
- */
-let compactionData = null;
-
-function paintCompaction() {
-  const box = el('setCompactEnabled');
-  if (!box) return;
-  const prefs = compactionData?.prefs || {};
-  const defaults = compactionData?.defaults || { reserveTokens: 16384, keepRecentTokens: 20000 };
-  const eff = compactionData?.effective || { enabled: true, ...defaults };
-  box.checked = typeof prefs.enabled === 'boolean' ? prefs.enabled : eff.enabled !== false;
-  // Never rewrite a field the user is typing into: `change` fires when they blur
-  // it, and a repaint in between would eat the digits they just entered.
-  const keep = el('setCompactKeep');
-  if (keep && document.activeElement !== keep) {
-    keep.value = String(prefs.keepRecentTokens ?? eff.keepRecentTokens ?? defaults.keepRecentTokens);
-  }
-  const reserve = el('setCompactReserve');
-  if (reserve && document.activeElement !== reserve) {
-    reserve.value = String(prefs.reserveTokens ?? eff.reserveTokens ?? defaults.reserveTokens);
-  }
-  const hint = el('compactHint');
-  if (!hint) return;
-  const window_ = Number(compactionData?.contextWindow) || 0;
-  const reserveTokens = Number(prefs.reserveTokens ?? eff.reserveTokens ?? defaults.reserveTokens) || 0;
-  const threshold = Math.max(0, window_ - reserveTokens);
-  if (!box.checked) {
-    hint.textContent = t('compactHintOff');
-    return;
-  }
-  hint.textContent = window_
-    ? t('compactHintOn', { threshold: threshold.toLocaleString(), window: window_.toLocaleString() })
-    : t('compactHintOnPlain', { threshold: threshold.toLocaleString() });
-}
-
-async function refreshCompaction() {
-  compactionData = await api.getCompaction(activeView()?.tabId).catch(() => null);
-  paintCompaction();
-}
-
 function renderSettings() {
   const list = el('settingsFolders');
   list.innerHTML = '';
   if (!settingsData) return;
-  refreshCompaction();
 
   if (!settingsData.workspace) {
     const hint = document.createElement('p');
@@ -8042,33 +7989,6 @@ el('settingsReset').addEventListener('click', async () => {
   settingsData = await api.getSettings(view?.cwd);
   renderSettings();
 });
-
-el('setCompactEnabled').addEventListener('change', async (e) => {
-  compactionData = await api
-    .setCompaction({ enabled: e.currentTarget.checked }, activeView()?.tabId)
-    .catch(() => compactionData);
-  paintCompaction();
-});
-
-// One listener for both numbers: they are stored the same way and only the key
-// differs. A value the user cleared or typed as text is simply not saved, and
-// the field is repainted with what is actually in effect.
-for (const [id, key] of [
-  ['setCompactKeep', 'keepRecentTokens'],
-  ['setCompactReserve', 'reserveTokens'],
-]) {
-  el(id).addEventListener('change', async (e) => {
-    const value = Number.parseInt(e.currentTarget.value, 10);
-    if (!Number.isSafeInteger(value) || value < 0) {
-      paintCompaction();
-      return;
-    }
-    compactionData = await api
-      .setCompaction({ [key]: value }, activeView()?.tabId)
-      .catch(() => compactionData);
-    paintCompaction();
-  });
-}
 
 // ---- updates (GitHub Releases) ----
 
@@ -10483,17 +10403,22 @@ function openFileMenu(anchor, rel, cwd) {
   look.textContent = kind === 'image' ? t('viewFile') : kind === 'video' ? t('playFile') : t('playFile');
   look.addEventListener('click', async () => {
     closeFileMenus();
-    if (kind === 'video') {
-      api.openPath(cwd, rel);
-      return;
-    }
     if (kind === 'image') {
       const res = await api.readImage(cwd, rel).catch(() => null);
       if (res?.ok) openImageViewer(res.dataUri, rel);
       return;
     }
     const res = await api.readMedia(cwd, rel).catch(() => null);
-    if (!res?.ok) return;
+    if (!res?.ok) {
+      /*
+       * Too large to embed, or not there at all: hand it to the desktop, and say
+       * so if that refuses. A click that answers nothing reads as a broken app
+       * even when the file simply is not where the words said it was.
+       */
+      const opened = await api.openPath(cwd, rel).catch(() => null);
+      if (!opened?.ok) showNotice(t('fileOpenFailed'));
+      return;
+    }
     // The player sits right under the line that names the file, once.
     const host = anchor.closest('.body, .tool-body') || anchor.parentElement;
     const existing = host.querySelector('.media-inline');
@@ -10501,8 +10426,13 @@ function openFileMenu(anchor, rel, cwd) {
       existing.remove();
       return;
     }
-    const player = document.createElement('audio');
-    player.className = 'media-inline';
+    /*
+     * A clip plays here instead of in another program. Handing it to the desktop
+     * meant the click waited on a launcher that never answered, so a finished
+     * video ended in an error message instead of a picture (2026-11-26).
+     */
+    const player = document.createElement(kind === 'video' ? 'video' : 'audio');
+    player.className = kind === 'video' ? 'media-inline video' : 'media-inline';
     player.controls = true;
     player.src = res.dataUri;
     host.appendChild(player);
@@ -11617,6 +11547,8 @@ pauseBtn.addEventListener('click', async () => {
 });
 stopBtn.addEventListener('click', async () => {
   const view = activeView();
+  // Ended on purpose, so no "the turn was cut off" line afterwards.
+  if (view) view.stopped = true;
   if (view) await api.abort(view.tabId);
   setPaused(false);
 });
@@ -11721,7 +11653,7 @@ const NUMBER_TWEEN_MS = 1200;
 const NUMBER_FLASH_MS = 460;
 const numberTweens = new WeakMap();
 
-/** The switch lives in Settings; cosmetic, so localStorage is where it belongs. */
+/** Cosmetic, so localStorage is where it belongs; only an old "off" turns it off. */
 function numberFxEnabled() {
   try {
     return localStorage.getItem(NUMBER_FX_KEY) !== '0';
@@ -14387,20 +14319,6 @@ setInterval(() => {
   if (!view || !view.busy) return;
   refreshContextMeter();
 }, 800);
-
-const numberFxBox = el('setNumberFx');
-if (numberFxBox) {
-  numberFxBox.checked = numberFxEnabled();
-  numberFxBox.addEventListener('change', (e) => {
-    try {
-      localStorage.setItem(NUMBER_FX_KEY, e.currentTarget.checked ? '1' : '0');
-    } catch {}
-    // Show the switch's meaning at once instead of waiting for the next turn.
-    if (lastUsage) applyUsageLabels(lastUsage);
-    const view = activeView();
-    if (view?.stats) paintContext(view.stats);
-  });
-}
 
 /* ------------------------------ todo list ---------------------------- */
 

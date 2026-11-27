@@ -4420,3 +4420,102 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - แก้ต้นเหตุ "reply was never sent": `fs:openPath` / `fs:readMedia` / `fs:revealPath` ครอบ try/catch แล้วตอบ `{ok:false,error}` เสมอ (เดิม throw แล้ว renderer รอไม่รู้จบ)
 - เทสต์ใหม่ `scripts/selftest-bug-report.js` (24 checks) → npm test **121 passed** · check:sara ok
 - ยืนยัน end-to-end ด้วย CDP: dispatch error → banner ขึ้น → กดคัดลอก → clipboard มีครบทั้ง 4 หัวข้อ (รวม log `[ui:error]`)
+
+## 2026-11-26 (Linux) — ปิด auto-compaction เป็นค่าเริ่มต้น + ถอดตัวตั้งค่าออก
+- เหตุ: ผู้ใช้เห็นบริบทน้อย เพราะค่าเริ่มต้นยัง "เปิด" (ย่อที่ contextWindow − 16,384) · ntfy ไม่เกี่ยวข้อง
+- `app/src/main.js`: `readCompactionPrefs()` คืน `{ enabled: false }` เว้นแต่ prefs.json ตั้ง `enabled: true` · ลบ `COMPACTION_DEFAULT` · ลบ `ipcMain.handle('settings:compaction')` · ลบ `compaction` จาก settings:get payload
+- `app/src/preload.js`: ลบ `getCompaction`/`setCompaction`
+- `app/src/freepi-bridge.js`: ลบ `setCompaction()`/`compactionSettings()` (ตายแล้ว) · คง `sanitizeCompaction` + ตัวเลือก `compaction` (ทางส่ง "ปิด" ให้ SDK)
+- `app/src/renderer/index.html` + `app.js`: ถอดกลุ่ม Settings (สวิตช์/ตัวเลข/hint) + `paintCompaction`/`refreshCompaction`/`compactionData`/listener + i18n 8 คีย์ en/th
+- `app/scripts/selftest-compaction.js`: เขียนใหม่ 23 เช็ค (รัน `readCompactionPrefs` จริง, ไม่มี UI/IPC เหลือ, `/compact` ยังอยู่)
+- เทส: `npm test` 121 สคริปต์ผ่าน · `check:sara` ok · ยังไม่ commit/ไม่ bump (0.9.9)
+
+## 2026-11-26 (Linux) — ปุ่ม "ทำต่อ" หายหลังกดพัก+ปิดโปรแกรม + ถอด "ตัวเลขสถานะ" ออกจาก Settings
+- หลักฐาน: ท้าย session `2026-11-26T15-05-24-305Z_*.jsonl` = `assistant stop=aborted` (คำตอบขาดกลางคันถูกเขียนลงไฟล์) ⇒ เงื่อนไข `kind === 'user'` เดิมไม่จับ
+- `app/src/main.js` `messagesForUi()`: assistant entry พา `aborted: m.stopReason === 'aborted'`
+- `app/src/renderer/app.js`: `cutOff = user || (assistant && aborted)` + `!view.stopped` · `view.stopped = true` ตอน Stop · reset ใน `setBusy(true)`
+- status numbers: ลบกลุ่ม Settings (`setNumberFx`+hint) ใน `index.html` · i18n `statusFx*` en/th · wiring `numberFxBox` ใน `app.js` — คงพฤติกรรม animated ตาม localStorage `ntapi.numberFx`
+- `index.html`: hint ของ Reset เลิกพูดถึง compaction
+- เทสต์: `selftest-busy-and-resume.js` +4 · `selftest-live-numbers.js` สลับเป็นเช็คว่าไม่มีสวิตช์ · `npm test` 121 ผ่าน · `check:sara` ok · ยังไม่ commit/ไม่ bump
+
+## 2026-11-26 (Linux) — เพิ่มกฎ: ทดลอง/ทดสอบที่ต้องโต้ตอบกับโมเดล ใช้ NVIDIA ได้ทุกโมเดล
+- `AGENTS.md` §5 กติกาเหล็ก: งานลองใช้จริง (เทสต์แชท/คำสั่ง/เครื่องมือ/UI ที่ต้องมีโมเดลตอบ) → เลือกผู้ให้บริการ NVIDIA รุ่นไหนก็ได้ ไม่ต้องถาม · เก็บโควตาเจ้าที่ผู้ใช้ทำงานจริงไว้
+- ข้อจำกัด: NVIDIA เป็นข้อความล้วน (ไม่มีภาพ/เสียง) · ใช้ไม่ได้ให้บอกหนึ่งบรรทัดแล้วใช้เจ้าฟรี · ห้ามใช้ผลแทนการทดสอบฝั่ง Windows
+
+## 2026-11-26 (Linux) — ปุ่ม "ทำต่อ" รอบ 2: จับ stopReason=toolUse
+- หลักฐาน: entry สุดท้ายของ session ผู้ใช้ = `assistant stop=toolUse parts=[thinking,toolCall]` (กดพักตอน tool รัน → ไม่มี result) ไม่ใช่ `aborted`
+- `app/src/main.js` `messagesForUi()`: `unfinished: stopReason === 'aborted' || stopReason === 'toolUse'`
+- `app/src/renderer/app.js`: banner ใช้ `lastStored.unfinished`
+- `app/scripts/selftest-busy-and-resume.js`: เพิ่มเช็ค `toolUse`
+- ยืนยันกับ entry จริง: unfinished = true · `npm test` 121 ผ่าน · `check:sara` ok · ยืนยันว่า pi-ai เติม synthetic toolResult ให้ toolCall ที่ขาดผลเอง (ไม่ต้องซ่อม session)
+
+## 2026-11-26 (Linux) — จำขนาด/ตำแหน่ง/ขยายหน้าต่างข้ามการเปิดใหม่
+- `app/src/main.js`: เพิ่ม `readWindowState()` (prefs key `window`) + นำเข้า `screen`
+  - ค่าขนาด/ตำแหน่งต้องเป็น safe integer ในกรอบที่รับได้; ตำแหน่งที่ไม่มีจอครอบ (เหลื่อม <120x80) ถูกทิ้ง
+  - `createWindow()` ใช้ค่าที่บันทึก + `maximize()`/`setFullScreen()` ก่อน `loadFile`
+  - `win.on('close')` บันทึก `getNormalBounds()` + `isMaximized/isFullScreen`
+- เทสต์ใหม่ `app/scripts/selftest-window-state.js` (20 เช็ค, รันฟังก์ชันจริงกับ stub) + ลงทะเบียนใน `run-unit-tests.js`
+- `app/scripts/selftest-update-handoff.js`: slice createWindow 4000→6000 (บล็อกยาวขึ้น ทำให้เทสต์เดิมแดง)
+- เทสต์: `npm test` 122 ผ่าน · `check:sara` ok · ยังไม่ commit/ไม่ bump
+
+## 2026-11-26 (Linux) — แผงงาน (todo) กว้างเท่ากรอบช่องแชท
+- `app/src/renderer/styles.css` `.todo-panel`: เพิ่ม `max-width: var(--read-width)` + `margin: 0 auto 8px` (เดิม `margin-bottom: 8px`) ให้คอลัมน์เดียวกับ `.composer-box` ที่อยู่ข้างใต้ (แพตเทิร์นเดียวกับ `.hint` / `.status-row`)
+- `npm test` 122 ผ่าน · `check:sara` ok · ยังไม่ commit/ไม่ bump
+
+## 2026-11-26 (Linux) — "reply was never sent" ตอนกดเปิดไฟล์: shell.openPath ค้างบน Linux
+- หลักฐาน: โพรบ Electron `shell.openPath` กับ .txt/.jpg/.mp4 = ค้าง >8 วิ ไม่ resolve (VLC เปิดจริงแต่ promise ไม่จบ) · `xdg-open` จาก shell = exit 0 ทันที
+- `app/src/main.js`: เพิ่ม `openWithSystem(abs)` — Linux spawn `xdg-open` detached + unref แล้วตอบทันที; Windows/macOS ใช้ `shell.openPath`
+- แทนที่ 5 จุด: `fs:openPath`, `settings:reveal`, `session:export`, `openShippedDoc`, `browser:openFolder`
+- เทสต์ใหม่ `app/scripts/selftest-open-path.js` (13 เช็ค) + ลงทะเบียน · `npm test` 123 ผ่าน · `check:sara` ok · ยังไม่ commit/ไม่ bump
+
+## 2026-11-26 (Linux) — วิดีโอเล่นในแชทเอง (รอบ 2 ของ "ไฟล์ไม่เปิด")
+- สาเหตุที่ยังไม่เปิด: ข้อความอ้างชื่อไฟล์ล้วน `sun-black-hole.mp4` → `linkFilePaths` เทียบกับ cwd ของแท็บ (~/NTAPI) = path ที่ไม่มีจริง (ของจริงอยู่ `~/NTAPI/sun-black-hole/sun-black-hole.mp4`) + UI ทิ้งผล {ok:false} → เงียบ
+- `app/src/renderer/app.js` `openFileMenu()`: video ใช้ `<video controls>` inline (readMedia รองรับ video/mp4, limit 32MB) · ถ้า embed ไม่ได้ → ลอง `api.openPath` แล้วถ้ายังไม่ ok → `showNotice(t('fileOpenFailed'))`
+- i18n ใหม่ `fileOpenFailed` (en+th) · `styles.css` `.media-inline.video`
+- `selftest-media-cards.js`: เช็ค video ไม่ถูกส่งออกนอกแอป + path ผิดต้องบอก + CSS
+- `npm test` 123 ผ่าน · `check:sara` ok · ยังไม่ commit/ไม่ bump
+
+## 2026-11-27 (Linux) — เติมที่มาของกฎ NVIDIA (AGENTS.md §5)
+- ผู้ใช้ยืนยันว่ากฎ "ทดลอง/ทดสอบที่ต้องโต้ตอบกับโมเดล → ใช้ NVIDIA รุ่นไหนก็ได้" **ผู้ใช้สั่งเอง 2026-11-26** ไม่ใช่ AI แต่ง (ผมอ่าน `git blame` เห็น "Not Committed Yet" แล้วสรุปผิด)
+- เพิ่มบรรทัดใต้กฎ: กฎนี้ผู้ใช้สั่งเอง (2026-11-26) และ **ใช้เฉพาะงานใน repo NTAPI**
+
+## 2026-11-27 (Linux) — ควบคุมเครื่องเต็มที่ (ลากเมาส์ + เห็นจอทั้งจอ) + ทุกโมเดลใช้ได้
+- ใหม่ `src/system/portal-shot.py`: แคปจอทั้งจอผ่าน xdg-desktop-portal Screenshot (ทางเดียวบน Wayland) · ต้องรอ Response ที่ request handle · วัดได้ 1920x1080 0.54s
+- `linux.js`: `screenshotScreen()`, drag (xdotool/Ydotool) · ถอด `--sync` ออกจาก drag เพราะค้าง 15s กลางทางจริง
+- `main.js`: cmd drag + scope screen · `freepi-bridge.js`: tool `system_drag` + scope + บอกโมเดลไม่มีตาให้เรียก look_at_image
+- `package.json`: portal-shot.py อยู่ใน asarUnpack · `selftest-system-control.js`: 11 tools + เช็คใหม่
+- เทสต์: drag จริง 200,200→1000,600 (ยืนยันด้วย xdotool getmouselocation) · npm test 123 ผ่าน · check:sara ok
+
+## 2026-11-27 (Linux) — แก้คำตอบถูกวาดซ้ำ (recovered-turn)
+- หลักฐานจาก session จริง: assistant เต็ม + custom ntapi.interrupted-turn ที่มีข้อความเดิม (นำหน้าด้วยขยะจาก block ก่อน)
+- ต้นเหตุ: turnDraft.assistant รวมทุก text block ของเทิร์นเดียว → searchKey ไม่ตรง → answerLost=true → เขียนกลับซ้ำ
+- แก้ main.js: text_end=segmentDone, text_delta ถัดไปเริ่ม buffer ใหม่ · selftest-recovered-turn +3 เช็ค · npm test 123 ผ่าน · check:sara ok
+
+## 2026-11-27 (Linux) — ทดสอบขยับเมาส์จริง
+- portal screenshot ใช้ได้จริงในเครื่องผู้ใช้ (1920x1080, 460KB)
+- ydotool mousemove exit 0 แต่ pointer ไม่ขยับ (absolute และ relative) · xdotool mousemove ขยับจริง ⇒ เชื่อ xdotool getmouselocation เป็นหลัก
+- Chrome = native Wayland ⇒ xdotool เห็นแค่ XWayland window 884 ไม่บอกว่าอยู่บน Chrome
+
+## 2026-11-27 (Linux) — แก้ข้อสรุป: ydotool ขยับ pointer ได้ / xdotool อ่านตำแหน่งเชื่อไม่ได้
+- ผู้ใช้เห็นเคอร์เซอร์มุมขวาล่างหลัง ydotool --absolute 1800 900 แต่ xdotool รายงาน 500,400
+- ไม่ใช่ DPI (1920x1080, scale 1.0) ⇒ xdotool getmouselocation ไม่ sync บน Wayland
+- บทเรียน: อย่ายืนยันตำแหน่ง pointer ด้วย xdotool บน Wayland; ใช้ ydotool ขยับ + ถามผู้ใช้/เทียบภาพ
+
+## 2026-11-27 (Linux) — ควบคุมเครื่องครบวงจร (ผู้ใช้ยืนยัน)
+- ydotool ใช้หน่วย 1024 เต็มจอ ไม่ใช่ pixel ⇒ เพิ่ม toYdotoolUnits()/screenWidth() แปลงทุกพิกัด (วัดจริง: 512,288 = กลางจอ)
+- capabilities(): บน Wayland + ydotool พร้อม ใช้ ydotool ก่อน (xdotool ส่งคีย์ไม่ถึงแอป Wayland แท้ — ข้อความไปโผล่หน้าต่างอื่นเป็นตัวอักษรมั่ว)
+- พิมพ์ไทย: ydotool ไม่มี keycode ไทย ⇒ ผ่าน wl-copy + ctrl+v (verifyClipboard)
+- ผู้ใช้ยืนยันข้อความไทยใน gedit ถูกต้อง · npm test 123 ผ่าน · check:sara ok
+- อ่านตำแหน่ง pointer บน Wayland ไม่ได้ (xdotool ค่าเก่า, xinput ไม่มี, Shell Eval ปิด) ⇒ ยืนยันด้วยตา/ภาพ
+
+## 2026-11-27 (Linux) — ทดสอบกับ Godot แล้วผู้ใช้สั่งหยุด
+- Godot 4.7.2 เปิดได้ (XWayland window 12583742) · AT-SPI เห็นแค่ขอบหน้าต่าง (Godot ไม่มี a11y)
+- drag ด้วย ydotool ทำงาน (ลากขอบบน → y 94→190, height 705→609) · Maximize ผ่าน AT-SPI ref → 1857x1048 @63,32
+- ยังไม่ได้กดปุ่มภายใน Godot · Gemini 503 · local vision ให้พิกัดไม่น่าเชื่อถือ
+- ผู้ใช้สั่งหยุดกลางงานเพื่อเปลี่ยน session — ยังไม่ commit / ไม่ bump (0.9.9)
+
+## 2026-11-27 (Linux) — ลบกฎ NVIDIA ออกจาก AGENTS.md (ผู้ใช้สั่ง)
+- ลบบล็อก §5 กติกาเหล็ก "ทดลอง/ทดสอบที่ต้องโต้ตอบกับโมเดล → ใช้ NVIDIA รุ่นไหนก็ได้" ออกทั้งบล็อก (7 บรรทัด) ด้วย `git checkout -- AGENTS.md` ⇒ ไฟล์กลับเท่า HEAD ไม่มี diff
+- ตรวจ: `grep -c NVIDIA AGENTS.md` = 0 · ไม่มีคำว่า NVIDIA เหลือในไฟล์กติกา
+- เหตุผลจากผู้ใช้: ไม่ต้องการผูกการทดสอบกับผู้ให้บริการใดเจ้าหนึ่ง
+- ประวัติใน LOG/HANDOFF เดิมไม่ลบ · ยังไม่ commit · ไม่ bump (0.9.9)

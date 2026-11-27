@@ -248,16 +248,19 @@ function makeNode() {
 
   /* ------------------------------------------------------------------ switch */
 
-  check('the switch is in Settings', /id="setNumberFx"/.test(html) && /data-i18n="statusFxLabel"/.test(html));
-  check('the switch is wired', /el\('setNumberFx'\)/.test(app) && /localStorage\.setItem\(NUMBER_FX_KEY/.test(app));
-  check('the switch repaints what is already on screen', /if \(lastUsage\) applyUsageLabels\(lastUsage\);/.test(app));
-  check('the label is translated both ways', (app.match(/statusFxLabel: '/g) || []).length === 2);
-  check('and so is the explanation', (app.match(/statusFxHint:/g) || []).length === 2);
-  check('the explanation says it costs nothing', /costs no tokens/i.test(app));
+  check(
+    'there is no switch for it in Settings any more',
+    !/id="setNumberFx"/.test(html) && !/el\('setNumberFx'\)/.test(app)
+  );
+  check(
+    'and no leftover strings for one',
+    !/statusFx(Head|Label|Hint):/.test(html) && !/statusFx(Head|Label|Hint):/.test(app)
+  );
+  check('an old "off" in localStorage is still honoured', /localStorage\.getItem\(NUMBER_FX_KEY\) !== '0'/.test(app));
 
   if (failed) {
     console.error(`\n${failed} failure(s)`);
     process.exit(1);
   }
-  console.log('\nPASS: the status numbers count in, land with a flash, and can be switched off');
+  console.log('\nPASS: the status numbers count in and land with a flash');
 })();

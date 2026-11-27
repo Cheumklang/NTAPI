@@ -1608,7 +1608,8 @@ async function createFreePiSession(options) {
             `\n\n## Desktop control\n\n` +
             `- This is the user's own computer (${DESKTOP_LABEL}), not a browser tab. system_windows lists the open windows; system_snapshot reads one window into \`ref\`s; system_act presses one element by its ref.\n` +
             `- Snapshot before acting, and act only on refs you just received. After every action, snapshot again — the window has moved.\n` +            `- Typing into a field is system_act with action \`settext\`; when that answers NO_VALUE_PATTERN, use system_type to type for real. Read the snapshot again to confirm the text landed.\n` +
-            `- A control that publishes no action can still be clicked by position with system_click_at, taking the coordinates from a node's bounds in the snapshot. Never aim at a point you have not seen, and never outside the window — it is refused.\n` +
+            `- A control that publishes no action can still be clicked by position with system_click_at, taking the coordinates from a node's bounds in the snapshot. Never aim at a point you have not seen, and never outside the window - it is refused.\n` +
+            `- A slider, a selection or anything that only answers a pointer held down is system_drag: give it the two points, and the pointer travels between them.\n` +
             `- system_keys presses a shortcut (ctrl+s, alt+f4), and system_launch starts a program, document or url. Every one of these brings the window to the front first and refuses if it did not get there, so nothing is typed into the wrong window.\n` +
             `- A type result says which of three things happened: verified (it was read back and is on screen), SENT, NOT CHECKED (this window never lets a program read its text, so it may or may not have arrived - look before typing again), or NOT VERIFIED / TYPE_NOT_DELIVERED / INPUT_REJECTED (nothing was typed). "I sent the keystrokes" is not the same sentence as "the text is on screen".\n` +
             `- Window numbers come from the accessibility tree and they shift when a window opens or closes. system_windows also prints a window handle: pass it as \`window\` and the call finds that window itself. When two windows of the same application are open, the handle is the only safe way to say which one.\n` +
@@ -3142,27 +3143,6 @@ const providerApiExtension = providerApiAccess.length
     },
 
     /**
-     * Switch auto-compaction on or off in a session that is already open. The
-     * token numbers are read when a compaction happens, but the SDK only exposes
-     * a setter for the switch, so those travel with the next tab.
-     */
-    setCompaction(enabled) {
-      settingsManager.setCompactionEnabled(Boolean(enabled));
-      return Boolean(enabled);
-    },
-
-    /** What this session would do right now, plus the window it is measured against. */
-    compactionSettings() {
-      let settings;
-      try {
-        settings = settingsManager.getCompactionSettings(session.model);
-      } catch {
-        settings = { enabled: true, reserveTokens: 16384, keepRecentTokens: 20000 };
-      }
-      return { ...settings, contextWindow: Number(session.model?.contextWindow) || 0 };
-    },
-
-    /**
      * Let a session that is already open see skills that appeared after it
      * started. `/skill` rescans on every open, but `/skill:name` expands against
      * this session's own list — without this, a skill installed a minute ago
@@ -3330,6 +3310,12 @@ const SYSTEM_TOOLS = {
     parameters: {
       type: 'object',
       properties: {
+        scope: {
+          type: 'string',
+          enum: ['window', 'screen'],
+          description:
+            '"screen" photographs the whole desktop - the one to ask for when the thing you need to see is not one window, or you do not know which window it is. The desktop may ask the user to allow it, and the answer can be a refusal.',
+        },
         app: { type: 'number', description: 'The app number from system_windows, if you are checking that it is this one.' },
         window: {
           type: 'string',
@@ -3467,6 +3453,26 @@ const SYSTEM_TOOLS = {
       additionalProperties: false,
     },
   },
+  system_drag: {
+    cmd: 'drag',
+    write: true,
+    description:
+      'Press the pointer at one screen position, move it to another and release - a slider, a selection box, a file being dropped, a stroke on a canvas. Take both points from snapshot bounds so the drag lands on something you have seen. Snapshot again afterwards: what was under the pointer has changed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        app: { type: 'number', description: 'The app number from system_windows.' },
+        x: { type: 'number', description: 'Where the press starts, in screen coordinates.' },
+        y: { type: 'number', description: 'Where the press starts, in screen coordinates.' },
+        toX: { type: 'number', description: 'Where the pointer is released.' },
+        toY: { type: 'number', description: 'Where the pointer is released.' },
+        button: { type: 'string', enum: ['left', 'right'] },
+        steps: { type: 'number', description: 'How many points the pointer travels through (default 8).' },
+      },
+      required: ['x', 'y', 'toX', 'toY'],
+      additionalProperties: false,
+    },
+  },
 };
 
 function systemToolSpecs() {
@@ -3515,7 +3521,12 @@ async function systemScreenshotContent(result, { imagesDir, cwd, canSeeImages })
     };
   }
   return {
-    content: [{ type: 'text', text: `${meta} Saved to ${rel} — this model cannot see images, so reference the path.` }],
+    content: [
+      {
+        type: 'text',
+        text: `${meta} Saved to ${rel} — this model cannot see images: call look_at_image with this path and a specific question and a vision model will look for you. The desktop tools work for every model; it is only the seeing that needs a hand.`,
+      },
+    ],
     details: { ok: true, path: rel, width: result.width, height: result.height },
   };
 }

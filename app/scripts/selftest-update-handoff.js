@@ -42,7 +42,9 @@ function check(name, fn) {
 const windowBlock = (() => {
   const at = main.indexOf('function createWindow()');
   assert.ok(at > 0, 'no createWindow()');
-  return main.slice(at, at + 4000);
+  // Wide enough for the whole of createWindow() including the geometry it saves
+  // on close (the block grew when the window state became permanent).
+  return main.slice(at, at + 6000);
 })();
 
 const installBlock = (() => {

@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell, clipboard, safeStorage, Notification, globalShortcut, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell, clipboard, safeStorage, Notification, globalShortcut, Menu, screen } = require('electron');
 
 /*
  * A window the agent cannot read is a window it cannot press buttons in, and
@@ -927,22 +927,21 @@ function writePrefs(patch) {
 }
 
 /**
- * Auto-compaction, as the user set it. Missing keys are missing on purpose: the
- * pi SDK then keeps its own default (16,384 tokens reserved for the reply and
- * 20,000 recent tokens kept verbatim), so an untouched install behaves exactly
- * as before and a later change to those defaults still reaches everyone.
+ * Auto-compaction is off unless prefs.json says otherwise. A conversation that
+ * rewrites itself behind the reader's back costs more context than it saves, so
+ * no install gets it for free: `/compact` is there for whoever asks for it, and
+ * `"compaction": { "enabled": true }` in prefs.json is the only way back on.
  */
-const COMPACTION_DEFAULT = { reserveTokens: 16384, keepRecentTokens: 20000 };
 function readCompactionPrefs() {
   const raw = readPrefs().compaction;
-  if (!raw || typeof raw !== 'object') return null;
-  const out = {};
-  if (typeof raw.enabled === 'boolean') out.enabled = raw.enabled;
-  for (const key of ['reserveTokens', 'keepRecentTokens']) {
-    const value = raw[key];
-    if (Number.isSafeInteger(value) && value >= 0 && value <= 4_000_000) out[key] = value;
+  const out = { enabled: Boolean(raw && typeof raw === 'object' && raw.enabled === true) };
+  if (raw && typeof raw === 'object') {
+    for (const key of ['reserveTokens', 'keepRecentTokens']) {
+      const value = raw[key];
+      if (Number.isSafeInteger(value) && value >= 0 && value <= 4_000_000) out[key] = value;
+    }
   }
-  return Object.keys(out).length ? out : null;
+  return out;
 }
 
 /* --------------------------- pins and colours ---------------------------
@@ -1293,6 +1292,16 @@ const systemBridge = {
       return snap;
     }
     if (cmd === 'screenshot') {
+      if (args.scope === 'screen') {
+        if (typeof systemAdapter.screenshotScreen !== 'function') {
+          const err = new Error('Photographing the whole screen is not available on this platform yet.');
+          err.code = 'NOT_SUPPORTED';
+          throw err;
+        }
+        const shot = await systemAdapter.screenshotScreen();
+        audit({ event: 'screenshot', scope: 'screen', size: `${shot.width}x${shot.height}` });
+        return shot;
+      }
       const shot = await captureAppWindow(args);
       audit({ event: 'screenshot', app: shot.app, name: shot.title, size: `${shot.width}x${shot.height}` });
       return shot;
@@ -1328,6 +1337,24 @@ const systemBridge = {
     if (cmd === 'clickat') {
       const result = await systemAdapter.clickAt({ app: args.app, x: args.x, y: args.y, button: args.button, window: args.window });
       audit({ event: 'clickat', app: args.app, x: args.x, y: args.y, button: args.button || 'left' });
+      return result;
+    }
+    if (cmd === 'drag') {
+      if (typeof systemAdapter.drag !== 'function') {
+        const err = new Error('Dragging the pointer is not available on this platform yet.');
+        err.code = 'NOT_SUPPORTED';
+        throw err;
+      }
+      const result = await systemAdapter.drag({
+        app: args.app,
+        x: args.x,
+        y: args.y,
+        toX: args.toX,
+        toY: args.toY,
+        button: args.button,
+        steps: args.steps,
+      });
+      audit({ event: 'drag', app: args.app, from: `${args.x},${args.y}`, to: `${args.toX},${args.toY}` });
       return result;
     }
     if (cmd === 'scroll') {
@@ -2515,7 +2542,21 @@ function messagesForUi(messages) {
         .map((c) => ({ id: c.id, name: c.name, args: c.arguments }));
       if (text || thinking || tools.length) {
         if (text) seenAssistant.add(searchKey(text));
-        out.push({ kind: 'assistant', text, thinking, tools, ts: m.timestamp });
+        /*
+         * Two shapes mean the turn never finished, and both have to survive the
+         * repaint so the window can offer a way to carry on (2026-11-26):
+         * `aborted` — an answer the app closed on, stored mid-sentence; and
+         * `toolUse` — an answer still waiting for a tool whose result never came
+         * (pause pressed while a tool ran, then the window closed).
+         */
+        out.push({
+          kind: 'assistant',
+          text,
+          thinking,
+          tools,
+          ts: m.timestamp,
+          unfinished: m.stopReason === 'aborted' || m.stopReason === 'toolUse',
+        });
       } else if (m.stopReason === 'error') {
         // A failed turn has no content at all. Without this the transcript just
         // shows the user's message and then nothing, which looks like a hang.
@@ -2728,7 +2769,20 @@ function subscribeTab(tabId) {
         if (e.type === 'text_delta') {
           // Kept for the same reason as the user's words: a spent allowance can
           // take this text off the session (see recoverInterruptedTurn).
-          if (tab.turnDraft && !tab.turnDraft.done) tab.turnDraft.assistant += e.delta;
+          //
+          // One turn holds several assistant messages — text, a tool call, more
+          // text — and gluing them into one buffer made the recovery guard look
+          // for an opening none of the stored messages has. It then put an answer
+          // that was in the session back anyway, and the window drew the same
+          // reply twice (2026-11-27). A new block starts a new buffer; the last
+          // one is what was on screen when the run died.
+          if (tab.turnDraft && !tab.turnDraft.done) {
+            if (tab.turnDraft.segmentDone) {
+              tab.turnDraft.assistant = '';
+              tab.turnDraft.segmentDone = false;
+            }
+            tab.turnDraft.assistant += e.delta;
+          }
           sendTab(tabId, 'agent:delta', { channel: 'text', delta: e.delta });
         } else if (e.type === 'thinking_delta') {
           sendTab(tabId, 'agent:delta', { channel: 'thinking', delta: e.delta });
@@ -2737,6 +2791,7 @@ function subscribeTab(tabId) {
           if (!tab.loopGuard) tab.loopGuard = createLoopGuard();
           if (!tab.loopAborting && tab.loopGuard.push(e.delta)) handleThinkingLoop(tabId, tab);
         } else if (e.type === 'text_end') {
+          if (tab.turnDraft && !tab.turnDraft.done) tab.turnDraft.segmentDone = true;
           sendTab(tabId, 'agent:textEnd', { text: e.content });
         }
         break;
@@ -3044,8 +3099,7 @@ async function attachTab(tabId, manager, cwd) {
     // The agent may ask a question instead of guessing; the window answers it.
     askUser: (q) => askUserDialog(tabId, q),
     thinkingLevel: readPrefs().thinkingLevel || 'off',
-    // Auto-compaction knobs (null = the SDK defaults). Read once per tab: the
-    // token numbers cannot be changed on a live session, only the on/off switch.
+    // Auto-compaction stays off unless prefs.json asks for it. Read once per tab.
     compaction: readCompactionPrefs(),
     // A saved, readable key registers Coarena in this same session. A key that
     // cannot be decrypted is treated as absent rather than failing the tab.
@@ -3536,10 +3590,47 @@ function tabFor(id) {
   return { tabId, tab };
 }
 
+/**
+ * The window comes back the way it was left: same size, same place, and still
+ * maximized (or full screen) if that is how it was closed. Without this the app
+ * opened at 1240x840 in the corner on every launch, and anyone who works
+ * maximized had to maximize again every time (2026-11-26).
+ *
+ * A position no display covers any more — a monitor unplugged, or a layout from
+ * the other side of the VM — is dropped instead of opening the window somewhere
+ * it cannot be dragged back from.
+ */
+function readWindowState() {
+  const raw = readPrefs().window;
+  const out = { width: 1240, height: 840, maximized: false, fullScreen: false };
+  if (!raw || typeof raw !== 'object') return out;
+  for (const key of ['width', 'height']) {
+    const value = raw[key];
+    if (Number.isSafeInteger(value) && value >= 400 && value <= 20000) out[key] = value;
+  }
+  const { x, y } = raw;
+  if (Number.isSafeInteger(x) && Number.isSafeInteger(y) && Math.abs(x) < 20000 && Math.abs(y) < 20000) {
+    const onScreen = screen.getAllDisplays().some(({ workArea }) => {
+      const across = Math.min(x + out.width, workArea.x + workArea.width) - Math.max(x, workArea.x);
+      const down = Math.min(y + out.height, workArea.y + workArea.height) - Math.max(y, workArea.y);
+      return across >= 120 && down >= 80;
+    });
+    if (onScreen) {
+      out.x = x;
+      out.y = y;
+    }
+  }
+  out.maximized = raw.maximized === true;
+  out.fullScreen = raw.fullScreen === true;
+  return out;
+}
+
 function createWindow() {
+  const saved = readWindowState();
   win = new BrowserWindow({
-    width: 1240,
-    height: 840,
+    width: saved.width,
+    height: saved.height,
+    ...(Number.isSafeInteger(saved.x) ? { x: saved.x, y: saved.y } : {}),
     minWidth: 1240,
     minHeight: 840,
     backgroundColor: readTheme() === 'light' ? '#f5f6fa' : '#0f1115',
@@ -3575,6 +3666,9 @@ function createWindow() {
       autoplayPolicy: 'no-user-gesture-required',
     },
   });
+  // Before the page loads, so nobody watches the window resize itself.
+  if (saved.fullScreen) win.setFullScreen(true);
+  else if (saved.maximized) win.maximize();
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   /*
@@ -3624,6 +3718,26 @@ function createWindow() {
   });
   win.on('closed', () => {
     win = null;
+  });
+
+  /*
+   * Every close saves the geometry, whatever the reason. `getNormalBounds()` is
+   * what is stored, so a maximized window still remembers the size it would
+   * restore to, and the next launch reads it back as the first thing it does.
+   */
+  win.on('close', () => {
+    if (!win || win.isDestroyed()) return;
+    const bounds = win.getNormalBounds();
+    writePrefs({
+      window: {
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        maximized: win.isMaximized(),
+        fullScreen: win.isFullScreen(),
+      },
+    });
   });
 
   // The other moment an update may speak up: when the window is being closed.
@@ -5398,12 +5512,6 @@ ipcMain.handle('settings:get', async (_e, { cwd } = {}) => {
     sessionsRoot: SESSIONS_ROOT,
     prefsPath: prefsPath(),
     chatBackground: readChatBackground(),
-    // Settings shows where the conversation gets rewritten; the toggle writes
-    // back through `settings:compaction` so a live tab follows immediately.
-    compaction: {
-      prefs: readCompactionPrefs() || {},
-      defaults: COMPACTION_DEFAULT,
-    },
     // Shown at the top of Settings so it is obvious where this app keeps things.
     dataRoot: DATA_ROOT,
     coarena: await coarenaStatus(),
@@ -5443,8 +5551,7 @@ ipcMain.handle('settings:reveal', async (_e, target) => {
   if (!p) return { ok: false, error: 'No path' };
   try {
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
-    await shell.openPath(p);
-    return { ok: true };
+    return await openWithSystem(p);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -6271,7 +6378,7 @@ ipcMain.handle('session:export', async (_e, tabId) => {
   const res = await tab.handle.exportHtml().catch(() => ({ ok: false, path: null }));
   if (res.ok && res.path) {
     try {
-      await shell.openPath(res.path);
+      await openWithSystem(res.path);
     } catch {}
   }
   return res;
@@ -6285,43 +6392,6 @@ ipcMain.handle('session:thinking', async (_e, { tabId, level } = {}) => {
     sendTab(tid, 'session:thinking', { thinking: safeCall(() => tab.handle.thinking(), null) });
   }
   return safeCall(() => tab.handle.thinking(), null);
-});
-
-/**
- * Auto-compaction settings for the Settings panel.
- *
- * Reads the effective values from the tab that is open (they can differ per
- * model, because a model override may pin its own token count) and accepts a
- * patch to change them. The switch takes effect immediately in every open tab;
- * the token numbers are stored and used by the next tab, because the SDK has no
- * setter for them — the panel says so rather than pretending otherwise.
- */
-ipcMain.handle('settings:compaction', async (_e, { tabId, patch } = {}) => {
-  if (patch && typeof patch === 'object') {
-    const current = readCompactionPrefs() || {};
-    const next = { ...current };
-    if (typeof patch.enabled === 'boolean') next.enabled = patch.enabled;
-    for (const key of ['reserveTokens', 'keepRecentTokens']) {
-      const value = patch[key];
-      if (Number.isSafeInteger(value) && value >= 0 && value <= 4_000_000) next[key] = value;
-    }
-    writePrefs({ compaction: next });
-    if (typeof next.enabled === 'boolean') {
-      for (const [, openTab] of tabs) {
-        safeCall(() => openTab.handle.setCompaction(next.enabled), null);
-      }
-    }
-  }
-  const { tab } = tabFor(tabId);
-  const live = safeCall(() => tab.handle.compactionSettings(), null);
-  return {
-    prefs: readCompactionPrefs() || {},
-    defaults: COMPACTION_DEFAULT,
-    effective: live
-      ? { enabled: live.enabled, reserveTokens: live.reserveTokens, keepRecentTokens: live.keepRecentTokens }
-      : { enabled: true, ...COMPACTION_DEFAULT },
-    contextWindow: live?.contextWindow || 0,
-  };
 });
 
 /* ------------------------- review panel (changes) ------------------------ */
@@ -6572,6 +6642,33 @@ ipcMain.handle('fs:revealPath', async (_e, { cwd, path: target } = {}) => {
   }
 });
 
+/**
+ * Hand a file or folder to whatever the desktop opens it with — and answer the
+ * window at once.
+ *
+ * `shell.openPath` is the wrong tool on Linux: it asks the desktop to launch the
+ * app and then waits for an answer that does not come. Measured on 2026-11-26 in
+ * this very window: a `.txt`, a `.jpg` and an `.mp4` each sat for more than eight
+ * seconds with no reply, so a click on a finished video ended in the renderer's
+ * unusable "Error invoking remote method 'fs:openPath': reply was never sent"
+ * instead of a player. `xdg-open` returns immediately and does the same job, so it
+ * is spawned detached and left to finish on its own.
+ */
+function openWithSystem(abs) {
+  if (process.platform !== 'linux') {
+    return shell.openPath(abs).then((error) => ({ ok: !error, error: error || null }));
+  }
+  try {
+    const { spawn } = require('node:child_process');
+    const child = spawn('xdg-open', [abs], { detached: true, stdio: 'ignore' });
+    child.on('error', () => {});
+    child.unref();
+    return Promise.resolve({ ok: true, error: null });
+  } catch (err) {
+    return Promise.resolve({ ok: false, error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
 // Every handler here answers, whatever happens inside it. A throw used to leave
 // the renderer waiting forever, which surfaced as the unhelpful
 // "reply was never sent" and told nobody what actually went wrong.
@@ -6579,8 +6676,7 @@ ipcMain.handle('fs:openPath', async (_e, { cwd, path: target } = {}) => {
   try {
     const abs = resolveInsideWorkspace(cwd, target);
     if (!abs) return { ok: false, error: 'outsideWorkspace' };
-    const error = await shell.openPath(abs);
-    return error ? { ok: false, error } : { ok: true };
+    return openWithSystem(abs);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[openPath]', message);
@@ -7194,8 +7290,8 @@ async function openShippedDoc(name) {
     : path.join(__dirname, '..', '..', name);
   try {
     if (!fs.existsSync(file)) return { ok: false, reason: 'missing' };
-    const err = await shell.openPath(file);
-    return { ok: !err, reason: err || '' };
+    const opened = await openWithSystem(file);
+    return { ok: opened.ok, reason: opened.error || '' };
   } catch (err) {
     return { ok: false, reason: String(err && err.message) };
   }
@@ -7928,8 +8024,7 @@ ipcMain.handle('browser:installInfo', async () => ({
 
 ipcMain.handle('browser:openFolder', async () => {
   const dir = browserExtensionDir();
-  const error = await shell.openPath(dir);
-  return { ok: !error, error: error || null };
+  return openWithSystem(dir);
 });
 
 ipcMain.handle('browser:watch', async () => {

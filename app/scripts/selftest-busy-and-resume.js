@@ -33,6 +33,7 @@ function check(name, ok, detail) {
 
 const root = path.join(__dirname, '..');
 const app = fs.readFileSync(path.join(root, 'src/renderer/app.js'), 'utf8');
+const main = fs.readFileSync(path.join(root, 'src/main.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'src/renderer/styles.css'), 'utf8');
 
 /** The source of one function, braces matched. */
@@ -66,7 +67,31 @@ check(
   /lastStored\.kind === 'user'/.test(render) && /onRetry: \(\) => retryTurn\(view\)/.test(render),
   render.slice(-400)
 );
-check('resume: it is not offered while a turn is running', /!view\.busy && lastStored/.test(render));
+/*
+ * Paused, then the window was closed: nothing wrote an answer, but the session
+ * keeps the half-sentence it was on with stopReason `aborted` — so "last entry is
+ * the question" is not the only shape a cut-off turn has (2026-11-26).
+ */
+check(
+  'resume: an answer cut off mid-sentence counts as unfinished too',
+  /lastStored\.kind === 'assistant' && lastStored\.unfinished/.test(render) &&
+    /unfinished: m\.stopReason === 'aborted' \|\| m\.stopReason === 'toolUse'/.test(main)
+);
+/*
+ * Paused while a tool was running, then the window closed: the stored last entry
+ * is an assistant with `stopReason: 'toolUse'` and no result for that call. The
+ * harness fills the missing result in itself, so the button can simply retry.
+ */
+check(
+  'resume: an answer still waiting for a tool result counts too',
+  /m\.stopReason === 'toolUse'/.test(main)
+);
+check(
+  'resume: a Stop the reader pressed is not offered back',
+  /!view\.stopped/.test(render) && /view\.stopped = true/.test(app)
+);
+check('resume: a new turn clears the Stop mark', /if \(value\) view\.stopped = false;/.test(app));
+check('resume: it is not offered while a turn is running', /!view\.busy && cutOff/.test(render));
 check(
   'resume: it is drawn on every repaint, so reopening the app shows it',
   (render.match(/appendErrorBanner\(t\('turnUnfinished'\)/g) || []).length === 1
