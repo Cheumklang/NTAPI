@@ -98,8 +98,8 @@
       th: 'โมเดลนี้ต้องเข้าสู่ระบบด้วย GitHub — ใช้ปุ่มเข้าสู่ระบบในหน้าตั้งค่า',
     },
     'fp.upgrade_required': {
-      en: 'This client is out of date — run `npx free-pi-cli@latest`, then retry.',
-      th: 'ไคลเอนต์เวอร์ชันเก่าเกินไป — รัน `npx free-pi-cli@latest` แล้วลองใหม่',
+      en: 'This client is out of date — press Retry to update the connection automatically.',
+      th: 'ไคลเอนต์เวอร์ชันเก่าเกินไป — กด "ลองอีกครั้ง" เพื่ออัปเดตการเชื่อมต่อให้อัตโนมัติ',
     },
     'fp.region_unavailable': {
       en: 'free-pi is not available in your region.',

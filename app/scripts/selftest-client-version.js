@@ -23,6 +23,8 @@ const {
   clientVersionFloor,
   resolveClientVersionFloor,
   resetClientVersionFloor,
+  shouldAttemptUpgradeRetry,
+  UPGRADE_RETRY_COOLDOWN_MS,
 } = require('../src/client-version');
 
 let failed = 0;
@@ -206,6 +208,22 @@ function fakeFetch(body, { status = 200 } = {}) {
     check('clientVersionFloor() reports the raised value', clientVersionFloor() === '0.9.0', clientVersionFloor());
     resetClientVersionFloor();
     check('reset restores the built-in floor', clientVersionFloor() === CLIENT_VERSION_FLOOR);
+  }
+
+  /* ----------------------- 426 retry window ------------------------------- */
+
+  // The gate that broke: one attempt per tab for the tab's whole life meant the
+  // second 426 in a session never recovered, so the user saw the same dead end
+  // twice (this happened in the wild). A cooldown still stops a loop.
+  {
+    const now = 1_000_000;
+    check('first 426 may recover', shouldAttemptUpgradeRetry(0, now) === true);
+    check('second 426 inside the cooldown does not', shouldAttemptUpgradeRetry(now, now + 1000) === false);
+    check(
+      'a later 426 may recover again',
+      shouldAttemptUpgradeRetry(now, now + UPGRADE_RETRY_COOLDOWN_MS) === true
+    );
+    check('an undefined attempt time is treated as never', shouldAttemptUpgradeRetry(undefined, now) === true);
   }
 
   if (failed) {

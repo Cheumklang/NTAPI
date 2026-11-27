@@ -4094,7 +4094,8 @@ function renderActiveTab() {
       // Only the last entry is the turn that just stopped — an older failure has
       // an answer under it that already went through, so offering Retry there
       // would re-run a request the reader has moved past.
-      const resumable = Boolean(m.limit) && messages[messages.length - 1] === m && !view.busy;
+      const resumable =
+        Boolean(m.limit || m.upgrade) && messages[messages.length - 1] === m && !view.busy;
       appendErrorBanner(m.text, false, resumable ? { onRetry: () => retryTurn(view) } : {});
       currentAssistant = null;
     } else if (m.kind === 'tool') {
@@ -13274,13 +13275,14 @@ api.onError((p) => {
   // failure has no translated sentence. Appending it again printed it twice:
   // "... service_busy) (HTTP 503 · service_busy)".
   const suffix = p.key && p.status ? ` (HTTP ${p.status}${p.code ? ` · ${p.code}` : ''})` : '';
-  // A spent allowance or a cap is the one failure the app can resume on the
-  // user's behalf, so it carries a Retry button; everything else stays a plain
-  // red line that fades.
+  // A spent allowance or a cap is a failure the app can resume on the user's
+  // behalf, and so is a 426 `upgrade_required`: pressing Retry refreshes the
+  // version the backend now demands before the request goes out. Everything
+  // else stays a plain red line that fades.
   appendErrorBanner(
     `${body}${suffix}`,
     true,
-    p.limit ? { onRetry: () => retryTurn(view) } : {}
+    p.limit || p.upgrade ? { onRetry: () => retryTurn(view) } : {}
   );
 });
 

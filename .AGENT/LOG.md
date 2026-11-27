@@ -4524,3 +4524,68 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - commit 980f6c6: Linux ควบคุมเครื่อง (drag/แคปทั้งจอ portal/ydotool 1024 units/backend Wayland→ydotool/พิมพ์ไทย wl-copy) + recovered-turn วาดคำตอบซ้ำ
 - เทสต์: npm test = 123 สคริปต์ผ่าน · check:sara ok · git status = 0 ไฟล์
 - ยังไม่ bump (0.9.9) · ก/ข/ค ผู้ใช้สั่งพักไว้เป็นรอง ไม่รีบ
+
+## 2026-11-27 (Linux) — 426 upgrade_required: ผู้ใช้กด Retry แก้เองได้
+- ต้นเหตุ: backend min=latest=0.6.28 (curl จริง) แต่ floor ในโค้ด 0.6.21 · NTAPI จำลองโปรโตคอลเอง (freepi-bridge) ไม่ได้รัน free-pi-cli ⇒ คำสั่ง npx free-pi-cli@latest ในข้อความ error ช่วยไม่ได้
+- แก้ 2 รู: (1) tab.upgradeRetry เดิมครั้งเดียวต่อแท็บ → cooldown 15 วิ ผ่าน shouldAttemptUpgradeRetry() (2) 426 ไม่มีปุ่ม → agent:error ส่ง upgrade flag, renderer ขึ้นปุ่ม Retry และ prompt:retry refresh client version ก่อนส่งซ้ำ
+- ไฟล์: client-version.js, main.js, renderer/app.js, error-messages.js, provider-errors.js, selftest-client-version.js, selftest-error-ux.js
+- เทสต์: npm test 123 สคริปต์ผ่าน · check:sara ok · ยังไม่ทดสอบกับ backend จริง (auth.json ว่าง ไม่มี jwt)
+- ยังไม่ commit · ไม่ bump (0.9.9)
+
+## 2026-11-27 — ติดตั้ง jcode v1.1.2 (เครื่องมือ dev)
+
+- repo 1jehuang/jcode = coding agent harness (Rust, MIT, swarm, อ่าน AGENTS.md ของ repo เอง)
+- ติดตั้งผ่าน `curl -fsSL https://jcode.sh/install | bash` → `/home/nt/.local/bin/jcode`
+- `jcode telemetry disable` (ค่าเริ่มต้น: content sharing = disabled อยู่แล้ว)
+- provider profile: `ds` = DeepSeek deepseek-chat (ใช้ได้) · `zai-lean` = 429 ไม่มีเครดิต
+- ทดลอง: อ่าน `app/src/system/linux.js` → ตอบถูก 2/3 ข้อ, ข้อ 3 เดาเรื่องแกน y (ขัดกับคอมเมนต์ที่วัดจริงในไฟล์) ⇒ ต้องตรวจทุกข้ออ้าง
+- ยังไม่ทดลอง: swarm, self-dev, แก้ไฟล์จริง, ฝั่ง Windows (`Z:` ต้องห้ามรันคู่กับ session หลัก)
+
+## 2026-11-27 — jcode รีวิว diff 426 + ตรวจซ้ำ
+
+- prompt: defect-first, ห้ามแก้ไฟล์, 3 หัวข้อ · ผล 45k upload tokens
+- ตรวจแล้วจริง 2 จุด: transcript ไม่เก็บ upgrade (ปุ่มหายตอน replay) · upgradeFailure อยู่ใน cooldown guard
+- ads clientVersion แคปตอนสร้าง client → refresh ไม่ถึง (จริงเฉพาะ ads)
+- วิธีใช้ที่ได้ผล: ให้ jcode อ่าน patch + ระบุบรรทัด แล้วผม grep/sed ตรวจทุกข้อก่อนเชื่อ
+
+## 2026-11-27 — แก้ข้อ ก (ปุ่ม Retry 426 อยู่รอด)
+
+- main.js: transcript เก็บ upgrade 2 จุด + upgradeFailure ตั้งนอก cooldown guard
+- renderer/app.js: replay resumable = m.limit || m.upgrade
+- selftest-error-ux.js: +2 check, แก้ regex เดิม
+- npm test = 123 ผ่าน · check:sara ok · node --check ok
+- ข้ามโดยตั้งใจ: ล้าง flag ตอนสำเร็จ, ads clientVersion per-call
+
+## 2026-11-27 — jcode รีวิว fix ข้อ ก ซ้ำ + ตรวจเอง
+
+- จริง: entry error ต้อง stopReason=error และ content ว่าง (426 ที่มี text = ไม่มีปุ่มตอน replay)
+- จริง: upgradeFailure ไม่ถูก persist -> รีสตาร์ทแล้วปุ่มมาแต่ไม่ refresh
+- จริง: refreshClientVersion คืน before เมื่อ backend เข้าไม่ถึง -> 426 ซ้ำ (แก้ฝั่งแอปไม่ได้)
+- ผิด: อ้างว่า tabState/turnFailure ไม่มี upgrade — ใส่ไว้แล้วที่ main.js:2664
+- บทเรียน: jcode ระบุบรรทัดแม่นขึ้นเมื่อให้ patch + ไฟล์ตรง ๆ แต่ยังมีข้ออ้างผิดปน ต้อง grep ทุกข้อ
+
+## 2026-11-27 — เช็กคีย์ทุก provider จริง
+
+- DeepSeek 402 (หมดจากทดลอง 5 ครั้ง) · OpenRouter 402 (key limit 99.90 แต่เครดิตบัญชี 0) · xAI 403 (ทีมหมดเครดิต) · Z.ai 429
+- NVIDIA ใช้ได้: minimaxai/minimax-m3.1-flash ตอบ OK · แต่ช้า (timeout 700 วิ งานวางแผนเดียว)
+- NVIDIA model ids ที่ใช้ได้: bigcode/starcoder2-15b, google/gemma-3-12b-it, minimaxai/minimax-m3.1-flash, moonshotai/kimi-k3.1-pro, nvidia/nemotron-3.5-* ฯลฯ
+- บทเรียน: jcode auth-test ไม่เชื่อถือได้กับ custom profile — ใช้ jcode run ทดสอบ
+
+## 2026-11-27 — TokenHarbor ทดลองกับ jcode
+
+- base https://tokenharbor.ai/v1 · 91 โมเดล · จ่ายเงิน = 402 balance_zero (wallet 0, ไม่มี plan)
+- free routes: mimo-v2.5:free, deepseek-v4-flash:free, deepseek-v4.1-flash:free, mimo-v2.6-flash:free
+- deepseek-v4.1-flash:free -> 429 free_tier_limit_reached คืน 29 Nov 2026 08:56 UTC
+- สรุป: ไม่มีคีย์ดิบตัวไหนใช้ได้ ยกเว้น NVIDIA (ช้า) · jcode ยังใช้ทำงานจริงไม่ได้จนกว่าจะเติมหรือรอโควตาคืน
+
+## 2026-11-27 — Kilo token ใช้ไม่ได้
+
+- ai-gateway.kilo.ai/api/v1/models 200 (465) แต่ chat/completions 401 INVALID_TOKEN ทุก header style
+- kilo.json JWT exp 2031 แต่ถูก revoke -> ต้องล็อกอิน Kilo ใหม่ใน NTAPI
+- บทเรียน: /models 200 ไม่ได้ยืนยันว่า token ใช้ได้ ต้องยิง chat/completions ด้วย max_tokens=1
+
+## 2026-11-27 — Kilo กลับมาใช้ได้ + jcode วางแผนเฟส 2 Windows
+
+- คีย์ใหม่ใช้ได้ · จ่ายเงิน 402 balance 0 · free models 17 ตัว · kilo-auto/free PASS
+- jcode default = kilo/kilo-auto/free · วางแผนเฟส 2 Windows ระบุบรรทัดถูกทุกจุด (ตรวจเองแล้ว)
+- ยังไม่เขียนโค้ด windows.js/uia.ps1

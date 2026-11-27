@@ -45,7 +45,7 @@ const ERROR_HINTS = {
   guest_allowance: 'Guest trial used up — sign in with GitHub from Settings for the full daily allowance.',
   guest_login_required: 'This model needs a GitHub sign-in — use Sign in… in Settings.',
   guest_unavailable: 'This model needs a GitHub sign-in — use Sign in… in Settings.',
-  upgrade_required: 'This client is out of date — run `npx free-pi-cli@latest`, then retry.',
+  upgrade_required: 'This client is out of date — press Retry to update the connection automatically.',
   region_unavailable: 'free-pi is not available in your region.',
   model_requires_credits: 'This model needs purchased credits — switch to a free model or buy credits.',
   premium_allowance: 'Premium allowance used up today — switch to the default model.',

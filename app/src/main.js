@@ -160,7 +160,7 @@ const applySessionMark = (marks, sessionPath, patch) => applyMark(marks, session
 const sortSessionsByMark = (marks, sessions) => sortByMark(marks, sessions);
 
 const { friendlyProviderError } = require('./provider-errors');
-const { isUpgradeRequired: isUpgradeRequiredText, resolveClientVersionFloor } = require('./client-version');
+const { isUpgradeRequired: isUpgradeRequiredText, resolveClientVersionFloor, shouldAttemptUpgradeRetry } = require('./client-version');
 const { normalize: normalizeSponsor } = require('./sponsor');
 const sponsorFeed = require('./sponsor-feed');
 // Sidebar rows from the chat files, read incrementally: see session-index.js.
@@ -2069,8 +2069,14 @@ function reportTabError(tabId, raw) {
   // backend just published — is newer than what we sent, re-register the
   // provider with the refreshed header and let the user press Send once. This
   // is only attempted once per tab so a genuine mismatch cannot loop.
-  if (isUpgradeRequiredText(raw) && tab && !tab.upgradeRetry) {
-    tab.upgradeRetry = true;
+  const upgrade = isUpgradeRequiredText(raw);
+  // Remembered so the Retry button can refresh the version before it sends:
+  // pressing it must fix the cause, not repeat the rejected request. Set outside
+  // the cooldown too — a 426 that lands before the next refresh is still the
+  // reason that attempt has to refresh first.
+  if (upgrade && tab) tab.upgradeFailure = true;
+  if (upgrade && tab && shouldAttemptUpgradeRetry(tab.upgradeRetryAt)) {
+    tab.upgradeRetryAt = now;
     refreshFreePiClientVersion(tabId, tab).catch(() => {});
   }
   // `key` is the translatable version of `text`: the renderer shows the message
@@ -2080,7 +2086,7 @@ function reportTabError(tabId, raw) {
   // back: it is the only case where a Retry button makes sense, and the renderer
   // should not have to re-guess provider wording to find out.
   const limit = isLimitError({ text: raw, code });
-  sendTab(tabId, 'agent:error', { text, code, key: messageKey || null, status: status || null, limit });
+  sendTab(tabId, 'agent:error', { text, code, key: messageKey || null, status: status || null, limit, upgrade });
   // Coarena's 402 for a model outside the free tier names the ones inside it.
   // Keep that sentence: it is the only free/paid signal its catalog lacks, and
   // it lets the picker stop advertising Claude to a free key.
@@ -2567,6 +2573,7 @@ function messagesForUi(messages) {
           // keeps its Retry button when the chat is switched away and back, so the
           // way to continue is still there after looking at something else.
           limit: isLimitError({ text: m.errorMessage }),
+          upgrade: isUpgradeRequiredText(m.errorMessage),
           ts: m.timestamp,
         });
       }
@@ -2658,6 +2665,7 @@ function tabState(tabId) {
       kind: 'error',
       text: friendlyProviderError(failure.text, { provider: failure.provider }).text,
       limit: isLimitError({ text: failure.text }),
+      upgrade: isUpgradeRequiredText(failure.text),
       ts: Date.now(),
     });
   }
@@ -6318,8 +6326,17 @@ ipcMain.handle('prompt:retry', async (_e, tabId) => {
   tab.busy = true;
   sendTab(id, 'agent:busy', { busy: true });
 
+  // A 426 is a client-version problem, not a spent allowance: refresh the
+  // version the backend now demands before the retry goes out, so pressing the
+  // button fixes the cause instead of repeating the same rejected request.
+  if (tab.upgradeFailure) {
+    await refreshFreePiClientVersion(id, tab).catch(() => {});
+    tab.upgradeFailure = false;
+    tab.upgradeRetryAt = 0;
+  }
+
   const text =
-    'The previous turn stopped before it finished — the provider ran out of allowance or quota. ' +
+    'The previous turn stopped before it finished. ' +
     'Retry that request now from the beginning, using the conversation above as the task. ' +
     'Do not ask the user to repeat anything, and do not start a different task.';
 

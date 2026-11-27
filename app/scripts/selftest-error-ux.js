@@ -200,8 +200,8 @@ check(
 // resumes the same request in place.
 const onErrorBody = bodyOf('api.onError') || source.slice(source.indexOf('api.onError(('));
 check(
-  'a limit failure is the only one that offers a retry',
-  /p\.limit \? \{ onRetry: \(\) => retryTurn\(view\) \} : \{\}/.test(source)
+  'a limit failure or an out-of-date client offers a retry',
+  /p\.limit \|\| p\.upgrade \? \{ onRetry: \(\) => retryTurn\(view\) \} : \{\}/.test(source)
 );
 check(
   'the resumable line does not fade away before the reader acts',
@@ -233,9 +233,21 @@ check(
 const mainSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8');
 const preloadSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
 check(
-  'the error event says whether the failure is a spent allowance',
+  'the error event says whether the failure is a spent allowance or an old client',
   /sendTab\(tabId, 'agent:error', \{[\s\S]{0,220}?limit\s*[,}]/.test(mainSource) &&
+    /sendTab\(tabId, 'agent:error', \{[\s\S]{0,260}?upgrade\s*[,}]/.test(mainSource) &&
     /const limit = isLimitError\(\{ text: raw, code \}\)/.test(mainSource)
+);
+check(
+  'a 426 recovery may be attempted again instead of once per tab',
+  /shouldAttemptUpgradeRetry\(tab\.upgradeRetryAt\)/.test(mainSource) &&
+    /tab\.upgradeFailure = true/.test(mainSource)
+);
+check(
+  'the retry refreshes the client version before it sends',
+  /if \(tab\.upgradeFailure\)[\s\S]{0,160}?refreshFreePiClientVersion/.test(
+    mainSource.slice(mainSource.indexOf("ipcMain.handle('prompt:retry'"))
+  )
 );
 const retryHandler = mainSource.slice(mainSource.indexOf("ipcMain.handle('prompt:retry'"));
 check('the main process can retry a turn', retryHandler.length > 0);
@@ -259,7 +271,9 @@ check('the retry banner is wired from the error handler', Boolean(onErrorBody));
 // answer that already went through.
 check(
   'a replayed limit failure keeps its retry',
-  /const resumable = Boolean\(m\.limit\) && messages\[messages\.length - 1\] === m && !view\.busy/.test(source) &&
+  /const resumable =\s*Boolean\(m\.limit \|\| m\.upgrade\) && messages\[messages\.length - 1\] === m && !view\.busy/.test(
+    source
+  ) &&
     /appendErrorBanner\(m\.text, false, resumable \? \{ onRetry: \(\) => retryTurn\(view\) \} : \{\}\)/.test(source)
 );
 check(
@@ -269,6 +283,16 @@ check(
 check(
   'the synthetic settle-time failure carries it too',
   /limit: isLimitError\(\{ text: failure\.text \}\)/.test(mainSource)
+);
+check(
+  'a replayed upgrade failure keeps its retry too',
+  /upgrade: isUpgradeRequiredText\(m\.errorMessage\)/.test(mainSource) &&
+    /upgrade: isUpgradeRequiredText\(failure\.text\)/.test(mainSource)
+);
+check(
+  'the retry flag is set even when the 426 lands inside the cooldown',
+  /if \(upgrade && tab\) tab\.upgradeFailure = true;/.test(mainSource) &&
+    !/shouldAttemptUpgradeRetry\(tab\.upgradeRetryAt\)\) \{[\s\S]{0,160}?upgradeFailure = true/.test(mainSource)
 );
 
 const crashNotice = bodyOf('showCrashNotice');

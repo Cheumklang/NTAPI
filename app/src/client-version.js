@@ -180,6 +180,22 @@ async function resolveClientVersionFloor({
   return activeFloor;
 }
 
+/**
+ * How long before a 426 recovery may run again for the same tab.
+ *
+ * The old gate allowed one attempt per tab for the tab's whole life, so a second
+ * 426 in the same session was never recovered and the window kept showing the
+ * same dead end. A cooldown stops a genuine mismatch from looping while letting
+ * a later failure (a backend that raised `min` again) recover on its own.
+ */
+const UPGRADE_RETRY_COOLDOWN_MS = 15000;
+
+/** Whether a 426 recovery may run now. `lastAttemptAt` 0/undefined means never. */
+function shouldAttemptUpgradeRetry(lastAttemptAt, now = Date.now(), cooldownMs = UPGRADE_RETRY_COOLDOWN_MS) {
+  if (!lastAttemptAt) return true;
+  return now - lastAttemptAt >= cooldownMs;
+}
+
 /** Test seam: drop back to the hardcoded floor. */
 function resetClientVersionFloor() {
   activeFloor = CLIENT_VERSION_FLOOR;
@@ -218,6 +234,8 @@ function isUpgradeRequired(text) {
 module.exports = {
   CLIENT_VERSION_FLOOR,
   FALLBACK_CLIENT_VERSION,
+  UPGRADE_RETRY_COOLDOWN_MS,
+  shouldAttemptUpgradeRetry,
   clientVersionFloor,
   resolveClientVersionFloor,
   resetClientVersionFloor,
