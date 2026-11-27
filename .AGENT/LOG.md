@@ -4642,3 +4642,17 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - 2. คำตอบยาวกว่าที่ขึ้นต้นเหมือนกัน -> ซ้ำ: ตัวยาวชนะ (prefix >= 8)
 - 3. prompt มีไฟล์แนบ -> user ซ้ำ + โชว์ [image: path]: strip attachment ก่อนวาด
 - เพิ่ม 5 check ใน selftest-recovered-turn.js, npm test 124 ผ่าน
+
+## 2026-11-27 — commit + bump 0.9.10 (8 บั๊กข้อความ)
+
+- commit e7bee37 + hook c9a9378, tag v0.9.10
+- npm test 124 ผ่าน, sara ok, provenance verify OK 458
+- ยังไม่ push, ยังไม่ build
+
+## 2026-11-27 — ปล่อย 0.9.10 (push + tag + Release CI)
+
+- push HEAD c9a9378 + tag v0.9.10
+- Release CI -> Cheumklang/NTAPI-releases: NTAPI-Setup-0.9.10.exe 183MB + latest.yml + blockmap
+- latest.yml version 0.9.10 ยืนยันแล้ว, prune ลบ v0.9.9 เหลือรุ่นเดียว
+- CI workflow fail ต่อเนื่อง 8 คอมมิตก่อนหน้า: 12 check renderer ล้มเพราะ CRLF บน Windows runner (ไม่ใช่โค้ด)
+- ยังไม่แก้ CI

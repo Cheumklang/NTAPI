@@ -1,5 +1,18 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **🚀 2026-11-27 (Linux) — ส่งอัปเดต `0.9.10` ขึ้นจริงแล้ว (push + tag + CI ปล่อยรุ่น):**
+> - `git push` + tag `v0.9.10` ขึ้น remote สำเร็จ (HEAD = origin/HEAD = c9a9378)
+> - CI `Release` สร้าง `NTAPI-Setup-0.9.10.exe` (183,150,181 ไบต์) + `latest.yml` + blockmap แล้ว **publish ไป repo แยก `Cheumklang/NTAPI-releases`** (ไม่ใช่ repo หลัก — repo หลักจึงมี 0 release)
+> - **ตรวจแล้ว:** `latest.yml` = `version: 0.9.10` · asset uploaded ครบ 3 ไฟล์ · `Prune old releases` ลบ v0.9.9 เหลือรุ่นเดียว · remote tag เหลือ `v0.9.10`
+> - **ข้อควรรู้:** workflow `CI` **fail ต่อเนื่องอย่างน้อย 8 คอมมิตก่อนหน้า** (ไม่ใช่ของเรา) — 12 check เกี่ยวกับ renderer ล้ม เพราะ runner เป็น Windows (CRLF) แล้ว regex ในเทสต์ห้าม `\n` ตรง ๆ ⇒ ต้นเหตุคือ line endings ไม่ใช่โค้ด · **เทสต์ใหม่ของเราผ่านครบใน CI** (spent key, token-out ผ่าน)
+> - **ค้าง/น่าทำต่อ:** แก้ CI (ตั้ง `core.autocrlf false` หรือทำ regex ทน CRLF) · ยังไม่ push อะไรเพิ่มหลังรอบนี้
+
+> **🏷️ 2026-11-27 (Linux) — commit + bump แล้ว: `0.9.10` (tag `v0.9.10`):**
+> **8 บั๊กในคอมมิตนี้:** (1) loop guard ฝั่ง text (2) กู้เทิร์น: `includes()` ทำให้คำตอบสั้น/ข้อความสั้นหายเงียบ → เท่ากันพอดี/prefix ≥8 (3) stream ค้าง 12 รอบเดิมเงียบ → เขียน note ต่อ (4) 402 ของ provider ไม่มี branch โผล่เป็นอังกฤษดิบ → ข้อความอธิบาย (5) note มาก่อนคำตอบ → วาดซ้ำ 2 อัน → precompute คีย์ (6) ตัวยาวกว่าชนะเมื่อขึ้นต้นเหมือนกัน (7) prompt มีไฟล์แนบ → bubble ซ้ำ + `[image: path]` ดิบ (8) `selftest-token-out.js` ใหม่ 13 check
+> **คอมมิต:** `e7bee37` (งานจริง) + `c9a9378` (hook PROVENANCE) · **tag `v0.9.10`** · `provenance verify` = OK 458 entries, 218 files
+> **เทสต์:** `npm test` 124 สคริปต์ผ่าน · `check:sara` ok · `selftest-client-version` ok
+> **ยังไม่ push · ยังไม่ build/ปล่อยอัปเดต** — รอผู้ใช้สั่ง
+
 > **🔄 2026-11-27 (Linux) — ผู้ใช้บอก "พิมพ์แล้วรอ error แล้วปิดเปิดโปรแกรมใหม่" → เจอ 3 บั๊กข้อความตอน restart (แก้ครบ):**
 > ทดสอบด้วยการจำลอง session บนดิสก์ 12 รูปแบบ ป้อนเข้า `messagesForUi` ตัวจริง (สคริปต์ `/tmp/inspect-restart.js`, `/tmp/inspect2.js` — ไม่ได้เก็บเข้า repo)
 > 1. **note มาก่อนคำตอบ** (provider เขียน message ช้ากว่าที่เทิร์น settle) → เดิมเทียบ `seenAssistant` แบบเดินหน้า ⇒ **คำตอบเดียวกันถูกวาด 2 บับเบิล** อันหนึ่งติดป้าย "cut off" → แก้: precompute คีย์ของ message จริงทั้งหมดก่อนเดิน loop

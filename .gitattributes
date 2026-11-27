@@ -1,3 +1,10 @@
+# JS and JSON are read back as text by the offline tests, and a pattern that holds
+# a bare \n stops matching when the checkout wrote \r\n: the Windows runner made
+# twelve of them fail on every commit for weeks (found 2026-11-27).
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+
 *.ps1 text eol=crlf
 *.bat text eol=crlf
 *.cmd text eol=crlf
