@@ -1,5 +1,24 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+---
+
+## ⭐ สถานะปัจจุบัน (อ่านบล็อกนี้ก่อน · **เขียนทับทุกเทิร์น ไม่ใช่ต่อท้าย**)
+
+- **รุ่น:** `0.9.12` · CI **เขียว** · release เหลือรุ่นเดียว · ปล่อยล่าสุด 2026-11-27
+- **ฝั่งที่ทำงาน:** Ubuntu (`/home/nt/NT-ALL/NTAPI`) · data root `/home/nt/.local/share/ntapi` · โปรแกรมจริงอยู่ Windows (`C:\Program Files\NTAPI` — ห้ามแตะ)
+- **เพิ่งปิด (2026-11-27):** 8 บั๊กข้อความ (loop คำตอบ / กู้เทิร์นตอนโควตาหมด / วาดประวัติซ้ำหลังเปิดใหม่) · 5 silent failure (typeText focus, ntfy stream, register provider, ข้อความ ntfy หลอก, prefs, focus แท็บ) · CI แดงเพราะ CRLF → `.gitattributes` LF ครบ
+- **ค้างจริงตอนนี้:** (1) เฟส 2 Windows = `drag` + ถ่ายทั้งจอ + DPI aware (แผนพร้อม ยังไม่เขียน) (2) ทดสอบควบคุมเครื่อง Linux ด้วยตา (3) 426→200 กับ backend จริง (auth.json ว่าง) (4) edge 426 อีก 3 จุด (5) shortcut 2 จุด (รอง)
+- **ข้อเท็จจริงที่วัดแล้ว:** Kilo free route ยิงติดกัน 6 ครั้ง HTTP 200 ทั้งหมด ไม่ rate-limit · `typeText` ยัง**ไม่ verify** ว่าเข้าจริง (แค่ไม่กลืน focus) · `ntfy-service` ตั้งสถานะ error ได้แล้ว · jcode อ้าง `fetchMe`/`fetchCatalog` ว่ากลืน error = **ผิด** (มี guest fallback ตั้งใจ)
+- **jcode:** เปิดด้วย `/home/nt/NT-ALL/NTAPI อ่านกฏด้วย` · model `nvidia/nemotron-3-ultra-550b-a55b:free` · รายละเอียดใน `AGENTS.md §4 ข้อ 3`
+
+
+> **✅ 2026-11-27 (Linux) — CI เขียวครั้งแรก + ปล่อย `0.9.12` (0.9.11 เป็นรอบที่ยังไม่ครบ):**
+> **ต้นเหตุ CI แดงทุกคอมมิต:** เทสต์ offline อ่านไฟล์กลับเป็นข้อความแล้วใช้ regex ที่มี `\n` ตรง ๆ แต่ runner เป็น `windows-latest` ⇒ checkout เป็น CRLF ⇒ ไม่ match (12 check) · `.gitattributes` เดิมคุมแค่ `.ps1/.bat/.cmd/.py/.vbs`
+> **แก้ 2 รอบ:** 0.9.11 เพิ่ม `*.js/*.json/*.yml` = ลด 12 → 4 · 0.9.12 เพิ่ม `*.css/*.html/*.md` = **เขียว**
+> **ยืนยัน:** `CI | completed | success` (run ของ 2ca9d47) · `Release` success · release page เหลือ `v0.9.12` รุ่นเดียว · `latest.yml` = `version: 0.9.12` · Setup exe 174.6 MB uploaded
+> **คอมมิต:** `0b5b8d1` (renormalize) + hook `2ca9d47` · tag `v0.9.12` push แล้ว
+> **ใครเจอ:** **ผมเจอเองวันนี้** ตอนตรวจ CI หลัง push 0.9.10 (ผู้ใช้บอกว่ารู้สึกมานานแต่ไม่มีใครทัก) — ไม่มีใครแจ้งเข้ามา และ Release ยังทำงานได้ปกติ เลยไม่มีใครเอะใจ
+
 > **🚀 2026-11-27 (Linux) — ส่งอัปเดต `0.9.10` ขึ้นจริงแล้ว (push + tag + CI ปล่อยรุ่น):**
 > - `git push` + tag `v0.9.10` ขึ้น remote สำเร็จ (HEAD = origin/HEAD = c9a9378)
 > - CI `Release` สร้าง `NTAPI-Setup-0.9.10.exe` (183,150,181 ไบต์) + `latest.yml` + blockmap แล้ว **publish ไป repo แยก `Cheumklang/NTAPI-releases`** (ไม่ใช่ repo หลัก — repo หลักจึงมี 0 release)

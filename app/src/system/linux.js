@@ -603,7 +603,10 @@ async function keys({ app = 0, keys = '' } = {}) {
 
 async function typeText({ app = 0, text = '' } = {}) {
   if (typeof text !== 'string' || !text) throw failure('BAD_ARGS', 'type needs the text to type');
-  await focus({ app }).catch(() => null);
+  // The focus failure used to be swallowed here, so the text went into whatever
+  // window happened to be in front and the result still said it was typed
+  // (2026-11-27). With an app named, that window has to come forward first.
+  if (Number(app) > 0) await focus({ app });
   const backend = await perform('type', { text });
   return { ok: true, app, did: `typed ${text.length} characters`, backend };
 }

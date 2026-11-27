@@ -290,7 +290,15 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
         },
         onError: (err) => setStatus(key, { connected: false, topic: room.topic, error: err?.error || 'The stream stopped.' }),
       })
-      .catch(() => {})
+      .catch((err) => {
+        // A refused subscribe left the dot green and no reason anywhere: the stream
+        // was dead and the app kept saying it was connected (2026-11-27).
+        setStatus(key, {
+          connected: false,
+          topic: room.topic,
+          error: err?.error || err?.message || 'The stream could not be opened.',
+        });
+      })
       .then(() => {
         if (stopped || controller.signal.aborted || !streams.has(key)) return;
         entry.timer = setTimeout(() => startStream(key), RECONNECT_MS);

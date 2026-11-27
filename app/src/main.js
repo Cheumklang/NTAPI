@@ -1428,8 +1428,14 @@ function claimBrowserTab({ tabId, url, title } = {}) {
       pushAutopilotState();
     }
     const claim = browserClaims.claim({ tabId, url, title });
-    // Put the user in front of the page the agent is about to work on.
-    browserBridge.call('tabs-real', { focus: true, tab: claim.tabId }, { timeoutMs: 8000 }).catch(() => {});
+    // Put the user in front of the page the agent is about to work on. A focus that
+    // fails leaves them on the wrong tab while the claim says it worked, so it is
+    // said out loud (2026-11-27).
+    browserBridge.call('tabs-real', { focus: true, tab: claim.tabId }, { timeoutMs: 8000 }).catch((err) => {
+      sendTab(null, 'app:log', {
+        text: `เปิดแท็บที่มอบให้ไม่สำเร็จ: ${err && err.message ? err.message : err}`,
+      });
+    });
     pushClaimState();
     return { ok: true, claim, claims: browserClaims.list() };
   } catch (err) {

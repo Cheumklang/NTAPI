@@ -4656,3 +4656,27 @@ Coarena เริ่มก่อน, `fetchMe` มี timeout 4 วิ
 - latest.yml version 0.9.10 ยืนยันแล้ว, prune ลบ v0.9.9 เหลือรุ่นเดียว
 - CI workflow fail ต่อเนื่อง 8 คอมมิตก่อนหน้า: 12 check renderer ล้มเพราะ CRLF บน Windows runner (ไม่ใช่โค้ด)
 - ยังไม่แก้ CI
+
+## 2026-11-27 — CI เขียวครั้งแรก + ปล่อย 0.9.12
+
+- ต้นเหตุ: runner windows-latest checkout เป็น CRLF, regex ในเทสต์ใช้ \n ตรง ๆ
+- .gitattributes: เพิ่ม js/json/yml (0.9.11) -> เหลือ 4, เพิ่ม css/html/md (0.9.12) -> เขียว
+- CI success, Release success, เหลือ release v0.9.12 รุ่นเดียว, latest.yml = 0.9.12
+- commit 0b5b8d1 + hook 2ca9d47, tag v0.9.12
+
+## 2026-11-27 — ปิดบันทึกเรื่อง jcode
+
+- AGENTS.md §4 ข้อ 3: เพิ่มที่เก็บ config/คีย์, default model ตั้งแล้ว, JCODE_BRIEF ถูกลบห้ามสร้างใหม่, HANDOFF ยาวต้องเชื่อบล็อกบนสุด
+- HANDOFF มี 3 บล็อก jcode (blind test / วิธีเปิด session / สอน prompt), LOG 20 บรรทัด, provenance ครบ
+
+## 2026-11-27 — ปิด 5 silent failure + บล็อกสถานะปัจจุบัน + ทดสอบ Kilo
+
+- main.js: focus แท็บที่มอบให้ล้มเหลว -> app:log
+- system/linux.js: typeText ไม่กลืน focus (app>0 ต้องโฟกัสสำเร็จก่อน) — ยังไม่ verify เนื้อหา
+- ntfy-service.js: subscribe ถูกปฏิเสธ -> connected:false + error
+- freepi-bridge.js: registerProvider throw -> log + โยนต่อ; ข้อความ ntfy ไม่หลอกว่า no room
+- renderer/app.js: setPrefs ล้มเหลว -> console.warn
+- HANDOFF: แทรกบล็อก สถานะปัจจุบัน บนสุด (เขียนทับทุกเทิร์น)
+- jcode 3 ข้อ: main.js:1432 จริง -> แก้; fetchMe/fetchCatalog อ้างผิด (มี guest fallback)
+- Kilo free route: 6 ครั้งติด HTTP 200 ไม่ rate-limit
+- 0.9.12 message มีอักษรจีน 2 ตัว: ไม่ force-push (tag จะชี้ SHA ใหม่ + Release รันซ้ำ)

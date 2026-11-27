@@ -1904,7 +1904,7 @@ async function createFreePiSession(options) {
           });
           if (!res || res.ok === false) {
             return {
-              content: [{ type: 'text', text: `Could not send: ${res?.error || 'no room is set up in the ntfy panel'}` }],
+              content: [{ type: 'text', text: `Could not send: ${res?.error || 'no reason came back — check a room is set and the network is up'}` }],
             };
           }
           return { content: [{ type: 'text', text: 'Sent to the phone.' }] };
@@ -2944,10 +2944,18 @@ const providerApiExtension = providerApiAccess.length
     try {
       piApi.unregisterProvider(PROVIDER_NAME);
     } catch {}
-    piApi.registerProvider(
-      PROVIDER_NAME,
-      buildProviderConfig(baseUrl, auth.jwt, sessionId, models, PROVIDER_NAME)
-    );
+    // Unregistering first means a throw here leaves the app with no free-pi
+    // provider at all, while the caller is told the refresh worked (2026-11-27).
+    // So the failure is written down and passed on instead of being swallowed.
+    try {
+      piApi.registerProvider(
+        PROVIDER_NAME,
+        buildProviderConfig(baseUrl, auth.jwt, sessionId, models, PROVIDER_NAME)
+      );
+    } catch (err) {
+      log(`registerProvider after unregister failed: ${err?.message || err}`);
+      throw err;
+    }
     if (defense.length > 0) {
       try {
         piApi.unregisterProvider(DEFENSE_PROVIDER_NAME);

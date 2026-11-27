@@ -3534,7 +3534,11 @@ function loadCollapsedProviders() {
 }
 
 function saveCollapsedProviders() {
-  api.setPrefs({ collapsedProviders: [...collapsedProviders].filter(Boolean).slice(0, 30) }).catch(() => {});
+  // A failed save lost the choice with nothing said anywhere; the console is the
+  // only place a renderer can put it (2026-11-27).
+  api.setPrefs({ collapsedProviders: [...collapsedProviders].filter(Boolean).slice(0, 30) }).catch((err) => {
+    console.warn('[prefs] collapsedProviders not saved:', err?.message || err);
+  });
 }
 
 el('modelCollapseAll').addEventListener('click', () => {
