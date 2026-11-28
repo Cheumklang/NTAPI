@@ -14,19 +14,23 @@
 - ตรวจหลังแก้ข้อความไทย: `cd app && npm run check:sara` · แก้ทั้งไฟล์: `npm run check:sara -- --fix`
 - ของเก่าที่พลาดแล้วไม่ต้องไล่แก้ ยกเว้นไฟล์ที่กำลังแก้/ข้อความที่ผู้ใช้เห็น
 
-## 2) ผมอยู่เครื่องไหน — Ubuntu หรือ Windows VM (2026-11-21)
+## 2) ผมอยู่เครื่องไหน — Ubuntu หรือ Windows VM (2026-11-21 · path ฝั่ง VM แก้ 2026-11-27)
 
 repo เดียวกันมีสองหน้า — ไฟล์ชุดเดียวกันเป๊ะ ไม่ใช่สำเนา:
 
-| ฝั่ง | path |
+| ฝั่ง | path (แบบที่ผู้ใช้วาง / ที่ผมเห็น) |
 |---|---|
 | Ubuntu (เครื่องจริง) | `/home/nt/NT-ALL/NTAPI` |
-| Windows VM | `Z:\NT-ALL\NTAPI` |
+| Windows VM | `Z:\home\nt\NT-ALL\NTAPI` |
 
+- **ฝั่ง VM ใช้ `Z:\home\nt\NT-ALL\NTAPI` เต็มแบบนี้เท่านั้น** — `Z:` map ไปที่ **root ของ Ubuntu (`/`)** ไม่ใช่ `/home/nt`
+  · `Z:\NT-ALL\NTAPI` / `Z:\NTAPI` / `Z:\.local\share\ntapi` = **แมปแบบเก่า ใช้ไม่ได้แล้ว** (ของจริงบนเครื่อง: `ntapi-run.log` เขียน `source=Z:\home\nt\NT-ALL\NTAPI\app` · `data-root=Z:\home\nt\.local\share\ntapi keyword=shared`)
+  · เห็น path เก่าในเอกสาร/ประวัติ (`HANDOFF.md`, `LOG.md`) = บันทึกของวันนั้น ห้ามคัดลอกมาสั่งงานวันนี้
 - `Z:` = โฟลเดอร์ Ubuntu ที่ map เข้า VM → แก้ฝั่งไหนอีกฝั่งเห็นทันที ไม่ต้อง sync/copy
 - **ตรวจจริงจากเครื่องเสมอ ห้ามเดาจาก path ที่ผู้ใช้พิมพ์** — `cd app && node scripts/which-side.js "<path>"`
   (สำรอง: `uname -s` = Linux/Ubuntu · `node -p process.platform` = win32)
 - **ทุกครั้งที่ข้อความของผู้ใช้มี path ของโปรเจกต์ (repo / workspace / data root) ต้องพิมพ์ยืนยันก่อนทำงานอื่นทุกครั้ง** — ห้ามเงียบ ห้ามข้ามเพราะคิดว่ารู้แล้ว ห้ามถามกลับว่าอยู่เครื่องไหน
+  · รูปแบบที่ผู้ใช้พิมพ์ฝั่ง VM = `Z:\home\nt\NT-ALL\NTAPI` (ไม่ใช่ `Z:\NT-ALL\NTAPI` แบบเก่า) · ฝั่ง Ubuntu = `/home/nt/NT-ALL/NTAPI`
 - **ผู้ใช้พิมพ์ path เดียว ไม่มีคำสั่งอื่น = "เริ่มงานที่ repo นี้"** → ทำทันที ห้ามถามว่าอยากให้ทำอะไร
   1. ยืนยัน 2–3 บรรทัด: รับทราบ path · ผมอยู่ฝั่งไหน + หลักฐานจากสคริปต์ · repo ที่เห็น/อีกฝั่งเห็นไหม · ชื่อโฟลเดอร์ประวัติ
   2. งานค้าง 3–6 บรรทัด จากส่วน `--- งานค้าง ---`: version · ไฟล์ยังไม่ commit · HANDOFF · อะไรที่ "ต้องถามก่อน"
@@ -37,7 +41,7 @@ repo เดียวกันมีสองหน้า — ไฟล์ชุ�
 - ผลสองฝั่งต่างกัน (เทสต์แดง/เขียว) → รายงานตามฝั่งที่รันจริง ห้ามอ้างผลอีกฝั่ง
 - Git-Bash ฝั่ง Windows แปลง `/home/...` เป็น `C:/Program Files/Git/home/...` — สคริปต์ถอดให้แล้ว ให้ยึดค่าที่ผู้ใช้พิมพ์
 
-**หลักฐานว่าเป็นไฟล์เดียวกัน (inode เดียว ไม่ใช่สำเนา):** เขียน `ntapi-run.log` จากฝั่งหนึ่ง อีกฝั่งเห็น mtime เดียวกัน (Windows เขียนเป็น CRLF + path `Z:\...`)
+**หลักฐานว่าเป็นไฟล์เดียวกัน (inode เดียว ไม่ใช่สำเนา):** เขียน `ntapi-run.log` จากฝั่งหนึ่ง อีกฝั่งเห็น mtime เดียวกัน (Windows เขียนเป็น CRLF + path `Z:\home\nt\...`)
 - อยู่ Ubuntu อยากรู้ว่า Windows ทำอะไร → `cat /home/nt/NT-ALL/NTAPI/ntapi-run.log` ห้ามขอให้ผู้ใช้ก็อปคอนโซลมาวาง
 - `NTAPI.bat` ต้อง log ทุกการตัดสินใจ (electron จากไหน · node · npm exit code · ปิดด้วยรหัสอะไร) — log คือช่องอ่านข้ามฝั่ง
 - `*.log` อยู่ใน `.gitignore` ⇒ ไม่ขึ้น git (เดินทางผ่านโฟลเดอร์ที่แชร์ ไม่ใช่ commit)
@@ -63,7 +67,8 @@ repo เดียวกันมีสองหน้า — ไฟล์ชุ�
 
 **data root (แก้ 2026-11-21)**
 - Linux/macOS = `$XDG_DATA_HOME/ntapi` หรือ `~/.local/share/ntapi` · Windows local = `C:\NTAPI`
-- **ค่าเริ่มต้นของ `NTAPI.bat` (ไม่มี arg) = ใช้ data root ของ Ubuntu ผ่าน `Z:\.local\share\ntapi`** เมื่อ Z: map และมี `sessions` ⇒ แชทเดียวกันสองฝั่ง ไม่ต้อง copy/sync
+- **ค่าเริ่มต้นของ `NTAPI.bat` (ไม่มี arg) = ใช้ data root ของ Ubuntu ผ่าน `Z:\home\nt\.local\share\ntapi`** เมื่อ Z: map และมี `sessions` ⇒ แชทเดียวกันสองฝั่ง ไม่ต้อง copy/sync
+  · path นี้ `NTAPI.bat` คำนวณเองจาก `%HERE%\..\..` (ไม่ตายตัวกับไดรฟ์) — ค่า hardcode `Z:\.local\share\ntapi` ในไฟล์เป็นของแมปเก่า ห้ามใช้ยืนยันด้วยตา
   · `local` = เก็บแชทเครื่องนี้ (`C:\NTAPI`) · `shared` = บังคับโฟลเดอร์ Ubuntu · `sync` = copy แชท Ubuntu ไป `C:\NTAPI\sessions`
   · `NTAPI.bat` หา path เองจากตำแหน่งไฟล์ (repo = 2 ชั้นใต้ home) ไม่ตายตัวกับไดรฟ์ `Z:`
 - `NTAPI_DATA_DIR` / `FREEPI_DATA_DIR` override ได้เสมอ (ตั้งแล้วจะไม่ย้ายอะไรเลย)

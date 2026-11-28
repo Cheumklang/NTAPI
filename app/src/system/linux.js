@@ -85,7 +85,25 @@ async function windows() {
   return result.windows || [];
 }
 
-async function snapshot({ app = 0, maxNodes = MAX_NODES } = {}) {
+async function snapshot({ app, maxNodes = MAX_NODES, window: handle } = {}) {
+  /*
+   * Which window. Wayland gives no window handles, only the accessibility app
+   * number, and a call that named neither (or named the app number as a
+   * "window") used to fall back to app 0 — GNOME Shell — and hand back a tree
+   * of a window nobody asked for as if it were the answer.
+   */
+  if (app === undefined || app === null || app === '') {
+    const asNumber = Number(handle);
+    if (handle !== undefined && handle !== null && handle !== '' && Number.isInteger(asNumber)) {
+      const list = await windows();
+      if (list.some((entry) => Number(entry.app) === asNumber)) app = asNumber;
+      else throw failure('TARGET_NOT_FOUND', `window ${handle} is not in the window list - call system_windows and pass its app number as \`app\``);
+    } else if (handle) {
+      throw failure('TARGET_NOT_FOUND', `this desktop has no window handles; pass the app number from system_windows as \`app\``);
+    } else {
+      throw failure('BAD_ARGS', 'say which window: pass `app`, the number system_windows prints before the dot');
+    }
+  }
   const requested = Number.isFinite(Number(maxNodes)) ? Math.max(1, Math.min(Number(maxNodes), MAX_NODES)) : MAX_NODES;
   const result = await run(['snapshot', '--app', String(app), '--max', String(requested)], { timeoutMs: 20000 });
   return { app: result.app, appName: result.appName || '', nodes: result.nodes || [] };
@@ -658,7 +676,7 @@ async function screenshot({ app = 0 } = {}) {
   if (caps.session !== 'x11') {
     throw failure(
       'NOT_CAPTURABLE',
-      "this desktop does not let a program photograph another application's window. Only the NTAPI window can be captured here."
+      "this desktop does not let a program photograph one application's window. Use system_screenshot with scope \"screen\" to photograph the whole screen instead (the window is in it when it is on top)."
     );
   }
   if (!(await commandExists('import'))) {

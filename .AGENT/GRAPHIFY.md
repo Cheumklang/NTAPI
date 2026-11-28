@@ -50,7 +50,7 @@ Graphify hubs ที่ช่วยนำทาง: `t()` และ `el()` (rend
 
 ## คำสั่ง Graphify สำหรับ session ถัดไป
 
-รันจาก root ของ repo (`/home/nt/NT-ALL/NTAPI` บน Ubuntu หรือ `Z:\NT-ALL\NTAPI` บน Windows VM):
+รันจาก root ของ repo (`/home/nt/NT-ALL/NTAPI` บน Ubuntu หรือ `Z:\home\nt\NT-ALL\NTAPI` บน Windows VM):
 
 ```bash
 graphify explain "createFreePiSession()" --all

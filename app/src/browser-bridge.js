@@ -81,6 +81,11 @@ const BROWSER_TOOLS = {
   browser_eval: { write: true, cmd: 'eval' },
   browser_dialog: { write: true, cmd: 'dialog' },
   browser_close: { write: true, cmd: 'close' },
+  browser_hover: { write: false, cmd: 'hover' },
+  browser_drag: { write: true, cmd: 'drag' },
+  browser_navigate: { write: true, cmd: 'history' },
+  browser_console: { write: false, cmd: 'console' },
+  browser_network: { write: false, cmd: 'network' },
 };
 
 function browserToolNames() {
@@ -145,7 +150,12 @@ function createBrowserBridge(options = {}) {
     token: initialToken = '',
     auditPath = null,
     log = () => {},
+    // The version of the extension shipped with this app. Chrome keeps running
+    // an unpacked extension's old code until it is reloaded, so a connecting
+    // extension that reports another version is asked to reload itself.
+    bundledVersion = '',
   } = options;
+  const reloadAsked = new Set();
 
   let token = String(initialToken || '');
   let server = null;
@@ -376,6 +386,16 @@ function createBrowserBridge(options = {}) {
         extensionVersion = typeof msg.extensionVersion === 'string' ? msg.extensionVersion : '';
         ws.send(JSON.stringify({ type: 'hello', ok: true, extensionId }));
         emit();
+        if (bundledVersion && extensionVersion && extensionVersion !== bundledVersion && !reloadAsked.has(extensionVersion)) {
+          // Once per stale version: if Chrome loads a different copy that never
+          // matches, this must not turn into a reload loop.
+          reloadAsked.add(extensionVersion);
+          log(`extension ${extensionVersion} is older than ${bundledVersion}; asking it to reload`);
+          seq += 1;
+          try {
+            ws.send(JSON.stringify(makeRequest(seq, 'reload', {})));
+          } catch {}
+        }
         return;
       }
 
@@ -391,7 +411,15 @@ function createBrowserBridge(options = {}) {
       pending.delete(frame.id);
       clearTimeout(entry.timer);
       if (frame.ok) entry.resolve(frame.result ?? {});
-      else entry.reject(bridgeError('EXTENSION_ERROR', (frame.error && frame.error.message) || 'extension error'));
+      else {
+        // Keep the extension's own code (NO_ELEMENT, STALE_REF, NO_TAB…): the
+        // agent's next step depends on which failure it was, and folding every
+        // one into EXTENSION_ERROR left it guessing.
+        const code = frame.error && typeof frame.error.code === 'string' && /^[A-Z_]{2,40}$/.test(frame.error.code)
+          ? frame.error.code
+          : 'EXTENSION_ERROR';
+        entry.reject(bridgeError(code, (frame.error && frame.error.message) || 'extension error'));
+      }
     });
 
     ws.on('close', () => {
@@ -495,7 +523,7 @@ function createBrowserBridge(options = {}) {
     // Every command is recorded, not just the ones that change a page: the log
     // and the activity strip are the only witnesses to what the agent read as
     // well as what it did.
-    const record = (ok) => {
+    const record = (ok, err) => {
       const tabId = Number.isInteger(callArgs.tab) ? callArgs.tab : null;
       appendAudit({
         cmd,
@@ -504,6 +532,8 @@ function createBrowserBridge(options = {}) {
         ref: callArgs.ref ?? null,
         selector: callArgs.selector ?? null,
         ok,
+        // Why it failed, so the log can answer "what keeps breaking".
+        ...(ok ? {} : { code: (err && err.code) || null, error: err ? String(err.message || '').slice(0, 200) : null }),
       });
       emitActivity({
         ts: new Date().toISOString(),
@@ -519,8 +549,9 @@ function createBrowserBridge(options = {}) {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.delete(id);
-        record(false);
-        reject(bridgeError('TIMEOUT', `The browser did not answer ${cmd} in ${timeoutMs}ms.`));
+        const timeoutErr = bridgeError('TIMEOUT', `The browser did not answer ${cmd} in ${timeoutMs}ms.`);
+        record(false, timeoutErr);
+        reject(timeoutErr);
       }, timeoutMs);
       pending.set(id, {
         resolve: (result) => {
@@ -529,7 +560,7 @@ function createBrowserBridge(options = {}) {
           resolve(cmd === 'tabs-real' ? annotateTabs(result) : result);
         },
         reject: (err) => {
-          record(false);
+          record(false, err);
           reject(err);
         },
         timer,

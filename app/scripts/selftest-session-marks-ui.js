@@ -176,14 +176,18 @@ check('the busy mark stays off the row that is already on screen', () => {
 });
 
 check('the selected chat breathes through its shadow, not its border', () => {
-  const at = css.indexOf('@keyframes session-breathe');
-  if (at === -1) throw new Error('no session-breathe keyframes');
+  // The glow is a box-shadow on a pseudo-element whose opacity pulses: the same
+  // look, but the compositor animates it instead of repainting every frame.
+  const at = css.indexOf('.session-item.active.busy::after');
+  if (at === -1) throw new Error('no busy glow layer');
   const block = css.slice(at, at + 520);
   must(block, 'box-shadow');
+  must(block, 'animation: session-breathe');
   if (/border-color/.test(block)) {
     throw new Error('the animation repaints border-color, which would paint over the colour stripe');
   }
-  must(css, '.session-item.active.busy { animation: session-breathe');
+  const frames = css.slice(css.indexOf('@keyframes session-breathe'), css.indexOf('@keyframes session-breathe') + 200);
+  if (/box-shadow/.test(frames)) throw new Error('the keyframes animate box-shadow again (repaints every frame)');
 });
 
 check('the pulse keeps its shape: quick peak, slow fade', () => {

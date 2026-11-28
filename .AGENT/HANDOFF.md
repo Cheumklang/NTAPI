@@ -1,5 +1,15 @@
 # HANDOFF — ส่งต่องานไป session ถัดไป
 
+> **📌 2026-11-28 (Linux · Claude) — แชทลื่น + ธีมใหม่ + เบราว์เซอร์/ควบคุมเครื่อง/ntfy + extension 0.5.0 (commit แล้ว ยังไม่ bump · แอป 0.9.12):**
+>
+> **แชท:** ข้อความ error ไม่โผล่ก่อน pi retry เสร็จ (`message_end` เก็บไว้ → รายงานตอน `agent_settled` ก่อนส่ง settled) · รวม delta ทุก 32 ms + tool update ทุก 120 ms (`sendTab` flush ก่อน event อื่น) · ตอบจบไม่วาดแชทใหม่ทั้งหน้า (`applyTabState({soft:true})`) · `renderSessions` รวมเป็นครั้งเดียว · watchdog ใช้ IPC `tab:busy` เบา ๆ · เมนูโมเดลไม่สร้างใหม่ถ้ารายการเดิม (สลับแชท 120→21 ms) · ลบ fetch probe ใน `main.js` + คืน `node_modules/@earendil-works/pi-ai` เป็นต้นฉบับ (เคยมี `__probe.mjs`/clamp log เขียนดิสก์ทุกคำขอ) · EPIPE ไม่ลง crash.log · renderer crash → reload เอง
+> **ธีม:** บล็อก "Calm modern theme (2026-11-28)" ท้าย `styles.css` (ลบบล็อกนี้ = หน้าตาเดิม) · `--read-width` 860px · แอนิเมชันวาดซ้ำทุกเฟรม (box-shadow) → compositor
+> **ควบคุมเครื่อง:** ปุ่มหยุดใน GNOME `Ctrl+Alt+End` (ปุ่มในแผง, ผู้ใช้กดเอง; Ctrl+Alt+Esc ชนกับ GNOME) + flag `--stop-desktop-control` · snapshot ไม่เดา app 0 อีก · audit บันทึกตอนพลาด · prompt บอกปุ่มหยุดที่ใช้ได้จริง
+> **ntfy:** ไม่เก็บห้องว่าง (เดิมเกิน 200 แล้วห้องจริงหาย) · reconnect backoff ≤ 5 นาที · ห้องที่เปิดสวิตช์ฟังต่อแม้ปิดแท็บ + คำสั่งเข้าแชทที่ปิดอยู่ → เปิดเบื้องหลังแล้วรัน · `ntfy_send` ผูกห้องของแชทตัวเอง + แท็ก `ntapi-agent`
+> **Extension 0.5.0:** แท็บเบื้องหลังคลิก/คีย์ผ่าน DOM ทันที (เดิม 6 วิ/ไม่ติด) · dropdown/checkbox/rich text ถูกต้อง · คีย์ลัดทุกแบบ · tool ใหม่ `browser_hover/drag/navigate/console/network` (22 tools) · ภาพหน้าจอแท็บซ่อน = โชว์แท็บแวบเดียว · กรอบ "กำลังทำงาน" + ปุ่มหยุด → `userStop` → `abortTabTurn` · ลูกศร agent ของตัวเอง (ไม่ขยับเมาส์จริง) · แอปสั่ง extension reload เองเมื่อเวอร์ชันไม่ตรง · error code จาก extension ส่งถึงโมเดลแล้ว
+> **เทสต์:** `npm test` ผ่านทั้งหมด (ใหม่: `selftest-stream-smoothness.js`, `selftest-control-fixes.js`) · ทดสอบจริงกับ FreePi/Chrome แล้ว
+> **ขั้นถัดไป:** ผู้ใช้จะสั่งปล่อยอัปเดตเอง (ห้าม bump เอง)
+
 > **📌 2026-11-27 (Windows VM) — ยังหน่วงต่อ: ย้ายงานตกแต่งไปต่อท้ายคิวบูต:**
 >
 > **วัดเพิ่ม:** Z: (ไดรฟ์ VM) อ่าน 299 ไฟล์ = 392 ms เทียบ local 178 ms (~2.2× ช้า) · node_modules มี 10,782 ไฟล์ · เขียน CSS/JS ใหญ่ 0.6–0.2 MB อ่าน 2–3 ms ⇒ I/O ช้ากว่าจาน لكنไม่ใช่หลายวินาที · ไม่มี execFileSync/spawnSync ใน main (ไม่มีอะไรบล็อก event loop)

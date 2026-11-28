@@ -1,5 +1,6 @@
 'use strict';
 
+
 const { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell, clipboard, safeStorage, Notification, globalShortcut, Menu, screen } = require('electron');
 
 /*
@@ -105,6 +106,9 @@ const {
  * app stays usable and the log can be read.
  */
 function logCrash(kind, detail) {
+  // Boot timing lines from the renderer are only worth keeping while tracing;
+  // written on every launch they filled crash.log with hundreds of non-crashes.
+  if (kind === 'ui' && !BOOT_TRACE && String(detail).startsWith('[boot]')) return;
   try {
     const line = `[${new Date().toISOString()}] ${kind}: ${String(detail).slice(0, 8000)}\n`;
     fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'), line);
@@ -123,11 +127,33 @@ function logUi(line) {
   logCrash('ui', line);
   if (BOOT_TRACE) console.log('[boot-ui]', line);
 }
-process.on('uncaughtException', (err) => logCrash('uncaughtException', safeErrorMessage(err)));
+// Launched from a desktop entry, stdout/stderr can be a closed pipe: every
+// console.log then threw `write EPIPE` as an uncaught exception.
+for (const stream of [process.stdout, process.stderr]) {
+  try {
+    stream.on('error', (err) => {
+      if (err && err.code === 'EPIPE') return;
+    });
+  } catch {}
+}
+process.on('uncaughtException', (err) => {
+  if (err && err.code === 'EPIPE') return;
+  logCrash('uncaughtException', safeErrorMessage(err));
+});
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', safeErrorMessage(reason)));
-app.on('render-process-gone', (_event, _contents, details) =>
-  logCrash('render-process-gone', JSON.stringify(details))
-);
+app.on('render-process-gone', (_event, contents, details) => {
+  logCrash('render-process-gone', JSON.stringify(details));
+  // A renderer that crashed (out of memory, GPU fault) left a blank window while
+  // the chats kept running in this process. Reload it: the window reattaches to
+  // the running tabs on boot. A kill or a clean exit is someone closing the app.
+  const reason = details && details.reason;
+  if (reason === 'clean-exit' || reason === 'killed') return;
+  setTimeout(() => {
+    try {
+      if (contents && !contents.isDestroyed()) contents.reload();
+    } catch {}
+  }, 500);
+});
 const { diffLines } = require('./diff');
 const { sessionDirName, sameWorkspace } = require('./session-paths');
 const sessionExport = require('./session-export');
@@ -227,10 +253,23 @@ const { fetchUsdThb } = require('./fx-rate');
  * newcomer quits and the window that is already open comes back to the front.
  */
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
+/*
+ * `--stop-desktop-control` is what the desktop's own keyboard shortcut runs
+ * (see installGnomeStopShortcut). It reaches the running app as a second
+ * instance and stops desktop control there; with no app running there is
+ * nothing to stop, so it exits without opening a window.
+ */
+const STOP_CONTROL_FLAG = '--stop-desktop-control';
 if (!hasSingleInstanceLock) {
   app.quit();
+} else if (process.argv.includes(STOP_CONTROL_FLAG)) {
+  app.exit(0);
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    if (Array.isArray(argv) && argv.includes(STOP_CONTROL_FLAG)) {
+      stopSystemControl('hotkey');
+      return;
+    }
     focusExistingWindow(win);
   });
 }
@@ -1050,6 +1089,13 @@ const browserBridge = createBrowserBridge({
   token: ensureBrowserToken(),
   auditPath: path.join(DATA_ROOT, 'browser-audit.log'),
   log: (line) => console.log('[browser]', line),
+  bundledVersion: (() => {
+    try {
+      return JSON.parse(fs.readFileSync(path.join(browserExtensionDir(), 'manifest.json'), 'utf8')).version || '';
+    } catch {
+      return '';
+    }
+  })(),
 });
 
 browserBridge.onStatus((status) => send('browser:status', status));
@@ -1090,13 +1136,94 @@ function systemState() {
     enabled: Boolean(systemAdapter) && systemEnabled(),
     supported: Boolean(systemAdapter),
     platform: process.platform,
-    hotkey: SYSTEM_STOP_HOTKEY,
+    // The key that really stops it: the app's own grab when the desktop allows
+    // one, else the GNOME shortcut the user installed from the panel.
+    hotkey: systemHotkeyOn ? SYSTEM_STOP_HOTKEY : gnomeStopOn ? GNOME_STOP_LABEL : SYSTEM_STOP_HOTKEY,
     // On Wayland the window manager may refuse a global grab. The switch still
     // works (and the panel's own button still stops it), but the panic button is
     // not globally armed, and the UI must not pretend otherwise.
-    hotkeyActive: Boolean(systemHotkeyOn),
+    hotkeyActive: Boolean(systemHotkeyOn || gnomeStopOn),
+    hotkeyVia: systemHotkeyOn ? 'app' : gnomeStopOn ? 'gnome' : null,
+    // GNOME can run a command on a key even where no app may grab one.
+    canInstallStop: !systemHotkeyOn && !gnomeStopOn && gnomeDesktop(),
   };
 }
+
+/* ---- a stop key the desktop itself owns (GNOME on Wayland) ---- */
+
+const GNOME_STOP_BINDING = '<Control><Alt>End';
+const GNOME_STOP_LABEL = 'Control+Alt+End';
+const GNOME_KEYS_SCHEMA = 'org.gnome.settings-daemon.plugins.media-keys';
+const GNOME_STOP_PATH = '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/ntapi-stop/';
+let gnomeStopOn = false;
+
+function gnomeDesktop() {
+  return process.platform === 'linux' && /gnome/i.test(process.env.XDG_CURRENT_DESKTOP || '');
+}
+
+function gsettings(args) {
+  return new Promise((resolve, reject) => {
+    require('node:child_process').execFile('gsettings', args, { timeout: 4000 }, (err, stdout) =>
+      err ? reject(err) : resolve(String(stdout || '').trim())
+    );
+  });
+}
+
+/** The command the key runs: this same app, told to stop desktop control. */
+function stopControlCommand() {
+  const quote = (part) => `'${String(part).replace(/'/g, `'\\''`)}'`;
+  const parts = [process.execPath];
+  if (!app.isPackaged) parts.push(app.getAppPath());
+  parts.push(STOP_CONTROL_FLAG);
+  return parts.map(quote).join(' ');
+}
+
+async function gnomeStopPaths() {
+  const raw = await gsettings(['get', GNOME_KEYS_SCHEMA, 'custom-keybindings']);
+  return [...raw.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+}
+
+/** Is our shortcut there? Also re-points it if the app moved (an update). */
+async function refreshGnomeStop() {
+  if (!gnomeDesktop()) return false;
+  try {
+    const paths = await gnomeStopPaths();
+    gnomeStopOn = paths.includes(GNOME_STOP_PATH);
+    if (gnomeStopOn) {
+      const keyPath = `${GNOME_KEYS_SCHEMA}.custom-keybinding:${GNOME_STOP_PATH}`;
+      const current = await gsettings(['get', keyPath, 'command']).catch(() => '');
+      if (!current.includes(STOP_CONTROL_FLAG) || !current.includes(process.execPath)) {
+        await gsettings(['set', keyPath, 'command', stopControlCommand()]);
+      }
+    }
+  } catch {
+    gnomeStopOn = false;
+  }
+  return gnomeStopOn;
+}
+
+/** Add the stop key to GNOME's own custom shortcuts. Only on the user's click. */
+async function installGnomeStopShortcut() {
+  if (!gnomeDesktop()) return { ok: false, error: 'This is not a GNOME desktop.' };
+  try {
+    const paths = await gnomeStopPaths();
+    if (!paths.includes(GNOME_STOP_PATH)) {
+      const next = [...paths, GNOME_STOP_PATH].map((p) => `'${p}'`).join(', ');
+      await gsettings(['set', GNOME_KEYS_SCHEMA, 'custom-keybindings', `[${next}]`]);
+    }
+    const keyPath = `${GNOME_KEYS_SCHEMA}.custom-keybinding:${GNOME_STOP_PATH}`;
+    await gsettings(['set', keyPath, 'name', 'NTAPI: stop desktop control']);
+    await gsettings(['set', keyPath, 'command', stopControlCommand()]);
+    await gsettings(['set', keyPath, 'binding', GNOME_STOP_BINDING]);
+    gnomeStopOn = true;
+    systemAudit({ event: 'stop-shortcut', via: 'gnome', binding: GNOME_STOP_BINDING });
+    send('system:state', systemState());
+    return { ok: true, state: systemState() };
+  } catch (err) {
+    return { ok: false, error: `GNOME did not accept the shortcut: ${err.message}` };
+  }
+}
+refreshGnomeStop().then(() => send('system:state', systemState()));
 
 let systemHotkeyOn = false;
 
@@ -1229,7 +1356,7 @@ async function captureAppWindow({ app, window: handle = '' } = {}) {
       return await systemAdapter.screenshot({ app: wanted, window: handle });
     }
     const err = new Error(
-      'Only the NTAPI window can be photographed on this desktop: the compositor refuses screen capture to other programs.'
+      'Only the NTAPI window can be photographed on its own here: the compositor refuses per-window capture. Use system_screenshot with scope "screen" to photograph the whole screen instead.'
     );
     err.code = 'NOT_CAPTURABLE';
     throw err;
@@ -1263,110 +1390,130 @@ const systemBridge = {
   state: systemState,
   enabled: systemEnabled,
   async call(cmd, args = {}) {
-    systemGuard();
-    /*
-     * Two agents can be driving the same desktop in one day — one in this app,
-     * one in another window — and an audit that does not say which is not an
-     * audit. The caller names itself; an older caller that does not is recorded
-     * as unknown rather than guessed at.
-     */
-    const who = {
-      session: (args.agent && args.agent.session) || null,
-      // An id and a name say who acted; the whole model object — context
-      // window, pricing, endpoints — turned one line of the log into a screenful.
-      model: modelTag(args.agent && args.agent.model),
-    };
-    const audit = (entry) => systemAudit({ ...who, ...entry });
-    // Which window is ours, so the adapter never types into this application
-    // when the caller did not name a window.
     try {
-      if (typeof systemAdapter.setSelfHandle === 'function') systemAdapter.setSelfHandle(ownWindowHandle());
-    } catch { }
-    if (cmd === 'windows') {
-      const windows = await systemAdapter.windows();
-      return { windows };
-    }
-    if (cmd === 'snapshot') {
-      const snap = await systemAdapter.snapshot({ app: args.app, maxNodes: args.maxNodes, window: args.window });
-      audit({ event: 'snapshot', app: snap.app, name: snap.appName, nodes: snap.nodes.length });
-      return snap;
-    }
-    if (cmd === 'screenshot') {
-      if (args.scope === 'screen') {
-        if (typeof systemAdapter.screenshotScreen !== 'function') {
-          const err = new Error('Photographing the whole screen is not available on this platform yet.');
-          err.code = 'NOT_SUPPORTED';
-          throw err;
-        }
-        const shot = await systemAdapter.screenshotScreen();
-        audit({ event: 'screenshot', scope: 'screen', size: `${shot.width}x${shot.height}` });
-        return shot;
+      return await systemCall(cmd, args);
+    } catch (err) {
+      // A failed look or press is part of "what did it do to my screen" too:
+      // the log used to record only the calls that worked.
+      if (err && err.code !== 'SYSTEM_CONTROL_OFF') {
+        systemAudit({
+          session: (args.agent && args.agent.session) || null,
+          model: modelTag(args.agent && args.agent.model),
+          event: cmd,
+          ok: false,
+          code: (err && err.code) || 'ERROR',
+          error: String((err && err.message) || err).slice(0, 200),
+        });
       }
-      const shot = await captureAppWindow(args);
-      audit({ event: 'screenshot', app: shot.app, name: shot.title, size: `${shot.width}x${shot.height}` });
-      return shot;
+      throw err;
     }
-    if (cmd === 'act') {
-      const result = await systemAdapter.act({ ref: args.ref, action: args.action, text: args.text });
-      audit({ event: 'act', action: args.action || 'click', ref: args.ref });
-      return result;
-    }
-    if (cmd === 'focus') {
-      const result = await systemAdapter.focus({ app: args.app, window: args.window });
-      audit({ event: 'focus', app: args.app, name: result.appName });
-      return result;
-    }
-    if (cmd === 'launch') {
-      const result = await systemAdapter.launch({ target: args.target });
-      audit({ event: 'launch', target: args.target, app: result.app, name: result.appName });
-      return result;
-    }
-    if (cmd === 'keys') {
-      const result = await systemAdapter.keys({ app: args.app, keys: args.keys, window: args.window });
-      // The shortcut itself is the record: ctrl+s saves, alt+F4 closes.
-      audit({ event: 'keys', app: args.app, keys: args.keys });
-      return result;
-    }
-    if (cmd === 'type') {
-      const result = await systemAdapter.type({ app: args.app, text: args.text, window: args.window });
-      // Length, not the text: a password typed into a field must not be written
-      // into a log that outlives the session.
-      audit({ event: 'type', app: args.app, chars: String(args.text || '').length });
-      return result;
-    }
-    if (cmd === 'clickat') {
-      const result = await systemAdapter.clickAt({ app: args.app, x: args.x, y: args.y, button: args.button, window: args.window });
-      audit({ event: 'clickat', app: args.app, x: args.x, y: args.y, button: args.button || 'left' });
-      return result;
-    }
-    if (cmd === 'drag') {
-      if (typeof systemAdapter.drag !== 'function') {
-        const err = new Error('Dragging the pointer is not available on this platform yet.');
+  },
+};
+
+async function systemCall(cmd, args = {}) {
+  systemGuard();
+  /*
+   * Two agents can be driving the same desktop in one day — one in this app,
+   * one in another window — and an audit that does not say which is not an
+   * audit. The caller names itself; an older caller that does not is recorded
+   * as unknown rather than guessed at.
+   */
+  const who = {
+    session: (args.agent && args.agent.session) || null,
+    // An id and a name say who acted; the whole model object — context
+    // window, pricing, endpoints — turned one line of the log into a screenful.
+    model: modelTag(args.agent && args.agent.model),
+  };
+  const audit = (entry) => systemAudit({ ...who, ...entry });
+  // Which window is ours, so the adapter never types into this application
+  // when the caller did not name a window.
+  try {
+    if (typeof systemAdapter.setSelfHandle === 'function') systemAdapter.setSelfHandle(ownWindowHandle());
+  } catch { }
+  if (cmd === 'windows') {
+    const windows = await systemAdapter.windows();
+    return { windows };
+  }
+  if (cmd === 'snapshot') {
+    const snap = await systemAdapter.snapshot({ app: args.app, maxNodes: args.maxNodes, window: args.window });
+    audit({ event: 'snapshot', app: snap.app, name: snap.appName, nodes: snap.nodes.length });
+    return snap;
+  }
+  if (cmd === 'screenshot') {
+    if (args.scope === 'screen') {
+      if (typeof systemAdapter.screenshotScreen !== 'function') {
+        const err = new Error('Photographing the whole screen is not available on this platform yet.');
         err.code = 'NOT_SUPPORTED';
         throw err;
       }
-      const result = await systemAdapter.drag({
-        app: args.app,
-        x: args.x,
-        y: args.y,
-        toX: args.toX,
-        toY: args.toY,
-        button: args.button,
-        steps: args.steps,
-      });
-      audit({ event: 'drag', app: args.app, from: `${args.x},${args.y}`, to: `${args.toX},${args.toY}` });
-      return result;
+      const shot = await systemAdapter.screenshotScreen();
+      audit({ event: 'screenshot', scope: 'screen', size: `${shot.width}x${shot.height}` });
+      return shot;
     }
-    if (cmd === 'scroll') {
-      const result = await systemAdapter.scroll({ app: args.app, notches: args.notches, window: args.window });
-      audit({ event: 'scroll', app: args.app, notches: args.notches });
-      return result;
+    const shot = await captureAppWindow(args);
+    audit({ event: 'screenshot', app: shot.app, name: shot.title, size: `${shot.width}x${shot.height}` });
+    return shot;
+  }
+  if (cmd === 'act') {
+    const result = await systemAdapter.act({ ref: args.ref, action: args.action, text: args.text });
+    audit({ event: 'act', action: args.action || 'click', ref: args.ref });
+    return result;
+  }
+  if (cmd === 'focus') {
+    const result = await systemAdapter.focus({ app: args.app, window: args.window });
+    audit({ event: 'focus', app: args.app, name: result.appName });
+    return result;
+  }
+  if (cmd === 'launch') {
+    const result = await systemAdapter.launch({ target: args.target });
+    audit({ event: 'launch', target: args.target, app: result.app, name: result.appName });
+    return result;
+  }
+  if (cmd === 'keys') {
+    const result = await systemAdapter.keys({ app: args.app, keys: args.keys, window: args.window });
+    // The shortcut itself is the record: ctrl+s saves, alt+F4 closes.
+    audit({ event: 'keys', app: args.app, keys: args.keys });
+    return result;
+  }
+  if (cmd === 'type') {
+    const result = await systemAdapter.type({ app: args.app, text: args.text, window: args.window });
+    // Length, not the text: a password typed into a field must not be written
+    // into a log that outlives the session.
+    audit({ event: 'type', app: args.app, chars: String(args.text || '').length });
+    return result;
+  }
+  if (cmd === 'clickat') {
+    const result = await systemAdapter.clickAt({ app: args.app, x: args.x, y: args.y, button: args.button, window: args.window });
+    audit({ event: 'clickat', app: args.app, x: args.x, y: args.y, button: args.button || 'left' });
+    return result;
+  }
+  if (cmd === 'drag') {
+    if (typeof systemAdapter.drag !== 'function') {
+      const err = new Error('Dragging the pointer is not available on this platform yet.');
+      err.code = 'NOT_SUPPORTED';
+      throw err;
     }
-    const err = new Error(`Unknown desktop command ${cmd}`);
-    err.code = 'BAD_ARGS';
-    throw err;
-  },
-};
+    const result = await systemAdapter.drag({
+      app: args.app,
+      x: args.x,
+      y: args.y,
+      toX: args.toX,
+      toY: args.toY,
+      button: args.button,
+      steps: args.steps,
+    });
+    audit({ event: 'drag', app: args.app, from: `${args.x},${args.y}`, to: `${args.toX},${args.toY}` });
+    return result;
+  }
+  if (cmd === 'scroll') {
+    const result = await systemAdapter.scroll({ app: args.app, notches: args.notches, window: args.window });
+    audit({ event: 'scroll', app: args.app, notches: args.notches });
+    return result;
+  }
+  const err = new Error(`Unknown desktop command ${cmd}`);
+  err.code = 'BAD_ARGS';
+  throw err;
+}
 
 /**
  * The tab the user handed over, and the mode that lets the agent work in it
@@ -1401,8 +1548,26 @@ browserBridge.onActivity((entry) => {
 });
 
 /** The user pressed "use this tab" in the extension popup. */
+/** The chat whose agent used the browser most recently: a page Stop ends its turn. */
+let lastBrowserTabId = null;
+
 browserBridge.onExtensionEvent((event) => {
   if (!event) return;
+  if (event.event === 'userStop') {
+    // The person pressed Stop on the page the agent was working in.
+    const owner = lastBrowserTabId && tabs.get(lastBrowserTabId) ? lastBrowserTabId : null;
+    const running = owner && tabs.get(owner).busy ? owner : [...tabs].find(([, t]) => t.busy)?.[0];
+    appendBrowserStopAudit(event.tabId, running);
+    if (running) {
+      abortTabTurn(running).catch(() => {});
+      sendTab(running, 'agent:notice', { key: 'notice.browserStopped' });
+    }
+    if (browserAutopilot.state().on) {
+      browserAutopilot.stop('user');
+      pushAutopilotState();
+    }
+    return;
+  }
   if (event.event === 'claim') {
     claimBrowserTab({ tabId: event.tabId, url: event.url, title: event.title });
     return;
@@ -1418,6 +1583,15 @@ browserBridge.onExtensionEvent((event) => {
     if (claim && claim.tabId === event.tabId) releaseBrowserTab('tabClosed', event.tabId);
   }
 });
+
+function appendBrowserStopAudit(browserTabId, chatTabId) {
+  try {
+    fs.appendFileSync(
+      path.join(DATA_ROOT, 'browser-audit.log'),
+      JSON.stringify({ ts: new Date().toISOString(), cmd: 'userStop', tabId: browserTabId ?? null, chat: chatTabId || null, ok: true }) + '\n'
+    );
+  } catch {}
+}
 
 /** Hand one tab to the agent. Nothing restores a claim on its own. */
 function claimBrowserTab({ tabId, url, title } = {}) {
@@ -1516,7 +1690,78 @@ function send(channel, payload) {
 
 /** Events from every tab are tagged with the tab id so the UI can route them. */
 function sendTab(tabId, channel, payload) {
+  if (channel === 'agent:delta') {
+    queueDelta(tabId, payload);
+    return;
+  }
+  if (channel === 'agent:toolUpdate') {
+    queueToolUpdate(tabId, payload);
+    return;
+  }
+  // Anything else for this tab (text end, tool start, error, settle…) must land
+  // after the words that streamed before it, so pending deltas go first.
+  flushDeltas(tabId);
   send(channel, { tabId, ...payload });
+}
+
+/*
+ * Streamed text is batched before it crosses IPC.
+ *
+ * A provider can emit hundreds of tiny deltas a second; one IPC message each
+ * meant one renderer task each, and the window spent its frames on message
+ * overhead instead of drawing. Deltas are joined per tab and channel and sent
+ * at most every DELTA_FLUSH_MS — fast enough to read as live typing.
+ */
+const DELTA_FLUSH_MS = 32;
+const pendingDeltas = new Map(); // tabId -> { parts: [{channel, delta}], timer }
+
+function queueDelta(tabId, payload) {
+  let entry = pendingDeltas.get(tabId);
+  if (!entry) {
+    entry = { parts: [], timer: null };
+    pendingDeltas.set(tabId, entry);
+  }
+  const last = entry.parts[entry.parts.length - 1];
+  if (last && last.channel === payload.channel) last.delta += payload.delta || '';
+  else entry.parts.push({ channel: payload.channel, delta: payload.delta || '' });
+  if (!entry.timer) entry.timer = setTimeout(() => flushDeltas(tabId), DELTA_FLUSH_MS);
+}
+
+/*
+ * A running tool (bash) can report progress for every line it prints, and each
+ * report carries the whole output so far. Only the newest one matters, so they
+ * are kept per tool and sent at most every TOOL_UPDATE_FLUSH_MS.
+ */
+const TOOL_UPDATE_FLUSH_MS = 120;
+const pendingToolUpdates = new Map(); // tabId -> { byId: Map, timer }
+
+function queueToolUpdate(tabId, payload) {
+  let entry = pendingToolUpdates.get(tabId);
+  if (!entry) {
+    entry = { byId: new Map(), timer: null };
+    pendingToolUpdates.set(tabId, entry);
+  }
+  entry.byId.set(payload.id, payload);
+  if (!entry.timer) entry.timer = setTimeout(() => flushToolUpdates(tabId), TOOL_UPDATE_FLUSH_MS);
+}
+
+function flushToolUpdates(tabId) {
+  const entry = pendingToolUpdates.get(tabId);
+  if (!entry) return;
+  pendingToolUpdates.delete(tabId);
+  if (entry.timer) clearTimeout(entry.timer);
+  for (const payload of entry.byId.values()) send('agent:toolUpdate', { tabId, ...payload });
+}
+
+function flushDeltas(tabId) {
+  flushToolUpdates(tabId);
+  const entry = pendingDeltas.get(tabId);
+  if (!entry) return;
+  pendingDeltas.delete(tabId);
+  if (entry.timer) clearTimeout(entry.timer);
+  for (const part of entry.parts) {
+    if (part.delta) send('agent:delta', { tabId, channel: part.channel, delta: part.delta });
+  }
 }
 
 /**
@@ -2099,6 +2344,71 @@ function reportTabError(tabId, raw) {
   if (provider === COARENA_PROVIDER && freeModels.length) {
     const known = rememberCoarenaFreeTier(freeModels);
     if (known) relabelCoarenaModels(known);
+  }
+}
+
+/* --------------------------- the answer room ---------------------------
+ * pi gives every request `max_tokens = contextWindow - estimate - 4096`, floored
+ * at 1. With free-pi's 200k window and a conversation at ~192k that leaves a
+ * handful of tokens for the reply, and a reasoning model spends all of it
+ * thinking: the turn ends with `stopReason: 'length'`, no text at all, and the
+ * only explanation the window can offer is the output-limit notice.
+ *
+ * Measured on the stuck chat of 2026-11-27 (session 01a21b73, this machine):
+ * 191,991 input tokens → 164 output tokens, all of them reasoning, four attempts
+ * in a row — and 164 is 200,000 - 195,740 - 4,096, i.e. whatever the clamp had
+ * left. Auto-compaction is off by default (see readCompactionPrefs), so nothing
+ * was going to make room on its own.
+ *
+ * So the room is checked before a turn goes out. Too small to answer in means
+ * the session is compacted first: one explicit compaction, with the bar the
+ * window already shows, instead of a turn that cannot produce a word.
+ *
+ * Both numbers are pi's: CONTEXT_SAFETY_TOKENS is the reply protocol's reserve,
+ * MIN_ANSWER_ROOM_TOKENS is large enough that a thinking pass cannot eat the
+ * answer. Below it the request is not worth sending.
+ */
+const CONTEXT_SAFETY_TOKENS = 4096;
+const MIN_ANSWER_ROOM_TOKENS = 2048;
+
+/** Tokens left for the answer, or null when pi has no trusted estimate yet. */
+function answerRoomTokens(tab) {
+  const session = tab?.handle?.session;
+  let usage = null;
+  try {
+    usage = typeof session?.getContextUsage === 'function' ? session.getContextUsage() : null;
+  } catch {
+    return null;
+  }
+  if (!usage) return null;
+  const window = Number(usage.contextWindow);
+  // `tokens: null` is pi saying "unknown since the last compaction"; guessing
+  // there would compact a conversation that may already have room.
+  if (usage.tokens === null || usage.tokens === undefined) return null;
+  const used = Number(usage.tokens);
+  if (!Number.isFinite(window) || window <= 0 || !Number.isFinite(used) || used < 0) return null;
+  return window - used - CONTEXT_SAFETY_TOKENS;
+}
+
+/**
+ * Compact before a turn that would otherwise have no room to answer.
+ *
+ * Returns true when it compacted. Nothing is switched or re-sent here: the
+ * caller's own request goes out afterwards, on the same model, with room again.
+ */
+async function ensureAnswerRoom(tabId, tab) {
+  const room = answerRoomTokens(tab);
+  if (room === null || room >= MIN_ANSWER_ROOM_TOKENS) return false;
+  const session = tab?.handle?.session;
+  if (!session || typeof session.compact !== 'function') return false;
+  sendTab(tabId, 'agent:notice', { key: 'noticeCompactingForRoom' });
+  try {
+    await session.compact();
+    return true;
+  } catch {
+    // A compaction that fails must not eat the user's message: send it anyway
+    // and let the turn report whatever the provider says.
+    return false;
   }
 }
 
@@ -2803,24 +3113,37 @@ function subscribeTab(tabId) {
          * `announceIfUnreported` too: it reads the same source, and pi may rewrite
          * the message list between two reads of it.
          */
-        const failure = turnFailure({
-          messages: tab.handle?.session?.agent?.state?.messages || [],
+        const settledMessages = tab.handle?.session?.agent?.state?.messages || [];
+        let failure = turnFailure({
+          messages: settledMessages,
           limitFailure: tab.limitFailure,
           seq: tab.promptSeq || 0,
         });
-        sendTab(tabId, 'agent:settled', {
-          aborted: Boolean(event.aborted),
-          failed: Boolean(failure && failure.text),
-        });
+        // An attempt that failed and was then dropped by pi's retry logic: if no
+        // answer came after it, the turn failed for that reason.
+        const pendingError = tab.pendingTurnError;
+        tab.pendingTurnError = null;
+        if (!failure && pendingError && pendingError.seq === (tab.promptSeq || 0) && pendingError.text) {
+          const last = settledMessages[settledMessages.length - 1];
+          const answered =
+            last && last.role === 'assistant' && last.stopReason !== 'error' && last.stopReason !== 'aborted';
+          if (!answered) failure = { text: pendingError.text, provider: pendingError.provider, model: null };
+        }
         // An abort is normally the user pressing Stop, and nothing should be
         // re-sent after that. The exception is the abort *this* process sends to
         // stop pi retrying a spent free route — that turn still has to say why it
         // ended, or the window goes silent and the app looks broken.
         const ownAbort =
           Boolean(event.aborted) && tab.limitFailure && tab.limitFailure.seq === (tab.promptSeq || 0);
+        // The reason goes out before the settle, so the red line lands under the
+        // last words of the turn and the window never shows "finished" first.
         if (!event.aborted || ownAbort) {
           announceIfUnreported(tabId, tab, failure);
         }
+        sendTab(tabId, 'agent:settled', {
+          aborted: Boolean(event.aborted),
+          failed: Boolean(failure && failure.text),
+        });
         scheduleTurnRecovery(tabId, tab, event);
         // The loop guard stopped this run and asked to carry on: the turn is
         // idle now, so re-issue the job with a "break the loop" instruction.
@@ -2872,6 +3195,7 @@ function subscribeTab(tabId) {
       }
 
       case 'tool_execution_start': {
+        if (String(event.toolName || '').startsWith('browser_')) lastBrowserTabId = tabId;
         // Snapshot the target file so we can show a diff when the tool finishes.
         const rawPath = fileToolTarget(event.toolName, event.args);
         const snapPath = rawPath
@@ -2973,7 +3297,10 @@ function subscribeTab(tabId) {
               model: m.model || m.responseModel || null,
             };
           }
-          reportTabError(tabId, m.errorMessage);
+          // Not reported yet: pi may still retry this attempt, and a red banner
+          // followed by the retried answer streaming in under it is exactly the
+          // "text appears after the error" bug. The settle decides (see below).
+          tab.pendingTurnError = { seq: tab.promptSeq || 0, text: m.errorMessage || '', provider: m.provider || null };
         } else if (m?.role === 'assistant' && m.stopReason === 'length') {
           // A reasoning model can spend the whole output cap thinking and return
           // no answer at all. Without a notice the window just goes quiet, which
@@ -3120,7 +3447,18 @@ async function attachTab(tabId, manager, cwd) {
     },
     // The agent can put a line on the user's phone through the room the panel
     // already holds — no room name, server or token crosses the tool call.
-    ntfy: { publish: (payload) => ntfyService.publish(payload) },
+    // Bound to this chat's own room: the panel's "active" room is whichever chat
+    // is on screen, and an agent working in a background chat used to publish
+    // into that one instead of its own.
+    ntfy: {
+      publish: (payload) =>
+        ntfyService.publish({
+          ...payload,
+          sessionKey: ntfyKeyFor(tabId),
+          // Tagged as ours, so the copy the stream hands back is never run as a command.
+          tags: [...new Set([...(Array.isArray(payload?.tags) ? payload.tags : []), 'ntapi-agent'])],
+        }),
+    },
     downloadsDir: resolveFolder('downloads', cwd),
     // One ad per turn is what unlocks free completions. Keep the last one so
     // switching tabs does not blank the banner while the ad is still live.
@@ -5783,6 +6121,14 @@ ipcMain.handle('tab:list', async () => [...tabs.keys()].map(tabSummary).filter(B
 
 ipcMain.handle('tab:state', async (_e, tabId) => tabState(tabId || activeTabId));
 
+// The busy watchdog asks this every few seconds while a turn runs. The full
+// tabState rebuilds the whole transcript, usage and stats — far too heavy to run
+// on a timer in the process that is also streaming the answer.
+ipcMain.handle('tab:busy', async (_e, tabId) => {
+  const tab = tabs.get(tabId || activeTabId);
+  return tab ? { tabId: tabId || activeTabId, busy: Boolean(tab.busy) } : null;
+});
+
 ipcMain.handle('session:list', async (_e, cwd) => listSessions(cwd || savedWorkspace() || process.cwd()));
 
 ipcMain.handle('session:listOther', async (_e, cwd) =>
@@ -6210,6 +6556,11 @@ ipcMain.handle('prompt:send', async (_e, { tabId, text, images, mode: passedMode
     tab.turnDraft = { prompts: [promptText], assistant: '', tools: [], done: false };
   }
 
+  // A context with no room left answers nothing (see ensureAnswerRoom). A steer
+  // joins a turn that is already running, so it never compacts: that would abort
+  // the run it is joining.
+  if (!tab.handle.session.isStreaming) await ensureAnswerRoom(tabFor(tabId).tabId, tab);
+
   const run = tab.handle.session.prompt(promptText, options);
 
   run.catch((err) => {
@@ -6240,7 +6591,8 @@ ipcMain.handle('prompt:resume', async (_e, tabId) => {
   return { ok: true, paused: false };
 });
 
-ipcMain.handle('prompt:abort', async (_e, tabId) => {
+/** End the running turn of a tab, the way the Stop button does. */
+async function abortTabTurn(tabId) {
   const { tabId: id, tab } = tabFor(tabId);
   // A paused gate would keep the *next* turn frozen after this stop; clear it.
   tab.paused = false;
@@ -6281,7 +6633,9 @@ ipcMain.handle('prompt:abort', async (_e, tabId) => {
     ]);
   } catch {}
   return { ok: true };
-});
+}
+
+ipcMain.handle('prompt:abort', async (_e, tabId) => abortTabTurn(tabId));
 
 ipcMain.handle('model:set', async (_e, { tabId, provider, id }) => {
   const { tabId: tid, tab } = tabFor(tabId);
@@ -6401,6 +6755,10 @@ ipcMain.handle('prompt:retry', async (_e, tabId) => {
     tab.upgradeFailure = false;
     tab.upgradeRetryAt = 0;
   }
+
+  // Retrying a turn that spent its whole budget thinking must not re-send the
+  // same doomed request: make room first, so the retry has an answer to give.
+  await ensureAnswerRoom(id, tab);
 
   const text =
     'The previous turn stopped before it finished. ' +
@@ -8148,6 +8506,7 @@ ipcMain.handle('browser:claim', async (_e, { tabId } = {}) => {
 ipcMain.handle('browser:release', async (_e, { tabId } = {}) => releaseBrowserTab('user', tabId));
 
 ipcMain.handle('system:getState', () => systemState());
+ipcMain.handle('system:installStop', () => installGnomeStopShortcut());
 
 ipcMain.handle('system:probe', async () => {
   if (!systemAdapter) return { ok: false, code: 'UNSUPPORTED', reason: 'Desktop control is not available on this computer yet.' };

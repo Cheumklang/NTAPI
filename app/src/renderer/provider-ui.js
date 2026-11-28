@@ -105,13 +105,15 @@
    * gets a single section, so the caller can render both cases the same way.
    */
   /** Stable A-Z order for model names; ties fall back to the id. */
+  // One collator for every comparison: `localeCompare` with options builds a new
+  // ICU collator per call, and sorting a 1,000-model catalog that way cost ~50ms
+  // on every chat switch.
+  const NAME_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+  const ID_COLLATOR = new Intl.Collator();
   function byModelName(a, b) {
     const an = String(a?.name || a?.id || '');
     const bn = String(b?.name || b?.id || '');
-    return (
-      an.localeCompare(bn, undefined, { sensitivity: 'base', numeric: true }) ||
-      String(a?.id || '').localeCompare(String(b?.id || ''))
-    );
+    return NAME_COLLATOR.compare(an, bn) || ID_COLLATOR.compare(String(a?.id || ''), String(b?.id || ''));
   }
 
   function groupModelsByProvider(models) {

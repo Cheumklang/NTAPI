@@ -307,7 +307,7 @@ const noAdapter = guardWith({ systemAdapter: null, systemEnabled: () => true });
 check('no adapter is its own refusal', noAdapter && noAdapter.code === 'UNSUPPORTED');
 check('an allowed call passes the gate', guardWith({ systemAdapter: {}, systemEnabled: () => true }) === null);
 
-check('every command goes through the gate', /async call\(cmd, args = \{\}\) \{\n\s*systemGuard\(\);/.test(main));
+check('every command goes through the gate', /async function systemCall\(cmd, args = \{\}\) \{\n\s*systemGuard\(\);/.test(main) && /return await systemCall\(cmd, args\)/.test(main));
 check('the switch is persisted', /writePrefs\(\{ systemControl: \{ enabled: true \} \}\)/.test(main));
 check('stopping is immediate and audited', /function stopSystemControl\(via\)[\s\S]{0,400}systemAudit\(\{ event: 'stopped'/.test(main));
 check('the hotkey is registered when the switch goes on', /registerSystemHotkey\(\);/.test(body(main, 'setSystemControl')));
@@ -377,7 +377,7 @@ check('the tooltip key it used to repeat is gone', (appSrc.match(/\bsysTitleOn:/
 check('one function paints every indicator', /function applySystemState\(state = \{\}\)/.test(appSrc));
 check('the panel can explain why it is unavailable', /systemProbe: \(\) => ipcRenderer\.invoke\('system:probe'\)/.test(preload));
 check('and says it in the panel, not only a toast', /el\('sysNote'\)\.textContent = probe\.reason/.test(appSrc));
-check('a refused global grab is reported, not hidden', /hotkeyActive: Boolean\(systemHotkeyOn\)/.test(main) && /sysHotkeyDown/.test(appSrc));
+check('a refused global grab is reported, not hidden', /hotkeyActive: Boolean\(systemHotkeyOn/.test(main) && /sysHotkeyDown/.test(appSrc));
 check('the hotkey also works inside the window', /!event\.ctrlKey \|\| !event\.altKey \|\| event\.key !== 'Escape'/.test(appSrc));
 check('the chip carries the on state as text, not only colour', /el\('sysState'\)\.textContent = sysControl\.enabled \? t\('sysOn'\)/.test(appSrc));
 check('turning it on goes through the dialog', /kind: 'system',\n\s*title: t\('sysConfirmTitle'\)/.test(appSrc));
@@ -605,7 +605,7 @@ check(
     /NOT_CAPTURABLE/.test(read('src/system/linux.js')) && /printwindow/.test(read('src/system/windows.js'))
   );
   check('another app is refused with a reason', /NOT_CAPTURABLE/.test(main));
-  check('the refusal names the compositor, not a bug', /compositor refuses screen capture/.test(main));
+  check('the refusal names the compositor, not a bug', /compositor refuses per-window capture/.test(main));
   check('the attempt is audited', /event: 'screenshot'/.test(main));
   check('a model with eyes gets the image', /type: 'image', data: result\.data/.test(freepi));
   check('a text-only model gets a path', /could not see images|cannot see images/.test(freepi) && /desktop-\$\{/.test(freepi));

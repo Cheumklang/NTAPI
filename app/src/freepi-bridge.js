@@ -1504,6 +1504,9 @@ async function createFreePiSession(options) {
             `- A site no tab covers is still reachable: call browser_open with the URL (the app asks the user to approve it). The tab that opens is yours — work in it by the tab id it returned, and do not ask for a hand-over for it.\n` +
             `- Take a browser_snapshot before acting on a page, and act by the \`ref\` it returns — do not guess a CSS selector when you have a ref.\n` +
             `- Every action returns a fresh snapshot: read it rather than assuming what changed.\n` +
+            `- A menu that only opens on mouse-over: browser_hover its parent, then use the items in the new snapshot. Dropdowns, checkboxes and radios are set with browser_fill. Shortcuts go through browser_key ("Control+a", "PageDown").\n` +
+            `- When a page misbehaves, read browser_console (errors) and browser_network (failed requests) before guessing. browser_navigate goes back, forward or reloads.\n` +
+            `- The user sees a "NTAPI is working" frame with a Stop button in the tab you act on. If they press Stop, the turn ends — do not continue that work.\n` +
             `- If a ref is rejected as stale, take a snapshot again — the page moved under you.\n` +
             `- When a page will not cooperate, call ask_user saying what you expected and what you see, then snapshot again before continuing.\n` +
             `- Work only in tabs the user handed over, or tabs you opened yourself. Every other tab is off limits, and naming one is refused.\n` +
@@ -1525,6 +1528,12 @@ async function createFreePiSession(options) {
             const resolved = resolveRefArgs(params, tableForCall(params || {}).table);
             if (!resolved.ok) return browserErrorResult(resolved.code, resolved.message);
             const args = resolved.args;
+            if (spec.cmd === 'drag' && typeof args.toRef === 'string' && args.toRef) {
+              const to = resolveRefArgs({ ref: args.toRef }, tableForCall(params || {}).table);
+              if (!to.ok) return browserErrorResult(to.code, to.message);
+              args.toSelector = to.args.selector;
+              delete args.toRef;
+            }
             if (spec.cmd === 'fill') {
               const fielded = resolveFieldRefs(args.fields, tableForCall(params || {}).table);
               if (!fielded.ok) return browserErrorResult(fielded.code, fielded.message);
@@ -1594,6 +1603,19 @@ async function createFreePiSession(options) {
    * inside one, press one thing. The switch in the sidebar is the permission
    * and main re-checks it on every call.
    */
+  /** The stop key the model is told about is the one that really works here. */
+  function stopKeyLine() {
+    let state = null;
+    try {
+      state = typeof systemBridge.state === 'function' ? systemBridge.state() : null;
+    } catch {}
+    if (state && state.hotkeyActive && state.hotkey) {
+      const key = String(state.hotkey).replace(/Control/g, 'Ctrl').replace(/Escape/g, 'Esc');
+      return `- The user can take the screen back at any moment with ${key}; if a tool starts failing with SYSTEM_CONTROL_OFF mid-task, that is what happened.`;
+    }
+    return `- The user can take the screen back at any moment with the Stop button in the app; if a tool starts failing with SYSTEM_CONTROL_OFF mid-task, that is what happened.`;
+  }
+
   const systemExtension = {
     name: 'freepi-desktop-system',
     factory(pi) {
@@ -1616,7 +1638,7 @@ async function createFreePiSession(options) {
             `- If a type result says the text is on screen, it is there. Do not type it again, and do not open a second window to check.\n` +
             `- If a call answers SYSTEM_CONTROL_OFF, stop and ask the user to turn the desktop switch on in the sidebar. Never retry it as if it were a glitch.\n` +
             `- Anything that spends money, deletes, signs in or changes account settings is the user's call: describe what you are about to press and let them decide.\n` +
-            `- The user can take the screen back at any moment with Ctrl+Alt+Esc; if a tool starts failing mid-task, that is what happened.`,
+            stopKeyLine(),
         };
       });
 
@@ -3575,7 +3597,28 @@ function formatSystemSnapshot(result) {
     return parts.join(' ') + (marks.length ? `  {${marks.join(', ')}}` : '');
   });
   const bHandle = result && result.handle && String(result.handle) !== '0' ? ` (window ${result.handle})` : '';
-  return [`${(result && result.appName) || 'app'}${bHandle} — ${nodes.length} element(s)`, ...lines].join('\n');
+  const out = [`${(result && result.appName) || 'app'}${bHandle} — ${nodes.length} element(s)`, ...lines];
+  /*
+   * A near-empty tree is not an empty window. Chrome keeps web pages out of the
+   * desktop accessibility tree, and many Electron apps expose little more than
+   * their frame; an agent that only sees "3 elements" used to conclude the window
+   * could not be worked and gave up (2026-11-27, a YouTube Studio tab).
+   */
+  if (nodes.length <= 8) {
+    const name = String((result && result.appName) || '');
+    if (/chrome|chromium|brave|edge|vivaldi|opera|firefox/i.test(name)) {
+      out.push(
+        '',
+        'Note: a browser keeps the web page itself out of the desktop accessibility tree. For anything inside a web page use the browser_* tools (browser control: browser_find_tab, browser_snapshot, browser_click). For the browser\'s own frame, use system_screenshot with scope "screen" and system_click_at.'
+      );
+    } else {
+      out.push(
+        '',
+        'Note: this window exposes almost nothing to accessibility. Look at it with system_screenshot (scope "screen" if the window cannot be captured alone) and act by position with system_click_at / system_type.'
+      );
+    }
+  }
+  return out.join('\n');
 }
 
 function formatSystemWindows(result) {
@@ -3729,7 +3772,7 @@ const BROWSER_TOOL_DOCS = {
   },
   browser_click: {
     description:
-      'Click an element on the page. Give a `ref` from browser_snapshot, a CSS selector, visible text, or x/y coordinates. Asks the user for approval.',
+      'Click an element on the page. Give a `ref` from browser_snapshot, a CSS selector, visible text, or x/y coordinates. `double: true` double-clicks, `button: "right"` right-clicks. Works in a background tab. Asks the user for approval.',
     snippet: 'Click something on the page',
     props: {
       tab: { type: 'integer' },
@@ -3738,6 +3781,66 @@ const BROWSER_TOOL_DOCS = {
       text: { type: 'string', description: 'Visible text of the element to click' },
       x: { type: 'number' },
       y: { type: 'number' },
+      double: { type: 'boolean', description: 'Double-click' },
+      button: { type: 'string', enum: ['left', 'right', 'middle'], description: 'Mouse button (default left)' },
+    },
+  },
+  browser_hover: {
+    description:
+      'Move the pointer over an element — what opens a menu or tooltip that only appears on hover. Snapshot again afterwards: the menu items are then in the snapshot and can be clicked.',
+    snippet: 'Hover over an element',
+    props: {
+      tab: { type: 'integer' },
+      ref: { type: 'string', description: 'A ref from the last snapshot (preferred)' },
+      selector: { type: 'string' },
+      text: { type: 'string' },
+      x: { type: 'number' },
+      y: { type: 'number' },
+    },
+  },
+  browser_drag: {
+    description: 'Drag one element onto another (drag-and-drop lists, upload drop zones, kanban cards). Asks for approval.',
+    snippet: 'Drag an element onto another',
+    props: {
+      tab: { type: 'integer' },
+      ref: { type: 'string', description: 'What to drag (a ref from the last snapshot)' },
+      toRef: { type: 'string', description: 'Where to drop it (a ref from the last snapshot)' },
+      selector: { type: 'string' },
+      toSelector: { type: 'string' },
+    },
+  },
+  browser_navigate: {
+    description: 'Go back, go forward, or reload the tab.',
+    snippet: 'Back, forward or reload',
+    required: ['action'],
+    props: {
+      tab: { type: 'integer' },
+      action: { type: 'string', enum: ['back', 'forward', 'reload'] },
+      hard: { type: 'boolean', description: 'Reload without the cache' },
+    },
+  },
+  browser_console: {
+    description:
+      'Read what the page logged to its console: errors, warnings and messages, plus uncaught exceptions. Use it to find out why a page or a web app you are building misbehaves. Read-only.',
+    snippet: 'Read the page console',
+    props: {
+      tab: { type: 'integer' },
+      onlyErrors: { type: 'boolean' },
+      pattern: { type: 'string', description: 'Only lines containing this text' },
+      limit: { type: 'integer', description: 'Most recent N (default 50)' },
+      clear: { type: 'boolean', description: 'Forget what was read' },
+    },
+  },
+  browser_network: {
+    description:
+      'List the requests the page made since the agent attached: method, URL, status, and failures. Use it to check an API call went out and what it answered. Read-only.',
+    snippet: 'Read the page network requests',
+    props: {
+      tab: { type: 'integer' },
+      pattern: { type: 'string', description: 'Only URLs containing this text' },
+      onlyFailed: { type: 'boolean', description: 'Only failed or 4xx/5xx requests' },
+      limit: { type: 'integer', description: 'Most recent N (default 50)' },
+      clear: { type: 'boolean' },
     },
   },
   browser_type: {
@@ -3754,7 +3857,8 @@ const BROWSER_TOOL_DOCS = {
     },
   },
   browser_fill: {
-    description: 'Fill several form fields at once. Asks for approval.',
+    description:
+      'Fill several form fields at once: text boxes get the value typed, a dropdown (select) gets the option whose label or value matches, a checkbox or radio gets "true"/"false". Asks for approval.',
     snippet: 'Fill several form fields',
     required: ['fields'],
     props: {
@@ -3774,12 +3878,14 @@ const BROWSER_TOOL_DOCS = {
     },
   },
   browser_key: {
-    description: 'Press a key in the page: Enter, Tab, Escape, Backspace, ArrowUp, ArrowDown. Asks for approval.',
-    snippet: 'Press a key',
+    description:
+      'Press a key or a shortcut in the page: Enter, Tab, Escape, Backspace, Delete, Space, arrows, Home, End, PageUp, PageDown, F1-F12, a single character, or a combination such as Control+a, Shift+Tab, Control+Enter. Asks for approval.',
+    snippet: 'Press a key or shortcut',
     props: {
       tab: { type: 'integer' },
       ref: { type: 'string', description: 'Focus this element first (a ref from the last snapshot)' },
-      key: { type: 'string' },
+      key: { type: 'string', description: 'e.g. "Enter", "PageDown", "Control+k"' },
+      repeat: { type: 'integer', description: 'Press it this many times (default 1)' },
     },
   },
   browser_eval: {
@@ -3852,11 +3958,27 @@ ${JSON.stringify(result.value)}`.trim();
   if (spec.cmd === 'dialog') {
     return result.handled ? `Answered the ${result.type} dialog.` : 'No dialog was open on that tab.';
   }
+  if (spec.cmd === 'console') {
+    const rows = (result.entries || []).map((e) => `[${e.level}] ${e.text}`);
+    return rows.length ? `${rows.length} console line(s):\n${rows.join('\n')}` : 'The console is empty (since the agent attached to this tab).';
+  }
+  if (spec.cmd === 'network') {
+    const rows = (result.requests || []).map(
+      (r) => `${r.method || 'GET'} ${r.failed ? `FAILED (${r.error})` : r.status ?? '…'} ${r.url}`
+    );
+    return rows.length ? `${rows.length} request(s):\n${rows.join('\n')}` : 'No requests recorded (the log starts when the agent attaches to the tab).';
+  }
   const head = [result.title, result.url].filter(Boolean).join(' - ');
-  const detail = result.clicked
-    ? `Clicked ${result.clicked}`
+  const detail = result.clicked !== undefined && spec.cmd === 'click'
+    ? `${result.button === 'right' ? 'Right-clicked' : result.clickCount > 1 ? 'Double-clicked' : 'Clicked'} ${result.clicked || 'the element'}`
+    : result.hovered !== undefined
+      ? `Hovering over ${result.hovered || 'the element'} — snapshot again to see what opened`
+    : result.dragged !== undefined
+      ? `Dragged ${result.dragged || 'the element'} onto ${result.onto || 'the target'}`
+    : result.chosen
+      ? `Chose "${result.chosen}"`
     : result.filled
-      ? `Filled ${result.filled} field(s)`
+      ? `Filled ${result.filled} field(s)${Array.isArray(result.results) && result.results.length ? `: ${result.results.join(', ')}` : ''}`
       : result.waited
         ? `Found after ${result.waited}ms`
         : 'Done';

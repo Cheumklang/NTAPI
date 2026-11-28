@@ -116,6 +116,103 @@ check(
 check('the /compact command is still there', /name: '\/compact'/.test(renderer));
 check('the window can still ask for one', /compact: \(tabId, instructions\) => ipcRenderer.invoke\('session:compact'/.test(preload));
 
+/* 6. The answer room: with compaction off, nothing else makes room, so a nearly
+ *    full context left a reasoning model a handful of output tokens and the turn
+ *    ended with no answer at all (the stuck chat of 2026-11-27). */
+const roomBody = bodyOf(main, 'answerRoomTokens');
+const ensureBody = bodyOf(main, 'ensureAnswerRoom');
+const safetyFromSource = /const CONTEXT_SAFETY_TOKENS = (\d+);/.exec(main);
+const minFromSource = /const MIN_ANSWER_ROOM_TOKENS = (\d+);/.exec(main);
+
+check('the answer room is measured at all', Boolean(roomBody) && Boolean(ensureBody));
+check('both budgets are named, so a reader sees whose numbers they are', Boolean(safetyFromSource) && Boolean(minFromSource));
+
+if (roomBody && safetyFromSource) {
+  const CONTEXT_SAFETY_TOKENS = Number(safetyFromSource[1]);
+  const roomFor = new Function(
+    'CONTEXT_SAFETY_TOKENS',
+    `return (${roomBody.replace('function answerRoomTokens', 'function')});`
+  )(CONTEXT_SAFETY_TOKENS);
+  const tabWith = (usage) => ({ handle: { session: { getContextUsage: () => usage } } });
+
+  check(
+    'a full context has almost no room left',
+    roomFor(tabWith({ tokens: 195740, contextWindow: 200000 })) === 200000 - 195740 - CONTEXT_SAFETY_TOKENS
+  );
+  check(
+    'the stuck chat therefore had 164 tokens to answer in',
+    roomFor(tabWith({ tokens: 195740, contextWindow: 200000 })) === 164
+  );
+  check('an empty context has the whole window', roomFor(tabWith({ tokens: 0, contextWindow: 200000 })) === 200000 - CONTEXT_SAFETY_TOKENS);
+  check(
+    'right after a compaction pi says "unknown", and that is not a reason to compact again',
+    roomFor(tabWith({ tokens: null, contextWindow: 200000 })) === null
+  );
+  check('no model means no guess', roomFor(tabWith(undefined)) === null);
+  check('a session without the accessor does not throw', roomFor({ handle: { session: {} } }) === null);
+  check('a throwing accessor does not throw', roomFor({ handle: { session: { getContextUsage: () => { throw new Error('x'); } } } }) === null);
+  check('a window of zero is refused', roomFor(tabWith({ tokens: 10, contextWindow: 0 })) === null);
+}
+
+if (ensureBody && minFromSource) {
+  const MIN_ANSWER_ROOM_TOKENS = Number(minFromSource[1]);
+  check('the floor leaves a thinking pass room to answer', MIN_ANSWER_ROOM_TOKENS >= 1024);
+  const makeEnsure = (room, opts = {}) => {
+    const notices = [];
+    let compactions = 0;
+    const fn = new Function(
+      'answerRoomTokens',
+      'sendTab',
+      'MIN_ANSWER_ROOM_TOKENS',
+      `return (${ensureBody.replace('function ensureAnswerRoom', 'async function')});`
+    )(
+      () => room,
+      (_id, _channel, payload) => notices.push(payload),
+      MIN_ANSWER_ROOM_TOKENS
+    );
+    const tab = {
+      handle: {
+        session: opts.noCompact ? {} : { compact: async () => { compactions += 1; if (opts.compactFails) throw new Error('nope'); } },
+      },
+    };
+    return { tab, notices, compactions: () => compactions, run: () => fn('t1', tab) };
+  };
+
+  (async () => {
+    const plenty = makeEnsure(32768);
+    check('room to spare sends the turn as it is', (await plenty.run()) === false && plenty.compactions() === 0 && plenty.notices.length === 0);
+
+    const tight = makeEnsure(MIN_ANSWER_ROOM_TOKENS - 1);
+    check('no room compacts first', (await tight.run()) === true && tight.compactions() === 1);
+    check('and says why, by key so it is translated', tight.notices.length === 1 && tight.notices[0].key === 'noticeCompactingForRoom');
+
+    const exactly = makeEnsure(MIN_ANSWER_ROOM_TOKENS);
+    check('the floor itself is enough, no compaction', (await exactly.run()) === false && exactly.compactions() === 0);
+
+    const unknown = makeEnsure(null);
+    check('an unknown room is left alone', (await unknown.run()) === false && unknown.compactions() === 0);
+
+    const unsupported = makeEnsure(10, { noCompact: true });
+    check('a session that cannot compact still sends', (await unsupported.run()) === false);
+
+    const failing = makeEnsure(10, { compactFails: true });
+    check('a failed compaction still lets the message through', (await failing.run()) === false);
+
+    /* Both ways a turn starts have to ask first, or the guard only half exists. */
+    check('sending a prompt checks the room', /if \(\!tab\.handle\.session\.isStreaming\) await ensureAnswerRoom\(/.test(main));
+    check('a steer never compacts the run it joins', /isStreaming\) await ensureAnswerRoom/.test(main));
+    check('pressing Retry checks the room too', /await ensureAnswerRoom\(id, tab\);/.test(main));
+    check('both languages can say it', /noticeCompactingForRoom:\s*\n\s*'/.test(renderer) && (renderer.match(/noticeCompactingForRoom:/g) || []).length === 2);
+
+    if (failures) {
+      console.log(`\n${failures} failure(s)`);
+      process.exit(1);
+    }
+    console.log('\nPASS: auto-compaction is off by default, has no switch, /compact still works, and a full context compacts before it sends');
+  })();
+  return;
+}
+
 if (failures) {
   console.log(`\n${failures} failure(s)`);
   process.exit(1);

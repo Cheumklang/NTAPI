@@ -3170,21 +3170,32 @@ mark.tx-hit.is-current {
 /* ---------------- live status ---------------- */
 
 .usage-title { display: flex; align-items: center; gap: 6px; }
+/* The ring is a scaled pseudo-element (transform + opacity only), so the pulse
+   runs on the compositor. Animating box-shadow repainted the toolbar every
+   frame for as long as the window was open. */
 .live-dot {
+  position: relative;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: #45d483;
-  box-shadow: 0 0 0 0 rgba(69, 212, 131, .55);
+}
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(69, 212, 131, .5);
   animation: livePulse 2.4s ease-out infinite;
+  will-change: transform, opacity;
 }
 @keyframes livePulse {
-  0%   { box-shadow: 0 0 0 0 rgba(69, 212, 131, .5); }
-  70%  { box-shadow: 0 0 0 5px rgba(69, 212, 131, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(69, 212, 131, 0); }
+  0%   { transform: scale(1); opacity: .9; }
+  70%  { transform: scale(2.7); opacity: 0; }
+  100% { transform: scale(2.7); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .live-dot { animation: none; }
+  .live-dot::after { animation: none; display: none; }
 }
 
 /* ---------------- brand chips (language + settings) ---------------- */
@@ -3599,16 +3610,32 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
  * rather than alive. Here the peak lands at 22% of the cycle and takes the rest
  * of it to fade: a pulse, at 1.2s, with the brightness the user signed off on.
  */
-.session-item.active.busy { animation: session-breathe 1.2s cubic-bezier(.35, 0, .6, 1) infinite; }
+/* Same glow as before, but drawn once on a pseudo-element and faded with
+   opacity, so the pulse runs on the compositor instead of repainting the
+   sidebar every frame while an answer streams. */
+.session-item.active.busy {
+  position: relative;
+  box-shadow: 0 3px 14px rgba(124, 92, 255, .12);
+}
+.session-item.active.busy::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 3px 14px rgba(124, 92, 255, .36),
+    0 0 0 1px rgba(186, 164, 255, .95),
+    0 0 20px 4px rgba(124, 92, 255, .6);
+  opacity: 0;
+  animation: session-breathe 1.2s cubic-bezier(.35, 0, .6, 1) infinite;
+  will-change: opacity;
+}
 @keyframes session-breathe {
-  0%, 100% {
-    box-shadow: 0 3px 14px rgba(124, 92, 255, .12);
-  }
-  22% {
-    box-shadow: 0 3px 14px rgba(124, 92, 255, .36),
-      0 0 0 1px rgba(186, 164, 255, .95),
-      0 0 20px 4px rgba(124, 92, 255, .6);
-  }
+  0%, 100% { opacity: 0; }
+  22% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .session-item.active.busy::after { animation: none; opacity: .5; }
 }
 
 /*
@@ -7246,6 +7273,14 @@ html[data-theme='light'] .tb-logo {
    both speakers are marked (assistant already has one). Paint only.
    ---------------------------------------------------------------- */
 
+/* The role line is a flex row so the dot keeps its size: as an inline box in a
+   right-aligned block it stretched into a thin vertical bar. */
+.msg.user .role {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
 .msg.user .role::before {
   content: '';
   width: 6px;
@@ -7265,11 +7300,13 @@ html[data-theme='light'] .tb-logo {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
-.msg {
+/* Only a message that just arrived animates. A repaint (chat switch, reload)
+   redraws every bubble, and animating all of them made the chat flash. */
+.msg.fresh {
   animation: msg-in .28s cubic-bezier(.2, .8, .3, 1);
 }
 @media (prefers-reduced-motion: reduce) {
-  .msg { animation: none; }
+  .msg.fresh { animation: none; }
 }
 
 /* ------------------- provider capability switches (Settings) ------------- */
@@ -7421,3 +7458,326 @@ html[data-theme='light'] .tb-logo {
   height: auto;
   background: #000;
 }
+
+/* ===========================================================================
+   Calm modern theme (2026-11-28) — paint only, layered over everything above.
+
+   Flat, quiet surfaces instead of gradients and glows; one centred reading
+   column; a roomy rounded composer; soft motion. Every rule here is a final
+   override, so removing this block returns the previous look unchanged.
+   =========================================================================== */
+
+:root {
+  --bg: #1d1d20;
+  --bg-2: #252528;
+  --bg-3: #2c2c30;
+  --line: #313136;
+  --line-2: #404047;
+  --text: #ececf1;
+  --muted: #a3a3ad;
+  --muted-2: #8e8e99;
+  --muted-soft: #9a9aa4;
+  --surface-1: #161618;
+  --surface-2: #252528;
+  --surface-3: #2d2d32;
+  --surface-4: #37373d;
+  --accent: #a090ff;
+  --accent-soft: #c4b8ff;
+  --accent-fill: #6c58f0;
+  --sidebar-bg: #18181a;
+  --titlebar-fg: #a3a3ad;
+  --radius: 12px;
+  /* Prose reads best at ~70 characters a line; a wide table or code block
+     still scrolls inside its own box. */
+  --read-width: min(860px, 100%);
+  --ease: cubic-bezier(.2, .7, .2, 1);
+}
+html[data-theme='light'] {
+  --bg: #faf9f7;
+  --bg-2: #ffffff;
+  --bg-3: #f1f0ed;
+  --line: #e5e3de;
+  --line-2: #d2cfc8;
+  --text: #1f1e1c;
+  --muted: #625f59;
+  --muted-2: #6a675f;
+  --muted-soft: #6f6c66;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #f1f0ed;
+  --surface-4: #e7e5e0;
+  --accent: #5b45e6;
+  --accent-fill: #5b45e6;
+  --sidebar-bg: #f3f2ef;
+  --titlebar-fg: #625f59;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", "Noto Sans", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- chrome: title bar, top bar, sidebar ---------------------------------- */
+
+#titlebar,
+html[data-theme='light'] #titlebar {
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--line);
+  box-shadow: none;
+}
+#topbar,
+html[data-theme='light'] #topbar {
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  box-shadow: none;
+}
+#sidebar,
+html[data-theme='light'] #sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--line);
+  box-shadow: none;
+}
+.brand .brand-icon,
+html[data-theme='light'] .brand .brand-icon {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.session-item {
+  border-radius: 10px;
+  padding: 9px 12px;
+  transition: background-color .15s var(--ease), color .15s var(--ease);
+}
+.session-item:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.session-item.active:not([data-color]) {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: transparent;
+  box-shadow: none;
+}
+.session-item .s-meta { color: var(--muted-2); font-size: 11.5px; }
+.session-search {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border-color: var(--line);
+  border-radius: 10px;
+  transition: border-color .15s var(--ease), background-color .15s var(--ease);
+}
+.session-search:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+
+/* ---- transcript ----------------------------------------------------------- */
+
+.transcript { scroll-behavior: auto; }
+.transcript > * { margin-bottom: 22px; padding: 0 28px; }
+
+.msg .role {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+  color: var(--muted);
+}
+.msg.assistant .body {
+  font-size: 15px;
+  line-height: 1.72;
+  color: var(--text);
+}
+.msg.assistant .body + .body { margin-top: .9em; }
+.msg.user .bubble,
+html[data-theme='light'] .msg.user .bubble {
+  background: var(--bg-3);
+  border: 1px solid transparent;
+  border-radius: 18px;
+  box-shadow: none;
+  padding: 10px 16px;
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: min(80%, 640px);
+}
+.msg.user .role { display: none; }
+
+/* Code, tables, tool cards: hairline frames, no drop shadows. */
+.md-code,
+.shell-card,
+html[data-theme='light'] .md-code,
+html[data-theme='light'] .shell-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: none;
+}
+.md-table-wrap { border-radius: 12px; }
+
+.error-banner { border-radius: 12px; }
+
+.jump-bottom {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-2) 92%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+  transition: transform .2s var(--ease), opacity .2s var(--ease);
+}
+
+/* ---- composer ------------------------------------------------------------- */
+
+#composer { padding: 4px 28px 14px; }
+.composer-box,
+html[data-theme='light'] .composer-box {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--bg-2);
+  padding: 12px 12px 10px 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 8px 28px rgba(0, 0, 0, .14);
+  transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
+}
+html[data-theme='light'] .composer-box {
+  box-shadow: 0 1px 2px rgba(31, 30, 28, .04), 0 6px 22px rgba(31, 30, 28, .06);
+}
+.composer-box:focus-within,
+html[data-theme='light'] .composer-box:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 10px 32px rgba(0, 0, 0, .18);
+}
+html[data-theme='light'] .composer-box:focus-within {
+  box-shadow: 0 1px 2px rgba(31, 30, 28, .05), 0 8px 26px rgba(31, 30, 28, .09);
+}
+/* The text gets the whole first row; the buttons sit under it on the right. */
+.composer-box > #input {
+  flex: 1 1 100%;
+  min-height: 48px;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 2px 0;
+}
+.composer-box > .composer-side { margin-left: auto; }
+.attach {
+  border-radius: 10px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  transition: background-color .15s var(--ease), color .15s var(--ease);
+}
+.attach:hover { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); border-color: transparent; }
+.send,
+.send:hover:not(:disabled),
+.send:active:not(:disabled) {
+  background: var(--accent-fill);
+  border-radius: 12px;
+  box-shadow: none;
+  transform: none;
+  transition: background-color .15s var(--ease), opacity .15s var(--ease);
+}
+.send:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-fill) 86%, #ffffff); }
+.send:disabled { background: var(--surface-4); color: var(--muted-2); }
+.status-row .hint { color: var(--muted-2); }
+
+/* ---- buttons and dialogs -------------------------------------------------- */
+
+.primary-btn,
+.primary-btn:hover,
+.primary-btn:active {
+  background: var(--accent-fill);
+  box-shadow: none;
+  transform: none;
+}
+.primary-btn:hover { background: color-mix(in srgb, var(--accent-fill) 86%, #ffffff); }
+.dialog,
+html[data-theme='light'] .dialog {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .35);
+}
+html[data-theme='light'] .dialog { box-shadow: 0 20px 60px rgba(31, 30, 28, .14); }
+
+/* Thin, quiet scrollbars that only show on the thumb. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover,
+html[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 28%, transparent);
+  background-clip: padding-box;
+}
+html[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+  background-clip: padding-box;
+}
+
+/* Soft, quick motion for everything interactive. */
+button,
+.tb-btn,
+.model-picker-btn {
+  transition: background-color .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease), opacity .15s var(--ease);
+}
+.msg.fresh { animation-duration: .32s; }
+
+/* Top-bar controls share one quiet pill: same height, same hairline, a soft
+   fill only on hover. */
+.status-pill,
+.think-btn,
+.model-picker-btn,
+.vision-btn {
+  background: transparent;
+  border-color: var(--line);
+  border-radius: 10px;
+  box-shadow: none;
+}
+.status-pill:hover,
+.think-btn:hover,
+.model-picker-btn:hover,
+.vision-btn:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-color: var(--line-2);
+}
+
+/* "Show reasoning" is a quiet text link, not a boxed button. */
+.thinking-toggle {
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 3px 8px 3px 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.thinking-toggle:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
+.thinking {
+  border-left: 2px solid var(--line-2);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 0;
+}
+
+html[data-theme='light'] .session-item:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  box-shadow: none;
+}
+html[data-theme='light'] .session-item.active:not([data-color]),
+html[data-theme='light'] .session-item.active:not([data-color]):hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Code keeps a code rhythm, not the prose line-height around it. */
+.msg.assistant .body .md-code pre,
+.msg.assistant .body .md-code code {
+  line-height: 1.55;
+  font-size: 13px;
+}
+.msg.assistant .body .md-code { margin: .9em 0; }
+
+/* The welcome screen: a big quiet greeting, no tinted box behind it. */
+.transcript > .empty {
+  background: none;
+  margin-top: 16vh;
+}
+.empty h1 {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -.015em;
+  margin-bottom: 10px;
+}
+.empty p { color: var(--muted); }

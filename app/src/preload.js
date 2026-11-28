@@ -166,6 +166,7 @@ contextBridge.exposeInMainWorld('freepi', {
   closeTab: (tabId) => ipcRenderer.invoke('tab:close', tabId),
   listTabs: () => ipcRenderer.invoke('tab:list'),
   getTabState: (tabId) => ipcRenderer.invoke('tab:state', tabId),
+  getTabBusy: (tabId) => ipcRenderer.invoke('tab:busy', tabId),
 
   listSessions: (cwd) => ipcRenderer.invoke('session:list', cwd),
   listOtherSessions: (cwd) => ipcRenderer.invoke('session:listOther', cwd),
@@ -265,6 +266,7 @@ contextBridge.exposeInMainWorld('freepi', {
   // Desktop control (Linux AT-SPI). Off until the user turns the switch on; the
   // main process is the gate, so these calls only carry the decision.
   systemGetState: () => ipcRenderer.invoke('system:getState'),
+  systemInstallStop: () => ipcRenderer.invoke('system:installStop'),
   systemProbe: () => ipcRenderer.invoke('system:probe'),
   systemSetEnabled: (enabled) => ipcRenderer.invoke('system:setEnabled', { enabled: Boolean(enabled) }),
   onSystemState: on('system:state'),

@@ -48,7 +48,10 @@ function handlerBody(source, channel) {
   return source.slice(at, next === -1 ? source.length : next);
 }
 
-const abort = handlerBody(main, 'prompt:abort');
+// The Stop logic lives in abortTabTurn (shared by the Stop button and the
+// browser page's Stop), and the IPC handler only calls it.
+assert.ok(/ipcMain\.handle\('prompt:abort', async \(_e, tabId\) => abortTabTurn\(tabId\)\)/.test(main), 'prompt:abort no longer calls abortTabTurn');
+const abort = main.slice(main.indexOf('async function abortTabTurn('), main.indexOf("ipcMain.handle('prompt:abort'"));
 
 check('Stop clears the tab flag', () => {
   assert.ok(/tab\.busy = false;/.test(abort), 'the flag is never cleared');

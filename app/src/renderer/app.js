@@ -683,11 +683,15 @@ const STRINGS = {
     sysHotkeyHint: 'Stops instantly:',
     sysConfirmTitle: 'Turn on desktop control?',
     sysConfirmBody:
-      'The agent will read your open windows and press buttons in them — anything you could do yourself. Ctrl+Alt+Esc stops it instantly.',
+      'The agent will read your open windows and press buttons in them — anything you could do yourself. The stop key shown in the panel ends it instantly.',
     sysStopped: 'Desktop control stopped.',
     sysStoppedHotkey: 'Desktop control stopped by the hotkey.',
     sysHotkeyDown:
       'This desktop refused the global hotkey — the agent keeps control until you press Stop here.',
+    sysInstallStop: 'Set up a stop key in GNOME',
+    ntfyChatClosed: 'A command arrived for a chat that could not be opened.',
+    sysInstallStopHint: 'Adds Ctrl+Alt+End to GNOME’s keyboard shortcuts. It stops the agent from anywhere, even when this window is hidden.',
+    sysInstallStopDone: 'Done — Ctrl+Alt+End now stops desktop control.',
     sysUnsupported: 'Desktop control is not available on this computer yet.',
     deny: 'Deny',
     approvalTitle: 'Allow this command?',
@@ -1411,10 +1415,14 @@ const STRINGS = {
     sysHotkeyHint: 'หยุดทันทีด้วย:',
     sysConfirmTitle: 'เปิดให้ AI ควบคุมเครื่อง?',
     sysConfirmBody:
-      'AI จะอ่านหน้าต่างที่เปิดอยู่และกดปุ่มในนั้นได้ เท่ากับที่คุณทำได้เอง ลดความเสี่ยงได้ด้วย Ctrl+Alt+Esc เพื่อหยุดทันที',
+      'AI จะอ่านหน้าต่างที่เปิดอยู่และกดปุ่มในนั้นได้ เท่ากับที่คุณทำได้เอง กดปุ่มหยุดที่แสดงในแผงนี้เพื่อหยุดได้ทันที',
     sysStopped: 'ปิดการควบคุมเครื่องแล้ว',
     sysStoppedHotkey: 'หยุดการควบคุมเครื่องด้วย hotkey แล้ว',
     sysHotkeyDown: 'ระบบนี้ไม่ให้ผูก hotkey ทั้งจอ — AI จะยังคุมอยู่จนกว่าจะกด “หยุดทันที” ที่นี่',
+    sysInstallStop: 'ตั้งปุ่มหยุดฉุกเฉินใน GNOME',
+    ntfyChatClosed: 'มีคำสั่งเข้ามาสำหรับแชทที่เปิดไม่ได้',
+    sysInstallStopHint: 'เพิ่ม Ctrl+Alt+End ในคีย์ลัดของ GNOME กดได้จากทุกที่ แม้หน้าต่างนี้ถูกซ่อนอยู่',
+    sysInstallStopDone: 'เรียบร้อย — กด Ctrl+Alt+End เพื่อหยุดการควบคุมเครื่องได้ทันที',
     sysUnsupported: 'เครื่องนี้ยังใช้การควบคุมเครื่องไม่ได้',
     deny: 'ปฏิเสธ',
     approvalTitle: 'อนุญาตให้รันคำสั่งนี้ไหม?',
@@ -2705,7 +2713,9 @@ let thinkingOpen = false;
 function addMessage(kind) {
   emptyState.hidden = true;
   const wrap = document.createElement('div');
-  wrap.className = `msg ${kind}`;
+  // `fresh` gives the entrance animation to live messages only; a replayed
+  // transcript appears at once instead of every bubble fading in together.
+  wrap.className = replayingTranscript ? `msg ${kind}` : `msg ${kind} fresh`;
 
   const role = document.createElement('div');
   role.className = 'role';
@@ -3697,6 +3707,9 @@ function applyModelChoice(provider, id) {
   modelSelect.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/** What the model picker was last built from; see renderModelPicker. */
+let modelPickerSignature = '';
+
 function renderModelPicker(view) {
   const models = Array.isArray(view?.models) ? view.models : [];
   const current = view?.model || null;
@@ -3707,6 +3720,26 @@ function renderModelPicker(view) {
   modelFreeOnlyLabel.textContent = t('freeOnly');
   modelFreeOnly.title = t('freeOnly');
   modelFreeOnly.setAttribute('aria-label', t('freeOnly'));
+
+  /*
+   * The catalog is usually the same list on every chat switch (a thousand
+   * models). Rebuilding the <select> and the whole menu each time was most of
+   * the cost of switching chats, so an unchanged list only moves the selection.
+   */
+  const signature = `${typeof lang === 'string' ? lang : ''}|${models
+    .map((m) => `${m.provider}/${m.id}/${m.name || ''}/${m.free ? 1 : 0}`)
+    .join(',')}`;
+  if (signature === modelPickerSignature && models.length) {
+    modelSelect.value = current ? modelKey(current) : '';
+    modelPickerBtn.disabled = false;
+    menuModels = models;
+    menuCurrent = current;
+    paintModelTrigger(current);
+    syncModelMenuSelection();
+    if (!modelMenu.hidden) filterModelMenu();
+    return;
+  }
+  modelPickerSignature = signature;
 
   modelSelect.innerHTML = '';
   for (const model of models) {
@@ -5355,7 +5388,7 @@ for (const option of el('ntfyCommands')?.querySelectorAll('.ntfy-slide-opt') || 
 }
 
 /** Tags this app puts on what it publishes: an answer, or the turn-end note. */
-const NTFY_OWN_TAGS = ['ntapi-reply', 'ntapi-done'];
+const NTFY_OWN_TAGS = ['ntapi-reply', 'ntapi-done', 'ntapi-agent'];
 
 /**
  * Is this message one of our own coming back down the stream?
@@ -5401,6 +5434,26 @@ let ntfyRoomsOn = new Map();
 function ntfyRememberRooms(state) {
   if (!state?.rooms) return;
   ntfyRoomsOn = new Map(Object.entries(state.rooms).map(([key, room]) => [key.toLowerCase(), Boolean(room?.enabled)]));
+}
+
+async function ntfyOpenChatAndRun(sessionKey, message) {
+  const key = String(sessionKey || '');
+  if (!key.startsWith('file:')) {
+    ntfyNote('ntfyCommandNote', t('ntfyChatClosed'), 'error');
+    return;
+  }
+  try {
+    const res = await api.openTab({ sessionId: key.slice(5), restore: true });
+    const state = res?.state;
+    if (!state?.tabId) throw new Error(t('ntfyChatClosed'));
+    if (!activeTabId) applyTabState(state);
+    else applyTabState(state, { show: false });
+    renderSessions(lastWorkspace);
+    await ntfyRunCommand(state.tabId, message);
+  } catch (err) {
+    ntfyNote('ntfyCommandNote', `${t('ntfyChatClosed')} (${errorText(err)})`, 'error');
+    api.uiLog?.(`[ntfy] could not open the chat for a command: ${errorText(err)}`);
+  }
 }
 
 async function ntfyRunCommand(tabId, message) {
@@ -5620,8 +5673,17 @@ api.onNtfyEvent?.(({ type, payload } = {}) => {
     // Every switched-on session has a stream, so a message names the room it
     // arrived in and is run in that chat.
     const message = payload?.message || null;
+    if (!message || ntfyIsOwnReply(message) || !ntfyCommandsOn()) return;
     const tabId = ntfyTabForKey(payload?.sessionKey);
-    if (message && tabId && !ntfyIsOwnReply(message) && ntfyCommandsOn()) void ntfyRunCommand(tabId, message);
+    if (tabId) {
+      void ntfyRunCommand(tabId, message);
+      return;
+    }
+    // The room's chat is not open in a tab. It used to be dropped here — and the
+    // room had already marked it read, so the command was gone for good. Open
+    // the chat in the background (the reader's own chat stays on screen) and run
+    // it there.
+    void ntfyOpenChatAndRun(payload?.sessionKey, message);
     return;
   }
   if (type === 'status' && ntfyState) {
@@ -5994,6 +6056,43 @@ function applyTabState(state, options = {}) {  if (!state) return;
   if (!view) view = createView(state.tabId);
 
   /*
+   * The tab on screen already shows everything the turn streamed. Rebuilding the
+   * whole transcript at the end of every turn was the flicker/jank after each
+   * answer (and the moment bubbles jumped around an error line), so a settle only
+   * refreshes the data and the side panels; the DOM is left as drawn.
+   */
+  if (options.soft && state.tabId === activeTabId) {
+    Object.assign(view, {
+      cwd: state.cwd || view.cwd,
+      sessionId: state.sessionId,
+      sessionFile: state.sessionFile,
+      name: state.name,
+      model: state.model,
+      models: state.models || view.models || [],
+      guest: state.guest,
+      busy: Boolean(state.busy),
+      messages: mergeIncomingMessages(view, state.messages),
+      liveTurnStart: Number.isInteger(state.liveTurnStart) ? state.liveTurnStart : null,
+      modelFallback: state.modelFallback || null,
+      usage: state.usage || null,
+    });
+    if (!state.busy) view.liveMessages = [];
+    if (state.cwd) lastWorkspace = state.cwd;
+    if (state.name && sessionTitle.value !== state.name && document.activeElement !== sessionTitle) {
+      sessionTitle.value = state.name;
+    }
+    if (typeof setBusy === 'function') setBusy(Boolean(state.busy));
+    renderSessions(lastWorkspace);
+    paintContext(state.stats || null, { clear: false });
+    renderTodos(state.todos || []);
+    paintThinking(state.thinking || null);
+    view.changes = state.changes || [];
+    renderChangesBar(view.changes);
+    if (statusPopoverOpen()) paintTokenUsage(view);
+    return;
+  }
+
+  /*
    * History for a chat that is not on screen must not pull the window to it.
    *
    * `agent:history` reports one tab at a time — compact, undo/redo, a key
@@ -6191,7 +6290,32 @@ async function setSessionMark(sessionPath, patch, cwd) {
   }
 }
 
-async function renderSessions(cwd) {
+/*
+ * The sidebar is asked for from many places (a tab paint, a settle, a rename),
+ * often several times in one burst. Each ask is an IPC round trip plus a full
+ * list rebuild, so bursts are folded into one refresh with the newest folder.
+ */
+let sessionsRefresh = null;
+let sessionsRunning = null;
+let sessionsCwd = null;
+function renderSessions(cwd) {
+  sessionsCwd = cwd;
+  if (sessionsRefresh) return sessionsRefresh;
+  sessionsRefresh = (async () => {
+    if (sessionsRunning) await sessionsRunning.catch(() => {});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    sessionsRefresh = null;
+    sessionsRunning = renderSessionsNow(sessionsCwd);
+    try {
+      return await sessionsRunning;
+    } finally {
+      sessionsRunning = null;
+    }
+  })();
+  return sessionsRefresh;
+}
+
+async function renderSessionsNow(cwd) {
   const list = el('sessionList');
   let sessions = await api.listSessions(cwd);
   
@@ -7322,7 +7446,13 @@ function applySidebarWidth() {
 
   // A late-loading font and a language switch both change the floor, so the
   // column re-measures itself instead of keeping a number that no longer fits.
-  window.addEventListener('resize', () => applySidebarWidth());
+  // Debounced: each measurement forces two layouts of the whole window, and a
+  // drag-resize fires dozens of events a second.
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => applySidebarWidth(), 150);
+  });
   document.fonts?.ready.then(() => applySidebarWidth());
 })();
 el('settingsClose').addEventListener('click', closeSettings);
@@ -12824,6 +12954,7 @@ api.onDelta((p) => {
       }
       markActivity(view, 'think', true);
       setTurnPhase(view, 'think');
+      followStream();
     }
   } else {
     // Prose arrived, so reasoning has handed over to writing.
@@ -12840,7 +12971,6 @@ api.onDelta((p) => {
       paintStreamBody(body);
     }
   }
-  followStream();
 });
 
 api.onTextEnd((p) => {
@@ -13153,7 +13283,8 @@ api.onSettled((p) => {
       .getTabState(view.tabId)
       .then((state) => {
         if (!state) return;
-        applyTabState(state, { show: state.tabId === activeTabId });
+        if (state.tabId === activeTabId) applyTabState(state, { soft: true });
+        else applyTabState(state, { show: false });
       })
       .catch(() => {});
   }
@@ -13181,7 +13312,11 @@ api.onRecovered?.((p) => {
   api
     .getTabState(view.tabId)
     .then((state) => {
-      if (state) applyTabState(state, { show: state.tabId === activeTabId });
+      if (!state) return;
+      // On screen the restored words were watched streaming in; redrawing them
+      // only made bubbles jump below the error line. Data only.
+      if (state.tabId === activeTabId) applyTabState(state, { soft: true });
+      else applyTabState(state, { show: false });
     })
     .catch(() => {});
 });
@@ -13406,7 +13541,9 @@ async function reconcileBusy() {
   for (const [, view] of views) {
     if (!view.busy) continue;
     try {
-      const tabState = await api.getTabState(view.tabId);
+      const tabState = api.getTabBusy
+        ? await api.getTabBusy(view.tabId)
+        : await api.getTabState(view.tabId);
       if (!tabState) continue; // the tab is gone; closeTab owns that path
       if (!tabState.busy) {
         settleStaleTurn(view);
@@ -13630,12 +13767,43 @@ function applySystemState(state = {}) {
   for (const option of el('sysToggle').querySelectorAll('.ntfy-slide-opt')) {
     option.setAttribute('aria-pressed', String((option.dataset.on === '1') === sysControl.enabled));
   }
+  // The key shown is the one that really works on this desktop.
+  const kbd = document.querySelector('#sysWrap .sys-kbd');
+  if (kbd && sysControl.hotkey) {
+    const names = { Control: 'Ctrl', Escape: 'Esc', CommandOrControl: 'Ctrl' };
+    kbd.replaceChildren(
+      ...String(sysControl.hotkey)
+        .split('+')
+        .map((key) => Object.assign(document.createElement('kbd'), { textContent: names[key] || key }))
+    );
+  }
+  // A key that does not work here is not advertised.
+  const hintLine = document.querySelector('#sysWrap .sys-hint');
+  if (hintLine) hintLine.hidden = sysControl.hotkeyActive === false;
+  const note = el('sysNote');
   if (sysControl.enabled && sysControl.hotkeyActive === false) {
-    // No global grab: say so, because the remedy is the button in this panel.
-    el('sysNote').textContent = t('sysHotkeyDown');
-    el('sysNote').hidden = false;
+    // No global grab: say so, and where the desktop can own a key instead,
+    // offer to set one up — only on the user's click.
+    note.replaceChildren(document.createTextNode(t('sysHotkeyDown')));
+    if (sysControl.canInstallStop) {
+      const btn = Object.assign(document.createElement('button'), {
+        type: 'button',
+        className: 'ghost small sys-install-stop',
+        textContent: t('sysInstallStop'),
+        title: t('sysInstallStopHint'),
+      });
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const res = await api.systemInstallStop?.().catch((err) => ({ ok: false, error: String(err) }));
+        if (res?.state) applySystemState(res.state);
+        showNotice(res?.ok ? t('sysInstallStopDone') : res?.error || t('sysInstallStop'));
+        btn.disabled = false;
+      });
+      note.append(document.createElement('br'), btn);
+    }
+    note.hidden = false;
   } else {
-    el('sysNote').hidden = true;
+    note.hidden = true;
   }
   if (!sysControl.enabled) sysPanelOpen(false);
 }

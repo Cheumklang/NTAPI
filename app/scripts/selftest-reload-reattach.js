@@ -111,7 +111,9 @@ const applyState = body(app, 'applyTabState');
 check('applyTabState exists', applyState !== '');
 check('applyTabState restores the busy state', /setBusy\(\s*Boolean\(state\.busy\)\s*\)/.test(applyState));
 check('busy is restored after the tab becomes active',
-  applyState.indexOf('activeTabId = state.tabId') < applyState.indexOf('setBusy('));
+  // The soft (same-tab) refresh sets busy early on purpose; the full paint must
+  // still restore it after the tab becomes active.
+  applyState.indexOf('activeTabId = state.tabId') < applyState.lastIndexOf('setBusy('));
 
 // --- 4. nothing in the renderer blocks or swallows reload -----------------
 

@@ -371,6 +371,10 @@
       en: 'Compacting conversation…',
       th: 'กำลังย่อบทสนทนา…',
     },
+    'notice.browserStopped': {
+      en: 'Stopped from the browser tab.',
+      th: 'หยุดแล้วจากปุ่ม Stop ในแท็บเบราว์เซอร์',
+    },
     'notice.keyRemoved': {
       en: '{label} key removed — switched to {provider}/{id}.',
       th: 'ลบคีย์ {label} แล้ว — สลับไปใช้ {provider}/{id} ให้เรียบร้อย',

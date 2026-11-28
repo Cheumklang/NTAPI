@@ -20,6 +20,8 @@ const fs = require('node:fs');
  */
 const TESTS = [
   'selftest-notice-i18n.js',
+  'selftest-stream-smoothness.js',
+  'selftest-control-fixes.js',
   'selftest-reality-policy.js',
   'selftest-live-turn-start.js',
   'selftest-skill-menu.js',

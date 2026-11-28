@@ -291,6 +291,21 @@ async function dispatch(cmd, args) {
       return evaluate(args);
     case 'close':
       return closeTab(args);
+    case 'hover':
+      return hover(args);
+    case 'drag':
+      return drag(args);
+    case 'history':
+      return history(args);
+    case 'console':
+      return readConsole(args);
+    case 'network':
+      return readNetwork(args);
+    case 'reload':
+      // The app ships a newer copy of this extension: restart on it. The
+      // reply goes out first; the new worker reconnects on its own.
+      setTimeout(() => chrome.runtime.reload(), 150);
+      return { reloading: true, version: chrome.runtime.getManifest().version };
     default:
       throw Object.assign(new Error('This command is not implemented yet.'), { code: 'UNSUPPORTED' });
   }
@@ -300,8 +315,13 @@ async function dispatch(cmd, args) {
  * The service worker's entry point. A page dialog freezes the tab, so every
  * result carries whatever dialog is still waiting on it.
  */
+/** Commands that act on the page: the page shows the agent is working. */
+const ACTING = new Set(['open', 'goto', 'click', 'type', 'fill', 'key', 'hover', 'drag', 'scroll', 'upload', 'history', 'eval']);
+
 async function handle(cmd, args) {
-  return withDialog(await dispatch(cmd, args));
+  const result = await dispatch(cmd, args);
+  if (ACTING.has(cmd) && result && Number.isInteger(result.tabId)) showWorking(result.tabId);
+  return withDialog(result);
 }
 
 /* -------------------------------------------------------------- cdp layer */
@@ -391,6 +411,15 @@ function isAgentTab(tab) {
 async function primeTab(tabId) {
   try {
     await chrome.debugger.sendCommand({ tabId }, 'Page.enable');
+  } catch {}
+  // Console and errors are collected from here on, and the page's Stop button
+  // reaches us through a binding.
+  try {
+    await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable');
+    await chrome.debugger.sendCommand({ tabId }, 'Runtime.addBinding', { name: '__ntapiStop' });
+  } catch {}
+  try {
+    await chrome.debugger.sendCommand({ tabId }, 'Log.enable');
   } catch {}
 }
 
@@ -514,11 +543,55 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
 
   if (method === 'Network.requestWillBeSent') {
     inflight.set(tabId, (inflight.get(tabId) || 0) + 1);
+    const req = params && params.request;
+    if (req) pushLog(networkLog, tabId, { id: params.requestId, method: req.method, url: String(req.url || '').slice(0, 500), type: params.type || '', status: null, failed: false });
+    return;
+  }
+
+  if (method === 'Network.responseReceived') {
+    const row = (networkLog.get(tabId) || []).find((r) => r.id === params.requestId);
+    if (row && params.response) {
+      row.status = params.response.status;
+      row.mimeType = params.response.mimeType || '';
+    }
     return;
   }
 
   if (method === 'Network.loadingFinished' || method === 'Network.loadingFailed') {
     inflight.set(tabId, Math.max(0, (inflight.get(tabId) || 0) - 1));
+    if (method === 'Network.loadingFailed') {
+      const row = (networkLog.get(tabId) || []).find((r) => r.id === params.requestId);
+      if (row) {
+        row.failed = true;
+        row.error = params.errorText || 'failed';
+      }
+    }
+    return;
+  }
+
+  if (method === 'Runtime.consoleAPICalled') {
+    const level = params.type === 'error' || params.type === 'assert' ? 'error' : params.type === 'warning' ? 'warning' : params.type || 'log';
+    const text = (params.args || []).map(argText).join(' ').slice(0, 2000);
+    if (!text.startsWith('LOG __ntapi')) pushLog(consoleLog, tabId, { level, text, ts: Date.now() });
+    return;
+  }
+
+  if (method === 'Runtime.exceptionThrown') {
+    const d = (params && params.exceptionDetails) || {};
+    const text = ((d.exception && d.exception.description) || d.text || 'Uncaught exception').slice(0, 2000);
+    pushLog(consoleLog, tabId, { level: 'error', text, ts: Date.now(), source: d.url || '' });
+    return;
+  }
+
+  if (method === 'Log.entryAdded') {
+    const e = (params && params.entry) || {};
+    pushLog(consoleLog, tabId, { level: e.level === 'error' ? 'error' : e.level || 'log', text: String(e.text || '').slice(0, 2000) + (e.url ? ` (${e.url})` : ''), ts: Date.now(), source: e.source || '' });
+    return;
+  }
+
+  if (method === 'Runtime.bindingCalled' && params && params.name === '__ntapiStop') {
+    // The person pressed Stop in the page.
+    send({ event: 'userStop', tabId });
   }
 });
 
@@ -558,14 +631,65 @@ async function ensureNetwork(tabId) {
  * A click may or may not navigate. Give a load a moment to start, then let it
  * finish — without charging a full timeout to clicks that change nothing.
  */
-async function settleAfterAction(tabId) {
-  await sleep(200);
+async function settleAfterAction(tabId, beforeUrl, mayNavigate = true) {
+  // A link to another site can take most of a second to start loading, and a
+  // snapshot taken before that shows the old page as if the click did nothing.
+  // Watch briefly for either sign of a navigation, then let it finish.
+  const started = Date.now();
   let tab = null;
-  try {
-    tab = await chrome.tabs.get(tabId);
-  } catch {}
+  do {
+    await sleep(150);
+    try {
+      tab = await chrome.tabs.get(tabId);
+    } catch {
+      return;
+    }
+    if (!tab) return;
+    if (tab.status === 'loading' || (beforeUrl && tab.url !== beforeUrl)) break;
+  } while (Date.now() - started < (mayNavigate ? 1200 : 250));
   if (tab && tab.status === 'loading') await waitForLoad(tabId, 10000);
 }
+
+async function currentUrl(tabId) {
+  try {
+    return (await chrome.tabs.get(tabId)).url || '';
+  } catch {
+    return '';
+  }
+}
+
+/*
+ * Did the page actually receive the input?
+ *
+ * The agent works in a background tab, and Chrome does not deliver trusted
+ * mouse or key events to a hidden page: `Input.dispatch*` returns success and
+ * nothing happens. A one-shot capture listener tells the two apart, so a click
+ * that never landed is redone at the DOM level instead of being reported done.
+ */
+async function armInputProbe(tabId, frameId, type) {
+  try {
+    await evalInFrame(
+      tabId,
+      frameId,
+      `(() => { window.__ntapiSeen = false; addEventListener(${JSON.stringify(type)}, () => { window.__ntapiSeen = true; }, { capture: true, once: true }); return true; })()`
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function inputLanded(tabId, frameId, beforeUrl) {
+  if (beforeUrl && (await currentUrl(tabId)) !== beforeUrl) return true;
+  try {
+    const res = await evalInFrame(tabId, frameId, 'window.__ntapiSeen === true');
+    return Boolean(res.result && res.result.value);
+  } catch {
+    // The page went away under the check: something happened.
+    return true;
+  }
+}
+
 
 /* ------------------------------------------------------------ read commands */
 
@@ -637,12 +761,54 @@ async function readPage(args) {
 
 async function screenshot(args) {
   const tabId = await resolveTab(args.tab);
-  const res = await cdp(tabId, 'Page.captureScreenshot', {
-    format: 'png',
-    captureBeyondViewport: Boolean(args.fullPage),
-  });
+  // The "working" frame is for the person watching, not part of the page.
+  await hideWorking(tabId);
+  const capture = () =>
+    withTimeout(
+      cdp(tabId, 'Page.captureScreenshot', { format: 'png', captureBeyondViewport: Boolean(args.fullPage) }),
+      10000,
+      'Chrome did not draw the page. If its window is minimised, restore it and try again.'
+    );
+  /*
+   * Chrome only paints a tab that is showing, and a capture of a hidden one
+   * waits for a frame that never comes. The agent's tab is shown for the
+   * moment of the capture, then the tab the user was on comes back.
+   */
+  const res = (await pageHidden(tabId)) ? await withTabShown(tabId, capture) : await capture();
   if (!res.data) throw Object.assign(new Error('The page produced no image.'), { code: 'NO_IMAGE' });
   return Object.assign({ data: res.data, mimeType: 'image/png' }, await tabSummary(tabId));
+}
+
+function withTimeout(promise, ms, message) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(Object.assign(new Error(message), { code: 'TIMEOUT' })), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+/** Show a tab just long enough to run `fn`, then give the user their tab back. */
+async function withTabShown(tabId, fn) {
+  let tab = null;
+  try {
+    tab = await chrome.tabs.get(tabId);
+  } catch {}
+  if (!tab || tab.active) return fn();
+  const [previous] = await chrome.tabs.query({ active: true, windowId: tab.windowId }).catch(() => []);
+  expandCausedByAgentUntil = Date.now() + EXPAND_GRACE_MS;
+  await chrome.tabs.update(tabId, { active: true }).catch(() => {});
+  await sleep(150);
+  try {
+    return await fn();
+  } finally {
+    if (previous && previous.id !== tabId) {
+      expandCausedByAgentUntil = Date.now() + EXPAND_GRACE_MS;
+      await chrome.tabs.update(previous.id, { active: true }).catch(() => {});
+    }
+    await foldAgentGroup();
+  }
 }
 
 /* --------------------------------------------------------- snapshot --- */
@@ -1023,6 +1189,43 @@ async function locate(tabId, args) {
   return (res.result && res.result.value) || { found: false };
 }
 
+/* -------------------------------------------- input that really lands --- */
+
+/** Is the page on screen? A hidden tab gets trusted input late or never. */
+async function pageHidden(tabId) {
+  try {
+    const res = await cdp(tabId, 'Runtime.evaluate', { expression: 'document.visibilityState', returnByValue: true });
+    return (res.result && res.result.value) === 'hidden';
+  } catch {
+    return false;
+  }
+}
+
+/** Click whatever sits at (x, y) through the DOM. */
+async function domClickAt(tabId, frameId, x, y, opts = {}) {
+  const clickCount = Number(opts.clickCount) || 1;
+  const button = opts.button === 'right' ? 2 : opts.button === 'middle' ? 1 : 0;
+  const expression = `(() => {
+    const hit = document.elementFromPoint(${x}, ${y});
+    if (!hit) return null;
+    const el = ${button === 0 ? "hit.closest('a,button,input,label,select,textarea,summary,[role=button],[role=link],[role=tab],[role=menuitem],[role=checkbox],[role=option],[onclick]') || hit" : 'hit'};
+    const base = { bubbles: true, cancelable: true, composed: true, clientX: ${x}, clientY: ${y}, button: ${button}, view: window };
+    const fire = (type, extra) => { try { el.dispatchEvent(new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, Object.assign({}, base, extra || {}))); } catch {} };
+    fire('pointerover'); fire('mouseover'); fire('pointermove'); fire('mousemove');
+    for (let i = 1; i <= ${clickCount}; i++) {
+      fire('pointerdown', { buttons: ${button === 2 ? 2 : 1}, detail: i }); fire('mousedown', { buttons: ${button === 2 ? 2 : 1}, detail: i });
+      if (i === 1 && typeof el.focus === 'function') el.focus();
+      fire('pointerup', { detail: i }); fire('mouseup', { detail: i });
+      ${button === 0 ? 'if (i === 1) el.click(); else fire("click", { detail: i });' : ''}
+    }
+    ${clickCount >= 2 && button === 0 ? 'fire("dblclick", { detail: 2 });' : ''}
+    ${button === 2 ? 'fire("contextmenu", { buttons: 2 });' : ''}
+    return (el.innerText || el.value || el.getAttribute('aria-label') || el.tagName || '').trim().slice(0, 80);
+  })()`;
+  const res = await evalInFrame(tabId, frameId, expression);
+  return res.result ? res.result.value : null;
+}
+
 async function click(args) {
   const tabId = await resolveTab(args.tab);
   let x = args.x;
@@ -1031,7 +1234,7 @@ async function click(args) {
   if (typeof args.selector === 'string' || typeof args.text === 'string') {
     const spot = await locate(tabId, args);
     if (!spot.found) {
-      throw Object.assign(new Error('Nothing on the page matched the target.'), { code: 'NO_ELEMENT' });
+      throw Object.assign(new Error('Nothing on the page matched the target. If it lives in a menu, hover its parent first (browser_hover), then snapshot again.'), { code: 'NO_ELEMENT' });
     }
     x = spot.x;
     y = spot.y;
@@ -1040,53 +1243,328 @@ async function click(args) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     throw Object.assign(new Error('Give a selector, text, or x/y coordinates.'), { code: 'BAD_ARGS' });
   }
-  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
-  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
-  await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 });
-  await settleAfterAction(tabId);
-  return Object.assign({ clicked: label }, await tabSummary(tabId));
+  const clickCount = Math.max(1, Math.min(3, Number(args.clickCount) || (args.double ? 2 : 1)));
+  const button = args.button === 'right' || args.button === 'middle' ? args.button : 'left';
+  // A menu held open by browser_hover stays open until the click has landed.
+  const beforeUrl = await currentUrl(tabId);
+  await showPointer(tabId, args.frameId, x, y, button === 'right' ? 'right' : clickCount > 1 ? 'double' : 'click');
+  let via = 'mouse';
+  /*
+   * A background tab is where the agent normally works, and Chrome holds
+   * trusted input for a hidden page — a click took six seconds to land, or
+   * never did. There the click is made in the page itself, at once. A tab on
+   * screen gets the real mouse, verified, with the same fallback.
+   */
+  if (await pageHidden(tabId)) {
+    const hit = await domClickAt(tabId, args.frameId, x, y, { clickCount, button });
+    if (hit === null) throw Object.assign(new Error('Nothing on the page at that point could be clicked.'), { code: 'NO_ELEMENT' });
+    if (!label) label = hit;
+    via = 'dom';
+  } else {
+    const probed = await armInputProbe(tabId, args.frameId, button === 'right' ? 'contextmenu' : 'mousedown');
+    const btn = button;
+    const buttons = btn === 'right' ? 2 : btn === 'middle' ? 4 : 1;
+    await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+    for (let i = 1; i <= clickCount; i++) {
+      await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: btn, buttons, clickCount: i });
+      await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: btn, buttons: 0, clickCount: i });
+    }
+    if (probed && !(await inputLanded(tabId, args.frameId, beforeUrl))) {
+      const hit = await domClickAt(tabId, args.frameId, x, y, { clickCount, button });
+      if (hit === null) throw Object.assign(new Error('Nothing on the page at that point could be clicked.'), { code: 'NO_ELEMENT' });
+      if (!label) label = hit;
+      via = 'dom';
+    }
+  }
+  await clearForcedHover(tabId);
+  // Only a link or a submit button is worth waiting a second on.
+  let mayNavigate = button === 'left';
+  if (mayNavigate) {
+    try {
+      const res = await evalInFrame(
+        tabId,
+        args.frameId,
+        `(() => { const el = document.elementFromPoint(${x}, ${y}); if (!el) return true;
+          const c = el.closest('a[href],button,input[type=submit],input[type=image],[role=link]');
+          if (!c) return false; if (c.tagName === 'BUTTON') return Boolean(c.form) && c.type === 'submit'; return true; })()`
+      );
+      mayNavigate = res.result ? res.result.value !== false : true;
+    } catch {
+      mayNavigate = true; // the page went away under us: that was a navigation
+    }
+  }
+  await settleAfterAction(tabId, beforeUrl, mayNavigate);
+  return Object.assign({ clicked: label, via, clickCount, button }, await tabSummary(tabId));
 }
 
-/** Focus an element, then insert text at the caret (keeps the page's handlers). */
-async function focusAndInsert(tabId, selector, text, clearFirst, frameId) {
-  const focusExpr = `(() => {
-    const el = document.querySelector(${JSON.stringify(selector)});
-    if (!el) return false;
-    el.focus();
-    ${clearFirst ? "if ('value' in el) { const setter = Object.getOwnPropertyDescriptor(el.constructor.prototype, 'value')?.set; if (setter) setter.call(el, ''); else el.value = ''; } else if (el.isContentEditable) { el.textContent = ''; }" : ''}
-    return true;
-  })()`;
-  const res = await evalInFrame(tabId, frameId, focusExpr);
-  if (!(res.result && res.result.value)) {
-    throw Object.assign(new Error(`No element matched ${selector}.`), { code: 'NO_ELEMENT' });
+/* --------------------------------------------------------------- hover --- */
+
+/** Nodes this extension forced into :hover, per tab, so the next action can undo it. */
+const forcedHover = new Map();
+
+async function clearForcedHover(tabId) {
+  const ids = forcedHover.get(tabId);
+  if (!ids || !ids.length) return;
+  forcedHover.delete(tabId);
+  for (const nodeId of ids) {
+    try {
+      await cdp(tabId, 'CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] });
+    } catch {}
   }
-  await cdp(tabId, 'Input.insertText', { text: String(text ?? '') });
+}
+
+/**
+ * Hover: what opens a menu that only shows on mouse-over.
+ *
+ * On screen the real pointer moves there. A hidden page gets no pointer, so the
+ * element and its ancestors are forced into :hover through DevTools — which is
+ * what CSS menus (`.menu:hover .sub`) answer to — and the mouse events a script
+ * menu listens for are fired too.
+ */
+async function hover(args) {
+  const tabId = await resolveTab(args.tab);
+  let x = args.x;
+  let y = args.y;
+  let label = '';
+  if (typeof args.selector === 'string' || typeof args.text === 'string') {
+    const spot = await locate(tabId, args);
+    if (!spot.found) throw Object.assign(new Error('Nothing on the page matched the target.'), { code: 'NO_ELEMENT' });
+    x = spot.x;
+    y = spot.y;
+    label = spot.label;
+  }
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw Object.assign(new Error('Give a ref, selector, text, or x/y coordinates.'), { code: 'BAD_ARGS' });
+  }
+  await clearForcedHover(tabId);
+  await showPointer(tabId, args.frameId, x, y, 'hover');
+  // A hidden page holds trusted pointer events (the move never returned).
+  if (!(await pageHidden(tabId))) await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }).catch(() => {});
+  // Script menus: the events a pointer would have produced.
+  await evalInFrame(
+    tabId,
+    args.frameId,
+    `(() => { const el = document.elementFromPoint(${x}, ${y}); if (!el) return false;
+      const o = { bubbles: true, composed: true, clientX: ${x}, clientY: ${y}, view: window };
+      for (const t of ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove']) {
+        try { el.dispatchEvent(new (t.startsWith('pointer') ? PointerEvent : MouseEvent)(t, o)); } catch {}
+      }
+      window.__ntapiHoverChain = []; for (let n = el; n && n.nodeType === 1; n = n.parentElement) window.__ntapiHoverChain.push(n);
+      return true; })()`
+  );
+  // CSS menus: force :hover on the element and every ancestor (main frame).
+  if (!args.frameId) {
+    try {
+      await cdp(tabId, 'DOM.enable');
+      await cdp(tabId, 'CSS.enable');
+      await cdp(tabId, 'DOM.getDocument', { depth: 0 });
+      const ids = [];
+      for (let i = 0; i < 25; i++) {
+        const res = await cdp(tabId, 'Runtime.evaluate', { expression: `window.__ntapiHoverChain && window.__ntapiHoverChain[${i}]` });
+        const objectId = res.result && res.result.objectId;
+        if (!objectId) break;
+        const node = await cdp(tabId, 'DOM.requestNode', { objectId });
+        if (!node || !node.nodeId) continue;
+        await cdp(tabId, 'CSS.forcePseudoState', { nodeId: node.nodeId, forcedPseudoClasses: ['hover'] });
+        ids.push(node.nodeId);
+      }
+      forcedHover.set(tabId, ids);
+    } catch {}
+  }
+  await sleep(150);
+  return Object.assign({ hovered: label }, await tabSummary(tabId));
+}
+
+/* ---------------------------------------------------------------- drag --- */
+
+async function drag(args) {
+  const tabId = await resolveTab(args.tab);
+  const from = await locate(tabId, { selector: args.selector, text: args.text, frameId: args.frameId });
+  const to = await locate(tabId, { selector: args.toSelector, text: args.toText, frameId: args.frameId });
+  if (!from.found || !to.found) {
+    throw Object.assign(new Error(`Could not find the ${from.found ? 'drop target' : 'thing to drag'}.`), { code: 'NO_ELEMENT' });
+  }
+  await showPointer(tabId, args.frameId, from.x, from.y, 'drag', { x: to.x, y: to.y });
+  // HTML5 drag-and-drop through the DOM (works on a hidden tab too), then the
+  // plain mouse path for sliders and canvas-style drag that listen to the mouse.
+  const res = await evalInFrame(
+    tabId,
+    args.frameId,
+    `(() => {
+      const a = document.elementFromPoint(${from.x}, ${from.y});
+      const b = document.elementFromPoint(${to.x}, ${to.y});
+      if (!a || !b) return 'missing';
+      const dt = new DataTransfer();
+      const o = (x, y) => ({ bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, dataTransfer: dt });
+      a.dispatchEvent(new DragEvent('dragstart', o(${from.x}, ${from.y})));
+      b.dispatchEvent(new DragEvent('dragenter', o(${to.x}, ${to.y})));
+      b.dispatchEvent(new DragEvent('dragover', o(${to.x}, ${to.y})));
+      b.dispatchEvent(new DragEvent('drop', o(${to.x}, ${to.y})));
+      a.dispatchEvent(new DragEvent('dragend', o(${to.x}, ${to.y})));
+      const m = (t, x, y, el) => el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, clientX: x, clientY: y, buttons: t === 'mouseup' ? 0 : 1, view: window }));
+      m('mousedown', ${from.x}, ${from.y}, a); m('mousemove', ${(from.x + to.x) / 2}, ${(from.y + to.y) / 2}, a); m('mousemove', ${to.x}, ${to.y}, b); m('mouseup', ${to.x}, ${to.y}, b);
+      return 'ok';
+    })()`
+  );
+  if (res.result && res.result.value === 'missing') throw Object.assign(new Error('The drag ends moved away.'), { code: 'NO_ELEMENT' });
+  await settleAfterAction(tabId, await currentUrl(tabId), false);
+  return Object.assign({ dragged: from.label, onto: to.label }, await tabSummary(tabId));
+}
+
+/* -------------------------------------------------------- text and forms --- */
+
+/**
+ * Put the caret where typing belongs and say what kind of control this is.
+ * `select` and checkboxes are not typed into: they are chosen.
+ */
+async function prepareField(tabId, selector, clearFirst, frameId) {
+  const expression = `(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el) return { found: false };
+    const tag = (el.tagName || '').toLowerCase();
+    const type = String(el.type || '').toLowerCase();
+    if (tag === 'select') return { found: true, kind: 'select' };
+    if (tag === 'input' && (type === 'checkbox' || type === 'radio')) return { found: true, kind: 'check' };
+    try { el.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch {}
+    el.focus();
+    if (${clearFirst ? 'true' : 'false'}) {
+      if ('value' in el) {
+        const proto = Object.getPrototypeOf(el);
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        if (setter) setter.call(el, ''); else el.value = '';
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if (el.isContentEditable) {
+        const r = document.createRange(); r.selectNodeContents(el);
+        const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+        document.execCommand('delete');
+      }
+    }
+    // Typing continues at the end, as a person clicking into the box would.
+    if (typeof el.setSelectionRange === 'function') {
+      try { const n = String(el.value || '').length; el.setSelectionRange(n, n); } catch {}
+    } else if (el.isContentEditable) {
+      const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    }
+    const active = document.activeElement;
+    const before = 'value' in el ? String(el.value) : String(el.textContent || '');
+    return { found: true, kind: 'text', focused: active === el || el.contains(active), before };
+  })()`;
+  const res = await evalInFrame(tabId, frameId, expression);
+  return (res.result && res.result.value) || { found: false };
+}
+
+async function chooseOption(tabId, selector, value, frameId) {
+  const expression = `(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el) return { ok: false, error: 'gone' };
+    const want = ${JSON.stringify(String(value ?? ''))}.trim().toLowerCase();
+    const opts = Array.from(el.options || []);
+    const o = opts.find((x) => x.value.toLowerCase() === want) || opts.find((x) => x.text.trim().toLowerCase() === want) || opts.find((x) => x.text.toLowerCase().includes(want));
+    if (!o) return { ok: false, options: opts.map((x) => x.text.trim()).filter(Boolean).slice(0, 40) };
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+    if (setter) setter.call(el, o.value); else el.value = o.value;
+    o.selected = true;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return { ok: true, chosen: o.text.trim() };
+  })()`;
+  const res = await evalInFrame(tabId, frameId, expression);
+  const out = (res.result && res.result.value) || { ok: false };
+  if (!out.ok) {
+    const list = out.options ? ` Options: ${out.options.join(' | ')}` : '';
+    throw Object.assign(new Error(`No option matched "${value}".${list}`), { code: 'NO_OPTION' });
+  }
+  return out.chosen;
+}
+
+async function setChecked(tabId, selector, value, frameId) {
+  const want = !/^(false|0|no|off|unchecked|ไม่)$/i.test(String(value ?? 'true').trim());
+  const res = await evalInFrame(
+    tabId,
+    frameId,
+    `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null;
+      if (el.checked !== ${want}) el.click(); return el.checked; })()`
+  );
+  return res.result ? res.result.value : null;
+}
+
+/**
+ * Type text where a person would, and make sure it got there.
+ *
+ * `Input.insertText` is the real thing (the page's own handlers run, React sees
+ * it), but a hidden tab can leave the field unfocused and the text then went
+ * into whatever had focus — a dropdown's value once ended up in the name box.
+ * So the field must hold focus first, and the result is read back; when it did
+ * not land, the text is set through the DOM the way a framework expects.
+ */
+async function focusAndInsert(tabId, selector, text, clearFirst, frameId) {
+  const prep = await prepareField(tabId, selector, clearFirst, frameId);
+  if (!prep.found) throw Object.assign(new Error(`No element matched ${selector}.`), { code: 'NO_ELEMENT' });
+  if (prep.kind === 'select') return { chosen: await chooseOption(tabId, selector, text, frameId) };
+  if (prep.kind === 'check') return { checked: await setChecked(tabId, selector, text, frameId) };
+  const value = String(text ?? '');
+  if (!value) return {};
+  if (prep.focused !== false) await cdp(tabId, 'Input.insertText', { text: value });
+  const check = await evalInFrame(
+    tabId,
+    frameId,
+    `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null;
+      return 'value' in el ? String(el.value) : String(el.textContent || ''); })()`
+  );
+  const after = check.result ? check.result.value : null;
+  const landed = typeof after === 'string' && after.includes(value) && after !== prep.before;
+  if (!landed) {
+    await evalInFrame(
+      tabId,
+      frameId,
+      `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return;
+        const text = ${JSON.stringify(value)};
+        el.focus();
+        if ('value' in el) {
+          const next = ${clearFirst ? 'text' : 'String(el.value || "") + text'};
+          const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set;
+          if (setter) setter.call(el, next); else el.value = next;
+          el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+        } else if (el.isContentEditable) {
+          if (!document.execCommand('insertText', false, text)) { el.textContent += text; el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text })); }
+        } })()`
+    );
+  }
+  // One change event, the way a field reports it when focus moves on.
   await evalInFrame(
     tabId,
     frameId,
-    `(() => { const el = document.querySelector(${JSON.stringify(selector)});
-      if (el) { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); } })()`
+    `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (el && 'value' in el) el.dispatchEvent(new Event('change', { bubbles: true })); })()`
   );
+  return { typed: value.length, via: landed ? 'keyboard' : 'dom' };
 }
 
-async function typeText(args) {  if (typeof args.selector !== 'string' || !args.selector) {
+async function typeText(args) {
+  if (typeof args.selector !== 'string' || !args.selector) {
     throw Object.assign(new Error('`selector` is required.'), { code: 'BAD_ARGS' });
   }
   const tabId = await resolveTab(args.tab);
-  await focusAndInsert(tabId, args.selector, args.text, Boolean(args.clear), args.frameId);
-  if (args.submit) await pressKey({ tab: tabId, key: 'Enter' });
-  return tabSummary(tabId);
+  const spot = await fieldPoint(tabId, args.selector, args.frameId);
+  if (spot) await showPointer(tabId, args.frameId, spot.x, spot.y, 'type');
+  const done = await focusAndInsert(tabId, args.selector, args.text, Boolean(args.clear), args.frameId);
+  if (args.submit) await pressKey({ tab: tabId, key: 'Enter', frameId: args.frameId });
+  return Object.assign({}, done, await tabSummary(tabId));
 }
 
 async function fillFields(args) {
   const fields = Array.isArray(args.fields) ? args.fields : [];
   if (!fields.length) throw Object.assign(new Error('`fields` is required.'), { code: 'BAD_ARGS' });
   const tabId = await resolveTab(args.tab);
+  const results = [];
   for (const field of fields) {
     if (!field || typeof field.selector !== 'string') continue;
-    await focusAndInsert(tabId, field.selector, field.value, true, field.frameId);
+    const spot = await fieldPoint(tabId, field.selector, field.frameId);
+    if (spot) await showPointer(tabId, field.frameId, spot.x, spot.y, 'type');
+    const done = await focusAndInsert(tabId, field.selector, field.value, true, field.frameId);
+    results.push(done.chosen ? `chose "${done.chosen}"` : done.checked !== undefined ? `checked=${done.checked}` : `typed ${done.typed || 0}`);
   }
-  return Object.assign({ filled: fields.length }, await tabSummary(tabId));
+  return Object.assign({ filled: results.length, results }, await tabSummary(tabId));
 }
 
 /**
@@ -1270,27 +1748,338 @@ async function uploadFiles(args) {
   }
 }
 
-const KEY_CODES = {
-  Enter: { windowsVirtualKeyCode: 13, key: 'Enter', text: '\r' },
-  Tab: { windowsVirtualKeyCode: 9, key: 'Tab' },
-  Escape: { windowsVirtualKeyCode: 27, key: 'Escape' },
-  Backspace: { windowsVirtualKeyCode: 8, key: 'Backspace' },
-  ArrowDown: { windowsVirtualKeyCode: 40, key: 'ArrowDown' },
-  ArrowUp: { windowsVirtualKeyCode: 38, key: 'ArrowUp' },
+/* ---------------------------------------------------------------- keys --- */
+
+const NAMED_KEYS = {
+  enter: { key: 'Enter', code: 'Enter', vk: 13, text: '\r' },
+  return: { key: 'Enter', code: 'Enter', vk: 13, text: '\r' },
+  tab: { key: 'Tab', code: 'Tab', vk: 9 },
+  escape: { key: 'Escape', code: 'Escape', vk: 27 },
+  esc: { key: 'Escape', code: 'Escape', vk: 27 },
+  backspace: { key: 'Backspace', code: 'Backspace', vk: 8 },
+  delete: { key: 'Delete', code: 'Delete', vk: 46 },
+  del: { key: 'Delete', code: 'Delete', vk: 46 },
+  insert: { key: 'Insert', code: 'Insert', vk: 45 },
+  space: { key: ' ', code: 'Space', vk: 32, text: ' ' },
+  arrowup: { key: 'ArrowUp', code: 'ArrowUp', vk: 38 },
+  arrowdown: { key: 'ArrowDown', code: 'ArrowDown', vk: 40 },
+  arrowleft: { key: 'ArrowLeft', code: 'ArrowLeft', vk: 37 },
+  arrowright: { key: 'ArrowRight', code: 'ArrowRight', vk: 39 },
+  up: { key: 'ArrowUp', code: 'ArrowUp', vk: 38 },
+  down: { key: 'ArrowDown', code: 'ArrowDown', vk: 40 },
+  left: { key: 'ArrowLeft', code: 'ArrowLeft', vk: 37 },
+  right: { key: 'ArrowRight', code: 'ArrowRight', vk: 39 },
+  home: { key: 'Home', code: 'Home', vk: 36 },
+  end: { key: 'End', code: 'End', vk: 35 },
+  pageup: { key: 'PageUp', code: 'PageUp', vk: 33 },
+  pagedown: { key: 'PageDown', code: 'PageDown', vk: 34 },
 };
+for (let i = 1; i <= 12; i++) NAMED_KEYS[`f${i}`] = { key: `F${i}`, code: `F${i}`, vk: 111 + i };
+
+const MODIFIER_BITS = { alt: 1, option: 1, control: 2, ctrl: 2, meta: 4, cmd: 4, command: 4, super: 4, shift: 8 };
+
+/** "Control+Shift+k", "PageDown", "a" — one key with its modifiers. */
+function parseKey(name) {
+  const parts = String(name || 'Enter').split('+').map((p) => p.trim()).filter(Boolean);
+  if (!parts.length) parts.push('Enter');
+  let modifiers = 0;
+  for (const mod of parts.slice(0, -1)) {
+    const bit = MODIFIER_BITS[mod.toLowerCase()];
+    if (!bit) throw Object.assign(new Error(`Unknown modifier: ${mod}`), { code: 'BAD_ARGS' });
+    modifiers |= bit;
+  }
+  const last = parts[parts.length - 1];
+  const named = NAMED_KEYS[last.toLowerCase()];
+  let spec;
+  if (named) spec = { ...named };
+  else if ([...last].length === 1) {
+    const ch = last;
+    const upper = ch.toUpperCase();
+    const isLetter = /[a-z]/i.test(ch);
+    const isDigit = /[0-9]/.test(ch);
+    spec = {
+      key: modifiers & 8 && isLetter ? upper : ch,
+      code: isLetter ? `Key${upper}` : isDigit ? `Digit${ch}` : '',
+      vk: isLetter || isDigit ? upper.charCodeAt(0) : 0,
+      text: ch,
+    };
+  } else {
+    throw Object.assign(new Error(`Unsupported key: ${name}. Use names like Enter, Tab, Escape, PageDown, F5, a letter, or combos like Control+a.`), { code: 'BAD_ARGS' });
+  }
+  // With Control/Alt/Meta held a key is a shortcut, not text.
+  if (modifiers & 7) delete spec.text;
+  if (spec.text && modifiers & 8) spec.text = spec.key.length === 1 ? spec.key : spec.text;
+  return { ...spec, modifiers };
+}
 
 async function pressKey(args) {
   const name = String(args.key || 'Enter');
-  const spec = KEY_CODES[name];
-  if (!spec) throw Object.assign(new Error(`Unsupported key: ${name}`), { code: 'BAD_ARGS' });
+  const spec = parseKey(name);
   const tabId = await resolveTab(args.tab);
   if (typeof args.selector === 'string' && args.selector) {
-    await focusAndInsert(tabId, args.selector, '', false, args.frameId);
+    await prepareField(tabId, args.selector, false, args.frameId);
   }
-  await cdp(tabId, 'Input.dispatchKeyEvent', { type: 'keyDown', ...spec });
-  if (spec.text) await cdp(tabId, 'Input.dispatchKeyEvent', { type: 'char', text: spec.text, ...spec });
-  await cdp(tabId, 'Input.dispatchKeyEvent', { type: 'keyUp', ...spec });
+  const beforeUrl = await currentUrl(tabId);
+  const repeat = Math.max(1, Math.min(50, Number(args.repeat) || 1));
+  const hidden = await pageHidden(tabId);
+  let via = 'keyboard';
+  const domKey = `(() => {
+      const el = document.activeElement || document.body;
+      const init = { key: ${JSON.stringify(spec.key)}, code: ${JSON.stringify(spec.code || '')}, keyCode: ${spec.vk || 0}, which: ${spec.vk || 0},
+        ctrlKey: ${Boolean(spec.modifiers & 2)}, altKey: ${Boolean(spec.modifiers & 1)}, metaKey: ${Boolean(spec.modifiers & 4)}, shiftKey: ${Boolean(spec.modifiers & 8)},
+        bubbles: true, cancelable: true, composed: true };
+      const go = el.dispatchEvent(new KeyboardEvent('keydown', init));
+      el.dispatchEvent(new KeyboardEvent('keyup', init));
+      if (!go) return 'handled';
+      const key = init.key;
+      const tag = (el.tagName || '').toLowerCase();
+      const role = el.getAttribute && el.getAttribute('role');
+      if (key === 'Enter' && !init.ctrlKey && !init.altKey) {
+        if (tag === 'a' || tag === 'button' || role === 'button' || role === 'link') { el.click(); return 'clicked'; }
+        if (tag === 'input' && el.form) { if (el.form.requestSubmit) el.form.requestSubmit(); else el.form.submit(); return 'submitted'; }
+        if (tag === 'textarea' || el.isContentEditable) { document.execCommand('insertLineBreak'); return 'newline'; }
+      }
+      if (key === ' ' && (tag === 'button' || role === 'button' || role === 'checkbox' || (tag === 'input' && /checkbox|radio/.test(el.type)))) { el.click(); return 'clicked'; }
+      if (key === 'Backspace' && (tag === 'input' || tag === 'textarea' || el.isContentEditable)) { document.execCommand('delete'); return 'deleted'; }
+      if (key === 'Delete' && (tag === 'input' || tag === 'textarea' || el.isContentEditable)) { document.execCommand('forwardDelete'); return 'deleted'; }
+      if (init.ctrlKey && key.toLowerCase() === 'a' && (tag === 'input' || tag === 'textarea')) { el.select(); return 'selected'; }
+      if (init.ctrlKey && key.toLowerCase() === 'a') { document.execCommand('selectAll'); return 'selected'; }
+      if (key === 'PageDown' || key === 'PageUp' || key === 'Home' || key === 'End') {
+        const h = innerHeight * 0.85;
+        if (key === 'PageDown') scrollBy(0, h); else if (key === 'PageUp') scrollBy(0, -h); else if (key === 'Home') scrollTo(0, 0); else scrollTo(0, document.body.scrollHeight);
+        return 'scrolled';
+      }
+      if (${JSON.stringify(spec.text || '')} && !init.ctrlKey && !init.altKey && !init.metaKey && (tag === 'input' || tag === 'textarea' || el.isContentEditable)) {
+        document.execCommand('insertText', false, ${JSON.stringify(spec.text || '')}); return 'typed';
+      }
+      return 'dispatched';
+    })()`;
+  for (let i = 0; i < repeat; i++) {
+    if (hidden) {
+      // A hidden page gets trusted keys late; do what the key would do, now.
+      await evalInFrame(tabId, args.frameId, domKey).catch(() => {});
+      via = 'dom';
+      continue;
+    }
+    const probed = await armInputProbe(tabId, args.frameId, 'keydown');
+    const base = {
+      modifiers: spec.modifiers,
+      key: spec.key,
+      code: spec.code,
+      windowsVirtualKeyCode: spec.vk,
+      nativeVirtualKeyCode: spec.vk,
+    };
+    await cdp(tabId, 'Input.dispatchKeyEvent', Object.assign({ type: spec.text ? 'keyDown' : 'rawKeyDown' }, base, spec.text ? { text: spec.text, unmodifiedText: spec.text } : {}));
+    await cdp(tabId, 'Input.dispatchKeyEvent', Object.assign({ type: 'keyUp' }, base));
+    if (probed && !(await inputLanded(tabId, args.frameId, beforeUrl))) {
+      await evalInFrame(tabId, args.frameId, domKey).catch(() => {});
+      via = 'dom';
+    }
+  }
+  await settleAfterAction(tabId, beforeUrl, spec.key === 'Enter' || spec.key === 'F5');
+  return Object.assign({ pressed: name, repeat, via }, await tabSummary(tabId));
+}
+
+/* ----------------------------------------------------- history, console --- */
+
+async function history(args) {
+  const tabId = await resolveTab(args.tab);
+  const action = String(args.action || 'back');
+  const beforeUrl = await currentUrl(tabId);
+  if (action === 'reload') {
+    const loaded = waitForLoad(tabId, 20000);
+    await chrome.tabs.reload(tabId, { bypassCache: Boolean(args.hard) });
+    await loaded;
+  } else if (action === 'back' || action === 'forward') {
+    await (action === 'back' ? chrome.tabs.goBack(tabId) : chrome.tabs.goForward(tabId)).catch(() => {
+      throw Object.assign(new Error(`There is nothing to go ${action} to.`), { code: 'NO_HISTORY' });
+    });
+    await settleAfterAction(tabId, beforeUrl);
+  } else {
+    throw Object.assign(new Error('`action` is back, forward or reload.'), { code: 'BAD_ARGS' });
+  }
   return tabSummary(tabId);
+}
+
+/** What the page logged and what it fetched, kept per tab while attached. */
+const consoleLog = new Map();
+const networkLog = new Map();
+const LOG_KEEP = 200;
+
+function pushLog(map, tabId, entry) {
+  const list = map.get(tabId) || [];
+  list.push(entry);
+  if (list.length > LOG_KEEP) list.splice(0, list.length - LOG_KEEP);
+  map.set(tabId, list);
+}
+
+function argText(arg) {
+  if (!arg) return '';
+  if (arg.value !== undefined) return typeof arg.value === 'string' ? arg.value : JSON.stringify(arg.value);
+  return arg.description || arg.unserializableValue || arg.type || '';
+}
+
+async function readConsole(args) {
+  const tabId = await resolveTab(args.tab);
+  await attach(tabId);
+  const onlyErrors = Boolean(args.onlyErrors);
+  const pattern = typeof args.pattern === 'string' && args.pattern ? args.pattern.toLowerCase() : '';
+  let rows = (consoleLog.get(tabId) || []).filter((r) => (!onlyErrors || r.level === 'error') && (!pattern || r.text.toLowerCase().includes(pattern)));
+  const limit = Math.max(1, Math.min(200, Number(args.limit) || 50));
+  rows = rows.slice(-limit);
+  if (args.clear) consoleLog.delete(tabId);
+  return Object.assign({ entries: rows, total: rows.length }, await tabSummary(tabId));
+}
+
+async function readNetwork(args) {
+  const tabId = await resolveTab(args.tab);
+  await attach(tabId);
+  await ensureNetwork(tabId);
+  const pattern = typeof args.pattern === 'string' && args.pattern ? args.pattern.toLowerCase() : '';
+  let rows = (networkLog.get(tabId) || []).filter((r) => !pattern || r.url.toLowerCase().includes(pattern));
+  if (args.onlyFailed) rows = rows.filter((r) => r.failed || (r.status && r.status >= 400));
+  const limit = Math.max(1, Math.min(200, Number(args.limit) || 50));
+  rows = rows.slice(-limit);
+  if (args.clear) networkLog.delete(tabId);
+  return Object.assign({ requests: rows, total: rows.length }, await tabSummary(tabId));
+}
+
+/* ------------------------------------------ the agent, visible in the page --- */
+
+/**
+ * While the agent acts in a tab, the page says so: a soft frame round the
+ * viewport and one pill with a Stop button. It fades by itself a few seconds
+ * after the last action. Stop reaches the app through a DevTools binding and
+ * ends the turn there.
+ */
+const OVERLAY_SOURCE = `(() => {
+  const ID = '__ntapi_overlay';
+  let host = document.getElementById(ID);
+  if (!host) {
+    host = document.createElement('div');
+    host.id = ID;
+    host.setAttribute('aria-hidden', 'true');
+    host.style.cssText = 'all:initial;position:fixed;inset:0;pointer-events:none;z-index:2147483646;';
+    const root = host.attachShadow({ mode: 'closed' });
+    root.innerHTML = '<style>' +
+      '.f{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 0 2px rgba(150,128,255,.95),inset 0 0 28px rgba(150,128,255,.45);border-radius:2px}' +
+      '.p{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 8px 7px 14px;border-radius:999px;background:rgba(28,28,32,.92);color:#f2f2f5;font:500 13px/1.2 system-ui,sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.35);pointer-events:auto}' +
+      '.d{width:8px;height:8px;border-radius:50%;background:#a090ff;animation:k 1.2s ease-in-out infinite}' +
+      '@keyframes k{50%{opacity:.35}}' +
+      'button{all:unset;cursor:pointer;padding:5px 12px;border-radius:999px;background:#fff;color:#1d1d20;font-weight:600}' +
+      'button:hover{background:#e9e6ff}' +
+      '.c{position:fixed;left:0;top:0;width:24px;height:24px;pointer-events:none;opacity:0;transition:transform .45s cubic-bezier(.2,.7,.2,1),opacity .2s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));will-change:transform}' +
+      '.c svg{display:block}' +
+      '.t{position:absolute;left:20px;top:20px;padding:2px 8px;border-radius:999px;background:#6c58f0;color:#fff;font:600 11px/1.5 system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.25)}' +
+      '.r{position:fixed;left:0;top:0;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;border:2.5px solid rgba(124,102,245,.95);background:rgba(124,102,245,.18);pointer-events:none;animation:rp .55s ease-out forwards}' +
+      '@keyframes rp{from{transform:var(--at) scale(.25);opacity:1}to{transform:var(--at) scale(1.5);opacity:0}}' +
+      '</style><div class="f"></div>' +
+      '<div class="c"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M3 2.5 L3 19 L7.6 14.8 L10.9 21.6 L14 20.2 L10.8 13.6 L17 13.4 Z" fill="#6c58f0" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg><span class="t">NTAPI</span></div>' +
+      '<div class="p"><span class="d"></span><span>NTAPI is working in this tab</span><button type="button">Stop</button></div>';
+    root.querySelector('button').addEventListener('click', (e) => {
+      e.stopPropagation();
+      try { window.__ntapiStop && window.__ntapiStop('stop'); } catch {}
+      host.remove();
+    });
+    // The agent's own pointer. It never touches the real mouse: it is drawn
+    // here, moves to where the agent is about to act, and pulses on a click.
+    const c = root.querySelector('.c');
+    const start = window.__ntapiPtr || { x: innerWidth / 2, y: innerHeight - 90 };
+    c.style.transition = 'none';
+    c.style.transform = 'translate(' + start.x + 'px,' + start.y + 'px)';
+    void c.offsetWidth;
+    c.style.transition = '';
+    const ripple = (x, y) => {
+      const r = document.createElement('div');
+      r.className = 'r';
+      r.style.setProperty('--at', 'translate(' + x + 'px,' + y + 'px)');
+      r.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+      root.appendChild(r);
+      setTimeout(() => r.remove(), 600);
+    };
+    const go = (x, y) => {
+      // The arrow's tip sits 3px into its box; aim the tip, not the corner.
+      c.style.transform = 'translate(' + (x - 3) + 'px,' + (y - 2.5) + 'px)';
+      window.__ntapiPtr = { x, y };
+    };
+    host.__point = (x, y, kind, label, tx, ty) => {
+      c.style.opacity = '1';
+      c.querySelector('.t').textContent = label || 'NTAPI';
+      go(x, y);
+      if (kind === 'click' || kind === 'right') setTimeout(() => ripple(x, y), 430);
+      if (kind === 'double') { setTimeout(() => ripple(x, y), 430); setTimeout(() => ripple(x, y), 600); }
+      if (kind === 'drag' && Number.isFinite(tx)) { setTimeout(() => go(tx, ty), 480); setTimeout(() => ripple(tx, ty), 950); }
+    };
+    host.__root = root;
+    (document.documentElement || document.body).appendChild(host);
+  }
+  host.style.display = '';
+  clearTimeout(host.__timer);
+  host.__timer = setTimeout(() => host.remove(), 6000);
+  return true;
+})()`;
+
+function uiThai() {
+  try {
+    return /^th/i.test(chrome.i18n.getUILanguage());
+  } catch {
+    return false;
+  }
+}
+
+async function showWorking(tabId) {
+  try {
+    const expression = uiThai()
+      ? OVERLAY_SOURCE.replace('NTAPI is working in this tab', 'NTAPI กำลังทำงานในแท็บนี้').replace('>Stop<', '>หยุด<')
+      : OVERLAY_SOURCE;
+    await chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', { expression });
+  } catch {}
+}
+
+const POINTER_LABELS = {
+  en: { click: 'Click', double: 'Double-click', right: 'Right-click', hover: 'Hover', type: 'Type', drag: 'Drag' },
+  th: { click: 'คลิก', double: 'ดับเบิลคลิก', right: 'คลิกขวา', hover: 'ชี้', type: 'พิมพ์', drag: 'ลาก' },
+};
+
+/**
+ * Show where the agent is about to act, with a pointer of its own drawn in the
+ * page — the person's real mouse is never moved. When the tab is on screen the
+ * action waits for the pointer to arrive, so the move can be followed by eye;
+ * in a background tab nobody is watching, so nothing waits.
+ */
+async function showPointer(tabId, frameId, x, y, kind, to) {
+  // Frame coordinates are not page coordinates; a pointer in the wrong place
+  // is worse than none.
+  if (frameId || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  try {
+    await showWorking(tabId);
+    const label = (uiThai() ? POINTER_LABELS.th : POINTER_LABELS.en)[kind] || 'NTAPI';
+    const tx = to && Number.isFinite(to.x) ? to.x : 'undefined';
+    const ty = to && Number.isFinite(to.y) ? to.y : 'undefined';
+    await chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', {
+      expression: `(() => { const h = document.getElementById('__ntapi_overlay'); if (h && h.__point) h.__point(${x}, ${y}, ${JSON.stringify(kind)}, ${JSON.stringify(label)}, ${tx}, ${ty}); })()`,
+    });
+    if (!(await pageHidden(tabId))) await sleep(kind === 'drag' ? 950 : 460);
+  } catch {}
+}
+
+/** Where a field is, for the pointer: centre of the element, scrolled into view. */
+async function fieldPoint(tabId, selector, frameId) {
+  if (frameId || typeof selector !== 'string' || !selector) return null;
+  try {
+    const spot = await locate(tabId, { selector });
+    return spot && spot.found ? spot : null;
+  } catch {
+    return null;
+  }
+}
+
+async function hideWorking(tabId) {
+  try {
+    await chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', {
+      expression: "(() => { const h = document.getElementById('__ntapi_overlay'); if (h) h.style.display = 'none'; })()",
+    });
+  } catch {}
 }
 
 async function scrollPage(args) {

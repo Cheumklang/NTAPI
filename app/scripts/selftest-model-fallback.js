@@ -228,7 +228,7 @@ check(
   'the limit is remembered when the turn ends on it',
   /case 'message_end'[\s\S]{0,900}?tab\.limitFailure = \{[\s\S]{0,120}?seq: tab\.promptSeq \|\| 0/.test(main)
 );
-check('a user Stop is not a spent allowance', /prompt:abort[\s\S]{0,1400}?tab\.limitFailure = null;/.test(main));
+check('a user Stop is not a spent allowance', /async function abortTabTurn\(tabId\)[\s\S]{0,1400}?tab\.limitFailure = null;/.test(main));
 check(
   'an aborted settle still reports a turn we aborted ourselves',
   /const ownAbort =[\s\S]{0,200}?limitFailure[\s\S]{0,200}?if \(!event\.aborted \|\| ownAbort\)/.test(main)

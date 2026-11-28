@@ -85,7 +85,8 @@ check('it re-measures after a resize and after the font loads', () => {
   const at = app.indexOf('function lockSidebarWidth');
   assert.ok(at > 0, 'no lockSidebarWidth()');
   const body = app.slice(at, at + 800);
-  assert.match(body, /addEventListener\('resize', \(\) => applySidebarWidth\(\)\)/);
+  // Debounced (2026-11-28): the resize still re-measures, once it settles.
+  assert.match(body, /addEventListener\('resize'[\s\S]{0,160}applySidebarWidth\(\)/);
   assert.match(body, /document\.fonts\?\.ready\.then\(\(\) => applySidebarWidth\(\)\)/);
 });
 

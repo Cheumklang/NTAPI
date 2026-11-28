@@ -25,6 +25,8 @@ const SETTINGS_FILE = 'ntfy.json';
 const FILE_VERSION = 2;
 const MODE = 0o600;
 const RECONNECT_MS = 5000;
+/** A room that keeps refusing is retried less and less often, up to this. */
+const RECONNECT_MAX_MS = 5 * 60 * 1000;
 const MAX_SUMMARY = 4000;
 const MAX_SESSIONS = 200;
 const NOTIFY_MODES = ['always', 'away'];
@@ -33,7 +35,7 @@ const NOTIFY_MODES = ['always', 'away'];
  * our own and must never run as a command: the stream hands it straight back,
  * and running it is what made the app answer itself in a loop.
  */
-const OWN_TAGS = ['ntapi-reply', 'ntapi-done'];
+const OWN_TAGS = ['ntapi-reply', 'ntapi-done', 'ntapi-agent'];
 /** Ids of messages this process published, remembered against a lost tag. */
 const MAX_SENT_IDS = 500;
 
@@ -66,6 +68,8 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
   let statuses = new Map();
   /** sessionKey -> { controller, timer } */
   let streams = new Map();
+  /** sessionKey -> failed attempts in a row, carried across restarts of a stream. */
+  const retryCounts = new Map();
   /** Ids published here, newest last, so the echo is recognised by id too. */
   let sentIds = new Set();
   let stopped = false;
@@ -130,16 +134,24 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
     };
     const savedSessions = saved?.sessions && typeof saved.sessions === 'object' ? saved.sessions : null;
     if (savedSessions) {
-      for (const [key, value] of Object.entries(savedSessions)) {
-        const topic = api.sanitizeTopicName(value?.topic) || null;
-        if (!key) continue;
+      /*
+       * Only chats that really have a room are kept. Every chat ever opened used
+       * to leave an empty record behind, and once there were MAX_SESSIONS of them
+       * the cap cut the *newest* entries — real rooms included — on the next
+       * start. Rooms that are switched on go first, then the most recent.
+       */
+      const rows = Object.entries(savedSessions)
+        .map(([key, value]) => [key, value, api.sanitizeTopicName(value?.topic) || null])
+        .filter(([key, , topic]) => key && topic)
+        .sort((a, b) => Number(b[1]?.enabled === true) - Number(a[1]?.enabled === true) || (Number(b[1]?.at) || 0) - (Number(a[1]?.at) || 0))
+        .slice(0, MAX_SESSIONS);
+      for (const [key, value, topic] of rows) {
         settings.sessions[key] = {
           topic,
-          enabled: Boolean(topic) && value?.enabled === true,
+          enabled: value?.enabled === true,
           since: typeof value?.since === 'string' ? value.since : 'all',
           at: Number(value?.at) || 0,
         };
-        if (Object.keys(settings.sessions).length >= MAX_SESSIONS) break;
       }
     } else if (Array.isArray(saved?.topics) && saved.topics.length) {
       // Settings written before rooms were per-session: the room the reader was
@@ -156,12 +168,14 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
   }
 
   function save() {
+    // A chat without a room is the default; it needs no line in the file.
+    const sessions = Object.fromEntries(Object.entries(settings.sessions).filter(([, room]) => room && room.topic));
     writeJson(settingsPath, {
       v: FILE_VERSION,
       server: settings.server,
       username: settings.username,
       token: packToken(settings.token),
-      sessions: settings.sessions,
+      sessions,
       summary: settings.summary,
       notify: settings.notify,
     });
@@ -183,7 +197,7 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
         legacy = null;
       }
       settings.sessions[key] = record;
-      save();
+      if (record.topic) save();
     }
     return record;
   }
@@ -263,7 +277,8 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
     const room = settings.sessions[key];
     if (!room?.topic || !room.enabled || stopped) return;
     const controller = new AbortController();
-    const entry = { controller, timer: null };
+    const failures = streams.get(key)?.failures || retryCounts.get(key) || 0;
+    const entry = { controller, timer: null, failures };
     streams.set(key, entry);
     setStatus(key, { topic: room.topic, error: null });
     const roomAt = room.at || 0;
@@ -273,7 +288,11 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
         topic: room.topic,
         since: room.since || 'all',
         signal: controller.signal,
-        onOpen: () => setStatus(key, { connected: true, topic: room.topic, error: null }),
+        onOpen: () => {
+          entry.failures = 0;
+          retryCounts.delete(key);
+          setStatus(key, { connected: true, topic: room.topic, error: null });
+        },
         onMessage: (message) => {
           // A room made a moment ago must not replay its cache as commands.
           if (roomAt && message.time && message.time < roomAt) return;
@@ -301,7 +320,14 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       })
       .then(() => {
         if (stopped || controller.signal.aborted || !streams.has(key)) return;
-        entry.timer = setTimeout(() => startStream(key), RECONNECT_MS);
+        // A stream that ends after working is normal: come back quickly. One
+        // that keeps failing (no network, a rate limit) backs off so the app
+        // does not hammer the server every five seconds forever.
+        const failed = !statusOf(key).connected || Boolean(statusOf(key).error);
+        const tries = failed ? entry.failures + 1 : 0;
+        retryCounts.set(key, tries);
+        const wait = Math.min(RECONNECT_MAX_MS, RECONNECT_MS * 2 ** Math.min(tries, 8));
+        entry.timer = setTimeout(() => startStream(key), tries ? wait : RECONNECT_MS);
         if (entry.timer.unref) entry.timer.unref();
       });
   }
@@ -370,9 +396,17 @@ function createNtfyService({ dir, safeStorage, log = () => {}, client } = {}) {
       return snapshot();
     },
 
-    /** Stop listening to a session whose tab is gone; its room is kept. */
+    /**
+     * A chat's tab closed. A room whose switch is on keeps listening: the
+     * switch is the reader saying "I will send commands from my phone", and a
+     * closed tab used to drop those commands without a word, while a restart
+     * would have heard them. The window opens the chat when one arrives.
+     */
     stopSession(key) {
-      if (key) stopStream(String(key));
+      if (!key) return;
+      const room = settings.sessions[String(key)];
+      if (room?.enabled && room.topic && !stopped) return;
+      stopStream(String(key));
     },
 
     /** A chat that gained a session file keeps the room it already had. */
